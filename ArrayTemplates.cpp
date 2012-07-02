@@ -8,6 +8,8 @@
 #ifndef hARRAY
 #define hARRAY
 
+using namespace std;
+
 template < class C >
 class array3D{ 
 	public:	
@@ -113,12 +115,12 @@ class array3D{
 		 }
 		 
 		 // Scaling overloaded	
-		 void operator *= (complex<float> X){
+		 void operator *= (complex<float> XX){
 		 	#pragma omp parallel for 		 
 		 	for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
-				vals[k][j][i] *= X;			
+				vals[k][j][i] *= XX;			
 			}}}		 
 		 }
 		 
@@ -319,7 +321,7 @@ class array3D{
 		 void write(char *name){
 		 	FILE *fp=fopen(name,"w");
      		fwrite( vals[0][0],Nx*Ny*Nz, sizeof(C), fp);
-     		fclose(fp);
+     		fclose(fp); 
 		 }
 		
 		 

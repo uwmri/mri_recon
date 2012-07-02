@@ -18,10 +18,13 @@ void PFILE::read_header(char Ifilename[]){
   fflush(stdout);
   if ((fphead = fopen64(filename,"r")) != NULL) {
     fseeko64(fphead, (long long) 0, (int) 0);
-    fread(header,sizeof(char),RDB_HEADER_SIZE_BYTES, fphead);
+    if( fread(header,sizeof(char),RDB_HEADER_SIZE_BYTES, fphead) !=RDB_HEADER_SIZE_BYTES){
+    	printf("Failed to read in raw P-file header.\n"); 
+    	exit(1);
+    }
     fclose(fphead);
   } else {
-    printf("Failed to read in raw P-file header.\n"); 
+    printf("Failed to open in raw P-file header.\n"); 
     exit(1);
   }
   

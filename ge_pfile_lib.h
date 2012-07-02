@@ -23,7 +23,7 @@
 	#include <uw_lnx21.h> 
 #endif
 #ifdef ESE22_RECON 
-	#include <uw_lnx22.h> 
+	#include "GE_LIB/idbm22.h"
 #endif
 #ifdef ESE16_RECON 
 	#include <uw_lnx16.h> 
@@ -34,12 +34,12 @@
 #include <fstream>
 #include <algorithm>
 #include <vector>
-#include <math.h>
-#include <complex.h>
+#include <cmath>
+#include <complex>
 #include <string.h>
+#include <omp.h>
 #include "ArrayTemplates.cpp"
 using namespace std;
-
 
 class PFILE{
 	public:
@@ -57,8 +57,6 @@ class PFILE{
 	private:	
 		
 };
-
-
 
 
 #endif

@@ -173,7 +173,7 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 				exit(1);
 			}else{	
 				int j;
-				if( (j=fread(kx[e][0],sizeof(float),Num_Readouts*Num_Pts,fid)) != Num_Readouts*Num_Pts){
+				if( (j=fread(kx[e][0],sizeof(float),Num_Readouts*Num_Pts,fid)) != (Num_Readouts*Num_Pts)){
 					cout << "Not enough data: only read " << j << "points" << endl;
 				}
 				fclose(fid);
@@ -190,7 +190,10 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 				cout << "Exiting" << endl;
 				exit(1);
 			}else{	
-				fread(ky[e][0],sizeof(float),Num_Readouts*Num_Pts,fid);
+				if( (int)fread(ky[e][0],sizeof(float),Num_Readouts*Num_Pts,fid) != (Num_Readouts*Num_Pts) ){
+					cout << "Can't Read Ky" << endl;
+					exit(1);
+				}
 				fclose(fid);
 			}
 	}
@@ -204,7 +207,10 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 				cout << "Can't Open " << fname << endl;
 				cout << "Assume 2D" << endl;
 			}else{	
-				fread(kz[e][0],sizeof(float),Num_Readouts*Num_Pts,fid);
+				if( (int)fread(kz[e][0],sizeof(float),Num_Readouts*Num_Pts,fid) != (Num_Readouts*Num_Pts)){
+					cout << "Can't Read Kz" << endl;
+					exit(1);
+				}
 				fclose(fid);
 			}
 	}
@@ -226,18 +232,16 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 			
 			if(fid!=NULL){
 				cout << "Read Kw "  << endl;
-				fread(kw[e][0],sizeof(float),Num_Readouts*Num_Pts,fid);
+				if( (int)fread(kw[e][0],sizeof(float),Num_Readouts*Num_Pts,fid) != (Num_Readouts*Num_Pts)){
+					cout << "Can't Read Kw" << endl;
+					exit(1);
+				}
 				fclose(fid);
 			}
 	}
 	cout << "Max Kx = " << kx.max() << endl;
 	cout << "Max Ky = " << ky.max() << endl;
 	cout << "Max Kz = " << kz.max() << endl;
-	kx.write("ActKX.dat");	
-	ky.write("ActKY.dat");	
-	kz.write("ActKZ.dat");	
-	
-	cout << "Ky V = " << ky[0][90][80] << endl;
 	cout << "Completed Reading Kx,Ky,Kz" << endl;
 	cout << "Reading Kdata" << endl;
 	
@@ -258,7 +262,10 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 			}
 			
 			if(fid!=NULL){	
-				fread(kdata[c][e][0],sizeof( complex<float>),Num_Readouts*Num_Pts,fid);
+				if( fread(kdata[c][e][0],sizeof( complex<float>),Num_Readouts*Num_Pts,fid) != (Num_Readouts*Num_Pts)){
+					cout << "Error can read data for coil " << c << endl;
+					exit(1);
+				}
 				fclose(fid);
 			}
 	}}

@@ -12,6 +12,8 @@
 #include "recon_lib.h"
 #include "softthreshold.h"
 #include "ArrayTemplates.cpp"
+using namespace std;
+
 double gettime(void);
 
 int main(int argc, char **argv){

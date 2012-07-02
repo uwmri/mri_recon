@@ -5,9 +5,9 @@
 #include <fstream>
 #include <algorithm>
 #include <vector>
-#include <math.h>
+#include <cmath>
 #include <string.h>
-#include <complex.h>
+#include <complex>
 using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.cpp"

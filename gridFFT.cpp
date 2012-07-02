@@ -116,7 +116,9 @@ void gridFFT::plan_fft( void ){
 		fftwf_export_wisdom_to_file(fid2);
 		fclose(fid2);
 		sprintf(com,"chmod 777 %s",fname);
-		system(com); 
+		if( system(com) != 1 ){
+			cout << "Failed to Change FFT Plan Permissions" << endl;
+		}
 	}
 	
 	return;
