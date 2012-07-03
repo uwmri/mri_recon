@@ -92,7 +92,7 @@ recon$(VER): $(RECON_OBJECTS)
 	$(CC) $(STATIC_LIBS) -o recon$(VER) $(RECON_OBJECTS) $(LIB_DIRS) $(LIBS) -D $(RECON_VERSION) $(SLINK) 
 
 # recon compiles
-recon.o: recon.c
+recon.o: recon.cxx
 	$(CC) $(INC_DIRS) $(CFLAGS)  -D $(RECON_VERSION) $(SLINK) recon.cxx 
 
 

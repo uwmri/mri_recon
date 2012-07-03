@@ -13,8 +13,6 @@ using namespace std;
 #include "ArrayTemplates.cpp"
 #include <fftw3.h>
 
-#define THREADS 32
-
 // Kernel Types
 #define TRIANGLE 0
 #define KAISER   1 
@@ -26,7 +24,7 @@ class gridFFT{
 		int threads;
 		
   		array3D< complex<float> >k3d_grid; 	/*Actual Gridding Space*/
-  		array3D< complex<float> >k3dref;   	/*Complex Storage Space*/
+  		array3D< complex<float> >image;   	/*Complex Storage Space*/
   		array3D< float >image_mag; /*Magnitude Storage Space*/
   
   		/*Overgridding Factor*/   

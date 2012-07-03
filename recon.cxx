@@ -61,7 +61,7 @@ int main(int argc, char **argv){
 		smaps.alloc(data.Num_Coils,recon.rczres,recon.rcyres,recon.rcxres);
 		for(int coil=0; coil< data.Num_Coils; coil++){
 			gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-			smaps[coil]=gridding.k3dref;
+			smaps[coil]= ( gridding.return_array() );
 		}
 		gridding.k_rad = 99999;
 
@@ -104,7 +104,7 @@ int main(int argc, char **argv){
 						cout << "Gridding Coil " << coil << endl;
 						gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 						for(int ii=0; ii< sos.Numel; ii++){
-							sos(ii) += norm( gridding.k3dref(ii));	// adds square
+							sos(ii) += norm( gridding.image(ii));	// adds square
 						}
 					}
 					sos.sqrt();
@@ -123,7 +123,7 @@ int main(int argc, char **argv){
 					 for(int coil=0; coil< data.Num_Coils; coil++){
 						 cout << "Gridding Coil " << coil << endl;
 						 gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-						 gridding.k3dref.conjugate_multiply(smaps[coil]);
+						 gridding.image.conjugate_multiply(smaps[coil]);
 						 pils += ( gridding.return_array() );
 					 }
 					 pils.write("PILS.dat");
@@ -188,8 +188,8 @@ int main(int argc, char **argv){
 								cout << "\tInverse Gridding Coil ";
 								for(int coil=0; coil< data.Num_Coils; coil++){
 									cout << coil << "," << flush;
-									gridding.k3dref  = X[e][t];
-									gridding.k3dref *=smaps[coil];
+									gridding.image  = X[e][t];
+									gridding.image *=smaps[coil];
 									gridding.backward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 								}
 								cout << endl;
@@ -207,8 +207,8 @@ int main(int argc, char **argv){
 								for(int coil=0; coil< data.Num_Coils; coil++){
 									cout << coil << "," << flush;
 									gridding.forward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-									gridding.k3dref.conjugate_multiply(smaps[coil]);
-									R[e][t] += gridding.k3dref;
+									gridding.image.conjugate_multiply(smaps[coil]);
+									R[e][t] += ( gridding.return_array() );
 								}
 								cout << endl;
 							}
@@ -224,8 +224,8 @@ int main(int argc, char **argv){
 								diff_data.zero();
 								for(int coil=0; coil< data.Num_Coils; coil++){
 									cout << coil << "," << flush;
-									gridding.k3dref  = R[e][t];
-									gridding.k3dref *=smaps[coil];
+									gridding.image  = R[e][t];
+									gridding.image *=smaps[coil];
 									gridding.backward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 								}
 								cout << endl;
@@ -236,8 +236,8 @@ int main(int argc, char **argv){
 								for(int coil=0; coil< data.Num_Coils; coil++){
 									cout << coil << "," << flush;
 									gridding.forward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-									gridding.k3dref.conjugate_multiply(smaps[coil]);
-									P += gridding.k3dref;
+									gridding.image.conjugate_multiply(smaps[coil]);
+									P += ( gridding.return_array() );
 								}
 								cout << endl;
 
@@ -368,7 +368,7 @@ int main(int argc, char **argv)
 
 	/*Regridding (K-space)*/
 	cmtx3d *k3d_grid=0; 			/*Overgrid k-space*/
-	cmtx3d *k3dref=0;				/*Kspace Bipolar Up */
+	cmtx3d *image=0;				/*Kspace Bipolar Up */
 	cmtx3d *k3dvel=0;				/*Kspace Bipolar down*/
 	cmtx3d *k3d_s=0;				/*Kspace Phase Store*/
 	cmtx3d *k3d_warp=0;			/*Complex grad warp*/
@@ -595,9 +595,9 @@ int main(int argc, char **argv)
 
 		/*Gridding Matrix + Place to Store*/
 		k3d_grid =  (cmtx3d *)cmtx3d_alloc((int)(grd_info->grid_z * flag->rczres),(int)(grd_info->grid_y * flag->rcyres),(int)(grd_info->grid_x *flag->rcxres));
-		k3dref   = (cmtx3d *)cmtx3d_alloc(flag->rczres,flag->rcyres,flag->rcxres);	
+		image   = (cmtx3d *)cmtx3d_alloc(flag->rczres,flag->rcyres,flag->rcxres);	
 		grd_info->k3d_grid = k3d_grid;
-		grd_info->k3dref   = k3dref;
+		grd_info->image   = image;
 
 		if(flag->grad_warp){
 			k3d_warp = (cmtx3d *)cmtx3d_alloc(flag->rczres,flag->rcyres,flag->rcxres);	
@@ -654,7 +654,7 @@ int main(int argc, char **argv)
 			printf("*****Getting Coil Sensitivity******\n");
 			if ( flag->phantom==1){
 				/**Collects data for digital phantom*/
-				setup_phantom(grd_info,flag,isense_data,k3dref,k3d_grid);
+				setup_phantom(grd_info,flag,isense_data,image,k3d_grid);
 			}else{
 				get_coil_sensitivity( flag, grd_info,dataset,isense_data,grd_info);
 			}
@@ -667,7 +667,7 @@ int main(int argc, char **argv)
 			reinit_isense_structs( isense_data);
 			if( isense_data->cg_max_iter > 0){
 				get_cg_dens(isense_data,flag);
-				setup_isense_scale(grd_info,flag,isense_data,k3dref,k3d_grid,kmap);
+				setup_isense_scale(grd_info,flag,isense_data,image,k3d_grid,kmap);
 			}
 		} 
 
@@ -721,7 +721,7 @@ int main(int argc, char **argv)
 						/**************************************
 						 ***   Reference Reconstruction        *
 						 ***************************************/
-						reinitkspace(k3dref);	
+						reinitkspace(image);	
 						for(int dem=flag->start_demod; dem <= flag->stop_demod; dem++){
 
 							recon_time += -gettime();
@@ -789,28 +789,28 @@ int main(int argc, char **argv)
 							printdbg("\t\t\t Doing MFI or CROP\n");
 							int mfi_type = (flag->correct_offres==1) ? ( MFI ) : ( CROP );
 							mfi_time += -gettime();
-							multi_freq_interp( grd_info, flag, isense_data, k3d_grid, k3dref, FREQ, demod_arg, dem,mfi_type,recv_cnt);
+							multi_freq_interp( grd_info, flag, isense_data, k3d_grid, image, FREQ, demod_arg, dem,mfi_type,recv_cnt);
 							mfi_time +=  gettime();
 						}
 
 						/**Done With Main Recon Correct Maxwell Phase*/
 						if(flag->maxwell==1 && ( flag->recon_type == PHASE_DIFF  || flag->recon_type==CSI)){
 							maxwell_time += -gettime();
-							maxwell_correction(vdgrid,k3dref,flag,&imagehead,&serieshead,&acq_tab);
+							maxwell_correction(vdgrid,image,flag,&imagehead,&serieshead,&acq_tab);
 							maxwell_time += gettime();
 						}
 
 						/***Write out data if needed*/	
 						if( (flag->recon_type == CSI) || flag->rawon == 3){
 							if( (mag_scale == -1.0) && (flag->scale_complex_images==1)){
-								mag_scale = 4000.0/maxsig_cmtx3d( k3dref);
+								mag_scale = 4000.0/maxsig_cmtx3d( image);
 								printf("Scaling Complex data by %f\n",mag_scale);
-								scale_cmtx3d( k3dref, mag_scale);
+								scale_cmtx3d( image, mag_scale);
 							}else{
-								scale_cmtx3d( k3dref, mag_scale);
+								scale_cmtx3d( image, mag_scale);
 							}			
 							sprintf(fname,"IMAGE_c%d_v%d.dat",recv_cnt,vdt);
-							export_cmtx3d(k3dref,fname);
+							export_cmtx3d(image,fname);
 						}
 
 						/************************************
@@ -874,7 +874,7 @@ int main(int argc, char **argv)
 						 ***************************************/
 						printdbg("\t\t\t Coil Combination\n");
 						combine_time = -gettime();
-						coil_combine(flag,isense_data,k3dref, k3dvel,k3d_s,image_mag,recv_cnt, FORWARD);
+						coil_combine(flag,isense_data,image, k3dvel,k3d_s,image_mag,recv_cnt, FORWARD);
 						combine_time += gettime();
 
 						printdbg("\t\t( TIMES:\n");
@@ -1008,8 +1008,8 @@ int main(int argc, char **argv)
 							fermi_3d( k3d_grid, flag->fermi_r, flag->fermi_w,flag->threads,flag->zoom_x/grd_info->grid_x,flag->zoom_y/grd_info->grid_y,flag->zoom_z/grd_info->grid_z);
 							fft_3d(&(k3d_grid->fftw_plan_forward),k3d_grid,flag->threads);
 							deapp3d_grid(k3d_grid,grd_info,flag->threads);
-							multi_freq_interp(grd_info, flag, isense_data,k3d_grid, k3dref, FREQ, demod_arg,0,CROP,recv_cnt);
-							coil_combine(flag,isense_data,k3dref, k3dvel,isense_data->X0,image_mag,recv_cnt, ISENSE);
+							multi_freq_interp(grd_info, flag, isense_data,k3d_grid, image, FREQ, demod_arg,0,CROP,recv_cnt);
+							coil_combine(flag,isense_data,image, k3dvel,isense_data->X0,image_mag,recv_cnt, ISENSE);
 						} /* receiver loop ends */
 					}else{
 						printf("Reading External Image\n");
@@ -1163,7 +1163,7 @@ int main(int argc, char **argv)
 								deapp_time +=  gettime();
 
 								mfi_time += -gettime();
-								multi_freq_interp( grd_info,flag,isense_data,k3d_grid, k3dref, FREQ, demod_arg,0,CROP,recv_cnt);
+								multi_freq_interp( grd_info,flag,isense_data,k3d_grid, image, FREQ, demod_arg,0,CROP,recv_cnt);
 								mfi_time +=  gettime();
 
 
@@ -1173,11 +1173,11 @@ int main(int argc, char **argv)
 								if(isense_iter%isense_data->isense_reinit ==0){
 									/**Collect RHS E'd */
 									combine_time = -gettime();
-									coil_combine(flag, isense_data,k3dref, k3dvel,isense_data->R0,image_mag,recv_cnt, ISENSE);
+									coil_combine(flag, isense_data,image, k3dvel,isense_data->R0,image_mag,recv_cnt, ISENSE);
 									combine_time += gettime();
 								}else{
 									combine_time = -gettime();
-									coil_combine(flag, isense_data,k3dref, k3dvel,isense_data->LHS,image_mag,recv_cnt, ISENSE);
+									coil_combine(flag, isense_data,image, k3dvel,isense_data->LHS,image_mag,recv_cnt, ISENSE);
 									combine_time += gettime();
 								}
 							} /* receiver loop ends */
@@ -1284,8 +1284,8 @@ int main(int argc, char **argv)
 							copy_cmtx3d(isense_data->X0,k3dvel);
 							continue;
 						}else{
-							copy_cmtx3d(isense_data->X0,k3dref);
-							coil_combine(flag, isense_data,k3dvel, k3dref,k3d_s,image_mag,recv_cnt, FORWARD);
+							copy_cmtx3d(isense_data->X0,image);
+							coil_combine(flag, isense_data,k3dvel, image,k3d_s,image_mag,recv_cnt, FORWARD);
 						}
 
 						printf("\t\t\t( Pre-Phase = %.3f)\n", gettime()-start_time );
@@ -1321,7 +1321,7 @@ int main(int argc, char **argv)
 			}
 
 			/***Correct Square of Signal*/
-			coil_combine(flag, isense_data,k3dref, k3dvel,k3d_s,image_mag,-1,BACKWARD);
+			coil_combine(flag, isense_data,image, k3dvel,k3d_s,image_mag,-1,BACKWARD);
 
 
 			/******GRAD WARP TEMP*****/

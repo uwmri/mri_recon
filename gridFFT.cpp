@@ -63,7 +63,7 @@ gridFFT::gridFFT(){
 
 void gridFFT::alloc_grid(){
 	k3d_grid.alloc(Sz,Sy,Sx);
-	k3dref.alloc(Nz,Ny,Nx);
+	image.alloc(Nz,Ny,Nx);
 }
 
 //----------------------------------------
@@ -71,7 +71,7 @@ void gridFFT::alloc_grid(){
 //----------------------------------------
 
 array3D< complex<float> >gridFFT::return_array( void){
-	return( k3dref );		 
+	return( image );		 
 }
 
 //----------------------------------------
@@ -81,7 +81,7 @@ array3D< complex<float> >gridFFT::return_array( void){
 void gridFFT::plan_fft( void ){
     
 	fftwf_init_threads();
-    fftwf_plan_with_nthreads(THREADS);
+    fftwf_plan_with_nthreads(omp_get_max_threads());
     	
 	//- Load old Plan if Possible
 	FILE *fid;
@@ -416,7 +416,7 @@ void gridFFT::deapp_chop_crop(){
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy[j+og_sy];
 		for(int i=0; i<Nx; i++) {
-			k3dref[k][j][i] = ( k3d_grid[k+og_sz][j+og_sy][i+og_sx]*(wty*winx[i+og_sx]));
+			image[k][j][i] = ( k3d_grid[k+og_sz][j+og_sy][i+og_sx]*(wty*winx[i+og_sx]));
 	}}}
 }
 
@@ -430,7 +430,7 @@ void gridFFT::icrop_deapp_chop(){
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy[j+og_sy];
 		for(int i=0; i<Nx; i++) {
-			k3d_grid[k+og_sz][j+og_sy][i+og_sx] = ( k3dref[k][j][i]*(wty*winx[i+og_sx]));
+			k3d_grid[k+og_sz][j+og_sy][i+og_sx] = ( image[k][j][i]*(wty*winx[i+og_sx]));
 	}}}
 }
 
@@ -597,11 +597,6 @@ void gridFFT::grid_backward( complex<float> *data, float *kx, float *ky, float *
 	    	}/* end lz loop */
 	  	  }/* end ly */
 		 }/* end lx */
-		 
-		 //float kr = kx[i]*kx[i] + ky[i]*ky[i] + kz[i]*kz[i];
-		 //temp *= exp( -kr / (2.0*k_rad*k_rad) );
-		 //temp *= kw[i];
-		 
 		 data[i] = temp;
 	
 	}/* end data loop */

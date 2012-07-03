@@ -262,7 +262,7 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 			}
 			
 			if(fid!=NULL){	
-				if( fread(kdata[c][e][0],sizeof( complex<float>),Num_Readouts*Num_Pts,fid) != (Num_Readouts*Num_Pts)){
+				if( (int)fread(kdata[c][e][0],sizeof( complex<float>),Num_Readouts*Num_Pts,fid) != (Num_Readouts*Num_Pts)){
 					cout << "Error can read data for coil " << c << endl;
 					exit(1);
 				}
