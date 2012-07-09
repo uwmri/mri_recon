@@ -1,25 +1,17 @@
-// Array Class for MRI Reconstruction
-//   Used to allow very specific control over memory
-//   and parallelization of key operations 
-// Main Classes: 
-//		Array2D,Array3D	 - With contigous memory access
-//		Array4D,Array5D	 - Non-contigous memory access (3D are contigous)
-
-#ifndef hARRAY
-#define hARRAY
+// ND array class
 
 #define MAXDIMS 16
-
-using namespace std;
+#define OMPSPLIT 1024
 
 template < class C >
 class arrayND{ 
 	public:	
 		C *vals; 
 		
-		int ndims;
-		int dim[MAXDIMS];
-		size_t numel;
+		int ndims;  // Number of active dimensions
+		int imdims; // Unused so far, potentially to dilineate image dimensions (2D vs 3D) from other dims (for ffts and such)
+		int dim[MAXDIMS]; // Fastest changing dimension first (i.e. x)
+		size_t numel; // Total number of elements
 		
 		int MemExists;
 		
@@ -43,8 +35,23 @@ class arrayND{
 			numel = x*y*z;
 			
 			vals = alloc_vals();
-			MemExists =1;
+			MemExists = 1;
 		}
+		
+		void alloc(int d5, int d4, int z,int y,int x){
+			ndims = 5;
+			dim[0] = x;
+			dim[1] = y;
+			dim[2] = z;
+			dim[3] = d4;
+			dim[4] = d5;
+			
+			numel = x*y*z*d4*d5;
+			
+			vals = alloc_vals();
+			MemExists = 1;
+		}
+		
 		
 		// Base Code to Allocate a Contigous Memory Block	
 		C *alloc_vals( void ){
@@ -60,8 +67,16 @@ class arrayND{
         free(vals);
       // cout << "Destroying" << endl;
       }
-    	}
+    }
 		
+    C& operator()(int z, int y, int x) {
+     return vals[x+y*dim[0]+z*dim[0]*dim[1]]; 
+    }
+    
+    C& operator()(int d5, int d4, int z, int y, int x) {
+     return vals[x+y*dim[0]+z*dim[0]*dim[1]+d4*dim[0]*dim[1]*dim[2]+d5*dim[0]*dim[1]*dim[2]*dim[3]]; 
+    }
+    
     	/*
 		void point_to_3D( array3D< C > *temp ){
 			Nz = temp->Nz;
@@ -110,30 +125,6 @@ class arrayND{
 			}	 
 		 }
 		 
-		 // Sum of X^2
-		 double energy (void){
-		  
-		  int nthreads = omp_get_num_threads();
-		 	double *temp = new double[nthreads];
-		 	memset(temp,0,(size_t)(sizeof(double)*nthreads));
-		 	
-		 	#pragma omp parallel for 		 
-			for(int i=0; i<numel; i++){
-			  int tid = omp_get_thread_num();
-			  temp[tid] += (double)norm(vals[i]);		
-			}
-			
-			double X=0.0;
-			for(int i=0; i<nthreads; i++){
-				X += temp[i];
-			}	
-			X *= 1.0/numel;
-			
-			delete []temp;
-		 	return(X);
-			
-		 } 
-		 
 		 // Point Wise Multiply of Same Type
 		 template < class X>		 		 
 		 void operator *= (X temp){
@@ -151,7 +142,7 @@ class arrayND{
 		 }
 		 
 		 // Pointwise equals 
-		 void operator = (array3D<C>temp){
+		 void operator = (arrayND<C>temp){
 		 	check_array_dims(temp);
 			
 			#pragma omp parallel for 
@@ -160,54 +151,98 @@ class arrayND{
 			} 
 		 }
 		 
-		  // Sum of X
-		 C max( void ){
-			C *temp = new C[Nz];
-			
-			#pragma omp parallel for 		 
-		 	for(int k=0; k<Nz; k++){
-				// Y Energy
-				C jM =0;
-				for(int j=0; j<Ny; j++){
-					for(int i=0; i<Nx; i++){
-						jM = ( abs(jM) > abs(vals[k][j][i])) ? ( jM ) : ( vals[k][j][i]);			
-					}	
-				}
-				temp[k] = jM; // Add energy for whole slice
+		 // Sum of X^2
+		 double energy (void){
+		  
+		 	double *temp = new double[OMPSPLIT];
+		 	memset(temp,0,(size_t)(sizeof(double)*OMPSPLIT));
+		 	size_t splitsize = (int)(numel/OMPSPLIT)+1;
+		 	
+		 	#pragma omp parallel for 		 
+			for(int i=0; i< OMPSPLIT; i++){
+			  double sum = 0.0;
+			  size_t start = i*splitsize;
+			  size_t stop = (i+1)*splitsize;
+			  if (stop > numel) {stop=numel;}
+			  
+			  for(unsigned int j = start; j < stop; j++) {
+			    sum += (double)norm(vals[j]);
+			  }
+			  
+			  temp[i] = sum;	
 			}
 			
-			C X=0.0;
-			for(int k=0; k<Nz; k++){
-				X= ( abs(temp[k]) > abs(X) ) ? ( temp[k] ) : ( X );
-			}		 
+			
+			double X=0.0;
+			for(int i=0; i<OMPSPLIT; i++){
+				X += temp[i];
+			}	
+			X *= 1.0/(float)numel;
+			
+			delete []temp;
+		 	return(X);
+		 } 
+		 
+		  // Sum of X
+		 C max( void ){
+			
+		  C *temp = new C[OMPSPLIT];
+		 	memset(temp,0,(size_t)(sizeof(C)*OMPSPLIT));
+		 	size_t splitsize = (int)(numel/OMPSPLIT)+1;
+		 	
+		 	#pragma omp parallel for 		 
+			for(int i=0; i< OMPSPLIT; i++){
+			  C M = 0.0;
+			  size_t start = i*splitsize;
+			  size_t stop = (i+1)*splitsize;
+			  if (stop > numel) {stop=numel;}
+			  
+			  for(unsigned int j = start; j < stop; j++) {
+			    M = ( abs(M) > abs(vals[j])) ? ( M ) : ( vals[j]);
+			  }
+			  
+			  temp[i] = M;	
+			}
+		 	
+			
+			C X = 0.0;
+			for(int i=0; i<OMPSPLIT; i++){
+				X = ( abs(temp[i]) > abs(X) ) ? ( temp[i] ) : ( X );
+			}		
+			
+			delete []temp;
 		 	return(X);		
 		 } 
 		 
 		 // Sum of X
 		 C sum( void ){
-			C *temp = new C[Nz];
+		   
+      C *temp = new C[OMPSPLIT];
+		 	memset(temp,0,(size_t)(sizeof(C)*OMPSPLIT));
+		 	size_t splitsize = (int)(numel/OMPSPLIT)+1;
 			
-			#pragma omp parallel for 		 
-		 	for(int k=0; k<Nz; k++){
-				float scale = 1.0/( (float)(Nx*Ny*Nz));
-				// Y Energy
-				C jE =0;
-				for(int j=0; j<Ny; j++){
-					// X Energy
-					C iE =0;
-					for(int i=0; i<Nx; i++){
-						iE += vals[k][j][i];			
-					}	
-					jE+=iE*scale; // Add energy for whole row
-				}
-				temp[k] = jE; // Add energy for whole slice
+		 	#pragma omp parallel for 		 
+			for(int i=0; i< OMPSPLIT; i++){
+			  C sum = 0.0;
+			  size_t start = i*splitsize;
+			  size_t stop = (i+1)*splitsize;
+			  if (stop > numel) {stop=numel;}
+			  
+			  for(unsigned int j = start; j < stop; j++) {
+			    sum += vals[j];
+			  }
+			  
+			  temp[i] = sum;	
 			}
+		 	
+		 	C X=0.0;
+			for(int i=0; i<OMPSPLIT; i++){
+				X += temp[i];
+			}	
+			X *= 1.0/(float)numel;
 			
-			C X=0.0;
-			for(int k=0; k<Nz; k++){
-				X+= temp[k];
-			}		 
-		 	return(X);		
+			delete []temp;
+		 	return(X);
 		 } 
 		 	
 		 // In place Square		 
@@ -234,21 +269,20 @@ class arrayND{
         }			 
        }
 		 
-		 void check_array_dims( array3D<C>temp ){
-		 	if( temp.Nx != Nx){
-				cout << "Conjugate Multi:Conflicting Dims " << Nx << " != " << temp.Nx << endl;
-			}
+		 void check_array_dims( arrayND<C>temp ){
 		 	
-			if( temp.Ny != Ny){
-				cout << "Conjugate Multi:Conflicting Dims " << Ny << " != " << temp.Ny << endl;
-			}
-		 	
-			if( temp.Nz != Nz){
-				cout << "Conjugate Multi:Conflicting Dims " << Nz << " != " << temp.Nz << endl;
-			}
+		   if( temp.ndims != ndims){
+		     cout << "Checking array dimensions failed on: # of dimensions (" << ndims << " != " << temp.ndims << ")" << endl;
+		   }else{
+		     for (int i = 0; i < ndims; i++) {
+		       if( temp.dim[i] != dim[i]){
+             cout << "Checking array dimensions failed on: dim[" << i << "] (" << dim[i] << " != " << temp.dim[i] << ")" << endl;
+           }
+		     }
+		   }
 		 }
 		 
-		 void conjugate_multiply(array3D<C>temp){ 
+		 void conjugate_multiply(arrayND<C>temp){ 
 		 	
 			check_array_dims(temp);
 			
@@ -288,34 +322,8 @@ class arrayND{
      		fclose(fp); 
 		 }
 		
-		 
-		 /* For Maximum calcs (prevent overloaded template)
-		float Xmax( float A, float B){	return( (A>B) ? (A) : (B)); }
-		double Xmax( double A, double B){	return( (A>B) ? (A) : (B)); }
-		short Xmax( short A, short B){	return( (A>B) ? (A) : (B)); }
-		int Xmax( int A, int B){	return( (A>B) ? (A) : (B)); }
-		complex<float> Xmax( complex<float> A, complex<float> B){ return( (abs(A)>abs(B)) ? (A) : (B)); }
-		complex<double> Xmax( complex<double> A, complex<double> B){ return( (abs(A)>abs(B)) ? (A) : (B)); }
-		complex<short> Xmax( complex<short> A, complex<short> B){ return( (abs(A)>abs(B)) ? (A) : (B)); }
-		complex<int> Xmax( complex<int> A, complex<int> B){ return( (abs(A)>abs(B)) ? (A) : (B)); }
-		
-		  Maximum 
-		 C max(void){
-		 	C m=vals[0][0][0];
-			for(int k=0; k<Nz; k++){
-			for(int j=0; j<Ny; j++){
-			for(int i=0; i<Nx; i++){
-				m = Xmax(m,vals[k][j][i]);
-			}}}
-		 	return(m);
-		 }*/
-		
 	private:
 	
 };
-
-
-
-#endif
 
 

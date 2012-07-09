@@ -17,12 +17,12 @@ class tictoc{
     
     void toc(){
       stop = omp_get_wtime();
-      printf("Elapsed time: %.4d\n",stop-start);
+      printf("Elapsed time: %.6fs\n",stop-start);
     }
     
     void toc(char* message){
       stop = omp_get_wtime();
-      printf("%s %.4d\n", message, stop-start);
+      printf("%s %.6fs\n", message, stop-start);
     }
     
 };

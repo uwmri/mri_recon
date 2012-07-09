@@ -10,6 +10,8 @@
 
 using namespace std;
 
+#include "ArrayND.cpp"
+
 template < class C >
 class array3D{ 
 	public:	
