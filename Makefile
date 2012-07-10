@@ -77,15 +77,23 @@ RECON_VERSION = ESE$(VER)_RECON
 
 LIBS = $(DICOM_LIBS) $(LOCAL_LIBS)
 
+# ML libraries
+LOECHHOME=/export/home/loecher
+LIB_DIRS += -L$(LOECHHOME)/linux/arma322/usr/lib64/
+INC_DIRS += -I$(LOECHHOME)/linux/arma322/usr/include/
+LIB_DIRS += -L$(LOECHHOME)/linux/acml440/gfortran64/lib/ -L$(LOECHHOME)/linux/acml440/gfortran64_mp/lib/
+INC_DIRS += -I$(LOECHHOME)/linux/acml440/gfortran64/include/ -I$(LOECHHOME)/linux/acml440/gfortran64_mp/include/
+LIBS += -lgfortran -lacml_mp
+
 # For Main COmpiles
 #RECON_OBJECTS = gridFFT.o wavelet3D.o polynomial_fitting.o gating_lib.o tornado_lib.o trajectory_lib.o io_lib.o matrix_lib.o master_lib.o iterative_lib.o csi_lib.o pcvipr_gradwarp.o master_recon.o 
-RECON_OBJECTS =  gridFFT.o wavelet3D.o recon.o recon_lib.o softthreshold.o ge_pfile_lib.o
+RECON_OBJECTS =  gridFFT.o wavelet3D.o recon.o recon_lib.o softthreshold.o ge_pfile_lib.o spirit.o
 
 
 # ditto
 recon = recon$(VER)
 
-all:  $(recon) clean_o 
+all:  $(recon)
 
 # recon-library-links compiles
 recon$(VER): $(RECON_OBJECTS)
@@ -127,6 +135,8 @@ trajectory_lib.o: trajectory_lib.c
 	$(CC) $(INC_DIRS) $(CFLAGS) -D $(RECON_VERSION) $(SLINK) trajectory_lib.c
 polynomial_fitting.o: polynomial_fitting.c
 	$(CC) $(DEB_HOST_GNU_CPU) $(INC_DIRS) $(CFLAGS) -D $(RECON_VERSION) $(SLINK) polynomial_fitting.c
+spirit.o: spirit.cpp
+	$(CC) $(INC_DIRS) $(CFLAGS) -D $(RECON_VERSION) $(SLINK) spirit.cpp
 
 
 clean:

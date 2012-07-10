@@ -25,6 +25,33 @@ class arrayND{
 			memset(dim,0,(size_t)(sizeof(int)*MAXDIMS));
 		}
 		
+		arrayND< C >(const array4D<C> &copy){
+			MemExists = 0;
+			memset(dim,0,(size_t)(sizeof(int)*MAXDIMS));
+			
+			alloc(copy.Nt, copy.Nz, copy.Ny, copy.Nx);
+			
+			int i = 0;
+			
+			for (int c = 0; c < copy.Nt; c++) {
+      for (int z = 0; z < copy.Nz; z++) {
+      for (int y = 0; y < copy.Ny; y++) {
+      for (int x = 0; x < copy.Nx; x++) {
+        vals[i] = copy.vals[c][z][y][x];
+        i++;
+			}}}}
+			
+		}
+		
+		/*
+		void copy_pointers( array4D< C > &temp ){
+			Nz = temp->Nz;
+			Ny = temp->Ny;
+			Nx = temp->Nx;
+			vals = temp->vals[0][0][0];
+		}
+		*/
+		
 		// Allocation with Size
 		void alloc(int z,int y,int x){
 			ndims = 3;
@@ -37,6 +64,21 @@ class arrayND{
 			vals = alloc_vals();
 			MemExists = 1;
 		}
+		
+		// Allocation with Size
+		void alloc(int d4, int z,int y,int x){
+			ndims = 4;
+			dim[0] = x;
+			dim[1] = y;
+			dim[2] = z;
+			dim[3] = d4;
+			
+			numel = x*y*z*d4;
+			
+			vals = alloc_vals();
+			MemExists = 1;
+		}
+		
 		
 		void alloc(int d5, int d4, int z,int y,int x){
 			ndims = 5;

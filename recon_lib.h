@@ -53,11 +53,15 @@ class RECON{
 	    
 	  float lp_frac;
 	  float lp_sig;
-      float smap_res;
+    float smap_res;
 	  char filename[1024];
 	  
 	  int frames; 
-	  	  
+	  
+    int sp_maps;	  
+	  int sp_mapshrink;
+	  float sp_mapthresh;
+    
 	  RECON(int numarg, char **pstring); 
 	  void parse_external_header(void);
 	private:	

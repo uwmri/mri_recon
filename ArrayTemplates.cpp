@@ -8,9 +8,8 @@
 #ifndef hARRAY
 #define hARRAY
 
-using namespace std;
 
-#include "ArrayND.cpp"
+using namespace std;
 
 template < class C >
 class array3D{ 
@@ -693,6 +692,7 @@ class array5D{
 	
 };
 
+#include "ArrayND.cpp"
 
 #endif
 

@@ -25,6 +25,11 @@ RECON::RECON(int numarg, char **pstring){
 	smap_res=16;
 	
 	frames = 1;
+	
+	sp_maps = 0;
+	sp_mapshrink = 4;
+	sp_mapthresh = 0.0;
+	
 
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
@@ -65,6 +70,11 @@ RECON::RECON(int numarg, char **pstring){
 		
 		// Time Resolved Flags
 		int_flag("-frames",frames);
+		
+		// Spirit Coils
+		trig_flag(1,"-sp_maps",sp_maps);
+		int_flag("-sp_mapshrink",sp_mapshrink);
+		float_flag("-sp_mapthresh",sp_mapthresh);
 		
 	}
   }

@@ -11,6 +11,7 @@
 #include "ge_pfile_lib.h"
 #include "recon_lib.h"
 #include "softthreshold.h"
+#include "spirit.h"
 #include "ArrayTemplates.cpp"
 using namespace std;
 
@@ -57,7 +58,7 @@ int main(int argc, char **argv){
 		cout << "Getting Coil Sensitivities " << endl;
 
 		int e=0;
-		gridding.k_rad = 24;
+		gridding.k_rad = (recon.sp_maps==1) ? 99999 : 24;
 		smaps.alloc(data.Num_Coils,recon.rczres,recon.rcyres,recon.rcxres);
 		for(int coil=0; coil< data.Num_Coils; coil++){
 			gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
@@ -66,11 +67,20 @@ int main(int argc, char **argv){
 		gridding.k_rad = 99999;
 
 		// Spirit Code?
-
-
+		if (recon.sp_maps==1) {
+		  // switch to arrayND (indexing is more compatible with my old code)
+		  arrayND< complex<float> >kdata = smaps;
+		  
+		  SPIRIT S(5,5,5,data.Num_Coils);
+		  S.calibrate(20,20,20,kdata,.01);
+		  S.prep(recon.rcxres/recon.sp_mapshrink, recon.rcyres/recon.sp_mapshrink, recon.rczres/recon.sp_mapshrink, data.Num_Coils);
+		  S.getcoils(smaps, recon.sp_mapshrink, recon.sp_mapthresh);
+		  //smaps[0].write("sp_coil0.dat");
+		  
+		}else{
 		// Sos Normalization 
 		cout << "Normalize Coils" << endl;
-#pragma omp parallel for 
+		#pragma omp parallel for 
 		for(int k=0; k<smaps[0].Nz; k++){
 			for(int j=0; j<smaps[0].Ny; j++){
 				for(int i=0; i<smaps[0].Nx; i++){
@@ -84,6 +94,7 @@ int main(int argc, char **argv){
 					}
 
 				}}}
+		}
 	}
 	
 	

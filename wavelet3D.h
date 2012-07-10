@@ -7,6 +7,7 @@
 #include <vector>
 #include <cmath>
 #include <string>
+#include <cstring>
 #include <complex>
 using namespace std;
 #include <omp.h>
