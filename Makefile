@@ -84,7 +84,9 @@ INC_DIRS += -I$(MRFLOWHOME)/linux/arma322/usr/include/
 LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
 INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
 
-LIBS += -lacml_mp
+LIBS += -lacml_mp -lacml_mv
+
+RUNPATH=$(MRFLOWHOME)/linux/arma322/usr/lib64/:$(MRFLOWHOME)/linux/acml440/gfortran64/lib/:$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
 
 # For Main COmpiles
 #RECON_OBJECTS = gridFFT.o wavelet3D.o polynomial_fitting.o gating_lib.o tornado_lib.o trajectory_lib.o io_lib.o matrix_lib.o master_lib.o iterative_lib.o csi_lib.o pcvipr_gradwarp.o master_recon.o 
@@ -98,7 +100,7 @@ all:  $(recon) clean_o
 
 # recon-library-links compiles
 recon$(VER): $(RECON_OBJECTS)
-	$(CC) $(STATIC_LIBS) -o recon$(VER) $(RECON_OBJECTS) $(LIB_DIRS) $(LIBS) -D $(RECON_VERSION) $(SLINK) 
+	$(CC) $(STATIC_LIBS) -o recon$(VER) $(RECON_OBJECTS) $(LIB_DIRS) -Wl,-rpath,$(RUNPATH) $(LIBS) -D $(RECON_VERSION) $(SLINK) 
 
 # recon compiles
 recon.o: recon.cxx
