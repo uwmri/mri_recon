@@ -38,7 +38,14 @@ int main(int argc, char **argv){
 		recon.parse_external_header();
 		data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_readouts,recon.xres);
 	}
-
+	
+	if (recon.acc > 1){
+	  data.undersample(recon.acc);
+	}
+	if (recon.compress_coils > 0){
+	  data.coilcompress(recon.compress_coils);
+  }
+	
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
 	// --------------------------------------------------

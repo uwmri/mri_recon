@@ -25,6 +25,10 @@ RECON::RECON(int numarg, char **pstring){
 	smap_res=16;
 	
 	frames = 1;
+	
+	acc = 1;
+	compress_coils = 0.0;
+	
 
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
@@ -58,6 +62,10 @@ RECON::RECON(int numarg, char **pstring){
 		// Source of data
 		trig_flag(RECON_EXTERNAL,"-external_data",data_type);
 		trig_flag(RECON_PFILE,"-pfile",data_type);
+		
+		// Data modification
+		int_flag("-acc",acc);
+		float_flag("-compress_coils",compress_coils);
 		
 		// Coil Combination + Resolution		
 		float_flag("-lp_frac",lp_frac);
@@ -271,6 +279,112 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 	}}
 	
 	
+}
+
+/** Undersample the data by deleting argument 'us' readouts
+*
+* TODO:
+* -Need to check if the num_readouts value in the RECON class needs to change
+* -Needs to handle non radial trajectories as they are implemented
+*/
+void MRI_DATA::undersample(int us){
+  if (us>1) { // Check argument in case we want to always run this function
+  
+  printf("Retrospectively undersampling by: %d (%d -> %d)\n", us, Num_Readouts, Num_Readouts/us); 
+    
+  Num_Readouts = Num_Readouts/us;
+  
+  // Undersampled arrays	
+	array3D<float> kx_us;
+	array3D<float> ky_us;
+	array3D<float> kz_us;
+	array3D<float> kw_us;
+	array4D< complex<float> > kdata_us;
+	
+	// Allocate Memory and Copy Values
+	kx_us.alloc(Num_Encodings,Num_Readouts,Num_Pts); 
+	ky_us.alloc(Num_Encodings,Num_Readouts,Num_Pts);  
+	kz_us.alloc(Num_Encodings,Num_Readouts,Num_Pts);  
+	kw_us.alloc(Num_Encodings,Num_Readouts,Num_Pts);  
+	kdata_us.alloc(Num_Coils,Num_Encodings,Num_Readouts,Num_Pts);
+	
+	for(int e = 0; e < Num_Encodings; e++) {
+	  for(int r = 0; r < Num_Readouts; r++) {
+	    for(int p = 0; p < Num_Pts; p++) {
+	       kx_us[e][r][p] = kx[e][r*us][p];
+	       ky_us[e][r][p] = ky[e][r*us][p];   
+	       kz_us[e][r][p] = kz[e][r*us][p];   
+	       kw_us[e][r][p] = kw[e][r*us][p];   
+	}}}
+	
+	for(int c = 0; c < Num_Coils; c++) {
+	  for(int e = 0; e < Num_Encodings; e++) {
+      for(int r = 0; r < Num_Readouts; r++) {
+        for(int p = 0; p < Num_Pts; p++) {
+           kdata_us[c][e][r][p] = kdata[c][e][r*us][p];
+	}}}}
+	
+	// Free the full arrays and then point them to the undersampled ones
+	kx.freeArray();
+	ky.freeArray();
+	kz.freeArray();
+	kw.freeArray();
+	kdata.freeArray();
+	
+	kx.point_to_3D(&kx_us);
+	ky.point_to_3D(&ky_us);
+	kz.point_to_3D(&kz_us);
+	kw.point_to_3D(&kw_us);
+	kdata.point_to_4D(&kdata_us);
+	
+	}
+}
+
+/** Coil compress data with a cutoff of thresh*max(SV)
+*
+*/
+void MRI_DATA::coilcompress(float thresh)
+{ 
+  cout << "Coil compression . . . " << flush;
+  cx_mat A;
+  A.zeros(kdata.Nx*kdata.Ny, kdata.Nt);
+  
+  for(int i = 0; i < kdata.Nt; i++) {
+    for(int j = 0; j < kdata.Nx*kdata.Ny; j++) {
+      A(j,i) = kdata[i][0][0][j];
+  }}
+  
+  cx_mat U;
+  vec s;
+  cx_mat V;
+  
+  arma::svd_econ(U,s,V,A);
+  
+  s = s/s(0);
+  
+  //cout << s << endl << endl;
+  
+  uvec cc_find = arma::find(s > thresh, 1, "last");
+  int cc_ncoils = cc_find(0)+1; // New number of coils
+  
+  cout << "(" << Num_Coils << " coils -> " << cc_ncoils << " coils) . . . " << flush;
+  
+  Num_Coils = cc_ncoils;
+  
+  A = A*V.cols(0,cc_ncoils-1);
+  
+  array4D< complex<float> > kdata_cc;
+  kdata_cc.alloc(Num_Coils,Num_Encodings,Num_Readouts,Num_Pts);
+  
+  for(int i = 0; i < kdata_cc.Nt; i++) {
+    for(int j = 0; j < kdata_cc.Nx*kdata_cc.Ny; j++) {
+      kdata_cc[i][0][0][j] = A(j,i);
+  }}
+  
+  kdata.freeArray();
+	kdata.point_to_4D(&kdata_cc);
+  
+  cout << "done" << endl;
 }
 
 
