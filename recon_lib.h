@@ -56,7 +56,7 @@ class RECON{
 	  int num_coils;
 	  int ss_2d;
 	  int multi_echo;
-	    
+	  
 	  int acc;
 	  float compress_coils;
 	  
@@ -67,9 +67,7 @@ class RECON{
 	  
 	  int frames; 
 	  
-    int sp_maps;	  
-	  int sp_mapshrink;
-	  float sp_mapthresh;
+    int sp_maps;
     
 	  RECON(int numarg, char **pstring); 
 	  void parse_external_header(void);

@@ -8,8 +8,8 @@
 #include <omp.h>
 #include "tictoc.cpp"
 #include "ArrayTemplates.cpp"
-
-#define PI 3.1415926535898
+#include "gridFFT.h"
+#include "recon_lib.h"
 
 enum {SP_SQUARE, SP_CIRCLE};
 enum {SP_TIK, SP_TSVD};
@@ -56,7 +56,7 @@ class SPIRIT {
     void read_commandline(int numarg, char **pstring);
     void init(int, int, int, int);
     
-    complex<float> getImPointDFT(float,float,float,int,int);
+    void generateEigenCoils(array4D< complex<float> > &, gridFFT &, MRI_DATA &);
     
     void calibrate_ellipsoid(arrayND< complex<float> > &);
     void prep();
@@ -64,6 +64,8 @@ class SPIRIT {
     void getcoils(array4D< complex<float> > &);
     void rotateCoils(array4D< complex<float> > &maps, array4D< complex<float> > &ref);
     void interpMaps(array4D< complex<float> >&, array4D< complex<float> >&);
+    
+    complex<float> getImPointDFT(float,float,float,int,int);
 };
 
 #endif

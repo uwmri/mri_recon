@@ -70,7 +70,9 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 	data.kx *= ((float)(1.0/recon.zoom_x));
 	data.ky *= ((float)(1.0/recon.zoom_y));
 	data.kz *= ((float)(1.0/recon.zoom_z));
-
+	
+	
+	
 	// Setup Gridding + FFT Structure
 	gridFFT gridding;
 	gridding.read_commandline(argc,argv);
@@ -93,17 +95,16 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 		}
 		gridding.k_rad = 99999;
 
-		// Spirit Code?
+		// Spirit Code
 		if (recon.sp_maps==1) {
-		  // switch to arrayND (indexing is more compatible with my old code)
-		  arrayND< complex<float> >kdata = smaps;
+		  SPIRIT S;
+      S.read_commandline(argc,argv);
+      S.init(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		  
-		  SPIRIT S(5,5,5,data.Num_Coils);
-		  S.calibrate(20,20,20,kdata,.01);
-		  S.prep(recon.rcxres/recon.sp_mapshrink, recon.rcyres/recon.sp_mapshrink, recon.rczres/recon.sp_mapshrink, data.Num_Coils);
-		  S.getcoils(smaps, recon.sp_mapshrink, recon.sp_mapthresh);
-		  //smaps[0].write("sp_coil0.dat");
-		  
+      gridFFT shrinkgrid;
+		  shrinkgrid.read_commandline(argc,argv);
+      
+      S.generateEigenCoils(smaps, shrinkgrid, data);		  
 		}else{
 		// Sos Normalization 
 		cout << "Normalize Coils" << endl;
@@ -119,6 +120,7 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 					for(int coil=0; coil< data.Num_Coils; coil++){
 						smaps[coil][k][j][i] *= sos;
 					}
+					
 
 				}}}
 		}
@@ -290,7 +292,7 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						if(iteration==0){
 							error0 = abs( scale_RhR);
 						}
-						cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
+						cout << "Residue Energy =" << scale_RhR << " ( " << 100*(abs(scale_RhR)/error0) << " % )  " << endl;
 						
 						// Step 
 						complex<float>scale = scale_RhR/scale_RhP;
@@ -309,6 +311,12 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						softthresh.hard_threshold(X);
 						wave.backward();
 						cout << "Wavelet Done" << endl;
+						}
+						
+						if(iteration%5==0) {
+						  char fname[80];
+						  sprintf(fname,"IST_iter_%d.dat",iteration);
+						  X[0][0].write(fname);
 						}
 						
 						// Export X		

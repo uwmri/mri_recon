@@ -75,6 +75,9 @@ RECON::RECON(int numarg, char **pstring){
 		// Time Resolved Flags
 		int_flag("-frames",frames);
 		
+		int_flag("-acc",acc);
+		float_flag("-compress_coils",compress_coils);
+		
 		// Spirit Coils
 		trig_flag(1,"-sp_maps",sp_maps);
 		
@@ -151,6 +154,7 @@ MRI_DATA::MRI_DATA( MRI_DATA *base_data){
 	kdata.alloc(Num_Coils,Num_Encodings,Num_Readouts,Num_Pts);
 	//kdata = base_data.kdata;
 }
+
 
 MRI_DATA::MRI_DATA( void){
 	Num_Encodings = -1;
@@ -390,5 +394,4 @@ void MRI_DATA::coilcompress(float thresh)
   
   cout << "done" << endl;
 }
-
 

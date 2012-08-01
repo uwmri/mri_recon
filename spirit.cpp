@@ -3,8 +3,8 @@
 
 using arma::cx_mat;
 using arma::vec;
+using arma::uvec;
 using namespace std;
-//using namespace Eigen;
 
 SPIRIT::SPIRIT() 
 {    
@@ -108,6 +108,38 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
   }
 }    
 
+void SPIRIT::generateEigenCoils(array4D< complex<float> > &smaps, gridFFT &shrinkgrid, MRI_DATA &data){
+		  arrayND< complex<float> >kdata = smaps; // switch to arrayND (indexing is more compatible with my old code)
+		  kdata.fft3(-1);
+		  
+		  array4D< complex<float> >LRmaps;
+		  LRmaps.alloc(ncoils+1,rczres/mapshrink+1,rcyres/mapshrink+1,rcxres/mapshrink+1);
+		  
+		  calibrate_ellipsoid(kdata);
+		  prep();		  
+		  getcoils(LRmaps);
+		  
+		  array4D< complex<float> > phaseref;
+		  phaseref.alloc(ncoils,rczres/mapshrink,rcyres/mapshrink,rcxres/mapshrink);
+		  
+	    shrinkgrid.precalc_gridding(rczres/mapshrink,rcyres/mapshrink,rcxres/mapshrink,3);
+	    
+		  shrinkgrid.k_rad = 16;
+		  for(int coil=0; coil< ncoils; coil++){
+        shrinkgrid.forward( data.kdata[coil][0][0],data.kx[0][0],data.ky[0][0],data.kz[0][0],data.kw[0][0],data.Num_Pts*data.Num_Readouts);
+        phaseref[coil]= ( shrinkgrid.return_array() );
+      }
+		  
+		  rotateCoils(LRmaps, phaseref);
+		  
+		  interpMaps(LRmaps,smaps);
+		  
+		  im.freeArray();
+		  LRmaps.freeArray();
+		  phaseref.freeArray();
+		  kdata.freeArray();
+}
+
 /**
 * Calibrate SPIRiT kernel.
 */
@@ -124,9 +156,6 @@ void SPIRIT::calibrate_ellipsoid(arrayND< complex<float> > &kdata)
   crx -= krx;
   cry -= kry;
   crz -= krz;
-  
-  cout << "crx: " << crx << " cry: " << cry <<  " crz: " << crz << endl;
-  cout << "krx: " << krx << " kry: " << kry <<  " krz: " << krz << endl;
   
   int num_ACS = 0;
   int num_kernel = 0;
@@ -449,153 +478,6 @@ void SPIRIT::interpMaps(array4D< complex<float> > &LR, array4D< complex<float> >
   }
 }
 
-// void SPIRIT::getcoils(array4D< complex<float> > &out, int shrink, float thresh)
-// {
-//   tictoc T;
-//   T.tic();
-//   cout << "Starting eig" << endl;
-   
-//   int imdim[] = {im.dim[0],im.dim[1],im.dim[2]};
-//   int ncoils = im.dim[3];
-  
-//   array4D< complex<float> >LR; // Low res coils, +1 in dimension for interp
-//   LR.alloc(im.dim[3]+1,im.dim[2]+1,im.dim[1]+1,im.dim[0]+1); //+1 in coils for svd val
-//   LR.zero();
-  
-//   out.zero();
-  
-//   int nthreads = omp_get_max_threads();
-  
-  
-//   MatrixXcd* A = new MatrixXcd[nthreads];
-//   MatrixXcd* AtA = new MatrixXcd[nthreads];
-//   Eigen::JacobiSVD<MatrixXcd>* SVD = new Eigen::JacobiSVD<MatrixXcd>[nthreads];
-//   Eigen::SelfAdjointEigenSolver<MatrixXcd>* EIG = new Eigen::SelfAdjointEigenSolver<MatrixXcd>[nthreads];
-//   MatrixXcd* V = new MatrixXcd[nthreads];
-//   Eigen::VectorXd* SV = new Eigen::VectorXd[nthreads];
-  
-//   for (int i = 0; i < nthreads; i++) {
-//     A[i].resize(ncoils,ncoils);
-//     AtA[i].resize(ncoils,ncoils);
-//     V[i].resize(ncoils,ncoils);
-//     SV[i].resize(ncoils);
-//     EIG[i] = Eigen::SelfAdjointEigenSolver<MatrixXcd>(ncoils);
-//   }
-  
-  
-//   /*
-//   cx_mat* A = new cx_mat[nthreads];
-//   cx_mat* AtA = new cx_mat[nthreads];
-//   cx_mat* U = new cx_mat[nthreads];
-//   vec* s = new vec[nthreads];
-//   cx_mat* V = new cx_mat[nthreads];
-  
-//   // Initialize
-//   for (int i = 0; i < nthreads; i++) {
-//     A[i].zeros(ncoils,ncoils);
-//     AtA[i].zeros(ncoils,ncoils);
-//     U[i].zeros(ncoils,ncoils);
-//     s[i].zeros(ncoils,1);
-//     V[i].zeros(ncoils,ncoils);
-//   }
-//   */
-  
-//   #pragma omp parallel for
-//   for(int iz = 0; iz < imdim[2]; iz ++) {
-//     for(int iy = 0; iy < imdim[1]; iy ++) {
-//       for(int ix = 0; ix < imdim[0]; ix ++) {
-        
-//         int tid = omp_get_thread_num();
-        
-//         for(int jj = 0; jj < ncoils; jj++) {
-//           for(int ii = 0; ii < ncoils; ii++) {
-//             int ki = ix + imdim[0]*iy + imdim[0]*imdim[1]*iz + imdim[0]*imdim[1]*imdim[2]*ii + imdim[0]*imdim[1]*imdim[2]*ncoils*jj;
-//             A[tid](jj,ii) = complex<double>(im.vals[ki]);
-//             //int mod = ((ix+iy+iz)%2) == 0 ? 1 : -1;
-//             //A[tid](jj,ii) = (float)mod*getImPointDFT((float)ix/imdim[0], (float)iy/imdim[1], (float)iz/imdim[2], ii, jj);
-//           }
-//         }
-        
-//         AtA[tid] = A[tid].adjoint() * A[tid];
-//         //AtA[tid] = arma::trans(A[tid]) * A[tid];
-        
-//         // Include some regularization to the coils solution
-//         //double fronorm = norm(nAtA[tid],"fro");
-//         //for(int jj = 0; jj < ncoils; jj++) {
-//             //nAtA[tid](jj,jj) += complex<double>(1.0*fronorm,0.0);
-//         //}
-        
-//         //svd_econ(U[tid],s[tid],V[tid],AtA[tid]);
-        
-//         EIG[tid].compute(AtA[tid]);
-//         //SVD[tid].compute(AtA[tid], Eigen::ComputeThinV);
-        
-//         //V[tid] = SVD[tid].matrixV();
-//         //SV[tid] = SVD[tid].singularValues();
-        
-//         V[tid] = EIG[tid].eigenvectors();
-//         SV[tid] = EIG[tid].eigenvalues();
-        
-//         //uword index;
-//         //realval = real(eigval);
-//         //realval.max(index);
-//         for(int recv_cnt = 0; recv_cnt < ncoils; recv_cnt++) {
-//           LR[recv_cnt][iz][iy][ix] = V[tid](recv_cnt,ncoils-1);
-//         }
-//         //out[ncoils-1][iz][iy][ix] = SV[tid](0);
-//         LR[ncoils][iz][iy][ix] = sqrt(SV[tid](ncoils-1)); //eigenvalue 
-//   }}}
-  
-//   T.toc();
-  
-//   thresh *= abs(LR[ncoils].max()); 
-  
-//   cout << "Interpolating espirit maps" << endl;
-  
-//   // Linear interpolation up to the full resolution
-//   for(int i = 0; i < ncoils; i++) {
-//     #pragma omp parallel for
-//     for (int z = 0; z < out.Nz; z++) {
-//       int zz = z/shrink;
-//       float dz = (float)(z%shrink)/shrink;
-//       for (int y = 0; y < out.Ny; y++) {
-//         int yy = y/shrink;
-//         float dy = (float)(y%shrink)/shrink;
-//         for (int x = 0; x < out.Nx; x++) {
-//           int xx = x/shrink;
-//           float dx = (float)(x%shrink)/shrink;
-          
-//           float svd_interp = abs((1-dz)*(1-dy)*(1-dx)*LR[ncoils][zz][yy][xx] + \
-//                             (1-dz)*(1-dy)*(dx)*LR[ncoils][zz][yy][xx+1] + \
-//                             (1-dz)*(dy)*(1-dx)*LR[ncoils][zz][yy+1][xx] + \
-//                             (1-dz)*(dy)*(dx)*LR[ncoils][zz][yy+1][xx+1] + \
-//                             (dz)*(1-dy)*(1-dx)*LR[ncoils][zz+1][yy][xx] + \
-//                             (dz)*(1-dy)*(dx)*LR[ncoils][zz+1][yy][xx+1] + \
-//                             (dz)*(dy)*(1-dx)*LR[ncoils][zz+1][yy+1][xx] + \
-//                             (dz)*(dy)*(dx)*LR[ncoils][zz+1][yy+1][xx+1]);
-          
-//           if (svd_interp < thresh) {
-//            out[i][z][y][x] = 0;
-//           } else {
-                            
-//           out[i][z][y][x] = (1-dz)*(1-dy)*(1-dx)*LR[i][zz][yy][xx] + \
-//                             (1-dz)*(1-dy)*(dx)*LR[i][zz][yy][xx+1] + \
-//                             (1-dz)*(dy)*(1-dx)*LR[i][zz][yy+1][xx] + \
-//                             (1-dz)*(dy)*(dx)*LR[i][zz][yy+1][xx+1] + \
-//                             (dz)*(1-dy)*(1-dx)*LR[i][zz+1][yy][xx] + \
-//                             (dz)*(1-dy)*(dx)*LR[i][zz+1][yy][xx+1] + \
-//                             (dz)*(dy)*(1-dx)*LR[i][zz+1][yy+1][xx] + \
-//                             (dz)*(dy)*(dx)*LR[i][zz+1][yy+1][xx+1];
-//                             }
-//         }
-//       }
-//     }
-    
-    
-//   }
-//   cout << "Done with eig" << endl;
-// }
-
 /** 
 * Rotates the spirit coils to match up with low res gridded data.  
 * The rotation is weighted by the norm of the data's magnitude.  This still ends 
@@ -644,3 +526,4 @@ complex<float> SPIRIT::getImPointDFT(float u, float v, float w, int c1, int c2) 
   return out;
   
 }
+

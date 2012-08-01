@@ -78,11 +78,12 @@ RECON_VERSION = ESE$(VER)_RECON
 LIBS = $(DICOM_LIBS) $(LOCAL_LIBS)
 
 # Armadillo/ACML libraries (coil compression and spirit stuff)
-MRFLOWHOME=/export/home/mrflow
-LIB_DIRS += -L$(MRFLOWHOME)/linux/arma322/usr/lib64/
-INC_DIRS += -I$(MRFLOWHOME)/linux/arma322/usr/include/
-LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
-INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
+MRFLOWHOME=/export/home/mrflow/linux
+LIB_DIRS += -L$(MRFLOWHOME)/arma322/usr/lib64/
+INC_DIRS += -I$(MRFLOWHOME)/arma322/usr/include/
+LIB_DIRS += -L$(MRFLOWHOME)/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/acml440/gfortran64_mp/lib/
+INC_DIRS += -I$(MRFLOWHOME)/acml440/gfortran64/include/ -I$(MRFLOWHOME)/acml440/gfortran64_mp/include/
+INC_DIRS += -I$(MRFLOWHOME)/eigen311/
 
 LIBS += -lacml_mp -lacml_mv
 
