@@ -3,6 +3,8 @@
 #define MAXDIMS 16
 #define OMPSPLIT 1024
 
+#include <fftw3.h>
+
 template < class C >
 class arrayND{ 
 	public:	
@@ -59,7 +61,7 @@ class arrayND{
 			dim[1] = y;
 			dim[2] = z;
 			
-			numel = x*y*z;
+			numel = (size_t)x*y*z;
 			
 			vals = alloc_vals();
 			MemExists = 1;
@@ -73,7 +75,7 @@ class arrayND{
 			dim[2] = z;
 			dim[3] = d4;
 			
-			numel = x*y*z*d4;
+			numel = (size_t)x*y*z*d4;
 			
 			vals = alloc_vals();
 			MemExists = 1;
@@ -88,7 +90,7 @@ class arrayND{
 			dim[3] = d4;
 			dim[4] = d5;
 			
-			numel = x*y*z*d4*d5;
+			numel = (size_t)x*y*z*d4*d5;
 			
 			vals = alloc_vals();
 			MemExists = 1;
@@ -111,11 +113,15 @@ class arrayND{
       }
     }
 		
-    C& operator()(int z, int y, int x) {
+    inline C& operator()(int z, int y, int x) {
      return vals[x+y*dim[0]+z*dim[0]*dim[1]]; 
     }
     
-    C& operator()(int d5, int d4, int z, int y, int x) {
+    inline C& operator()(int d4, int z, int y, int x) {
+     return vals[x+y*dim[0]+z*dim[0]*dim[1]+d4*dim[0]*dim[1]*dim[2]]; 
+    }
+    
+    inline C& operator()(int d5, int d4, int z, int y, int x) {
      return vals[x+y*dim[0]+z*dim[0]*dim[1]+d4*dim[0]*dim[1]*dim[2]+d5*dim[0]*dim[1]*dim[2]*dim[3]]; 
     }
     
@@ -356,7 +362,87 @@ class arrayND{
 				vals[i] -=  temp.vals[i];					
 			}		 
 		 }
-		 		 		 		 
+		 		 		 	
+		 void fft3(int dir) {
+		   fftwf_init_threads();
+       fftwf_plan_with_nthreads(omp_get_max_threads());
+          
+        //- Load old Plan if Possible
+        FILE *fid;
+        FILE *fid2;
+        char fname[300];
+        char hname[300];
+        char com[1300];
+        gethostname( hname,299);
+      #ifdef SCANNER
+        sprintf(fname,"/usr/g/research/pcvipr/fft_wisdom_host_%s_x%d_y%d_z%d.dat",hname,dim[0],dim[1],dim[2]);
+      #else
+        sprintf(fname,"/export/home/kmjohnso/FFT_PLANS/fft_wisdom_host_%s_x%d_y%d_z%d.dat",hname,dim[0],dim[1],dim[2]);
+      #endif
+        printf("The FFT File will be %s\n",fname);
+       
+        fftwf_plan fft_plan;
+        fftwf_plan ifft_plan;
+        
+        fftwf_plan fft_plan_temp;
+        fftwf_plan ifft_plan_temp;
+        
+      if(  (fid=fopen(fname,"r")) != NULL){
+        fftwf_import_wisdom_from_file(fid);
+        fclose(fid);
+      }	
+      
+      int imsize = dim[0]*dim[1]*dim[2];
+      
+      // Plan the transforms in temp arrays so that data isnt overwritten
+      complex<float> *temp = new complex<float>[imsize];
+      fft_plan_temp =  fftwf_plan_dft_3d(dim[2], dim[1], dim[0],(fftwf_complex *)temp,(fftwf_complex*)temp,FFTW_FORWARD, FFTW_MEASURE);
+      ifft_plan_temp = fftwf_plan_dft_3d(dim[2], dim[1], dim[0],(fftwf_complex *)temp,(fftwf_complex*)temp,FFTW_BACKWARD, FFTW_MEASURE);
+      delete[] temp;
+      
+      int ntransforms = 1;
+      for (int i = 3; i < ndims; i++) {ntransforms*=dim[i];}
+      
+      fftshift3();
+      
+      for (int i = 0; i < ntransforms; i++) {
+        fft_plan =  fftwf_plan_dft_3d(dim[2], dim[1], dim[0],(fftwf_complex *)(vals+i*imsize),(fftwf_complex*)(vals+i*imsize),FFTW_FORWARD, FFTW_MEASURE);
+        ifft_plan = fftwf_plan_dft_3d(dim[2], dim[1], dim[0],(fftwf_complex *)(vals+i*imsize),(fftwf_complex*)(vals+i*imsize),FFTW_BACKWARD, FFTW_MEASURE);
+        if(dir==1) {fftwf_execute(fft_plan);}
+        else if(dir==-1) {fftwf_execute(ifft_plan);}
+      }
+      
+      fftshift3();
+      
+      /*In case New Knowledge Was Gained*/	
+      if( (fid2 = fopen(fname, "w")) == NULL){
+        printf("Could Not Export FFT Wisdom\n");
+      }else{
+        fftwf_export_wisdom_to_file(fid2);
+        fclose(fid2);
+        sprintf(com,"chmod 777 %s",fname);
+        if( system(com) != 1 ){
+          cout << "Failed to Change FFT Plan Permissions" << endl;
+        }
+      } 
+     }
+		 
+     void fftshift3()
+    {
+      int ntransforms = 1;
+      for (int i = 3; i < ndims; i++) {ntransforms*=dim[i];}
+      
+      #pragma omp parallel for
+      for (int kk = 0; kk < ntransforms; kk++) {
+        for (int k = 0; k < dim[2]; k++) {
+          for (int j = 0; j < dim[1]; j++) {
+            for (int i = 0; i < dim[0]; i++) {
+              int mod = ((i+j+k)%2) == 0 ? 1 : -1;
+              (*this)(kk,k,j,i) = (float)mod*(*this)(kk,k,j,i);
+      }}}}
+      return;
+    }
+     
 		 // Write binary file		 
 		 void write(char *name){
 		 	FILE *fp=fopen(name,"w");
