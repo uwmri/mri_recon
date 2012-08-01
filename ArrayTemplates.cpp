@@ -324,8 +324,40 @@ class array3D{
      		fwrite( vals[0][0],Nx*Ny*Nz, sizeof(C), fp);
      		fclose(fp); 
 		 }
-		
 		 
+		 // Write binary file (magnitude)		 
+		 void write_mag(char *name){
+		 	float *temp = new float[Nx];
+			
+			FILE *fp=fopen(name,"w");
+     		for(int k=0; k<Nz; k++){
+			for(int j=0; j<Ny; j++){
+			
+				for(int i=0; i<Nx; i++){
+					temp[i] = abs(vals[k][j][i]);	
+				}
+			
+				fwrite( temp,Nx, sizeof(float), fp);
+     		}}
+			fclose(fp); 
+		 }
+		
+		 // Write binary file (magnitude, slice)		 
+		 void write_mag(char *name,int slice,const char *type){
+		 	float *temp = new float[Nx];
+			
+			FILE *fp=fopen(name,type);
+     		for(int j=0; j<Ny; j++){
+				for(int i=0; i<Nx; i++){
+					temp[i] = abs(vals[slice][j][i]);	
+				}
+				fwrite( temp,Nx, sizeof(float), fp);
+     		}
+			fclose(fp);
+			delete []temp; 
+		 }		 
+				 
+				 
 		 /* For Maximum calcs (prevent overloaded template)
 		float Xmax( float A, float B){	return( (A>B) ? (A) : (B)); }
 		double Xmax( double A, double B){	return( (A>B) ? (A) : (B)); }
@@ -519,7 +551,7 @@ class array4D{
 				vals[t]*=temp;					
 			}		 
 		 }
-		
+				  
 	private:
 	
 };

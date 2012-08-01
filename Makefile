@@ -28,7 +28,7 @@ endif
 
 LBITS := $(shell getconf LONG_BIT)
 ifeq ($(LBITS),64)
-  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp -O2
+  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp -O3
 else
 	ifeq ($(GE),1)
    		CFLAGS_LOCAL  = -c -g -DLINUX -ansi-pedantic -Wall -I$(DCMTK_DIR)/include -I/usr/local/olinux32/include -L$(DCMTK_DIR)/lib -L/usr/local/olinux32/lib
@@ -77,13 +77,16 @@ RECON_VERSION = ESE$(VER)_RECON
 
 LIBS = $(DICOM_LIBS) $(LOCAL_LIBS)
 
-# ML libraries
-LOECHHOME=/export/home/loecher
-LIB_DIRS += -L$(LOECHHOME)/linux/arma322/usr/lib64/
-INC_DIRS += -I$(LOECHHOME)/linux/arma322/usr/include/
-LIB_DIRS += -L$(LOECHHOME)/linux/acml440/gfortran64/lib/ -L$(LOECHHOME)/linux/acml440/gfortran64_mp/lib/
-INC_DIRS += -I$(LOECHHOME)/linux/acml440/gfortran64/include/ -I$(LOECHHOME)/linux/acml440/gfortran64_mp/include/
-LIBS += -lgfortran -lacml_mp
+# Armadillo/ACML libraries (coil compression and spirit stuff)
+MRFLOWHOME=/export/home/mrflow
+LIB_DIRS += -L$(MRFLOWHOME)/linux/arma322/usr/lib64/
+INC_DIRS += -I$(MRFLOWHOME)/linux/arma322/usr/include/
+LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
+INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
+
+LIBS += -lacml_mp -lacml_mv
+
+RUNPATH=$(MRFLOWHOME)/linux/arma322/usr/lib64/:$(MRFLOWHOME)/linux/acml440/gfortran64/lib/:$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
 
 # For Main COmpiles
 #RECON_OBJECTS = gridFFT.o wavelet3D.o polynomial_fitting.o gating_lib.o tornado_lib.o trajectory_lib.o io_lib.o matrix_lib.o master_lib.o iterative_lib.o csi_lib.o pcvipr_gradwarp.o master_recon.o 
@@ -93,11 +96,11 @@ RECON_OBJECTS =  gridFFT.o wavelet3D.o recon.o recon_lib.o softthreshold.o ge_pf
 # ditto
 recon = recon$(VER)
 
-all:  $(recon)
+all:  $(recon) clean_o 
 
 # recon-library-links compiles
 recon$(VER): $(RECON_OBJECTS)
-	$(CC) $(STATIC_LIBS) -o recon$(VER) $(RECON_OBJECTS) $(LIB_DIRS) $(LIBS) -D $(RECON_VERSION) $(SLINK) 
+	$(CC) $(STATIC_LIBS) -o recon$(VER) $(RECON_OBJECTS) $(LIB_DIRS) -Wl,-rpath,$(RUNPATH) $(LIBS) -D $(RECON_VERSION) $(SLINK) 
 
 # recon compiles
 recon.o: recon.cxx

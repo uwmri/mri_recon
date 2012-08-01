@@ -16,6 +16,7 @@
 using namespace std;
 
 double gettime(void);
+int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
 
 int main(int argc, char **argv){
 
@@ -24,12 +25,13 @@ int main(int argc, char **argv){
 	// ------------------------------------
 
 	RECON recon(argc,argv);
-	PFILE pfile;
 	MRI_DATA data;
 	
+		
 	cout << "----Read Data-----" << endl;	
 	if(recon.data_type==RECON_PFILE){	
 		// Read in P-File
+		PFILE pfile;
 		pfile.read_header(recon.filename);
 		pfile.read_data(0);
 	}else{
@@ -37,6 +39,31 @@ int main(int argc, char **argv){
 		recon.parse_external_header();
 		data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_readouts,recon.xres);
 	}
+	
+	if (recon.acc > 1){
+	  data.undersample(recon.acc);
+	}
+	if (recon.compress_coils > 0){
+	  data.coilcompress(recon.compress_coils);
+  }
+	
+	// --------------------------------------------------
+	// Code for recon (no PSD specific data/structures)
+	// --------------------------------------------------
+	reconstruction(argc,argv,data,recon);
+	
+	// ------------------------------------
+	// Post Processing + Export
+	// ------------------------------------
+
+
+	return(0);
+}
+
+
+
+
+int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 
 	cout << "----Geometry Modification-----" << endl;	
 	// Geometry Modification by Recon
@@ -135,7 +162,7 @@ int main(int argc, char **argv){
 						 cout << "Gridding Coil " << coil << endl;
 						 gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 						 gridding.image.conjugate_multiply(smaps[coil]);
-						 pils += ( gridding.return_array() );
+						 pils += gridding.image;
 					 }
 					 pils.write("PILS.dat");
 
@@ -179,7 +206,7 @@ int main(int argc, char **argv){
 				
 					// Setup 5D Wavelet
 					int dirs[5] = {4, 4, 4, 0, 3};
-					int waves[5] = {WAVE_DB4, WAVE_DB4, WAVE_DB4, WAVE_DB2, WAVE_DB2};
+					int waves[5] = {WAVE_SYM6, WAVE_SYM6, WAVE_SYM6, WAVE_DB2, WAVE_DB2};
 					WAVELET3D wave(&X,dirs,waves);
 					
 					// Setup Soft Thresholding
@@ -219,7 +246,7 @@ int main(int argc, char **argv){
 									cout << coil << "," << flush;
 									gridding.forward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 									gridding.image.conjugate_multiply(smaps[coil]);
-									R[e][t] += ( gridding.return_array() );
+									R[e][t] += gridding.image;
 								}
 								cout << endl;
 							}
@@ -248,7 +275,7 @@ int main(int argc, char **argv){
 									cout << coil << "," << flush;
 									gridding.forward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 									gridding.image.conjugate_multiply(smaps[coil]);
-									P += ( gridding.return_array() );
+									P += gridding.image;
 								}
 								cout << endl;
 
@@ -272,59 +299,31 @@ int main(int argc, char **argv){
 						X -= R;
 						cout << "Took " << (gettime()-start) << " s " << endl;
 
-						// X	
-						FILE *fid;
-						for(int ee=0; ee<recon.rcencodes; ee++){
-							fid = fopen("X.dat","a+");
-							fwrite( X[ee][0][X.Nz/2][0],X.Nx*X.Ny, sizeof(complex<float>),fid);
-							fclose(fid);
-						}
-
 						// ------------------------------------
 					  	// Soft thresholding operation
 					  	// ------------------------------------
+						if( iteration > 10){
 						cout << "Wavelet " << endl;
 						wave.random_shift();
 						wave.forward();	
-						
-						// Export X		
-						for(int ee=0; ee<recon.rcencodes;ee++){
-							fid = fopen("X.dat","a+");
-							fwrite( X[ee][0][X.Nz/2][0],X.Nx*X.Ny, sizeof(complex<float>),fid);
-							fclose(fid);
-						}
-
 						softthresh.hard_threshold(X);
-						
 						wave.backward();
 						cout << "Wavelet Done" << endl;
+						}
 						
 						// Export X		
-						for(int ee=0; ee<recon.rcencodes;ee++){
-							fid = fopen("X.dat","a+");
-							fwrite( X[ee][0][X.Nz/2][0],X.Nx*X.Ny, sizeof(complex<float>),fid);
-							fclose(fid);
-						}
-
+						X[0][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
 					}// Iteration			
 					
 					// Export Complex Images for Now
 					for(int ee=0; ee<recon.rcencodes; ee++){
 						char fname[80];
 						sprintf(fname,"IST_%d.dat",ee);
-						X[ee][0].write(fname);
+						X[ee][0].write_mag(fname);
 					}
 				}break;
 
 	}//Recon Type
-
-
-
-	// ------------------------------------
-	// Post Processing + Export
-	// ------------------------------------
-
-
 
 	cout << "Recon was completed successfully " << endl;	
 	return(0);
