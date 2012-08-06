@@ -455,9 +455,9 @@ void gridFFT::deapp_chop(){
 
 void gridFFT::grid_forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int Npts){
 
-	float cx = Sx/2 -1;
-	float cy = Sy/2 -1;
-	float cz = Sz/2 -1;
+	float cx = Sx/2;
+	float cy = Sy/2;
+	float cz = Sz/2;
 	
 	#pragma omp parallel for schedule(dynamic,1024) 
 	for (int i=0; i < Npts; i++) {
@@ -539,9 +539,9 @@ void gridFFT::grid_forward( complex<float> *data, float *kx, float *ky, float *k
 	
 void gridFFT::grid_backward( complex<float> *data, float *kx, float *ky, float *kz,float *kw,int Npts){
 
-	float cx = Sx/2 -1;
-	float cy = Sy/2 -1;
-	float cz = Sz/2 -1;
+	float cx = Sx/2;
+	float cy = Sy/2;
+	float cz = Sz/2;
 	
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {
