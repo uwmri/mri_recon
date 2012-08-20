@@ -153,7 +153,7 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						 gridding.image.conjugate_multiply(smaps[coil]);
 						 pils += gridding.image;
 					 }
-					 pils.write("PILS.dat");
+					 pils.write_mag("PILS.dat");
 
 				 }break;
 

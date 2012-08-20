@@ -258,15 +258,30 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Npr,int Nx)
 	for(int c=0; c<Num_Coils;c++){
 		cout << "Reading CoilL: " << c << endl;
 		for(int e=0; e<Num_Encodings; e++){
+		
+			while(1==1){
+			 
 			sprintf(fname,"%sKDATA_C%02d_VD_%d.dat",folder,c,e);
-			if( (fid=fopen(fname,"r")) == NULL){
-				cout << "Can't Open " << fname << endl;
-				cout << "Trying without encoding" << endl;
-				sprintf(fname,"%sKDATA_C%02d.dat",folder,c);
-				if((fid=fopen(fname,"r")) == NULL){	
-					cout << "Can't Open " << fname << " either " << endl;
-					exit(1);
-				}
+			if( (fid=fopen(fname,"r")) != NULL){
+				cout << "\tUsing name " << fname << endl;
+				break;
+			}
+			
+			sprintf(fname,"%sKDATA_C%02d_V%02d.dat",folder,c,e);
+			if( (fid=fopen(fname,"r")) != NULL){
+				cout << "\tUsing name " << fname << endl;
+				break;
+			}
+			
+			sprintf(fname,"%sKDATA_C%02d.dat",folder,c);
+			if( (fid=fopen(fname,"r")) != NULL){
+				cout << "\tUsing name " << fname << endl;
+				break;
+			}
+			
+			cout << "Can't Open " << fname << " or other forms " << endl;
+			exit(1);
+			
 			}
 			
 			if(fid!=NULL){	
