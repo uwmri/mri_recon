@@ -291,14 +291,13 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						// ------------------------------------
 					  	// Soft thresholding operation
 					  	// ------------------------------------
-						if( iteration > 10){
+						
 						cout << "Wavelet " << endl;
 						wave.random_shift();
 						wave.forward();	
 						softthresh.hard_threshold(X);
 						wave.backward();
 						cout << "Wavelet Done" << endl;
-						}
 						
 						// Export X		
 						X[0][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding

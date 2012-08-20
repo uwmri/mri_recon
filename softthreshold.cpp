@@ -40,16 +40,67 @@ SOFTTHRESHOLD::SOFTTHRESHOLD( int numarg, char **pstring){
  *----------------------------------------------*/ 
 void SOFTTHRESHOLD::hard_threshold(  array5D< complex<float> >Coef){
 	
-	complex <float> max_wave= Coef.max();
-	cout << "Max Value " << max_wave << endl;
+	// Get range
+	float max_wave= abs( Coef.max() );
+	float min_wave= abs( Coef.min() );
+	cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
+	
+	// Estimate histogram (sort)
+	int points_found = Coef.Numel;
+	int target = (int)( (1.0-thresh)*(float)Coef.Numel);
+	cout << "Thresh = " << thresh << " target points " << target << endl;
+	
+	// Range of threshold vals
+	int N = 64;
+	float std_wave = max_wave;
+	float *thresh_vals=new float[N];
+	int *thresh_count=new int[N];
+	thresh_vals[0]=max_wave;
+	thresh_count[0]=0;
+	for(int p=1; p < N; p++){
+		thresh_count[p]=0;
+		thresh_vals[p]=thresh_vals[p-1]/1.2;
+	}
+	
+	for(int e=0; e< Coef.Ne;e++){
+	for(int t=0; t< Coef.Nt;t++){
+	
+	#pragma omp parallel for
+	for(int k=0; k< Coef.Nz; k++){
+	for(int j=0; j< Coef.Ny; j++){
+	for(int i=0; i< Coef.Nx; i++){	
+		float v=abs( Coef[e][t][k][j][i]);
+		for(int p=0; p < N; p++){
+			if( v < thresh_vals[p]){
+				#pragma omp atomic
+				thresh_count[p]++;
+			}
+		}
+	}}}}}
+	
+	//for(int p=0; p < N; p++){
+	//	cout << "Val = " << thresh_vals[p] << " count = " << thresh_count[p] << endl;
+	//}
 		
-	float std_wave = abs(max_wave)*(thresh);
+	// Find best val
+	int p =0;
+	while( thresh_count[p] > target){
+		p++;
+	}
+	std_wave = 	thresh_vals[p];
+	cout << "Determined thresh = " << std_wave; 	
+		
+	// Apply theshold	
+	int count = 0;
 	for(int e=0; e< Coef.Ne;e++){
 	for(int t=0; t< Coef.Nt;t++){
 	for(int k=0; k< Coef.Nz; k++){
 		for(int j=0; j< Coef.Ny; j++){
 			for(int i=0; i< Coef.Nx; i++){	
+					if( abs( Coef[e][t][k][j][i]) < std_wave){
+						count++;
+					}
 					Coef[e][t][k][j][i] = Coef[e][t][k][j][i] *complex<float>(max(0.0f,abs(Coef[e][t][k][j][i])-std_wave)/abs(Coef[e][t][k][j][i])); 
-
 	}}}}} 
+	cout << "Removed " << (float)((float)count/(float)Coef.Numel) << " of the values" << endl;
 }

@@ -207,6 +207,30 @@ class array3D{
 		 	return(X);		
 		 } 
 		 
+		  // min of X
+		 C min( void ){
+			C *temp = new C[Nz];
+			
+			#pragma omp parallel for 		 
+		 	for(int k=0; k<Nz; k++){
+				// Y Energy
+				C jM =0;
+				for(int j=0; j<Ny; j++){
+					for(int i=0; i<Nx; i++){
+						jM = ( abs(jM) < abs(vals[k][j][i])) ? ( jM ) : ( vals[k][j][i]);			
+					}	
+				}
+				temp[k] = jM; // Add energy for whole slice
+			}
+			
+			C X=0.0;
+			for(int k=0; k<Nz; k++){
+				X= ( abs(temp[k]) < abs(X) ) ? ( temp[k] ) : ( X );
+			}		 
+		 	return(X);		
+		 } 
+		 
+		 
 		 // Sum of X
 		 C sum( void ){
 			C *temp = new C[Nz];
@@ -391,6 +415,7 @@ class array4D{
 		int Ny;
 		int Nz;
 		int Nt;
+		int Numel;
 		int MemExists;
 		
 		/*---------------------------------------------
@@ -408,7 +433,7 @@ class array4D{
 			Ny = y;
 			Nx = x;
 			Nt = t;
-			
+			Numel=t*z*y*x;
 			vals = new array3D<C>[Nt];
 			for(t=0; t<Nt; t++){
 				vals[t].alloc(Nz,Ny,Nx);			
@@ -525,6 +550,15 @@ class array4D{
 			}
 			return(m);		 
 		 }
+		
+		C min( void){
+		 	C m=0;
+			for(int t=0; t<Nt; t++){
+				C temp = vals[t].min();
+				m = ( abs(m) < abs(temp) ) ? ( m ) : ( temp );					
+			}
+			return(m);		 
+		 }
 		 
 		 
 		void operator += (array4D<C>temp){
@@ -567,6 +601,7 @@ class array5D{
 		int Nz;
 		int Nt;
 		int Ne;
+		int Numel;
 		/*---------------------------------------------
 		 *    Constructor / Decontructor / etc
 		 *---------------------------------------------*/
@@ -583,7 +618,7 @@ class array5D{
 			Nz=z;
 			Ny=y;
 			Nx=x;
-			
+			Numel=e*t*z*y*x;
 			vals = new array4D<C>[Ne];
 			for(t=0; t<Ne; t++){
 				vals[t].alloc(Nt,Nz,Ny,Nx);
@@ -691,6 +726,15 @@ class array5D{
 			for(int t=0; t<Ne; t++){
 				C temp = vals[t].max();
 				m = ( abs(m) > abs(temp) ) ? ( m ) : ( temp );					
+			}
+			return(m);		 
+		 }
+		 
+		 C min( void){
+		 	C m=0;
+			for(int t=0; t<Ne; t++){
+				C temp = vals[t].max();
+				m = ( abs(m) < abs(temp) ) ? ( m ) : ( temp );					
 			}
 			return(m);		 
 		 }
