@@ -6,7 +6,8 @@
  
  */
 
-#include "wavelet3D.h"			 
+#include "wavelet3D.h"	
+#include "temporal_diff.h"	
 #include "gridFFT.h"
 #include "ge_pfile_lib.h"
 #include "recon_lib.h"
@@ -84,13 +85,13 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 		cout << "Getting Coil Sensitivities " << endl;
 
 		int e=0;
-		gridding.k_rad = 24;
+		gridding.k_rad = 16;
 		smaps.alloc(data.Num_Coils,recon.rczres,recon.rcyres,recon.rcxres);
 		for(int coil=0; coil< data.Num_Coils; coil++){
 			gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 			smaps[coil]= ( gridding.return_array() );
 		}
-		gridding.k_rad = 99999;
+		gridding.k_rad = 9999;
 
 		// Spirit Code?
 
@@ -113,6 +114,16 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 				}}}
 	}
 	
+	
+	// TEMP for PCASL
+	//for(int coil=0; coil< data.Num_Coils; coil++){
+	//	cout << "Subtract " << coil << endl;
+	//	for(int jj=0; jj<data.Num_Pts*data.Num_Readouts; jj++){
+	//		data.kdata[coil][0][0][jj] -= data.kdata[coil][1][0][jj];
+	//	}
+	//}
+	//recon.rcencodes = 1;
+	//data.Num_Encodings=1;
 	
 
 	/*----------------------------Main Recons---------------------------------------*/	
@@ -166,7 +177,9 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 
 			       }
 
-		case(RECON_IST):{
+		
+		case(RECON_IST):
+		case(RECON_FISTA):{
 
 					// ------------------------------------
 					// Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
@@ -178,7 +191,13 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 					array5D< complex<float> >X;
 					X.alloc(recon.rcencodes,recon.rcframes,recon.rczres,recon.rcyres,recon.rcxres);
 					X.zero();
-
+					
+					array5D< complex<float> >X_old;
+					if( recon.recon_type == RECON_FISTA){
+						X_old.alloc(recon.rcencodes,recon.rcframes,recon.rczres,recon.rcyres,recon.rcxres);
+						X_old.zero();
+					}
+					
 					// Residue 	
 					array5D< complex<float> >R;
 					R.alloc(recon.rcencodes,recon.rcframes,recon.rczres,recon.rcyres,recon.rcxres);
@@ -194,22 +213,41 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 					diff_data.samesize(&data.kdata);
 				
 					// Setup 5D Wavelet
-					int dirs[5] = {4, 4, 4, 0, 3};
-					int waves[5] = {WAVE_SYM6, WAVE_SYM6, WAVE_SYM6, WAVE_DB2, WAVE_DB2};
-					WAVELET3D wave(&X,dirs,waves);
+					int dirs[5] = {4, 4, 4};
+					WAVELET3D wave(&X,dirs,WAVE_DB4);
+					TDIFF tdiff(X);
 					
 					// Setup Soft Thresholding
 					SOFTTHRESHOLD softthresh(argc,argv);
 										
 					cout << "Iterate" << endl;
 					double error0=0.0;
-					for(int iteration =0; iteration<50; iteration++){
-
+					for(int iteration =0; iteration<80; iteration++){
+						
 						double start = gettime();
 						cout << "\nIteration = " << iteration << endl;
-						diff_data.zero();
 						
+						// Update X based on FISTA 
+						if(recon.recon_type==RECON_FISTA){
+							X[0][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
+							
+							float A = 1.0 + (iteration - 1.0)/(iteration+1.0);
+							float B =     - (iteration - 1.0)/(iteration+1.0);
+																					
+							// Get Update
+							for(int jj=0; jj<X[0][0].Numel; jj++){
+								complex<float>Xn0 = X_old[0][0](jj);								
+								complex<float>Xn1 = X[0][0](jj);
+								X[0][0](jj) = A*Xn1 + B*Xn0;
+								X_old[0][0](jj) = Xn1;
+							}
+							
+							cout << "FISTA: A = " <<  A << " B = " << B << endl;
+							X[0][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
+						}
+												
 						// Ex 								
+						diff_data.zero();
 						for(int e=0; e< recon.rcencodes; e++){
 							for(int t=0; t< recon.rcframes; t++){
 								cout << "\tInverse Gridding Coil ";
@@ -225,6 +263,9 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						
 						// Ex-d
 						diff_data -= data.kdata;
+						
+						cout << "Energy in difference = " << diff_data.energy() << endl;
+						
 						
 						// E'(Ex-d)
 						R.zero();
@@ -281,6 +322,9 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						}
 						cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
 						
+						// Export X		
+						R[0][0].write_mag("R.dat",R.Nz/2,"a+"); // Just one slice from one encoding
+												
 						// Step 
 						complex<float>scale = scale_RhR/scale_RhP;
 						cout << "Scale = " << scale << endl;
@@ -292,15 +336,30 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 					  	// Soft thresholding operation
 					  	// ------------------------------------
 						
+						// Export X		
+						for(int ee=0; ee<recon.rcencodes; ee++){
+							X[ee][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
+						}
+						
+						tdiff.forward(X);
 						cout << "Wavelet " << endl;
 						wave.random_shift();
 						wave.forward();	
-						softthresh.hard_threshold(X);
+						if(iteration==1){
+							softthresh.get_threshold(X);
+						}
+						softthresh.soft_threshold(X);
 						wave.backward();
 						cout << "Wavelet Done" << endl;
+						tdiff.backward(X);
 						
 						// Export X		
-						X[0][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
+						for(int ee=0; ee<recon.rcencodes; ee++){
+							X[ee][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
+						}
+						
+						
+						
 					}// Iteration			
 					
 					// Export Complex Images for Now
@@ -308,6 +367,9 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						char fname[80];
 						sprintf(fname,"IST_%d.dat",ee);
 						X[ee][0].write_mag(fname);
+						
+						sprintf(fname,"IST_%d.complex.dat",ee);
+						X[ee][0].write(fname);
 					}
 				}break;
 

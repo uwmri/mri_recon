@@ -58,6 +58,7 @@ RECON::RECON(int numarg, char **pstring){
 		trig_flag(RECON_CG,"-isense",recon_type);
 		trig_flag(RECON_PILS,"-pils",recon_type);
 		trig_flag(RECON_IST,"-ist",recon_type);
+		trig_flag(RECON_FISTA,"-fista",recon_type);
 		
 		// Source of data
 		trig_flag(RECON_EXTERNAL,"-external_data",data_type);

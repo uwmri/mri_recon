@@ -38,7 +38,7 @@ SOFTTHRESHOLD::SOFTTHRESHOLD( int numarg, char **pstring){
 /*----------------------------------------------
      Threshold
  *----------------------------------------------*/ 
-void SOFTTHRESHOLD::hard_threshold(  array5D< complex<float> >Coef){
+void SOFTTHRESHOLD::get_threshold(  array5D< complex<float> >Coef){
 	
 	// Get range
 	float max_wave= abs( Coef.max() );
@@ -47,60 +47,73 @@ void SOFTTHRESHOLD::hard_threshold(  array5D< complex<float> >Coef){
 	
 	// Estimate histogram (sort)
 	int points_found = Coef.Numel;
-	int target = (int)( (1.0-thresh)*(float)Coef.Numel);
+	int target = (int)( thresh*(float)Coef.Numel);
+	int accuracy = (int)(0.001*(float)Coef.Numel);
 	cout << "Thresh = " << thresh << " target points " << target << endl;
 	
-	// Range of threshold vals
-	int N = 64;
-	float std_wave = max_wave;
-	float *thresh_vals=new float[N];
-	int *thresh_count=new int[N];
-	thresh_vals[0]=max_wave;
-	thresh_count[0]=0;
-	for(int p=1; p < N; p++){
-		thresh_count[p]=0;
-		thresh_vals[p]=thresh_vals[p-1]/1.2;
+	if(target < 2){
+		return;
 	}
-	
-	for(int e=0; e< Coef.Ne;e++){
-	for(int t=0; t< Coef.Nt;t++){
-	
-	#pragma omp parallel for
-	for(int k=0; k< Coef.Nz; k++){
-	for(int j=0; j< Coef.Ny; j++){
-	for(int i=0; i< Coef.Nx; i++){	
-		float v=abs( Coef[e][t][k][j][i]);
-		for(int p=0; p < N; p++){
-			if( v < thresh_vals[p]){
-				#pragma omp atomic
-				thresh_count[p]++;
+		
+	// New alogorithm based on compartments
+	threshold = 0.5*(max_wave - min_wave);
+	float max_t = max_wave;
+	float min_t = min_wave;
+	int iter = 0;
+	while( abs(points_found - target) > accuracy){
+		
+		// Update to midpoint of good compartment	
+		if(iter > 0){
+			if( points_found > target){
+				// Too many points found - make smaller
+				max_t = threshold;
+			}else{
+				// Too few points found - make larger
+				min_t = threshold;
+			}
+			threshold = 0.5*(max_t + min_t);
+			// cout << "New threshold = " << threshold << " Min= " << min_t << " Max= " << max_t << endl;
+		}
+		iter++;
+		
+		// Calculate Threshold
+		points_found= 0;
+		for(int e=0; e< Coef.Ne;e++){
+		for(int t=0; t< Coef.Nt;t++){
+		#pragma omp parallel for reduction(+:points_found)
+		for(int k=0; k< Coef.Nz; k++){
+		for(int j=0; j< Coef.Ny; j++){
+		for(int i=0; i< Coef.Nx; i++){	
+			float v=abs( Coef[e][t][k][j][i]);
+			if( v < threshold){
+				points_found++;
 			}
 		}
-	}}}}}
+		}}}}
+		// cout << "Threshold = " << threshold << " points found= " << points_found << " error = " <<  (fabs((float)points_found - (float)target)/(float)Coef.Numel) <<endl; 
 	
-	//for(int p=0; p < N; p++){
-	//	cout << "Val = " << thresh_vals[p] << " count = " << thresh_count[p] << endl;
-	//}
-		
-	// Find best val
-	int p =0;
-	while( thresh_count[p] > target){
-		p++;
 	}
-	std_wave = 	thresh_vals[p];
-	cout << "Determined thresh = " << std_wave; 	
-		
+}
+	
+
+void SOFTTHRESHOLD::soft_threshold(  array5D< complex<float> >Coef){
+	
+	cout << "Determined thresh = " << threshold; 	
 	// Apply theshold	
 	int count = 0;
 	for(int e=0; e< Coef.Ne;e++){
 	for(int t=0; t< Coef.Nt;t++){
+	#pragma omp parallel for reduction(+:count)
 	for(int k=0; k< Coef.Nz; k++){
 		for(int j=0; j< Coef.Ny; j++){
 			for(int i=0; i< Coef.Nx; i++){	
-					if( abs( Coef[e][t][k][j][i]) < std_wave){
+					if( abs( Coef[e][t][k][j][i]) <= threshold){
 						count++;
+						Coef[e][t][k][j][i] = complex<float>(0.0,0.0);
+					}else{
+						float theta = arg( Coef[e][t][k][j][i] );
+						Coef[e][t][k][j][i] = (abs(Coef[e][t][k][j][i])-threshold)*complex<float>(cos(theta),sin(theta));
 					}
-					Coef[e][t][k][j][i] = Coef[e][t][k][j][i] *complex<float>(max(0.0f,abs(Coef[e][t][k][j][i])-std_wave)/abs(Coef[e][t][k][j][i])); 
 	}}}}} 
 	cout << "Removed " << (float)((float)count/(float)Coef.Numel) << " of the values" << endl;
 }

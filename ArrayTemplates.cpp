@@ -340,7 +340,7 @@ class array3D{
 				vals[k][j][i] -=  temp.vals[k][j][i];					
 			}}}		 
 		 }
-		 		 		 		 
+		 		 		 		 		 
 		 // Write binary file		 
 		 void write(char *name){
 		 	FILE *fp=fopen(name,"w");
@@ -426,7 +426,7 @@ class array4D{
 		array4D< C >(){
 			MemExists = 0;
 		}
-		
+				
 		// Allocation with Size
 		void alloc(int t,int z,int y,int x){
 			Nz = z;
@@ -489,6 +489,12 @@ class array4D{
 		 // Allow Indexing with arrayND M[k][j][i] (suppose to be bad but useful for FFT coding)
 		 inline array3D<C> & operator[](const int i){
 		 	return(vals[i]);		 
+		 }
+		 
+		 inline C & operator ()(const int i){
+		 	int tt = (int)((float)i / (float)vals[0].Numel);
+			int ii = i % vals[0].Numel;
+			return( vals[tt](ii) );		 
 		 }
 		 
 		 void operator = (array4D<C>temp){
@@ -668,6 +674,12 @@ class array5D{
 		 // Allow Indexing with arrayND M[k][j][i] (suppose to be bad but useful for FFT coding)
 		 inline array4D<C> & operator[](const int i){
 		 	return(vals[i]);		 
+		 }
+		 
+		 inline C & operator ()(const int i){
+		 	int tt = (int)((float)i / (float)vals[0].Numel);
+			int ii = i % vals[0].Numel;
+			return( vals[tt](ii) );		 
 		 }
 		 
 		 void operator = (array5D<C>temp){

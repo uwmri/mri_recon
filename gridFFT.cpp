@@ -145,16 +145,16 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		printf("-kaiser                :use kaiser bessel kernel\n");
 	  	printf("-triangle              :use triangle kernel\n");
 	  	printf("-gauss                 :use gaussian kernel\n");
-	  	printf("-gridx #               :overgrid factor in x\n");
-	  	printf("-gridy #               :overgrid factor in y\n");
-	  	printf("-gridz #               :overgrid factor in z\n");
+	  	printf("-overgrid #            :overgrid factor\n");
 	  	printf("-fast_grid             :no overgriding with narrow kernel\n");
 	  	printf("-moderate_grid         :moderate kernel and overgrid\n");
 		printf("-large_grid            :use large oversampling with smaller kernel\n");
 		
-		float_flag("-grid_x",grid_x);
-		float_flag("-grid_y",grid_y);
-		float_flag("-grid_z",grid_z);
+		float_flag("-overgrid",overgrid);
+		float_flag("-dwinX",dwinX);
+		float_flag("-dwinY",dwinY);
+		float_flag("-dwinZ",dwinZ);
+		
 		trig_flag(KAISER,"-kaiser",kernel_type);
 		trig_flag(TRIANGLE,"-triangle",kernel_type);
 		

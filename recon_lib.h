@@ -26,6 +26,7 @@ using arma::uvec;
 #define RECON_PILS 1
 #define RECON_CG 2
 #define RECON_IST 3
+#define RECON_FISTA 4
 
 // Data Types
 #define RECON_PFILE 0

@@ -22,39 +22,40 @@ using namespace std;
 #define WAVE_SYM8 7
 #define WAVE_BO33 8
 
+#define WAVE_DIFF 9  // Temporal differences (not wavelet)
+#define WAVE_DFT 10  // FFT (not wavelet)
+
 #define THREADS 32
 
 class WAVELET3D{
 	public:
 		int N[5];
-		int L[5];
-		int W[5];
-		int S[5];
+		int L[3];
+		int S[3];
 		
 		int threads;
 		int max_level;
 		
-		float *lpf[5];
-		float *hpf[5];
-		float *Slpf[5];
-		float *Shpf[5];
-		int wN[5];
+		float *lpf;
+		float *hpf;
+		float *Slpf;
+		float *Shpf;
+		int wN;
+		int wType;
 		
-		int transform_in_z;
-				
 		array5D< complex<float> >Coef;
 						
 		//WAVELET3D(int,int,int,int,int);
 		//WAVELET3D( array3D< complex<float> > *,int,int);
 		
 		WAVELET3D( array3D< complex<float> > *,int,int);
-		WAVELET3D( array3D< complex<float> > *,int *,int *);
+		WAVELET3D( array3D< complex<float> > *,int *,int);
 		
 		WAVELET3D( array4D< complex<float> > *,int,int);
-		WAVELET3D( array4D< complex<float> > *,int *,int *);
+		WAVELET3D( array4D< complex<float> > *,int *,int);
 		
 		WAVELET3D( array5D< complex<float> > *,int ,int );
-		WAVELET3D( array5D< complex<float> > *,int *,int *);
+		WAVELET3D( array5D< complex<float> > *,int *,int);
 		~WAVELET3D();
 		
 		void get_filter_banks();
