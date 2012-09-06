@@ -16,7 +16,7 @@ class SOFTTHRESHOLD{
 	public:
 		// Declare Functions/variables here		
 		SOFTTHRESHOLD(int numarg, char **pstring);
-		float thresh;
+		double thresh;
 		void soft_threshold( array5D< complex<float> >Coef);
 		void get_threshold( array5D< complex<float> >Coef);
 		float threshold;

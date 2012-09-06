@@ -363,10 +363,10 @@ void MRI_DATA::coilcompress(float thresh)
 { 
   cout << "Coil compression . . . " << flush;
   cx_mat A;
-  A.zeros(kdata.Nx*kdata.Ny, kdata.Nt);
-  
-  for(int i = 0; i < kdata.Nt; i++) {
-    for(int j = 0; j < kdata.Nx*kdata.Ny; j++) {
+  A.zeros(kdata.size(2)*kdata.size(1)*kdata.size(0), kdata.size(3));
+ 
+  for(int i = 0; i < kdata.size(3); i++) {
+    for(int j = 0; j < kdata.size(2)*kdata.size(1)*kdata.size(0); j++) {
       A(j,i) = kdata[i][0][0][j];
   }}
   
@@ -393,7 +393,7 @@ void MRI_DATA::coilcompress(float thresh)
   kdata_cc.alloc(Num_Coils,Num_Encodings,Num_Readouts,Num_Pts);
   
   for(int i = 0; i < kdata_cc.Nt; i++) {
-    for(int j = 0; j < kdata_cc.Nx*kdata_cc.Ny; j++) {
+    for(int j = 0; j < kdata_cc.size(2)*kdata_cc.size(1)*kdata_cc.size(0); j++) {
       kdata_cc[i][0][0][j] = A(j,i);
   }}
   

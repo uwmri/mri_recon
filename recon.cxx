@@ -339,17 +339,18 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						// Export X		
 						for(int ee=0; ee<recon.rcencodes; ee++){
 							X[ee][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
+							X[ee][0].write_mipX("mipX.dat"); // Just one slice from one encoding
 						}
 						
 						tdiff.forward(X);
 						cout << "Wavelet " << endl;
-						wave.random_shift();
-						wave.forward();	
+						//wave.random_shift();
+						//wave.forward();	
 						if(iteration==1){
 							softthresh.get_threshold(X);
 						}
 						softthresh.soft_threshold(X);
-						wave.backward();
+						//wave.backward();
 						cout << "Wavelet Done" << endl;
 						tdiff.backward(X);
 						

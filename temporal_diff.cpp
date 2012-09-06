@@ -31,12 +31,13 @@ TDIFF::TDIFF( array5D< complex<float> >temp){
 
 void TDIFF::forward( array5D< complex<float> >temp){
 	
-	cx_vec s(Ne);
-	cx_vec ss(Ne);
 	
 	
 	for(int t=0; t<temp.Nt; t++){
+	#pragma omp parallel for 
 	for(int k=0; k<temp.Nz; k++){
+		cx_vec s(Ne);
+		cx_vec ss(Ne);
 		for(int j=0; j<temp.Ny; j++){
 			for(int i=0; i<temp.Nx; i++){	
 				//Copy
@@ -58,11 +59,11 @@ void TDIFF::forward( array5D< complex<float> >temp){
 
 void TDIFF::backward( array5D< complex<float> >temp){
 	
-	cx_vec s(Ne);
-	cx_vec ss(Ne);
-	
 	for(int t=0; t<temp.Nt; t++){
+	#pragma omp parallel for 
 	for(int k=0; k<temp.Nz; k++){
+		cx_vec s(Ne);
+		cx_vec ss(Ne);
 		for(int j=0; j<temp.Ny; j++){
 			for(int i=0; i<temp.Nx; i++){	
 				//Copy

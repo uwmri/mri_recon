@@ -12,8 +12,9 @@ Description: This code contains functions to perform thresholding operations
  *----------------------------------------------*/ 
 
 SOFTTHRESHOLD::SOFTTHRESHOLD( int numarg, char **pstring){
-	thresh = 0.01;	// Default 
-
+	thresh = 0.0;	// Default 
+	threshold =0.0;
+	
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
@@ -47,11 +48,12 @@ void SOFTTHRESHOLD::get_threshold(  array5D< complex<float> >Coef){
 	
 	// Estimate histogram (sort)
 	int points_found = Coef.Numel;
-	int target = (int)( thresh*(float)Coef.Numel);
-	int accuracy = (int)(0.001*(float)Coef.Numel);
+	int target = (int)( thresh*(double)Coef.Numel);
+	int accuracy = (int)(0.001*(double)Coef.Numel);
 	cout << "Thresh = " << thresh << " target points " << target << endl;
 	
 	if(target < 2){
+		threshold=0.0;
 		return;
 	}
 		
@@ -107,7 +109,7 @@ void SOFTTHRESHOLD::soft_threshold(  array5D< complex<float> >Coef){
 	for(int k=0; k< Coef.Nz; k++){
 		for(int j=0; j< Coef.Ny; j++){
 			for(int i=0; i< Coef.Nx; i++){	
-					if( abs( Coef[e][t][k][j][i]) <= threshold){
+					if( abs( Coef[e][t][k][j][i]) < threshold){
 						count++;
 						Coef[e][t][k][j][i] = complex<float>(0.0,0.0);
 					}else{

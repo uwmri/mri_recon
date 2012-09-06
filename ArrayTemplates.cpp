@@ -93,6 +93,17 @@ class array3D{
 		 	return( vals[0][0][i]);		 
 		 }
 		 
+		 int size(int dim){
+		 	
+			int d;
+			switch(dim){
+				case(0):{ d=Nx; } break;
+				case(1):{ d=Ny; } break;
+				case(2):{ d=Nz; } break;
+			}
+			return(d);
+		 }
+		 
 		 
 		 // Equals Sets Value		 
 		 void operator = (C temp){
@@ -378,7 +389,25 @@ class array3D{
      		}
 			fclose(fp);
 			delete []temp; 
-		 }		 
+		 }		
+		 
+		 void write_mipX(char *name){
+		 	
+			FILE *fp=fopen(name,"a+");
+     		for(int k=0;k<Nz;k++){			
+			for(int j=0;j<Ny;j++){
+				float m=0.0;
+				for(int i=0; i<Nx; i++){
+					m = ( norm(vals[k][j][i]) > m ) ? ( norm(vals[k][j][i]) ) : ( m );
+				}
+				m = sqrtf(m);
+				fwrite( &m,1, sizeof(float), fp);
+     			}
+			}
+			
+			fclose(fp);
+		 }		
+		  
 				 
 				 
 		 /* For Maximum calcs (prevent overloaded template)
@@ -521,7 +550,18 @@ class array4D{
 				vals[t].conjugate_multiply(temp.vals[t]);					
 			}		 
 		 }
-		
+				 
+		int size(int dim){
+		 	
+			int d;
+			switch(dim){
+				case(0):{ d=Nx; } break;
+				case(1):{ d=Ny; } break;
+				case(2):{ d=Nz; } break;
+				case(3):{ d=Nt; } break;
+			}
+			return(d);
+		 }
 		
  		void operator -= (array4D<C>temp){
 		 	if( temp.Nt != Nt){
@@ -696,7 +736,19 @@ class array5D{
 				vals[t].zero();					
 			}		 
 		 }
-		
+					 
+		int size(int dim){
+		 	
+			int d;
+			switch(dim){
+				case(0):{ d=Nx; } break;
+				case(1):{ d=Ny; } break;
+				case(2):{ d=Nz; } break;
+				case(3):{ d=Nt; } break;
+				case(4):{ d=Ne; } break;
+			}
+			return(d);
+		 }
 		 
 		void conjugate_multiply(array5D<C>temp){ 
 			if( temp.Ne != Ne){
