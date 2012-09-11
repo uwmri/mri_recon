@@ -27,6 +27,14 @@ class gridFFT{
   		array3D< complex<float> >image;   	/*Complex Storage Space*/
   		array3D< float >image_mag; /*Magnitude Storage Space*/
   
+  		// Controls for phase encode / 2D directions
+		int fft_in_x;
+  		int fft_in_y;
+  		int fft_in_z;
+  		int grid_in_x;
+  		int grid_in_y;
+  		int grid_in_z;
+  				
   		/*Overgridding Factor*/   
   		float grid_x;
   		float grid_y;
@@ -49,35 +57,35 @@ class gridFFT{
 		int Sx;
 		int Sy;
 		int Sz;
+		int kernel_type;
+		float overgrid;
 		  
   		/*Kaiser Bessel Beta - Calculated*/
   		float betaX;
   		float betaY;
   		float betaZ;
   
-  		/**Gridding Variables*/
+  		// Discrete Gridding Kernel Variables
   		float *winx;
   		float *winy;
   		float *winz;
-  
   		float dwinX;
   		float dwinY;
   		float dwinZ;
-  
   		float grid_modX;
   		float grid_modY;
   		float grid_modZ;
-  
   		float *grid_filterX;
   		float *grid_filterY;
   		float *grid_filterZ;
+  		
+		// FFT
   		fftwf_plan fft_plan;
 		fftwf_plan ifft_plan;
-		int kernel_type;
-		float overgrid;
 		
 		float k_rad; 
 		
+		int time_grid;
 		gridFFT();
 		~gridFFT();
 		
@@ -90,8 +98,8 @@ class gridFFT{
 		
 		array3D< complex<float> >return_array( void);
 		
-		void grid_forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
-		void grid_backward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
+		void chop_grid_forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
+		void chop_grid_backward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
 		float bessi0(float);
 		void plan_fft( void );
 		void deapp_chop_crop(void);

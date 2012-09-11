@@ -45,7 +45,11 @@ int main(int argc, char **argv){
 	}
 	if (recon.compress_coils > 0){
 	  data.coilcompress(recon.compress_coils);
-  }
+    }
+	
+	if(recon.rczres ==1){
+		omp_set_num_threads(1);
+	}
 	
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
@@ -84,12 +88,13 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 	if( recon.recon_type != RECON_SOS){ 
 		cout << "Getting Coil Sensitivities " << endl;
 
-		int e=0;
+		
 		gridding.k_rad = 16;
 		smaps.alloc(data.Num_Coils,recon.rczres,recon.rcyres,recon.rcxres);
+		smaps.zero();
 		for(int coil=0; coil< data.Num_Coils; coil++){
-			gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-			smaps[coil]= ( gridding.return_array() );
+				gridding.forward( data.kdata[coil][0][0],data.kx[0][0],data.ky[0][0],data.kz[0][0],data.kw[0][0],data.Num_Encodings*data.Num_Pts*data.Num_Readouts);
+				smaps[coil] +=( gridding.return_array() );
 		}
 		gridding.k_rad = 9999;
 
@@ -111,19 +116,18 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						smaps[coil][k][j][i] *= sos;
 					}
 
-				}}}
+		}}}
+		
+		
+		// Export
+		if(0==1){
+			for(int coil=0; coil< data.Num_Coils; coil++){
+				char fname[80];
+				sprintf(fname,"SMAP_C%d.dat",coil);
+				smaps[coil].write(fname);
+			}
+		}
 	}
-	
-	
-	// TEMP for PCASL
-	//for(int coil=0; coil< data.Num_Coils; coil++){
-	//	cout << "Subtract " << coil << endl;
-	//	for(int jj=0; jj<data.Num_Pts*data.Num_Readouts; jj++){
-	//		data.kdata[coil][0][0][jj] -= data.kdata[coil][1][0][jj];
-	//	}
-	//}
-	//recon.rcencodes = 1;
-	//data.Num_Encodings=1;
 	
 
 	/*----------------------------Main Recons---------------------------------------*/	
@@ -222,7 +226,7 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 										
 					cout << "Iterate" << endl;
 					double error0=0.0;
-					for(int iteration =0; iteration<80; iteration++){
+					for(int iteration =0; iteration< recon.max_iter; iteration++){
 						
 						double start = gettime();
 						cout << "\nIteration = " << iteration << endl;
@@ -253,8 +257,7 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 								cout << "\tInverse Gridding Coil ";
 								for(int coil=0; coil< data.Num_Coils; coil++){
 									cout << coil << "," << flush;
-									gridding.image  = X[e][t];
-									gridding.image *=smaps[coil];
+									gridding.image.multi_equal( X[e][t], smaps[coil]);
 									gridding.backward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 								}
 								cout << endl;
@@ -292,8 +295,7 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 								diff_data.zero();
 								for(int coil=0; coil< data.Num_Coils; coil++){
 									cout << coil << "," << flush;
-									gridding.image  = R[e][t];
-									gridding.image *=smaps[coil];
+									gridding.image.multi_equal( R[e][t], smaps[coil]);
 									gridding.backward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
 								}
 								cout << endl;
@@ -339,26 +341,24 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 						// Export X		
 						for(int ee=0; ee<recon.rcencodes; ee++){
 							X[ee][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
-							X[ee][0].write_mipX("mipX.dat"); // Just one slice from one encoding
+							X[ee][0].write_phase("X_Phase.dat",X.Nz/2,"a+"); // Just one slice from one encoding
 						}
 						
-						tdiff.forward(X);
-						cout << "Wavelet " << endl;
-						//wave.random_shift();
-						//wave.forward();	
-						if(iteration==1){
-							softthresh.get_threshold(X);
-						}
-						softthresh.soft_threshold(X);
-						//wave.backward();
-						cout << "Wavelet Done" << endl;
-						tdiff.backward(X);
+						if(softthresh.thresh > 0.0){
+							
+							tdiff.fft_e(X);
+							cout << "Wavelet " << endl;
+							wave.random_shift();
+							wave.forward();	
 						
-						// Export X		
-						for(int ee=0; ee<recon.rcencodes; ee++){
-							X[ee][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
+							if(iteration==1){
+								softthresh.get_threshold(X);
+							}
+							softthresh.soft_threshold(X);
+							wave.backward();
+							cout << "Wavelet Done" << endl;
+							tdiff.ifft_e(X);
 						}
-						
 						
 						
 					}// Iteration			

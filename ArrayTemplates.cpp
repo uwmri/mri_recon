@@ -104,10 +104,11 @@ class array3D{
 			return(d);
 		 }
 		 
+		
 		 
 		 // Equals Sets Value		 
 		 void operator = (C temp){
-		 	#pragma omp parallel for 
+		 	#pragma omp parallel for schedule(static,1)
 			for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -117,7 +118,7 @@ class array3D{
 		 
 		 // Scaling overloaded	
 		 void operator *= (float X){
-		 	#pragma omp parallel for 		 
+		 	#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -127,19 +128,19 @@ class array3D{
 		 
 		 // Scaling overloaded	
 		 void operator *= (complex<float> XX){
-		 	#pragma omp parallel for 		 
+		 	#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
 				vals[k][j][i] *= XX;			
 			}}}		 
 		 }
-		 
+		
 		 // Sum of X^2
 		 double energy (void){
 		 	double *temp = new double[Nz];
 		 	
-			#pragma omp parallel for 		 
+			#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 				
 				float scale = 1.0/( (float)(Nx*Ny*Nz));
@@ -170,7 +171,7 @@ class array3D{
 		 void operator *= (X temp){
 		 	check_array_dims(temp);
 			
-			#pragma omp parallel for 		 
+			#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -178,6 +179,20 @@ class array3D{
 			}}}		 
 		 }
 		 
+		 
+		 void multi_equal( array3D<C>tmp1,array3D<C>tmp2){
+		 	check_array_dims(tmp1);
+			check_array_dims(tmp2);
+			
+			#pragma omp parallel for schedule(static,1)		 
+		 	for(int k=0; k<Nz; k++){
+			for(int j=0; j<Ny; j++){
+			for(int i=0; i<Nx; i++){
+				vals[k][j][i] = ( tmp1.vals[k][j][i]*tmp2.vals[k][j][i]);					
+			}}}	
+		 
+		 }
+		 		 		 
 		 // Set Array to Zero Fast
 		 void zero( void ){
 		 	memset(vals[0][0],0,sizeof(C)*Nx*Ny*Nz);
@@ -187,7 +202,7 @@ class array3D{
 		 void operator = (array3D<C>temp){
 		 	check_array_dims(temp);
 			
-			#pragma omp parallel for 
+			#pragma omp parallel for schedule(static,1)
 			for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -195,11 +210,11 @@ class array3D{
 			}}}		 
 		 }
 		 
-		  // Sum of X
+		 // Sum of X
 		 C max( void ){
 			C *temp = new C[Nz];
 			
-			#pragma omp parallel for 		 
+			#pragma omp parallel for schedule(static,1) 		 
 		 	for(int k=0; k<Nz; k++){
 				// Y Energy
 				C jM =0;
@@ -222,7 +237,7 @@ class array3D{
 		 C min( void ){
 			C *temp = new C[Nz];
 			
-			#pragma omp parallel for 		 
+			#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 				// Y Energy
 				C jM =0;
@@ -246,7 +261,7 @@ class array3D{
 		 C sum( void ){
 			C *temp = new C[Nz];
 			
-			#pragma omp parallel for 		 
+			#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 				float scale = 1.0/( (float)(Nx*Ny*Nz));
 				// Y Energy
@@ -271,7 +286,7 @@ class array3D{
 		 	
 		 // In place Square		 
 		 void sqr( void ){
-		 	#pragma omp parallel for 
+		 	#pragma omp parallel for schedule(static,1)
 			for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -281,7 +296,7 @@ class array3D{
 		 		 		 
 		 // Doesn't work/make sense for complex
 		 void sqrt( void ){
-		 	#pragma omp parallel for 
+		 	#pragma omp parallel for schedule(static,1)
 			for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -291,7 +306,7 @@ class array3D{
 		 
 		 // Only works for complex 
 		 void complex_conj( void ){
-		 	#pragma omp parallel for 
+		 	#pragma omp parallel for schedule(static,1)
 			for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -317,7 +332,7 @@ class array3D{
 		 	
 			check_array_dims(temp);
 			
-			#pragma omp parallel for 		 
+			#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -331,7 +346,7 @@ class array3D{
 		 void operator += (X temp){
 		 	check_array_dims(temp);
 			
-			#pragma omp parallel for 		 
+			#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -344,7 +359,7 @@ class array3D{
 		 
 		 	check_array_dims(temp);
 			
-		 	#pragma omp parallel for 		 
+		 	#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
 			for(int i=0; i<Nx; i++){
@@ -359,6 +374,21 @@ class array3D{
      		fclose(fp); 
 		 }
 		 
+		 // Read binary file		 
+		 void read(char *name){
+		 	int j;
+			FILE *fid;
+			if( (fid=fopen(name,"r")) == NULL){
+				cout << "Array3D:Can't Open " << name << endl;
+				cout << "Exiting" << endl;
+				exit(1);
+			}else{	
+				if( (j=fread(vals[0][0],sizeof(C),Numel,fid)) != (Numel)){
+					cout << "Array3:Not enough data: only read " << j << "points" << endl;
+				}
+			}
+		 }
+		 		 
 		 // Write binary file (magnitude)		 
 		 void write_mag(char *name){
 		 	float *temp = new float[Nx];
@@ -390,6 +420,21 @@ class array3D{
 			fclose(fp);
 			delete []temp; 
 		 }		
+		 
+		 // Write binary file (phase, slice)		 
+		 void write_phase(char *name,int slice,const char *type){
+		 	float *temp = new float[Nx];
+			
+			FILE *fp=fopen(name,type);
+     		for(int j=0; j<Ny; j++){
+				for(int i=0; i<Nx; i++){
+					temp[i] = arg(vals[slice][j][i]);	
+				}
+				fwrite( temp,Nx, sizeof(float), fp);
+     		}
+			fclose(fp);
+			delete []temp; 
+		 }	
 		 
 		 void write_mipX(char *name){
 		 	

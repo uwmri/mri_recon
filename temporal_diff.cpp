@@ -57,6 +57,68 @@ void TDIFF::forward( array5D< complex<float> >temp){
 	}
 }
 
+
+void TDIFF::fft_e(array5D< complex<float> >temp){
+
+	fftwf_plan p;
+    
+	complex<float> *in = new complex<float>[temp.Ne];
+    p = fftwf_plan_dft_1d(temp.Ne, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_FORWARD, FFTW_ESTIMATE);
+    
+	float fft_scale = 1/ sqrt(temp.Ne);
+	
+	for(int t=0; t<temp.Nt; t++){
+	for(int k=0; k<temp.Nz; k++){
+		for(int j=0; j<temp.Ny; j++){
+			for(int i=0; i<temp.Nx; i++){	
+				//Copy
+				for(int e=0; e<temp.Ne; e++){
+					in[e]=temp[e][t][k][j][i];
+				}
+				fftwf_execute(p);
+								
+				//Copy Back
+				for(int e=0; e<temp.Ne; e++){
+					temp[e][t][k][j][i] =( fft_scale*in[e]);
+				}
+		}
+	}}
+	}
+	
+	fftwf_destroy_plan(p);
+	delete [] in;
+} 
+	 
+
+void TDIFF::ifft_e(array5D< complex<float> >temp){
+
+	fftwf_plan p;
+    
+	complex<float> *in = new complex<float>[temp.Ne];
+    p = fftwf_plan_dft_1d(temp.Ne, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_BACKWARD, FFTW_ESTIMATE);
+    float fft_scale = 1/ sqrt(temp.Ne);
+	
+	for(int t=0; t<temp.Nt; t++){
+	for(int k=0; k<temp.Nz; k++){
+		for(int j=0; j<temp.Ny; j++){
+			for(int i=0; i<temp.Nx; i++){	
+				//Copy
+				for(int e=0; e<temp.Ne; e++){
+					in[e]=temp[e][t][k][j][i];
+				}
+				fftwf_execute(p);
+								
+				//Copy Back
+				for(int e=0; e<temp.Ne; e++){
+					temp[e][t][k][j][i] =(fft_scale*in[e]);
+				}
+	}}}
+	}
+	
+	fftwf_destroy_plan(p);
+	delete [] in;
+}
+
 void TDIFF::backward( array5D< complex<float> >temp){
 	
 	for(int t=0; t<temp.Nt; t++){

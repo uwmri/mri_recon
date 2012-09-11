@@ -11,6 +11,7 @@
 using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.cpp"
+#include <fftw3.h>
 
 #include <armadillo>
 using arma::cx_mat;
@@ -29,6 +30,11 @@ class TDIFF{
 	 cx_mat AIe; 	// inverse in encoee
 	 int Nt;
 	 int Ne;
+	 
+	 
+	 void fft_e(array5D< complex<float> >temp);	 
+	 void ifft_e(array5D< complex<float> >temp);	 
+	 
 	 
 	 void forward(array5D< complex<float> >temp);
 	 void backward(array5D< complex<float> >temp);

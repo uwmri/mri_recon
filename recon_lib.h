@@ -66,6 +66,8 @@ class RECON{
       float smap_res;
 	  char filename[1024];
 	  
+	  int max_iter;
+	  
 	  int frames; 
 	  	  
 	  RECON(int numarg, char **pstring); 

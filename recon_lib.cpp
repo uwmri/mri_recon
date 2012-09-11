@@ -28,7 +28,7 @@ RECON::RECON(int numarg, char **pstring){
 	
 	acc = 1;
 	compress_coils = 0.0;
-	
+	max_iter = 50;
 
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
@@ -74,6 +74,9 @@ RECON::RECON(int numarg, char **pstring){
 		
 		// Time Resolved Flags
 		int_flag("-frames",frames);
+		
+		// Iterations for IST
+		int_flag("-max_iter",max_iter);
 		
 	}
   }
@@ -377,9 +380,9 @@ void MRI_DATA::coilcompress(float thresh)
   arma::svd_econ(U,s,V,A);
   
   s = s/s(0);
+    
   
   //cout << s << endl << endl;
-  
   uvec cc_find = arma::find(s > thresh, 1, "last");
   int cc_ncoils = cc_find(0)+1; // New number of coils
   
@@ -397,8 +400,9 @@ void MRI_DATA::coilcompress(float thresh)
       kdata_cc[i][0][0][j] = A(j,i);
   }}
   
+  kdata.Nt = Num_Coils;
   kdata.freeArray();
-	kdata.point_to_4D(&kdata_cc);
+  kdata.point_to_4D(&kdata_cc);
   
   cout << "done" << endl;
 }
