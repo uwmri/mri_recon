@@ -400,19 +400,19 @@ void MRI_DATA::coilcompress(float thresh)
   
   A = A*V.cols(0,cc_ncoils-1);
   
-  array4D< complex<float> > kdata_cc;
-  kdata_cc.alloc(Num_Coils,Num_Encodings,Num_Readouts,Num_Pts);
+  array5D< complex<float> > kdata_cc;
+  kdata_cc.alloc(Num_Coils,Num_Encodings,Num_Slices,Num_Readouts,Num_Pts);
   
   for(int i = 0; i < kdata_cc.Nt; i++) {
      for(int s = 0; s < kdata.size(3); s++){
 		int offset = s*( kdata.size(2)*kdata.size(1)*kdata.size(0) );
 		for(int j = 0; j < kdata_cc.size(2)*kdata_cc.size(1)*kdata_cc.size(0); j++) {
-      		kdata_cc[i][0][0][j] = A(j+offset,i);
+      		kdata_cc[i][s][0][0][j] = A(j+offset,i);
   }}}
   
   kdata.Nt = Num_Coils;
   kdata.freeArray();
-  kdata.point_to_4D(&kdata_cc);
+  kdata.point_to_5D(&kdata_cc);
   
   cout << "done" << endl;
 }

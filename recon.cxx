@@ -166,7 +166,8 @@ array5D< complex<float> >reconstruction( int argc, char **argv, MRI_DATA data,RE
 							for(int coil=0; coil< data.Num_Coils; coil++){
 								cout << coil << "," << flush;
 								gridding.forward( data.kdata[coil][e],data.kx[e],data.ky[e],data.kz[e],data.kw[e]);
-								X[e][t] = gridding.image;
+								gridding.image.conjugate_multiply(gridding.image);
+								X[e][t] += gridding.image;
 							}
 							cout << endl;
 						}
