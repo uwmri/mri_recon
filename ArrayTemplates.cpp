@@ -195,7 +195,10 @@ class array3D{
 		 		 		 
 		 // Set Array to Zero Fast
 		 void zero( void ){
-		 	memset(vals[0][0],0,sizeof(C)*Nx*Ny*Nz);
+		 	#pragma omp parallel for 		 
+		 	for(int k=0; k<Nz; k++){
+				memset(vals[k][0],0,sizeof(C)*Nx*Ny);
+		 	}
 		 }
 		 
 		 // Pointwise equals 
@@ -700,6 +703,7 @@ class array5D{
 		// Constructor
 		array5D< C >(){
 			MemExists = 0;
+			vals = NULL;
 		}
 		
 		// Allocation with Size
@@ -751,6 +755,14 @@ class array5D{
 			}
 		}
 		
+		void point_to_5D( array5D<C> *temp){
+			Ne=temp->Ne;
+			Nt=temp->Nt;
+			Nz=temp->Nz;
+			Ny=temp->Ny;
+			Nx=temp->Nx;
+			vals = temp->vals;
+		}
 		
 		/*---------------------------------------------
 		 *    Utilities - Operators
@@ -781,6 +793,19 @@ class array5D{
 				vals[t].zero();					
 			}		 
 		 }
+		
+		void samesize( array5D<C> *temp){
+			
+			Ne=temp->Ne;
+			Nz=temp->Nz;
+			Ny=temp->Ny;
+			Nx=temp->Nx;
+			Nt=temp->Nt;
+			vals = new array4D<C>[Ne];
+			for(int e=0; e<Ne; e++){
+				vals[e].alloc(Nt,Nz,Ny,Nx);			
+			}
+		}
 					 
 		int size(int dim){
 		 	

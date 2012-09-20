@@ -55,6 +55,7 @@ class RECON{
 	  int xres;
 	  int num_readouts;
 	  int num_coils;
+	  int num_slices;
 	  int ss_2d;
 	  int multi_echo;
 	    
@@ -80,16 +81,17 @@ class RECON{
 class MRI_DATA{
 	public:
 		/*Raw Data - 3rd Dimension is for encoding*/
-		array3D<float> kx;
-		array3D<float> ky;
-		array3D<float> kz;
-		array3D<float> kw;
-		array4D< complex<float> > kdata;
+		array4D<float> kx;
+		array4D<float> ky;
+		array4D<float> kz;
+		array4D<float> kw;
+		array5D< complex<float> > kdata;
 		int Num_Encodings;
 		int Num_Readouts;
+		int Num_Slices;
 		int Num_Pts;
 		int Num_Coils;
-		void read_external_data(char *folder,int NumRecv,int Ne,int Npr,int Nx);
+		void read_external_data(char *folder,int NumRecv,int Ne,int Ns,int Npr,int Nx);
 		void undersample(int);
 		void coilcompress(float);
 		MRI_DATA( MRI_DATA *);

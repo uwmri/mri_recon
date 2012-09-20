@@ -93,8 +93,8 @@ class gridFFT{
 		void read_commandline(int numarg, char **pstring);
 		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
 		void deapp_chop();
-		void forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
-		void backward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
+		void forward( array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw);
+		void backward( array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw);
 		
 		array3D< complex<float> >return_array( void);
 		

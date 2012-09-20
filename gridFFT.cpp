@@ -202,7 +202,7 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 
 void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
   
-  // How many pts in kernel per delta k
+  // How many pts in kernel per delta k for kernel lookup table
   grid_modX = 600;
   grid_modY = 600;
   grid_modZ = 600;
@@ -252,7 +252,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 		int grid_lengthY = (int)( (float)dwinY*(float)grid_modY);
 		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
 		
-		// Alloc Structs for Gridding
+		// Alloc Lookup Table Structs for Gridding
 		grid_filterX= new float[ grid_lengthX+10];
 		grid_filterY= new float[ grid_lengthY+10];
 		grid_filterZ= new float[ grid_lengthZ+10];
@@ -355,11 +355,15 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
   	winx[i] = 0.0;
   	float ipos = i - (float)Sx/2.0;
 	for(int grid_pos = 0; grid_pos < dwinX*grid_modX; grid_pos++){ 
+		// Fourier Transform of Kernel
 		winx[i] += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modX / (float)Sx)*grid_filterX[grid_pos];
 	}
 	winx[i] = (float)grid_modX/winx[i];
+	
+	// Put chopping in window to save time
 	float fact =  ((float)( 2*(( i  )%2) - 1));
 	winx[i]*=fact / Sx;
+	
 	if(grid_in_x==0){
 		winx[i]=1.0;
 	}
@@ -415,7 +419,7 @@ double gettime(void){
 //    Forward Transform
 //----------------------------------------
 
-void gridFFT::forward(complex<float> *data, float *kx, float *ky, float *kz, float *kw,int Npts){
+void gridFFT::forward(array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw){
 	
 	double start=0;
 	double total=0;
@@ -425,7 +429,8 @@ void gridFFT::forward(complex<float> *data, float *kx, float *ky, float *kz, flo
 	if(time_grid) cout << endl << "Zero: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
-	chop_grid_forward(data,kx,ky,kz,kw,Npts);
+	int Npts= data.Numel;
+	chop_grid_forward(data[0][0],kx[0][0],ky[0][0],kz[0][0],kw[0][0],Npts);
 	if(time_grid) cout << "Grid: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
@@ -439,7 +444,7 @@ void gridFFT::forward(complex<float> *data, float *kx, float *ky, float *kz, flo
 	
 }	
 
-void gridFFT::backward(complex<float> *data, float *kx, float *ky, float *kz, float *kw,int Npts){
+void gridFFT::backward(array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw){
 	
 	double start=0;
 	double total=0;
@@ -457,7 +462,8 @@ void gridFFT::backward(complex<float> *data, float *kx, float *ky, float *kz, fl
 	if(time_grid) cout << "  iFFT: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
-	chop_grid_backward(data,kx,ky,kz,kw,Npts);
+	int Npts = data.Numel;
+	chop_grid_backward(data[0][0],kx[0][0],ky[0][0],kz[0][0],kw[0][0],Npts);
 	if(time_grid) cout << "  iGrid: " << gettime()-start;
 	
 	if(time_grid) cout << "  :: Total: " << gettime()-total << endl;
@@ -467,7 +473,7 @@ void gridFFT::backward(complex<float> *data, float *kx, float *ky, float *kz, fl
 }
 
 void gridFFT::chop(void){
-	#pragma omp parallel for schedule(static,1)
+	#pragma omp parallel for 
 	for(int k=0; k < Sz; k++){
       for (int j=0; j< Sy; j++){
     	for (int i=0; i < Sx; i++){
@@ -481,7 +487,7 @@ void gridFFT::chop(void){
 //----------------------------------------
 void gridFFT::deapp_chop_crop(){
 	
-	#pragma omp parallel for schedule(static,1)
+	#pragma omp parallel for 
 	for(int k=0; k< Nz; k++){ 
 	  float wtz = winz[k+og_sz];
 	  for(int j=0; j<Ny; j++){ 
@@ -496,7 +502,7 @@ void gridFFT::deapp_chop_crop(){
 //----------------------------------------
 void gridFFT::icrop_deapp_chop(){
 	
-	#pragma omp parallel for schedule(static,1)
+	#pragma omp parallel for 
 	for(int k=0; k< Nz; k++){ 
 	  float wtz = winz[k+og_sz];
 	  for(int j=0; j<Ny; j++){ 
@@ -510,7 +516,7 @@ void gridFFT::icrop_deapp_chop(){
 //  Multiple by Precalculated Deappodization Window
 //-----------------------------------------------------
 void gridFFT::deapp_chop(){
- 	#pragma omp parallel for schedule(static,1)
+ 	#pragma omp parallel for 
 	for(int k=0; k<Sz; k++){ 
 	 float wtz = winz[k];
      for(int j=0; j<Sy; j++){ 
