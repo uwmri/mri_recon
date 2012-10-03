@@ -21,6 +21,9 @@ class SOFTTHRESHOLD{
 		void get_threshold( array5D< complex<float> >Coef);
 		float threshold;
 		
+		// Iterative soft thresholding code
+		void fista_update( array5D< complex<float> >X,array5D< complex<float> >X_old,int iteration);
+		
 	private:	
 		
 };

@@ -85,6 +85,8 @@ class MRI_DATA{
 		array4D<float> ky;
 		array4D<float> kz;
 		array4D<float> kw;
+		array4D<float> kt;	 // TE Time (s)
+		array4D<float> times; // Time of readout for gating etc (s)
 		array5D< complex<float> > kdata;
 		int Num_Encodings;
 		int Num_Readouts;

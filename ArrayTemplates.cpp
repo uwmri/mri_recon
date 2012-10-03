@@ -243,7 +243,7 @@ class array3D{
 			#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 				// Y Energy
-				C jM =0;
+				C jM =vals[k][0][0];
 				for(int j=0; j<Ny; j++){
 					for(int i=0; i<Nx; i++){
 						jM = ( abs(jM) < abs(vals[k][j][i])) ? ( jM ) : ( vals[k][j][i]);			
@@ -252,7 +252,7 @@ class array3D{
 				temp[k] = jM; // Add energy for whole slice
 			}
 			
-			C X=0.0;
+			C X=temp[0];
 			for(int k=0; k<Nz; k++){
 				X= ( abs(temp[k]) < abs(X) ) ? ( temp[k] ) : ( X );
 			}		 
@@ -394,19 +394,21 @@ class array3D{
 		 		 
 		 // Write binary file (magnitude)		 
 		 void write_mag(char *name){
-		 	float *temp = new float[Nx];
+		 	
 			
-			FILE *fp=fopen(name,"w");
-     		for(int k=0; k<Nz; k++){
+			
+			float *temp = new float[Nx]; 
+			ofstream ofs(name, ios_base::binary);
+			
+			for(int k=0; k<Nz; k++){
 			for(int j=0; j<Ny; j++){
-			
 				for(int i=0; i<Nx; i++){
 					temp[i] = abs(vals[k][j][i]);	
 				}
-			
-				fwrite( temp,Nx, sizeof(float), fp);
+				ofs.write( (char *)temp,Nx*sizeof(float));
      		}}
-			fclose(fp); 
+			delete [] temp;
+			
 		 }
 		
 		 // Write binary file (magnitude, slice)		 
@@ -649,7 +651,9 @@ class array4D{
 		 	C m=0;
 			for(int t=0; t<Nt; t++){
 				C temp = vals[t].min();
-				m = ( abs(m) < abs(temp) ) ? ( m ) : ( temp );					
+				if( ((abs(m) > abs(temp))) || (t==0) ){
+					m = temp;
+				}
 			}
 			return(m);		 
 		 }
@@ -868,7 +872,9 @@ class array5D{
 		 	C m=0;
 			for(int t=0; t<Ne; t++){
 				C temp = vals[t].max();
-				m = ( abs(m) < abs(temp) ) ? ( m ) : ( temp );					
+				if( ( abs(m) > abs(temp) ) || (t==0)){
+					m = temp;
+				}
 			}
 			return(m);		 
 		 }

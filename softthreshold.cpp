@@ -119,3 +119,25 @@ void SOFTTHRESHOLD::soft_threshold(  array5D< complex<float> >Coef){
 	}}}}} 
 	cout << "Removed " << (float)((float)count/(float)Coef.Numel) << " of the values" << endl;
 }
+
+void SOFTTHRESHOLD::fista_update(  array5D< complex<float> >X,array5D< complex<float> >X_old,int iteration){
+	  
+	float A = 1.0 + (iteration - 1.0)/(iteration+1.0);
+	float B =     - (iteration - 1.0)/(iteration+1.0);
+
+	// Get Update
+	for(int e=0; e<X.size(4); e++){
+		for(int t=0; t<X.size(3);t++){
+	
+		  for(int jj=0; jj<X[0][0].Numel; jj++){
+				complex<float>Xn0 = X_old[e][t](jj);								
+				complex<float>Xn1 = X[e][t](jj);
+				X[e][t](jj) = A*Xn1 + B*Xn0;
+				X_old[e][t](jj) = Xn1;
+		  }
+		}
+	}			  
+
+}
+	
+

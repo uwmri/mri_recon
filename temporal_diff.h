@@ -35,9 +35,16 @@ class TDIFF{
 	 void fft_e(array5D< complex<float> >temp);	 
 	 void ifft_e(array5D< complex<float> >temp);	 
 	 
+	 void fft_t(array5D< complex<float> >temp);	 
+	 void ifft_t(array5D< complex<float> >temp);	 
+	 
 	 
 	 void forward(array5D< complex<float> >temp);
 	 void backward(array5D< complex<float> >temp);
+	 
+	 void tdiff(array5D< complex<float> >temp);
+	 void inv_tdiff(array5D< complex<float> >temp);
+	 
 	private:	
 		
 };

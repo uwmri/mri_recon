@@ -57,7 +57,7 @@ gridFFT::gridFFT(){
 	fft_in_z=1;
   	fft_in_y=1;
   	fft_in_z=1;
-  	grid_in_z=1;
+  	grid_in_x=1;
   	grid_in_y=1;
   	grid_in_z=1;
 	k_rad=9999.0;
@@ -543,11 +543,12 @@ void gridFFT::chop_grid_forward( complex<float> *data, float *kx, float *ky, flo
       	
 		complex<float>temp =data[i];
 				
+		// Density Comp
+		temp *= kw[i];
+		
 		// Do not grid zeros
      	if( temp==complex<float>(0,0)) continue;
 		
-		// Density Comp
-		temp *= kw[i];
 				
 	    // Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
@@ -633,6 +634,10 @@ void gridFFT::chop_grid_backward( complex<float> *data, float *kx, float *ky, fl
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {
       	
+		
+		// Do not grid zeros
+     	if( kw[i]==0.0) continue;
+		
 		// Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
 	    // is contributing too.

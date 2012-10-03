@@ -6,7 +6,7 @@ DICOM =0
 ifeq ($(GE),1)
 	CC = g++32
 else
-	CC = g++
+	CC = g++44
 endif
 
 

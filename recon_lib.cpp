@@ -48,6 +48,8 @@ RECON::RECON(int numarg, char **pstring){
 		int_flag("-rcxres",rcxres);
 		int_flag("-rcyres",rcyres);
 		int_flag("-rczres",rczres);
+		int_flag("-rcframes",rcframes);
+		
 		float_flag("-zoom",zoom);
 		float_flag("-zoom_x",zoom_x);
 		float_flag("-zoom_y",zoom_y);
@@ -230,6 +232,39 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 				fclose(fid);
 			}
 	}
+	
+	cout << "Alloc Times " << endl;
+	times.alloc(Num_Encodings,Num_Slices,Num_Readouts,Num_Pts);
+	cout << "Read  Times " << endl;
+	for(int e=0; e<Num_Encodings; e++){
+			
+			while(1==1){
+			 
+			sprintf(fname,"%sTimes_VD_%d.dat",folder,e);
+			if( (fid=fopen(fname,"r")) != NULL){
+				cout << "\tUsing name " << fname << endl;
+				break;
+			}
+			
+			sprintf(fname,"%sTimes.dat",folder);
+			if( (fid=fopen(fname,"r")) != NULL){
+				cout << "\tUsing name same name for all encodings " << fname << endl;
+				break;
+			}
+			
+			cout << "Can't Open " << fname << " or other forms " << endl;
+			exit(1);
+			
+			}
+			
+			if(fid!=NULL){	
+				if( (int)fread(times[e][0][0],sizeof(float),Num_Slices*Num_Readouts*Num_Pts,fid) != (Num_Slices*Num_Readouts*Num_Pts)){
+					cout << "Error can't read times file" << endl;
+					times.freeArray();
+				}
+				fclose(fid);
+			}
+	}
 
 	cout << "Alloc Kw " << endl;
 	kw.alloc(Num_Encodings,Num_Slices,Num_Readouts,Num_Pts);
@@ -261,7 +296,7 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 	cout << "Completed Reading Kx,Ky,Kz" << endl;
 	cout << "Reading Kdata" << endl;
 	
-	kdata.alloc(Num_Coils,Num_Slices,Num_Encodings,Num_Readouts,Num_Pts);
+	kdata.alloc(Num_Coils,Num_Encodings,Num_Slices,Num_Readouts,Num_Pts);
 	
 	for(int c=0; c<Num_Coils;c++){
 		cout << "Reading CoilL: " << c << endl;
