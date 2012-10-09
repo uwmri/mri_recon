@@ -6,7 +6,7 @@ RECON::RECON(int numarg, char **pstring){
 	
 	// Default Values
 	recon_type = RECON_SOS;
-	data_type = RECON_PFILE;
+	data_type = RECON_EXTERNAL;
 	
 	numrecv = 1;
 	zero_fill = 1.0;

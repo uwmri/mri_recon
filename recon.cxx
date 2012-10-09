@@ -9,7 +9,7 @@
 #include "wavelet3D.h"	
 #include "temporal_diff.h"	
 #include "gridFFT.h"
-#include "ge_pfile_lib.h"
+// #include "ge_pfile_lib.h"
 #include "recon_lib.h"
 #include "softthreshold.h"
 #include "ArrayTemplates.cpp"
@@ -32,9 +32,9 @@ int main(int argc, char **argv){
 	cout << "----Read Data-----" << endl;	
 	if(recon.data_type==RECON_PFILE){	
 		// Read in P-File (doesn't work)
-		PFILE pfile;
-		pfile.read_header(recon.filename);
-		pfile.read_data(0);
+		//PFILE pfile;
+		//pfile.read_header(recon.filename);
+		//pfile.read_data(0);
 	}else{
 		// Read in External Data Format
 		recon.parse_external_header();

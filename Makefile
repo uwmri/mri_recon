@@ -90,7 +90,7 @@ RUNPATH=$(MRFLOWHOME)/linux/arma322/usr/lib64/:$(MRFLOWHOME)/linux/acml440/gfort
 
 # For Main COmpiles
 #RECON_OBJECTS = gridFFT.o wavelet3D.o polynomial_fitting.o gating_lib.o tornado_lib.o trajectory_lib.o io_lib.o matrix_lib.o master_lib.o iterative_lib.o csi_lib.o pcvipr_gradwarp.o master_recon.o 
-RECON_OBJECTS =  gridFFT.o temporal_diff.o wavelet3D.o recon.o recon_lib.o softthreshold.o ge_pfile_lib.o
+RECON_OBJECTS =  gridFFT.o temporal_diff.o wavelet3D.o recon.o recon_lib.o softthreshold.o #ge_pfile_lib.o
 
 
 # ditto
