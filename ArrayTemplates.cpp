@@ -195,7 +195,7 @@ class array3D{
 		 		 		 
 		 // Set Array to Zero Fast
 		 void zero( void ){
-		 	#pragma omp parallel for 		 
+		 	#pragma omp parallel for schedule(static,1)		 
 		 	for(int k=0; k<Nz; k++){
 				memset(vals[k][0],0,sizeof(C)*Nx*Ny);
 		 	}

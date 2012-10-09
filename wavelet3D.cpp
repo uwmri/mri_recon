@@ -120,8 +120,6 @@ WAVELET3D::WAVELET3D( array5D< complex<float> >*temp, int *l, int type){
 	N[1] = temp->Ny;
 	N[0] = temp->Nx;
 	
-	L[4] = l[4];
-	L[3] = l[3];
 	L[2] = l[2];
 	L[1] = l[1];
 	L[0] = l[0];

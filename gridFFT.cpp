@@ -641,8 +641,7 @@ void gridFFT::chop_grid_backward( complex<float> *data, float *kx, float *ky, fl
 		// Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
 	    // is contributing too.
-	   	data[i] = complex<float>(0,0);
-				
+	   			
 		// Compute Coordinates + Check
 		float dkx = kx[i]*grid_x + cx;
 		int sx = (int)ceil( dkx - dwinX);
@@ -696,7 +695,7 @@ void gridFFT::chop_grid_backward( complex<float> *data, float *kx, float *ky, fl
 	    	}/* end lz loop */
 	  	  }/* end ly */
 		 }/* end lx */
-		 data[i] = temp;
+		 data[i] += temp;
 	
 	}/* end data loop */
 	return;
