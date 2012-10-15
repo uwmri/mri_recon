@@ -1,3 +1,5 @@
+#pragma once
+
 // Array Class for MRI Reconstruction
 //   Used to allow very specific control over memory
 //   and parallelization of key operations 
@@ -5,8 +7,41 @@
 //		Array2D,Array3D	 - With contigous memory access
 //		Array4D,Array5D	 - Non-contigous memory access (3D are contigous)
 
-#ifndef hARRAY
-#define hARRAY
+
+
+// Switching to Blitz Based Arrays
+#include "blitz/array.h"
+using namespace blitz;
+
+/*
+ * Class RowMajorArray specializes GeneralArrayStorage to provide column
+ * major arrays (column major ordering, base of 0).
+ */
+
+template<int N_rank>
+class RowMajorArray : public GeneralArrayStorage<N_rank> {
+private:
+    typedef GeneralArrayStorage<N_rank> T_base;
+    typedef _bz_typename T_base::noInitializeFlag noInitializeFlag;
+    using T_base::ordering_;
+    using T_base::ascendingFlag_;
+    using T_base::base_;
+public:
+    RowMajorArray()
+        : GeneralArrayStorage<N_rank>(noInitializeFlag())
+    {
+	for (int i=0; i < N_rank; ++i)
+          ordering_(i) = i;        
+	ascendingFlag_ = true;
+        base_ = 0;
+    }
+};
+
+
+
+
+
+// Custom Based Array 
 
 using namespace std;
 
@@ -908,6 +943,5 @@ class array5D{
 };
 
 
-#endif
 
 

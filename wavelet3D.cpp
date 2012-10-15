@@ -13,32 +13,14 @@ WAVELET3D::~WAVELET3D(){
  	// Not here yet
 }
 
-#ifdef XXX
-WAVELET3D::WAVELET3D( int sz,int sy, int sx, int l, int wavelet_type){
+WAVELET3D::WAVELET3D( Array< complex<float>, 3 >& temp, int *l, int type){
 	
-	/// cout << "Init Wavelet " << endl;
-	levels= l;
-	
-	// Check dimensions to make sure we don't have to zero pad
-	N[0] = sx;
-	N[1] = sy;
-	N[2] = sz;
-	N[3] = 1;
-	N[4] = 1;
-	Coef.alloc(1,1,N[2],N[1],N[0]);
-	get_filter_banks( wavelet_type );
-	setup_wavelet_directions();
-}
-#endif
+	Coef = temp; 
 
-WAVELET3D::WAVELET3D( array3D< complex<float> >*temp, int *l, int type){
-	
 	/// cout << "Init Wavelet " << endl;
-	N[4] = 1;
-	N[3] = 1;
-	N[2] = temp->Nz;
-	N[1] = temp->Ny;
-	N[0] = temp->Nx;
+	N[2] = temp.length(2);
+	N[1] = temp.length(1);
+	N[0] = temp.length(0);
 	
 	L[2] = l[2];
 	L[1] = l[1];
@@ -47,53 +29,9 @@ WAVELET3D::WAVELET3D( array3D< complex<float> >*temp, int *l, int type){
 	wType = type;
 			
 	get_filter_banks();
-	Coef.point_to_3D(temp);
 	setup_wavelet_directions();
 }
 
-
-
-WAVELET3D::WAVELET3D( array4D< complex<float> >*temp, int l, int type){
-	
-	/// cout << "Init Wavelet " << endl;
-	N[4] = 1;
-	N[3] = temp->Nt;
-	N[2] = temp->Nz;
-	N[1] = temp->Ny;
-	N[0] = temp->Nx;
-	
-	L[2] = l;
-	L[1] = l;
-	L[0] = l;
-	
-	wType = type;
-	
-	get_filter_banks();
-	Coef.point_to_4D(temp);
-	setup_wavelet_directions();
-	
-}
-
-
-WAVELET3D::WAVELET3D( array4D< complex<float> >*temp, int *l, int type){
-	
-	/// cout << "Init Wavelet " << endl;
-	N[4] = 1;
-	N[3] = temp->Nt;
-	N[2] = temp->Nz;
-	N[1] = temp->Ny;
-	N[0] = temp->Nx;
-	
-	L[2] = l[2];
-	L[1] = l[1];
-	L[0] = l[0];
-	
-	wType = type;
-			
-	get_filter_banks();
-	Coef.point_to_4D(temp);
-	setup_wavelet_directions();
-}
 
 void WAVELET3D::setup_wavelet_directions(void){
 	cout << "Setting up dimensions to do wavelet transform" << endl;
@@ -108,39 +46,6 @@ void WAVELET3D::setup_wavelet_directions(void){
 		max_level = ( max_level > L[dir] ) ? ( max_level ) : ( L[dir] );
 	}
 	cout << "Max Level = " << max_level << endl;
-}
-
-
-WAVELET3D::WAVELET3D( array5D< complex<float> >*temp, int *l, int type){
-	
-	/// cout << "Init Wavelet " << endl;
-	N[4] = temp->Ne;
-	N[3] = temp->Nt;
-	N[2] = temp->Nz;
-	N[1] = temp->Ny;
-	N[0] = temp->Nx;
-	
-	L[2] = l[2];
-	L[1] = l[1];
-	L[0] = l[0];
-	
-	wType = type;		
-
-	Coef.Nx=temp->Nx;
-	Coef.Ny=temp->Ny;
-	Coef.Nz=temp->Nz;
-	Coef.Nt=temp->Nt;
-	Coef.Ne=temp->Ne;
-	Coef.vals=temp->vals;
-
-	get_filter_banks();
-	setup_wavelet_directions();
-	
-	cout << "Wavelet Parameters" << endl;
-	for(int dir=0; dir<3; dir++){
-		cout << "\tDir = " << dir << " N = " << N[dir] << " Levels= " << L[dir]  << endl;
-	}
-		
 }
 
 void WAVELET3D::get_filter_banks( void ){
@@ -533,7 +438,7 @@ void WAVELET3D::wave_x(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 		
 			//Copy
 			for(int i=0; i<Lx; i++){	
-				buffer[i]= Coef[e][t][k][j][i];
+				buffer[i]= Coef(i,j,k);
 			}
 			
 			//Transform
@@ -545,7 +450,7 @@ void WAVELET3D::wave_x(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 			
 			//Copy Back
 			for(int i=0; i<Lx; i++){
-				Coef[e][t][k][j][i] = buffer2[i];
+				Coef(i,j,k) = buffer2[i];
 			}
 			
 		}
@@ -576,7 +481,7 @@ void WAVELET3D::wave_y(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 			
 			//Copy
 			for(int j=0; j<Ly; j++){
-				buffer[j]= Coef[e][t][k][j][i];
+				buffer[j]= Coef(i,j,k);
 			}
 			
 			//Transform
@@ -588,7 +493,7 @@ void WAVELET3D::wave_y(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 			
 			//Copy Back
 			for(int j=0; j<Ly; j++){
-				Coef[e][t][k][j][i] = buffer2[j];
+				Coef(i,j,k) = buffer2[j];
 			}
 			
 		}
@@ -617,7 +522,7 @@ void WAVELET3D::wave_z(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 			
 			//Copy
 			for(int k=0; k<Lz; k++){
-				buffer[k]= Coef[e][t][k][j][i];
+				buffer[k]= Coef(i,j,k);
 			}
 			
 			//Transform
@@ -629,7 +534,7 @@ void WAVELET3D::wave_z(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 			
 			//Copy Back
 			for(int k=0; k<Lz; k++){
-				Coef[e][t][k][j][i] = buffer2[k];
+				Coef(i,j,k) = buffer2[k];
 			}
 			
 		}
@@ -645,7 +550,7 @@ void WAVELET3D::wave_z(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 /*----------------------------------------------
      1D Wavelet transform
 *----------------------------------------------*/ 
-void WAVELET3D::wave1D( complex<float> in[],complex<float> out[],int pts,int dir){
+void WAVELET3D::wave1D( complex<float> in[], complex<float> out[],int pts,int dir){
 	
 	/*Scaling Coef*/
 	for(int pos=0;pos<pts/2; pos++){

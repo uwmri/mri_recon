@@ -14,7 +14,9 @@
 #include "softthreshold.h"
 #include "ArrayTemplates.cpp"
 #include "tictoc.cpp"
+
 using namespace std;
+
 
 double gettime(void);
 array5D< complex<float> >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
@@ -25,9 +27,19 @@ int main(int argc, char **argv){
 	// Setup Recon
 	// ------------------------------------
 
+	complex<float> *AA;
+	
+	Array< complex<float>, 3>A(16,16,16, RowMajorArray<3>());
+	Array< complex<float>, 3>B(16,16,16, RowMajorArray<3>());	
+	
+	int dirs[3]={4,4,4};
+	WAVELET3D wave( A ,dirs,WAVE_DB4);
+	wave.forward();
+	wave.backward();
+	exit(1);
+
 	RECON recon(argc,argv);
 	MRI_DATA data;
-
 
 	cout << "----Read Data-----" << endl;	
 	if(recon.data_type==RECON_PFILE){	
@@ -315,7 +327,7 @@ array5D< complex<float> >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 					  // Setup 3D Wavelet
 					  int dirs[3] = {4, 4, 4};
-					  WAVELET3D wave(&X,dirs,WAVE_DB4);
+					  //WAVELET3D wave(&X,dirs,WAVE_DB4);
 
 					  // Temporal differences or FFT
 					  TDIFF tdiff(X);
@@ -443,7 +455,7 @@ array5D< complex<float> >reconstruction( int argc, char **argv, MRI_DATA data,RE
 							  //tdiff.forward(X);	
 							  tdiff.fft_t(X);
 							  cout << "Wavelet " << endl;
-							  wave.random_shift();
+							  //wave.random_shift();
 							  //wave.forward();	
 							  
 							  // Export X		
