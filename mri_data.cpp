@@ -198,8 +198,9 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 			
 			}
 			
+			Array< complex<float>,3>kdataC= kdata(Range::all(),Range::all(),Range::all(),e,c);
 			if(fid!=NULL){	
-				ArrayRead(kdata,fname);
+				ArrayRead(kdataC,fname);
 			}
 	}}
 	

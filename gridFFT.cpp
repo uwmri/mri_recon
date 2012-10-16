@@ -71,6 +71,7 @@ gridFFT::gridFFT(){
 void gridFFT::alloc_grid(){
 	k3d_grid.setStorage( ColumnMajorArray<3>());
 	k3d_grid.resize(Sx,Sy,Sz);
+	k3d_grid = 0;
 
 	image.setStorage( ColumnMajorArray<3>());
 	image.resize(Nx,Ny,Nz);
@@ -100,18 +101,20 @@ void gridFFT::plan_fft( void ){
 	sprintf(fname,"/export/home/kmjohnso/FFT_PLANS/fft_wisdom_host_%s_x%d_y%d_z%d.dat",hname,Sx,Sy,Sz);
 #endif
 	printf("The FFT File will be %s\n",fname);
-	
 				
 	if(  (fid=fopen(fname,"r")) != NULL){
 		fftwf_import_wisdom_from_file(fid);
 		fclose(fid);
 	}	
 	
-	cout << " Planning FFT " << endl;
-	fft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx,(fftwf_complex *)k3d_grid.data(),(fftwf_complex*)k3d_grid.data(),FFTW_FORWARD, FFTW_MEASURE);
+	cout << "Test" << endl;
+	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(k3d_grid.data());
+		
+	cout << " Planning FFT " << endl << flush; 
+	fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
 	
-	cout << " Planning Inverse FFT" << endl;
-	ifft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx,(fftwf_complex *)k3d_grid.data(),(fftwf_complex*)k3d_grid.data(),FFTW_BACKWARD, FFTW_MEASURE);
+	cout << " Planning Inverse FFT" << endl << flush;
+	ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
 		
 	/*In case New Knowledge Was Gained*/	
 	if( (fid2 = fopen(fname, "w")) == NULL){
@@ -416,7 +419,7 @@ double gettime(void){
 //    Forward Transform
 //----------------------------------------
 
-void gridFFT::forward(Array<complex<float>,3>&data, Array<float,3>&kx, Array<float,3>&ky, Array<float,3>&kz, Array<float,3>&kw){
+void gridFFT::forward(Array<complex<float>,3>&data, const Array<float,3>&kx, const Array<float,3>&ky, const Array<float,3>&kz, const Array<float,3>&kw){
 	
 	double start=0;
 	double total=0;
@@ -440,7 +443,7 @@ void gridFFT::forward(Array<complex<float>,3>&data, Array<float,3>&kx, Array<flo
 	
 }	
 
-void gridFFT::backward(Array<complex<float>,3>&data, Array<float,3>&kx, Array<float,3>&ky, Array<float,3>&kz, Array<float,3>&kw){
+void gridFFT::backward(Array<complex<float>,3>&data,const Array<float,3>&kx,const Array<float,3>&ky, const Array<float,3>&kz, const Array<float,3>&kw){
 	
 	double start=0;
 	double total=0;
@@ -523,7 +526,7 @@ void gridFFT::deapp_chop(){
 //  is already density compensated, etc.
 // -------------------------------------------------------
 
-void gridFFT::chop_grid_forward( Array<complex<float>,3>&dataA, Array<float,3>&kxA,Array<float,3>&kyA,Array<float,3>&kzA,Array<float,3>&kwA){
+void gridFFT::chop_grid_forward( Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA){
 
 	float cx = Sx/2;
 	float cy = Sy/2;
@@ -536,10 +539,10 @@ void gridFFT::chop_grid_forward( Array<complex<float>,3>&dataA, Array<float,3>&k
 	
 	int Npts = dataA.numElements();
 	complex<float> *data = dataA.data();
-	float *kx = kxA.data();
-	float *ky = kyA.data();
-	float *kz = kzA.data();
-	float *kw = kwA.data();
+	const float *kx = kxA.data();
+	const float *ky = kyA.data();
+	const float *kz = kzA.data();
+	const float *kw = kwA.data();
 					
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {
@@ -628,7 +631,7 @@ void gridFFT::chop_grid_forward( Array<complex<float>,3>&dataA, Array<float,3>&k
 	return;
 }
 	
-void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, Array<float,3>&kxA,Array<float,3>&kyA,Array<float,3>&kzA,Array<float,3>&kwA){
+void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA){
 
 	float cx = Sx/2;
 	float cy = Sy/2;
@@ -641,10 +644,10 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, Array<float,3>&k
 	
 	int Npts = dataA.numElements();
 	complex<float> *data = dataA.data();
-	float *kx = kxA.data();
-	float *ky = kyA.data();
-	float *kz = kzA.data();
-	float *kw = kwA.data();
+	const float *kx = kxA.data();
+	const float *ky = kyA.data();
+	const float *kz = kzA.data();
+	const float *kw = kwA.data();
 	
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {

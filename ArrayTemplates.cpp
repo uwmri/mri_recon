@@ -40,15 +40,16 @@ public:
 
 template< typename T, int N>
 void ArrayRead( Array< T,N>& temp, char *name){
-	 	int j;
-		FILE *fid;
+	 	FILE *fid;
 		if( (fid=fopen(name,"r")) == NULL){
 			cout << "Array:Can't Open " << name << endl;
 			cout << "Exiting" << endl;
 			exit(1);
 		}else{	
-			if( (j=fread(temp.data(),sizeof(T),temp.numElements(),fid)) != (temp.numElements())){
-				cout << "Array3:Not enough data: only read " << j << "points" << endl;
+			int j;
+			if( (j=fread(temp.data(),sizeof(T),temp.numElements(),fid)) != (int)(temp.numElements())){
+				cout << "Array3:Not enough data: only read " << j << "points of" <<  temp.numElements() << endl;
+				exit(1);
 			}
 		}
 }
@@ -57,8 +58,7 @@ void ArrayRead( Array< T,N>& temp, char *name){
 
 template< typename T, int N>
 void ArrayWrite( Array< T,N>& temp, char *name){
-	 	int j;
-		FILE *fid;
+	 	FILE *fid;
 		if( (fid=fopen(name,"w")) == NULL){
 			cout << "ArrayWrite:Can't Open " << name << endl;
 			cout << "Exiting" << endl;

@@ -4,9 +4,9 @@ STATIC=0
 DICOM =0
 
 ifeq ($(GE),1)
-	CC = g++32
+	CC = g++
 else
-	CC = g++44
+	CC = g++
 endif
 
 
@@ -28,7 +28,7 @@ endif
 
 LBITS := $(shell getconf LONG_BIT)
 ifeq ($(LBITS),64)
-  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -march=amdfam10 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp -O3
+  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp -O3  
 else
 	ifeq ($(GE),1)
    		CFLAGS_LOCAL  = -c -g -DLINUX -ansi-pedantic -Wall -I$(DCMTK_DIR)/include -I/usr/local/olinux32/include -L$(DCMTK_DIR)/lib -L/usr/local/olinux32/lib
@@ -62,7 +62,7 @@ else
 	endif
 endif
 
-FFTW3_LIBS = -lfftw3f_threads -lfftw3f 
+FFTW3_LIBS = -lfftw3f_omp -lfftw3f 
 LOCAL_LIBS =  $(FFTW3_LIBS) -lpthread -lm -lz -fopenmp 
 STATIC_LIBS = 
 
