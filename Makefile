@@ -6,7 +6,7 @@ DICOM =0
 ifeq ($(GE),1)
 	CC = g++32
 else
-	CC = g++
+	CC = g++44
 endif
 
 
@@ -28,7 +28,7 @@ endif
 
 LBITS := $(shell getconf LONG_BIT)
 ifeq ($(LBITS),64)
-  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp -O2
+  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -march=amdfam10 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp -O3
 else
 	ifeq ($(GE),1)
    		CFLAGS_LOCAL  = -c -g -DLINUX -ansi-pedantic -Wall -I$(DCMTK_DIR)/include -I/usr/local/olinux32/include -L$(DCMTK_DIR)/lib -L/usr/local/olinux32/lib
@@ -63,7 +63,7 @@ else
 endif
 
 FFTW3_LIBS = -lfftw3f_threads -lfftw3f 
-LOCAL_LIBS =  $(FFTW3_LIBS) -lpthread -lm -fopenmp 
+LOCAL_LIBS =  $(FFTW3_LIBS) -lpthread -lm -lz -fopenmp 
 STATIC_LIBS = 
 
 ifeq ($(DICOM),1)
@@ -81,16 +81,18 @@ LIBS = $(DICOM_LIBS) $(LOCAL_LIBS)
 MRFLOWHOME=/export/home/mrflow
 LIB_DIRS += -L$(MRFLOWHOME)/linux/arma322/usr/lib64/
 INC_DIRS += -I$(MRFLOWHOME)/linux/arma322/usr/include/
-#LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
-#INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
+LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
+INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
+LIB_DIRS += -L$ /export/home/kmjohnso/linux/lib/
+INC_DIRS += -I$ /export/home/kmjohnso/linux/include/
 
-#LIBS += -lacml_mp -lacml_mv
+LIBS += -lacml_mp -lacml_mv
 
 RUNPATH=$(MRFLOWHOME)/linux/arma322/usr/lib64/:$(MRFLOWHOME)/linux/acml440/gfortran64/lib/:$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
 
 # For Main COmpiles
 #RECON_OBJECTS = gridFFT.o wavelet3D.o polynomial_fitting.o gating_lib.o tornado_lib.o trajectory_lib.o io_lib.o matrix_lib.o master_lib.o iterative_lib.o csi_lib.o pcvipr_gradwarp.o master_recon.o 
-RECON_OBJECTS =  gridFFT.o temporal_diff.o wavelet3D.o recon.o recon_lib.o softthreshold.o #ge_pfile_lib.o
+RECON_OBJECTS =  mri_data.o gridFFT.o temporal_diff.o wavelet3D.o recon.o recon_lib.o softthreshold.o #ge_pfile_lib.o
 
 
 # ditto
@@ -128,6 +130,8 @@ temporal_diff.o: temporal_diff.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) -D $(RECON_VERSION) $(SLINK) temporal_diff.cpp
 recon_lib.o: recon_lib.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) -D $(RECON_VERSION) $(SLINK) recon_lib.cpp
+mri_data.o: mri_data.cpp
+	$(CC) $(INC_DIRS) $(CFLAGS) -D $(RECON_VERSION) $(SLINK) mri_data.cpp
 softthreshold.o: softthreshold.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) -D $(RECON_VERSION) $(SLINK) softthreshold.cpp
 gridFFT.o: gridFFT.cpp

@@ -78,29 +78,4 @@ class RECON{
 };
 
 
-class MRI_DATA{
-	public:
-		/*Raw Data - 3rd Dimension is for encoding*/
-		array4D<float> kx;
-		array4D<float> ky;
-		array4D<float> kz;
-		array4D<float> kw;
-		array4D<float> kt;	 // TE Time (s)
-		array4D<float> times; // Time of readout for gating etc (s)
-		array5D< complex<float> > kdata;
-		int Num_Encodings;
-		int Num_Readouts;
-		int Num_Slices;
-		int Num_Pts;
-		int Num_Coils;
-		void read_external_data(char *folder,int NumRecv,int Ne,int Ns,int Npr,int Nx);
-		void undersample(int);
-		void coilcompress(float);
-		MRI_DATA( MRI_DATA *);
-		MRI_DATA( void );
-	private:	
-		
-};
-
-
 #endif

@@ -69,17 +69,14 @@ gridFFT::gridFFT(){
 //----------------------------------------
 
 void gridFFT::alloc_grid(){
-	k3d_grid.alloc(Sz,Sy,Sx);
-	image.alloc(Nz,Ny,Nx);
+	k3d_grid.setStorage( ColumnMajorArray<3>());
+	k3d_grid.resize(Sx,Sy,Sz);
+
+	image.setStorage( ColumnMajorArray<3>());
+	image.resize(Nx,Ny,Nz);
+
 }
 
-//----------------------------------------
-// Return Array
-//----------------------------------------
-
-array3D< complex<float> >gridFFT::return_array( void){
-	return( image );		 
-}
 
 //----------------------------------------
 // FFT Planning - Based on FFTW Library
@@ -111,10 +108,10 @@ void gridFFT::plan_fft( void ){
 	}	
 	
 	cout << " Planning FFT " << endl;
-	fft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx,(fftwf_complex *)k3d_grid[0][0],(fftwf_complex*)k3d_grid[0][0],FFTW_FORWARD, FFTW_MEASURE);
+	fft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx,(fftwf_complex *)k3d_grid.data(),(fftwf_complex*)k3d_grid.data(),FFTW_FORWARD, FFTW_MEASURE);
 	
 	cout << " Planning Inverse FFT" << endl;
-	ifft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx,(fftwf_complex *)k3d_grid[0][0],(fftwf_complex*)k3d_grid[0][0],FFTW_BACKWARD, FFTW_MEASURE);
+	ifft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx,(fftwf_complex *)k3d_grid.data(),(fftwf_complex*)k3d_grid.data(),FFTW_BACKWARD, FFTW_MEASURE);
 		
 	/*In case New Knowledge Was Gained*/	
 	if( (fid2 = fopen(fname, "w")) == NULL){
@@ -419,18 +416,17 @@ double gettime(void){
 //    Forward Transform
 //----------------------------------------
 
-void gridFFT::forward(array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw){
+void gridFFT::forward(Array<complex<float>,3>&data, Array<float,3>&kx, Array<float,3>&ky, Array<float,3>&kz, Array<float,3>&kw){
 	
 	double start=0;
 	double total=0;
 	if(time_grid) start = gettime();
 	total = start;
-	k3d_grid.zero();
+	k3d_grid=0;
 	if(time_grid) cout << endl << "Zero: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
-	int Npts= data.Numel;
-	chop_grid_forward(data[0][0],kx[0][0],ky[0][0],kz[0][0],kw[0][0],Npts);
+	chop_grid_forward(data,kx,ky,kz,kw);
 	if(time_grid) cout << "Grid: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
@@ -444,13 +440,13 @@ void gridFFT::forward(array3D< complex<float> >data, array3D< float >kx, array3D
 	
 }	
 
-void gridFFT::backward(array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw){
+void gridFFT::backward(Array<complex<float>,3>&data, Array<float,3>&kx, Array<float,3>&ky, Array<float,3>&kz, Array<float,3>&kw){
 	
 	double start=0;
 	double total=0;
 	if(time_grid) start = gettime();
 	total = start;
-	k3d_grid.zero();
+	k3d_grid=0;
 	if(time_grid) cout << "  IGRID: Zero: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
@@ -462,14 +458,10 @@ void gridFFT::backward(array3D< complex<float> >data, array3D< float >kx, array3
 	if(time_grid) cout << "  iFFT: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
-	int Npts = data.Numel;
-	chop_grid_backward(data[0][0],kx[0][0],ky[0][0],kz[0][0],kw[0][0],Npts);
+	chop_grid_backward(data,kx,ky,kz,kw);
 	if(time_grid) cout << "  iGrid: " << gettime()-start;
 	
 	if(time_grid) cout << "  :: Total: " << gettime()-total << endl;
-	
-	
-	
 }
 
 void gridFFT::chop(void){
@@ -478,7 +470,7 @@ void gridFFT::chop(void){
       for (int j=0; j< Sy; j++){
     	for (int i=0; i < Sx; i++){
 			float fact =  ((float)( 2*(( i + j + k )%2) - 1));
-			k3d_grid[k][j][i] *= fact;
+			k3d_grid(i,j,k) *= fact;
 	}}}
 }
 
@@ -493,7 +485,7 @@ void gridFFT::deapp_chop_crop(){
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy[j+og_sy];
 		for(int i=0; i<Nx; i++) {
-			image[k][j][i] = ( k3d_grid[k+og_sz][j+og_sy][i+og_sx]*(wty*winx[i+og_sx]));
+			image(i,j,k) = ( k3d_grid(i+og_sx,j+og_sy,k+og_sz)*(wty*winx[i+og_sx]));
 	}}}
 }
 
@@ -508,7 +500,7 @@ void gridFFT::icrop_deapp_chop(){
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy[j+og_sy];
 		for(int i=0; i<Nx; i++) {
-			k3d_grid[k+og_sz][j+og_sy][i+og_sx] = ( image[k][j][i]*(wty*winx[i+og_sx]));
+			k3d_grid(i+og_sx,j+og_sy,k+og_sz) = ( image(i,j,k)*(wty*winx[i+og_sx]));
 	}}}
 }
 
@@ -522,7 +514,7 @@ void gridFFT::deapp_chop(){
      for(int j=0; j<Sy; j++){ 
    	  float wty = wtz*winy[j];
 	  for(int i=0; i< Sx; i++) {
-    	k3d_grid[k][j][i] *= winx[i]*wty;
+    	k3d_grid(i,j,k) *= winx[i]*wty;
 	}}}
 }
 
@@ -531,13 +523,24 @@ void gridFFT::deapp_chop(){
 //  is already density compensated, etc.
 // -------------------------------------------------------
 
-void gridFFT::chop_grid_forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int Npts){
+void gridFFT::chop_grid_forward( Array<complex<float>,3>&dataA, Array<float,3>&kxA,Array<float,3>&kyA,Array<float,3>&kzA,Array<float,3>&kwA){
 
 	float cx = Sx/2;
 	float cy = Sy/2;
 	float cz = Sz/2;
 	
+	if( !dataA.isStorageContiguous()){
+		cout << "None contiguous storage doesn't work yet" << endl;
+		exit(1);
+	}
 	
+	int Npts = dataA.numElements();
+	complex<float> *data = dataA.data();
+	float *kx = kxA.data();
+	float *ky = kyA.data();
+	float *kz = kzA.data();
+	float *kw = kwA.data();
+					
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {
       	
@@ -606,7 +609,7 @@ void gridFFT::chop_grid_forward( complex<float> *data, float *kx, float *ky, flo
 					complex<float>temp2 = wtx*temp;
 					float RD = real(temp2);
 					float ID = imag(temp2);
-					float *I = reinterpret_cast<float *>(&k3d_grid.vals[lz][ly][lx]);
+					float *I = reinterpret_cast<float *>(&k3d_grid(lx,ly,lz));
 					float *R = I++;
 					
 					// Prevent Race conditions in multi-threaded
@@ -625,11 +628,23 @@ void gridFFT::chop_grid_forward( complex<float> *data, float *kx, float *ky, flo
 	return;
 }
 	
-void gridFFT::chop_grid_backward( complex<float> *data, float *kx, float *ky, float *kz,float *kw,int Npts){
+void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, Array<float,3>&kxA,Array<float,3>&kyA,Array<float,3>&kzA,Array<float,3>&kwA){
 
 	float cx = Sx/2;
 	float cy = Sy/2;
 	float cz = Sz/2;
+	
+	if( !dataA.isStorageContiguous()){
+		cout << "None contiguous storage doesn't work yet" << endl;
+		exit(1);
+	}
+	
+	int Npts = dataA.numElements();
+	complex<float> *data = dataA.data();
+	float *kx = kxA.data();
+	float *ky = kyA.data();
+	float *kz = kzA.data();
+	float *kw = kwA.data();
 	
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {
@@ -690,7 +705,7 @@ void gridFFT::chop_grid_backward( complex<float> *data, float *kx, float *ky, fl
 			 											
 					/*This Memory Access is the Bottleneck*/	 			 
 			 		wtx *=  ((float)( 2*(( lx + ly + lz )%2) - 1)); // Chop in inverse gridding now
-					temp += wtx*k3d_grid[lz][ly][lx];
+					temp += wtx*k3d_grid(lx,ly,lz);
 			  	 
 	    	}/* end lz loop */
 	  	  }/* end ly */

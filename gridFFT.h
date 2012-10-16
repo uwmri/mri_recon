@@ -23,9 +23,8 @@ class gridFFT{
 	public:
 		int threads;
 		
-  		array3D< complex<float> >k3d_grid; 	/*Actual Gridding Space*/
-  		array3D< complex<float> >image;   	/*Complex Storage Space*/
-  		array3D< float >image_mag; /*Magnitude Storage Space*/
+  		Array< complex<float>,3 >k3d_grid; 	/*Actual Gridding Space*/
+  		Array< complex<float>,3 >image;   	/*Complex Storage Space*/
   
   		// Controls for phase encode / 2D directions
 		int fft_in_x;
@@ -93,13 +92,11 @@ class gridFFT{
 		void read_commandline(int numarg, char **pstring);
 		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
 		void deapp_chop();
-		void forward( array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw);
-		void backward( array3D< complex<float> >data, array3D< float >kx, array3D< float >ky, array3D< float >kz, array3D< float >kw);
-		
-		array3D< complex<float> >return_array( void);
-		
-		void chop_grid_forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
-		void chop_grid_backward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
+		void forward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
+		void backward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
+				
+		void chop_grid_forward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
+		void chop_grid_backward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
 		float bessi0(float);
 		void plan_fft( void );
 		void deapp_chop_crop(void);

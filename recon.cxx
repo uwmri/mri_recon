@@ -11,6 +11,7 @@
 #include "gridFFT.h"
 // #include "ge_pfile_lib.h"
 #include "recon_lib.h"
+#include "mri_data.h"
 #include "softthreshold.h"
 #include "ArrayTemplates.cpp"
 #include "tictoc.cpp"
@@ -19,24 +20,13 @@ using namespace std;
 
 
 double gettime(void);
-array5D< complex<float> >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
+Array< complex<float>, 5 >&reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
 
 int main(int argc, char **argv){
 
 	// ------------------------------------
 	// Setup Recon
 	// ------------------------------------
-
-	complex<float> *AA;
-	
-	Array< complex<float>, 3>A(16,16,16, RowMajorArray<3>());
-	Array< complex<float>, 3>B(16,16,16, RowMajorArray<3>());	
-	
-	int dirs[3]={4,4,4};
-	WAVELET3D wave( A ,dirs,WAVE_DB4);
-	wave.forward();
-	wave.backward();
-	exit(1);
 
 	RECON recon(argc,argv);
 	MRI_DATA data;
@@ -71,44 +61,72 @@ int main(int argc, char **argv){
 	if(recon.rczres ==1){
 		omp_set_num_threads(1);
 	}
-
+	
+	ArrayWrite(data.kx,"KX2.dat");
+	ArrayWrite(data.kx,"KY2.dat");
+	ArrayWrite(data.kx,"KZ2.dat");
+	ArrayWrite(data.kx,"KW2.dat");
+	ArrayWrite(data.kdata,"KDATA2.dat");
+	ArrayWriteMag<float>(data.kdata,"KDATA2.dat");
+	
 	
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
 	// --------------------------------------------------
-	array5D< complex<float> >X = reconstruction(argc,argv,data,recon);
+	Array< complex<float>,5 >& X = reconstruction(argc,argv,data,recon);
 
 	// ------------------------------------
 	// Post Processing + Export
 	// ------------------------------------
 
 	// Export Complex Images for Now
-	for(int ee=0; ee<recon.rcencodes; ee++){
-		for(int tt=0; tt<recon.rcframes; tt++){
-			char fname[80];
-			sprintf(fname,"X_%d_%d.dat",ee,tt);
-			X[ee][tt].write_mag(fname);
+	//for(int ee=0; ee<recon.rcencodes; ee++){
+	//	for(int tt=0; tt<recon.rcframes; tt++){
+	//		char fname[80];
+	//		sprintf(fname,"X_%d_%d.dat",ee,tt);
+	//		X[ee][tt].write_mag(fname);
 
-			sprintf(fname,"X_%d_%d.complex.dat",ee,tt);
-			X[ee][tt].write(fname);
-		}
-	}
+	//		sprintf(fname,"X_%d_%d.complex.dat",ee,tt);
+	//		X[ee][tt].write(fname);
+	//	}
+	//}
 
 
 	return(0);
 }
 
-
-
-
-array5D< complex<float> >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
+Array< complex<float>,5 >&reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 
 
 	// Setup Gridding + FFT Structure
 	gridFFT gridding;
 	gridding.read_commandline(argc,argv);
 	gridding.precalc_gridding(recon.rczres,recon.rcyres,recon.rcxres,3);
+	
+	Array< complex<float>,5 >X(recon.rcxres,recon.rcyres,recon.rczres,recon.rcframes,recon.rcencodes);
+	X=0;
+	for(int e=0; e< recon.rcencodes; e++){
+		for(int t=0; t< recon.rcframes; t++){
+			cout << "\tForward Gridding Coil ";
+			for(int coil=0; coil< data.Num_Coils; coil++){
+					cout << coil << "," << flush;
+					Array<complex<float>,3>kdataE = data.kdata(Range::all(),Range::all(),Range::all(),e,coil); 
+					Array< float,3 >kxE = data.kx(Range::all(),Range::all(),Range::all(),e); 
+					Array< float,3 >kyE = data.ky(Range::all(),Range::all(),Range::all(),e); 
+					Array< float,3 >kzE = data.kz(Range::all(),Range::all(),Range::all(),e); 
+					Array< float,3 >kwE = data.kw(Range::all(),Range::all(),Range::all(),e); 
+					
+					gridding.forward( kdataE,kxE,kyE,kzE,kwE);
+					//gridding.image.conjugate_multiply(gridding.image);
+					//X[e][t] += gridding.image;
+			}
+			cout << endl;
+		}
+	}
+	
+}
 
+#ifdef OIJHJL
 	// ------------------------------------
 	//  Get coil sensitivity map
 	// ------------------------------------
@@ -494,5 +512,6 @@ array5D< complex<float> >reconstruction( int argc, char **argv, MRI_DATA data,RE
 	cout << "Recon was completed successfully " << endl;	
 	return(X);
 }
+#endif
 
 
