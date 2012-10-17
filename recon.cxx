@@ -61,7 +61,7 @@ int main(int argc, char **argv){
 	if(recon.rczres ==1){
 		omp_set_num_threads(1);
 	}
-	
+
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
 	// --------------------------------------------------
@@ -80,7 +80,8 @@ int main(int argc, char **argv){
 			ArrayWrite( Xref,fname);
 			sprintf(fname,"X_%d_%d.dat",ee,tt);
 			ArrayWriteMag( Xref,fname);
-	}}
+		}}
+
 
 	return(0);
 }
@@ -88,7 +89,8 @@ int main(int argc, char **argv){
 Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 	// Shorthand for Blitz++
 	Range all=Range::all();
-	
+	tictoc T; 
+
 	// Setup Gridding + FFT Structure
 	gridFFT gridding;
 	gridding.read_commandline(argc,argv);
@@ -109,10 +111,10 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
 		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		smaps = 0;
-		
-	    for(int coil=0; coil< data.Num_Coils; coil++){
+
+		for(int coil=0; coil< data.Num_Coils; coil++){
 			int e =0;
-			
+
 			// Blitz Referencing is a bit wordy
 			Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
 			Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
@@ -146,8 +148,8 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 					for(int coil=0; coil< data.Num_Coils; coil++){
 						smaps(i,j,k,coil) *= sos;
 					}
-					
-		 }}}
+
+				}}}
 
 
 		// Export need to add flag "-export_smaps"
@@ -159,7 +161,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
 		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		smaps = complex<float>(1.0,0);
-    }
+	}
 
 	// ------------------------------------
 	//  If time resolved need to sort the times in to bins
@@ -177,20 +179,20 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		int *frame_count = new int[recon.rcframes];
 		memset( (void *)frame_count,0,(size_t)((recon.rcframes)*sizeof(int)));
 		for(int e=0; e< data.times.length(3); e++){
-		for(int k=0; k< data.times.length(2); k++){
-		for(int j=0; j< data.times.length(1); j++){
-		for(int i=0; i< data.times.length(0); i++){
-		 		
-			data.times(i,j,k,e) -= min_time;
-			data.times(i,j,k,e) /= delta_t;
-			int pos = (int)data.times(i,j,k,e);
-			if(pos > (recon.rcframes-1)){
-				pos= (recon.rcframes-1);
-			}
-			data.times(i,j,k,e) = (float)pos;
+			for(int k=0; k< data.times.length(2); k++){
+				for(int j=0; j< data.times.length(1); j++){
+					for(int i=0; i< data.times.length(0); i++){
 
-			frame_count[pos]++;
-		}}}}
+						data.times(i,j,k,e) -= min_time;
+						data.times(i,j,k,e) /= delta_t;
+						int pos = (int)data.times(i,j,k,e);
+						if(pos > (recon.rcframes-1)){
+							pos= (recon.rcframes-1);
+						}
+						data.times(i,j,k,e) = (float)pos;
+
+						frame_count[pos]++;
+					}}}}
 
 		for(int t =0; t<recon.rcframes; t++){
 			cout << "Frame " << t << " count " << frame_count[t] << endl;
@@ -204,64 +206,55 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 	// Final Image Solution
 	Array< complex<float>,5 >X(recon.rcxres,recon.rcyres,recon.rczres,recon.rcframes,recon.rcencodes,ColumnMajorArray<5>());
 	X=0;
-	
+
 	// Weighting Array for Time coding
 	Array< float, 3 >TimeWeight(data.kx.length(0),data.kx.length(1),data.kx.length(2),ColumnMajorArray<3>());
-	
+
 	switch(recon.recon_type){
 		default:
-
 		case(RECON_SOS):
 		case(RECON_PILS):{
-		
 
-					 // ------------------------------------
-					 // PILS
-					 // ------------------------------------
-
-					 tictoc T;
 					 for(int e=0; e< recon.rcencodes; e++){
 						 for(int t=0; t< recon.rcframes; t++){
 							 cout << "Recon Encode" << e << " Frame " << t << endl;
-							 
+
 							 // Get Sub-Arrays for Encoding
 							 Array< float,3 >kxE = data.kx(all,all,all,e); 
 							 Array< float,3 >kyE = data.ky(all,all,all,e); 
 							 Array< float,3 >kzE = data.kz(all,all,all,e); 
 							 Array< float,3 >kwE = data.kw(all,all,all,e); 
 							 Array< float,3 >timesE = data.times(all,all,all,e); 
-							
+
 							 // Temporal weighting
 							 TimeWeight = kwE;
 							 if(recon.rcframes>1){
-								  cout << "Set Times" << endl << flush;
-								  for(int k=0;k<timesE.extent(2);k++){
-								  for(int j=0;j<timesE.extent(1);j++){
-								  for(int i=0;i<timesE.extent(0);i++){
-								  	if( (timesE(i,j,k)) != (float)t){
-										 TimeWeight(i,j,k)= 0.0;
-								  	}
-								  }}}
+								 cout << "Set Times" << endl << flush;
+								 for(int k=0;k<timesE.extent(2);k++){
+									 for(int j=0;j<timesE.extent(1);j++){
+										 for(int i=0;i<timesE.extent(0);i++){
+											 if( (timesE(i,j,k)) != (float)t){
+												 TimeWeight(i,j,k)= 0.0;
+											 }
+										 }}}
 							 }
 
 							 cout << "\tForward Gridding Coil ";
 							 for(int coil=0; coil< data.Num_Coils; coil++){
 								 Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
-							
+
 								 cout << coil << "," << flush;
 								 T.tic();
 								 gridding.forward( kdataE,kxE,kyE,kzE,TimeWeight);
 								 cout << "\tGridding took = " << T << endl;
-
 								 T.tic();
 								 if(recon.recon_type==RECON_PILS){
-								 	Array<complex<float>,3>smapC = smaps(all,all,all,coil);
-								 	gridding.image *=conj(smapC);
-								}else{
-									gridding.image *=conj(gridding.image);
-								}								 
-								cout << "Conj took = " << T << endl;
-
+									 Array<complex<float>,3>smapC = smaps(all,all,all,coil);
+									 gridding.image *=conj(smapC);
+								 }else{
+									 gridding.image *=conj(gridding.image);
+								 }								 
+								 cout << "Conj took = " << T << endl;
 
 								 T.tic();
 								 Array<complex<float>,3>xet = X(all,all,all,t,e);
@@ -271,11 +264,11 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 							 cout << endl;
 						 }
 					 }
-					
-					// Take Square Root for SOS	
-					if(recon.recon_type==RECON_SOS){
-						X = csqrt(X);
-					}
+
+					 // Take Square Root for SOS	
+					 if(recon.recon_type==RECON_SOS){
+						 X = csqrt(X);
+					 }
 
 				 }break;
 
@@ -292,19 +285,18 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		case(RECON_IST):
 		case(RECON_FISTA):{
 
-
 					  // ------------------------------------
 					  // Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
 					  //  Designed to not use memory
 					  // Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
 					  // ------------------------------------
-					  
+
 					  // Previous Array for FISTA
 					  Array< complex<float>,5>X_old;
 					  if( recon.recon_type == RECON_FISTA){
-						 X_old.setStorage(ColumnMajorArray<5>());
-						 X_old.resize( X.shape());				  
-						 X_old = 0.0;
+						  X_old.setStorage(ColumnMajorArray<5>());
+						  X_old.resize( X.shape());				  
+						  X_old = 0.0;
 					  }
 
 					  // Residue 	
@@ -313,13 +305,14 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 					  // Temp variable for E'ER 
 					  Array< complex<float>,3 >P(recon.rcxres,recon.rcyres,recon.rczres,ColumnMajorArray<3>());
-					  
+
 					  // Storage for (Ex-d)
 					  Array< complex<float>,3 >diff_data(data.kdata.length(0),data.kdata.length(1),data.kdata.length(2),ColumnMajorArray<3>());
-					  
+
 					  // Setup 3D Wavelet
 					  int dirs[3] = {4, 4, 4};
-					  //WAVELET3D wave(&X,dirs,WAVE_DB4);
+					  Array< complex<float>,3>Xref=X(all,all,all,0,0);
+					  //WAVELET3D wave(Xref,dirs,WAVE_DB4);
 
 					  // Temporal differences or FFT
 					  //TDIFF tdiff(X);
@@ -345,31 +338,31 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  cout << "\tInverse Gridding " << endl;
 						  for(int e=0; e< recon.rcencodes; e++){
 							  for(int t=0; t< recon.rcframes; t++){
-									 cout << "Recon Encode" << e << " Frame " << t << endl;
-							 
-							 // Get Sub-Arrays for Encoding
-							 Array< float,3 >kxE = data.kx(all,all,all,e); 
-							 Array< float,3 >kyE = data.ky(all,all,all,e); 
-							 Array< float,3 >kzE = data.kz(all,all,all,e); 
-							 Array< float,3 >kwE = data.kw(all,all,all,e); 
-							 Array< float,3 >timesE = data.times(all,all,all,e); 
-							
-							 // Temporal weighting
-							 TimeWeight = kwE;
-							 if(recon.rcframes>1){
-								  cout << "Set Times" << endl << flush;
-								  for(int k=0;k<timesE.extent(2);k++){
-								  for(int j=0;j<timesE.extent(1);j++){
-								  for(int i=0;i<timesE.extent(0);i++){
-								  	if( (timesE(i,j,k)) != (float)t){
-										 TimeWeight(i,j,k)= 0.0;
-								  	}
-								  }}}
-							 }
-								  
-								  
+								  cout << "Recon Encode" << e << " Frame " << t << endl;
+
+								  // Get Sub-Arrays for Encoding
+								  Array< float,3 >kxE = data.kx(all,all,all,e); 
+								  Array< float,3 >kyE = data.ky(all,all,all,e); 
+								  Array< float,3 >kzE = data.kz(all,all,all,e); 
+								  Array< float,3 >kwE = data.kw(all,all,all,e); 
+								  Array< float,3 >timesE = data.times(all,all,all,e); 
+
+								  // Temporal weighting
+								  TimeWeight = kwE;
+								  if(recon.rcframes>1){
+									  cout << "Set Times" << endl << flush;
+									  for(int k=0;k<timesE.extent(2);k++){
+										  for(int j=0;j<timesE.extent(1);j++){
+											  for(int i=0;i<timesE.extent(0);i++){
+												  if( (timesE(i,j,k)) != (float)t){
+													  TimeWeight(i,j,k)= 0.0;
+												  }
+											  }}}
+								  }
+
+
 								  Array<complex<float>,3>Xref=X(all,all,all,t,e);
- 								  Array<complex<float>,3>Rref=R(all,all,all,t,e);
+								  Array<complex<float>,3>Rref=R(all,all,all,t,e);
 								  for(int coil=0; coil< data.Num_Coils; coil++){
 									  cout << coil << "," << flush;
 									  // Ex
@@ -378,13 +371,13 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									  gridding.image = Xref;
 									  gridding.image*= smapC;
 									  gridding.backward( diff_data,kxE,kyE,kzE,TimeWeight);
-								  	
-								  	  //Ex-d
-									  Array< complex<float>,3>kdataC = data.kdata(all,all,all,e,coil); 
-								      diff_data -= kdataC;
 
-								  	  //E'(Ex-d)
-								      gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
+									  //Ex-d
+									  Array< complex<float>,3>kdataC = data.kdata(all,all,all,e,coil); 
+									  diff_data -= kdataC;
+
+									  //E'(Ex-d)
+									  gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
 									  gridding.image*=conj(smapC);
 									  Rref += gridding.image;
 								  }//Coils
@@ -400,9 +393,9 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									  gridding.image = Rref;
 									  gridding.image*= smapC;
 									  gridding.backward( diff_data,kxE,kyE,kzE,TimeWeight);
-								  	
-								  	  //E'EE'(Ex-d)
-								      gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
+
+									  //E'EE'(Ex-d)
+									  gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
 									  gridding.image*=conj(smapC);
 									  P += gridding.image;
 								  }//Coils
@@ -411,7 +404,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								  cout << "Scale = " << scale_RhP << endl << flush;
 							  }//Time
 						  }//Encode
-						  
+
 						  // Get Scaling Factor
 						  complex<float>scale_RhR = complex<float>(ArrayEnergy(R),0);
 
@@ -439,25 +432,23 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  // ------------------------------------
 						  // Soft thresholding operation
 						  // ------------------------------------
-						  
-						  if(softthresh.thresh > 0.0){
 
-							  //tdiff.forward(X);	
-							  //tdiff.fft_t(X);
+						  if(softthresh.thresh > 0.0){
+#ifdef BLITZ_FIXES
+							  tdiff.fft_t(X);
 							  cout << "Wavelet " << endl;
-							  //wave.random_shift();
-							  //wave.forward();	
-							  							 
+							  wave.random_shift();
+							  wave.forward();	
+
 							  softthresh.get_threshold(X);
 							  softthresh.soft_threshold(X);
-							  //wave.backward();
+							  wave.backward();
 							  cout << "Wavelet Done" << endl;
-							  //tdiff.ifft_t(X);
-							  //tdiff.backward(X);	
+							  tdiff.ifft_t(X);
+#endif
 						  }
-		 				 
-					  }// Iteration			
 
+					  }// Iteration			
 
 				  }break;
 

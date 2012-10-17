@@ -111,10 +111,10 @@ void gridFFT::plan_fft( void ){
 	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(k3d_grid.data());
 		
 	cout << " Planning FFT " << endl << flush; 
-	fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
+	fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
 	
 	cout << " Planning Inverse FFT" << endl << flush;
-	ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
+	ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
 		
 	/*In case New Knowledge Was Gained*/	
 	if( (fid2 = fopen(fname, "w")) == NULL){
