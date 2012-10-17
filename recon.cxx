@@ -315,7 +315,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 					  WAVELET3D wave(Xref,dirs,WAVE_DB4);
 
 					  // Temporal differences or FFT
-					  //TDIFF tdiff(X);
+					  TDIFF tdiff(X);
 
 					  // Setup Soft Thresholding
 					  SOFTTHRESHOLD softthresh(argc,argv);
@@ -434,7 +434,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  // ------------------------------------
 
 						  if(softthresh.thresh > 0.0){
-							  //tdiff.fft_t(X);
+							  tdiff.fft_t(X);
 							  cout << "Wavelet " << endl;
 							  wave.random_shift();
 							  wave.forward(X);	
@@ -443,7 +443,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 							  softthresh.soft_threshold(X);
 							  wave.backward(X);
 							  cout << "Wavelet Done" << endl;
-							  //tdiff.ifft_t(X);
+							  tdiff.ifft_t(X);
 
 						  }
 
