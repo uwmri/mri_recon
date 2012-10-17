@@ -92,11 +92,11 @@ class gridFFT{
 		void read_commandline(int numarg, char **pstring);
 		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
 		void deapp_chop();
-		void forward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
-		void backward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
+		void forward( Array< complex<float>,3 >&data, const Array< float,3 >&kx,const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		void backward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
 				
-		void chop_grid_forward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
-		void chop_grid_backward( Array< complex<float>,3 >&data, Array< float,3 >&kx, Array< float,3 >&ky, Array< float,3 >&kz, Array< float,3 >&kw);
+		void chop_grid_forward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		void chop_grid_backward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
 		float bessi0(float);
 		void plan_fft( void );
 		void deapp_chop_crop(void);

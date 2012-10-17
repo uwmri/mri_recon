@@ -4,16 +4,8 @@
 #include <fstream>
 #include <algorithm>
 #include <vector>
-#include <math.h>
-#include <string.h>
-#include <complex.h>
-
-#include <iostream>
-#include <fstream>
-#include <algorithm>
-#include <vector>
-#include <cmath>
 #include <cstring>
+#include <cmath>
 #include <string>
 #include <complex>
 using namespace std;
@@ -48,3 +40,4 @@ class MRI_DATA{
 	private:	
 		
 };
+

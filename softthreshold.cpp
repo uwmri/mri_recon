@@ -39,17 +39,17 @@ SOFTTHRESHOLD::SOFTTHRESHOLD( int numarg, char **pstring){
 /*----------------------------------------------
      Threshold
  *----------------------------------------------*/ 
-void SOFTTHRESHOLD::get_threshold(  array5D< complex<float> >Coef){
+void SOFTTHRESHOLD::get_threshold(  const Array< complex<float>,5>&Coef){
 	
 	// Get range
-	float max_wave= abs( Coef.max() );
-	float min_wave= abs( Coef.min() );
+	float max_wave= max(abs(Coef));
+	float min_wave= min(abs(Coef));
 	cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
 	
 	// Estimate histogram (sort)
-	int points_found = Coef.Numel;
-	int target = (int)( thresh*(double)Coef.Numel);
-	int accuracy = (int)(0.001*(double)Coef.Numel);
+	int points_found = Coef.numElements();
+	int target = (int)( thresh*(double)Coef.numElements());
+	int accuracy = (int)(0.001*(double)Coef.numElements());
 	cout << "Thresh = " << thresh << " target points " << target << endl;
 	
 	if(target < 2){
@@ -80,13 +80,13 @@ void SOFTTHRESHOLD::get_threshold(  array5D< complex<float> >Coef){
 		
 		// Calculate Threshold
 		points_found= 0;
-		for(int e=0; e< Coef.Ne;e++){
-		for(int t=0; t< Coef.Nt;t++){
+		for(int e=0; e< Coef.extent(fifthDim);e++){
+		for(int t=0; t< Coef.extent(fourthDim);t++){
 		#pragma omp parallel for reduction(+:points_found)
-		for(int k=0; k< Coef.Nz; k++){
-		for(int j=0; j< Coef.Ny; j++){
-		for(int i=0; i< Coef.Nx; i++){	
-			float v=abs( Coef[e][t][k][j][i]);
+		for(int k=0; k< Coef.extent(thirdDim); k++){
+		for(int j=0; j< Coef.extent(secondDim); j++){
+		for(int i=0; i< Coef.extent(firstDim); i++){	
+			float v=abs( Coef(i,j,k,t,e));
 			if( v < threshold){
 				points_found++;
 			}
@@ -98,45 +98,46 @@ void SOFTTHRESHOLD::get_threshold(  array5D< complex<float> >Coef){
 }
 	
 
-void SOFTTHRESHOLD::soft_threshold(  array5D< complex<float> >Coef){
+void SOFTTHRESHOLD::soft_threshold(  Array< complex<float>,5 >&Coef){
 	
 	cout << "Determined thresh = " << threshold; 	
 	// Apply theshold	
 	int count = 0;
-	for(int e=0; e< Coef.Ne;e++){
-	for(int t=0; t< Coef.Nt;t++){
-	#pragma omp parallel for reduction(+:count)
-	for(int k=0; k< Coef.Nz; k++){
-		for(int j=0; j< Coef.Ny; j++){
-			for(int i=0; i< Coef.Nx; i++){	
-					if( abs( Coef[e][t][k][j][i]) < threshold){
+		for(int e=0; e< Coef.extent(fifthDim);e++){
+		for(int t=0; t< Coef.extent(fourthDim);t++){
+		#pragma omp parallel for reduction(+:count)
+		for(int k=0; k< Coef.extent(thirdDim); k++){
+		for(int j=0; j< Coef.extent(secondDim); j++){
+		for(int i=0; i< Coef.extent(firstDim); i++){	
+					if( abs( Coef(i,j,k,t,e)) < threshold){
 						count++;
-						Coef[e][t][k][j][i] = complex<float>(0.0,0.0);
+						Coef(i,j,k,t,e) = complex<float>(0.0,0.0);
 					}else{
-						float theta = arg( Coef[e][t][k][j][i] );
-						Coef[e][t][k][j][i] = (abs(Coef[e][t][k][j][i])-threshold)*complex<float>(cos(theta),sin(theta));
+						float theta = arg( Coef(i,j,k,t,e) );
+						Coef(i,j,k,t,e) = (abs(Coef(i,j,k,t,e))-threshold)*complex<float>(cos(theta),sin(theta));
 					}
 	}}}}} 
-	cout << "Removed " << (float)((float)count/(float)Coef.Numel) << " of the values" << endl;
+	cout << "Removed " << (float)((float)count/(float)Coef.numElements()) << " of the values" << endl;
 }
 
-void SOFTTHRESHOLD::fista_update(  array5D< complex<float> >X,array5D< complex<float> >X_old,int iteration){
+void SOFTTHRESHOLD::fista_update(  Array< complex<float>,5 >&X,Array< complex<float>,5 >&X_old,int iteration){
 	  
 	float A = 1.0 + (iteration - 1.0)/(iteration+1.0);
 	float B =     - (iteration - 1.0)/(iteration+1.0);
 
 	// Get Update
-	for(int e=0; e<X.size(4); e++){
-		for(int t=0; t<X.size(3);t++){
-	
-		  for(int jj=0; jj<X[0][0].Numel; jj++){
-				complex<float>Xn0 = X_old[e][t](jj);								
-				complex<float>Xn1 = X[e][t](jj);
-				X[e][t](jj) = A*Xn1 + B*Xn0;
-				X_old[e][t](jj) = Xn1;
-		  }
-		}
-	}			  
+	for(int e=0; e< X.extent(fifthDim);e++){
+		for(int t=0; t< X.extent(fourthDim);t++){
+		for(int k=0; k< X.extent(thirdDim); k++){
+		for(int j=0; j< X.extent(secondDim); j++){
+		for(int i=0; i< X.extent(firstDim); i++){	
+				complex<float>Xn0 = X_old(i,j,k,t,e);								
+				complex<float>Xn1 = X(i,j,k,t,e);
+				X(i,j,k,t,e) = A*Xn1 + B*Xn0;
+				X_old(i,j,k,t,e) = Xn1;
+		  
+		
+	}}}}}			  
 
 }
 	

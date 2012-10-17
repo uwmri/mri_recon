@@ -4,9 +4,9 @@ STATIC=0
 DICOM =0
 
 ifeq ($(GE),1)
-	CC = g++32
+	CC = g++
 else
-	CC = g++44
+	CC = g++
 endif
 
 
@@ -28,7 +28,7 @@ endif
 
 LBITS := $(shell getconf LONG_BIT)
 ifeq ($(LBITS),64)
-  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -march=amdfam10 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp -O3
+  CFLAGS_LOCAL  = -c -g -DLINUX -m64 -DRECON_64BIT -Wall -D_FILE_OFFSET_BITS=64 -fopenmp 
 else
 	ifeq ($(GE),1)
    		CFLAGS_LOCAL  = -c -g -DLINUX -ansi-pedantic -Wall -I$(DCMTK_DIR)/include -I/usr/local/olinux32/include -L$(DCMTK_DIR)/lib -L/usr/local/olinux32/lib
@@ -62,8 +62,8 @@ else
 	endif
 endif
 
-FFTW3_LIBS = -lfftw3f_threads -lfftw3f 
-LOCAL_LIBS =  $(FFTW3_LIBS) -lpthread -lm -lz -fopenmp 
+FFTW3_LIBS = -lfftw3f_omp -lfftw3f 
+LOCAL_LIBS =  $(FFTW3_LIBS) -lpthread -lm -fopenmp 
 STATIC_LIBS = 
 
 ifeq ($(DICOM),1)
@@ -81,12 +81,12 @@ LIBS = $(DICOM_LIBS) $(LOCAL_LIBS)
 MRFLOWHOME=/export/home/mrflow
 LIB_DIRS += -L$(MRFLOWHOME)/linux/arma322/usr/lib64/
 INC_DIRS += -I$(MRFLOWHOME)/linux/arma322/usr/include/
-LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
-INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
-LIB_DIRS += -L$ /export/home/kmjohnso/linux/lib/
-INC_DIRS += -I$ /export/home/kmjohnso/linux/include/
+#LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
+#INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
+#LIB_DIRS += -L$ /export/home/kmjohnso/linux/lib/
+#INC_DIRS += -I$ /export/home/kmjohnso/linux/include/
 
-LIBS += -lacml_mp -lacml_mv
+#LIBS += -lacml_mp -lacml_mv
 
 RUNPATH=$(MRFLOWHOME)/linux/arma322/usr/lib64/:$(MRFLOWHOME)/linux/acml440/gfortran64/lib/:$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
 

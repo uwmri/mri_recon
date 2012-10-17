@@ -17,12 +17,12 @@ class SOFTTHRESHOLD{
 		// Declare Functions/variables here		
 		SOFTTHRESHOLD(int numarg, char **pstring);
 		double thresh;
-		void soft_threshold( array5D< complex<float> >Coef);
-		void get_threshold( array5D< complex<float> >Coef);
+		void soft_threshold( Array< complex<float>,5 >&Coef);
+		void get_threshold( const Array< complex<float>,5 >&Coef);
 		float threshold;
 		
 		// Iterative soft thresholding code
-		void fista_update( array5D< complex<float> >X,array5D< complex<float> >X_old,int iteration);
+		void fista_update( Array< complex<float>,5 >&X,Array< complex<float>,5 >&X_old,int iteration);
 		
 	private:	
 		
