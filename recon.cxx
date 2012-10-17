@@ -4,6 +4,7 @@
    (in process of reorganizing for template + 5D recons)
 
 
+
  */
 
 #include "wavelet3D.h"	
@@ -15,11 +16,8 @@
 #include "softthreshold.h"
 #include "ArrayTemplates.cpp"
 #include "tictoc.cpp"
-
 using namespace std;
 
-
-double gettime(void);
 Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
 
 int main(int argc, char **argv){
@@ -89,6 +87,8 @@ int main(int argc, char **argv){
 Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 	// Shorthand for Blitz++
 	Range all=Range::all();
+	
+	// Matlab like timer (openmp code base)
 	tictoc T; 
 
 	// Setup Gridding + FFT Structure
@@ -97,7 +97,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 	gridding.precalc_gridding(recon.rczres,recon.rcyres,recon.rcxres,3);
 
 	// ------------------------------------
-	//  Get coil sensitivity map
+	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
 
 	Array<complex<float>,4 >smaps;
@@ -116,22 +116,24 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			int e =0;
 
 			// Blitz Referencing is a bit wordy
-			Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
 			Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
 			Array< float,3 >kxE = data.kx(all,all,all,e); 
 			Array< float,3 >kyE = data.ky(all,all,all,e); 
 			Array< float,3 >kzE = data.kz(all,all,all,e); 
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
+			
 			//Do Gridding			
 			gridding.forward( kdataE,kxE,kyE,kzE,kwE);
+			
 			//Add to 			
+			Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
 			SmapC += gridding.image;
 		}
 
 		// Restore Full Resolution
 		gridding.k_rad = 9999;
 
-		// E-Spirit Code in seperate branch -- need to talk to Michael Loecher
+		// E-Spirit Code in seperate branch -- need to talk to Michael Loecher about merging
 
 
 		// Sos Normalization S(coil)= I(coil)/sum(I^2,coils)
@@ -156,15 +158,16 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		if(1==0){
 			ArrayWrite(smaps,"SenseMaps.dat");
 		}
-	}else{
-		// Allocate Storage for Map	and zero	
+	}else if(recon.recon_type != RECON_SOS){
+		// Allocate Storage for Map	and zero (simplifies IST/PILS code)	
 		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
 		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		smaps = complex<float>(1.0,0);
 	}
 
+
 	// ------------------------------------
-	//  If time resolved need to sort the times in to bins
+	//  If time resolved need to sort the times in to bins (need to move to function calls)
 	// ------------------------------------
 
 	if(recon.rcframes>1){
@@ -219,14 +222,14 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						 for(int t=0; t< recon.rcframes; t++){
 							 cout << "Recon Encode" << e << " Frame " << t << endl;
 
-							 // Get Sub-Arrays for Encoding
+							 // Get Sub-Arrays for Encoding (Blitz-Subarray reference, no memory copied)
 							 Array< float,3 >kxE = data.kx(all,all,all,e); 
 							 Array< float,3 >kyE = data.ky(all,all,all,e); 
 							 Array< float,3 >kzE = data.kz(all,all,all,e); 
 							 Array< float,3 >kwE = data.kw(all,all,all,e); 
 							 Array< float,3 >timesE = data.times(all,all,all,e); 
 
-							 // Temporal weighting
+							 // Temporal weighting (move to functions )
 							 TimeWeight = kwE;
 							 if(recon.rcframes>1){
 								 cout << "Set Times" << endl << flush;
@@ -241,12 +244,17 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 							 cout << "\tForward Gridding Coil ";
 							 for(int coil=0; coil< data.Num_Coils; coil++){
+								 // Subarray for Data
 								 Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
 
 								 cout << coil << "," << flush;
+								 
+								 //Gridding/FFT
 								 T.tic();
 								 gridding.forward( kdataE,kxE,kyE,kzE,TimeWeight);
 								 cout << "\tGridding took = " << T << endl;
+								 
+								 // Multiply by Sensitivity Map
 								 T.tic();
 								 if(recon.recon_type==RECON_PILS){
 									 Array<complex<float>,3>smapC = smaps(all,all,all,coil);
@@ -255,7 +263,8 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									 gridding.image *=conj(gridding.image);
 								 }								 
 								 cout << "Conj took = " << T << endl;
-
+								 
+								 // Add to accumulated image
 								 T.tic();
 								 Array<complex<float>,3>xet = X(all,all,all,t,e);
 								 xet += gridding.image;
@@ -324,13 +333,16 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 					  double error0=0.0;
 					  for(int iteration =0; iteration< recon.max_iter; iteration++){
 
-						  double start = gettime();
+						  tictoc iteration_timer;
+						  iteration_timer.tic();
 						  cout << "\nIteration = " << iteration << endl;
 
 						  // Update X based on FISTA 
-						  //if(recon.recon_type==RECON_FISTA){
-						  //	  softthresh.fista_update(X,X_old,iteration);
-						  //}
+						  if(recon.recon_type==RECON_FISTA){
+						  	  softthresh.fista_update(X,X_old,iteration);
+						  }
+						  
+						  // Zero this for Cauchy set size
 						  complex<float>scale_RhP(0,0);						  
 
 						  // Get Residue
@@ -338,8 +350,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  cout << "\tInverse Gridding " << endl;
 						  for(int e=0; e< recon.rcencodes; e++){
 							  for(int t=0; t< recon.rcframes; t++){
-								  cout << "Recon Encode" << e << " Frame " << t << endl;
-
+								  
 								  // Get Sub-Arrays for Encoding
 								  Array< float,3 >kxE = data.kx(all,all,all,e); 
 								  Array< float,3 >kyE = data.ky(all,all,all,e); 
@@ -364,7 +375,6 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								  Array<complex<float>,3>Xref=X(all,all,all,t,e);
 								  Array<complex<float>,3>Rref=R(all,all,all,t,e);
 								  for(int coil=0; coil< data.Num_Coils; coil++){
-									  cout << coil << "," << flush;
 									  // Ex
 									  diff_data=0;
 									  Array<complex<float>,3>smapC=smaps(all,all,all,coil);
@@ -383,10 +393,9 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								  }//Coils
 
 
-								  //Now Get Scale factor
+								  //Now Get Scale factor (for Cauchy-Step Size)
 								  P=0;
 								  for(int coil=0; coil< data.Num_Coils; coil++){
-									  cout << coil << "," << flush;
 									  // EE'(Ex-d)
 									  diff_data=0;
 									  Array<complex<float>,3>smapC=smaps(all,all,all,coil);
@@ -401,11 +410,10 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								  }//Coils
 								  P*=conj(Rref);
 								  scale_RhP += sum(P); 
-								  cout << "Scale = " << scale_RhP << endl << flush;
 							  }//Time
 						  }//Encode
 
-						  // Get Scaling Factor
+						  // Get Scaling Factor R'P / R'R 
 						  complex<float>scale_RhR = complex<float>(ArrayEnergy(R),0);
 
 						  // Error check
@@ -423,14 +431,14 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  cout << "Scale = " << scale << endl;
 						  R *= scale;
 						  X -= R;
-						  cout << "Took " << (gettime()-start) << " s " << endl;
+						  cout << "Took " << iteration_timer << " s " << endl;
 
 						  // Export X slice
 						  Array<complex<float>,2>Xslice=X(all,all,X.length(2)/2,0,0);
 						  ArrayWriteMag(Xslice,"X.dat");
 
 						  // ------------------------------------
-						  // Soft thresholding operation
+						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
 
 						  if(softthresh.thresh > 0.0){
