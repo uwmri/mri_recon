@@ -312,7 +312,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 					  // Setup 3D Wavelet
 					  int dirs[3] = {4, 4, 4};
 					  Array< complex<float>,3>Xref=X(all,all,all,0,0);
-					  //WAVELET3D wave(Xref,dirs,WAVE_DB4);
+					  WAVELET3D wave(Xref,dirs,WAVE_DB4);
 
 					  // Temporal differences or FFT
 					  //TDIFF tdiff(X);
@@ -357,7 +357,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 												  if( (timesE(i,j,k)) != (float)t){
 													  TimeWeight(i,j,k)= 0.0;
 												  }
-											  }}}
+									  }}}
 								  }
 
 
@@ -425,27 +425,26 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  X -= R;
 						  cout << "Took " << (gettime()-start) << " s " << endl;
 
-						  // Export X
-						  Array<complex<float>,2>Xslice=X(all,all,R.length(2)/2,0,0);
-						  ArrayWriteMag(Rslice,"X.dat");
+						  // Export X slice
+						  Array<complex<float>,2>Xslice=X(all,all,X.length(2)/2,0,0);
+						  ArrayWriteMag(Xslice,"X.dat");
 
 						  // ------------------------------------
 						  // Soft thresholding operation
 						  // ------------------------------------
 
 						  if(softthresh.thresh > 0.0){
-#ifdef BLITZ_FIXES
-							  tdiff.fft_t(X);
+							  //tdiff.fft_t(X);
 							  cout << "Wavelet " << endl;
 							  wave.random_shift();
-							  wave.forward();	
+							  wave.forward(X);	
 
 							  softthresh.get_threshold(X);
 							  softthresh.soft_threshold(X);
-							  wave.backward();
+							  wave.backward(X);
 							  cout << "Wavelet Done" << endl;
-							  tdiff.ifft_t(X);
-#endif
+							  //tdiff.ifft_t(X);
+
 						  }
 
 					  }// Iteration			

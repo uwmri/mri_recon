@@ -40,19 +40,31 @@ class WAVELET3D{
 		int wN;
 		int wType;
 		
-		Array< complex<float>, 3 >Coef;
-		
 		WAVELET3D( Array< complex<float> , 3> &,int *,int);
+		WAVELET3D( Array< complex<float> , 4> &,int *,int);
+		WAVELET3D( Array< complex<float> , 5> &,int *,int);
+		void setup( Array< complex<float> , 3> &,int *,int);		
 		
 		~WAVELET3D();
 		
 		void get_filter_banks();
-		void forward( void);		
-		void backward( void);
+		void forward( Array< complex<float> , 3> &);		
+		void backward( Array< complex<float> , 3> &);
+		
+		void forward( Array< complex<float> , 4> &);		
+		void backward( Array< complex<float> , 4> &);
+		
+		void forward( Array< complex<float> , 5> &);		
+		void backward( Array< complex<float> , 5> &);
+		
+		void forward3D( Array< complex<float> , 3> &);		
+		void backward3D( Array< complex<float> , 3> &);
+								
 		void random_shift(void);		
-		void wave_x(int,int,int,int,int,int);
-		void wave_y(int,int,int,int,int,int);
-		void wave_z(int,int,int,int,int,int);
+		void wave_x(Array< complex<float> , 3> &,int,int,int,int);
+		void wave_y(Array< complex<float> , 3> &,int,int,int,int);
+		void wave_z(Array< complex<float> , 3> &,int,int,int,int);
+		
 		void wave1D( complex<float> [],complex<float> [],int,int);
 		void iwave1D( complex<float> [],complex<float> [],int,int);
 		void wave_threshold(float);

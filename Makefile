@@ -81,12 +81,12 @@ LIBS = $(DICOM_LIBS) $(LOCAL_LIBS)
 MRFLOWHOME=/export/home/mrflow
 LIB_DIRS += -L$(MRFLOWHOME)/linux/arma322/usr/lib64/
 INC_DIRS += -I$(MRFLOWHOME)/linux/arma322/usr/include/
-#LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
-#INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
-#LIB_DIRS += -L$ /export/home/kmjohnso/linux/lib/
-#INC_DIRS += -I$ /export/home/kmjohnso/linux/include/
+LIB_DIRS += -L$(MRFLOWHOME)/linux/acml440/gfortran64/lib/ -L$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
+INC_DIRS += -I$(MRFLOWHOME)/linux/acml440/gfortran64/include/ -I$(MRFLOWHOME)/linux/acml440/gfortran64_mp/include/
+LIB_DIRS += -L$ /export/home/kmjohnso/linux/lib/
+INC_DIRS += -I$ /export/home/kmjohnso/linux/include/
 
-#LIBS += -lacml_mp -lacml_mv
+LIBS += -lacml_mp -lacml_mv
 
 RUNPATH=$(MRFLOWHOME)/linux/arma322/usr/lib64/:$(MRFLOWHOME)/linux/acml440/gfortran64/lib/:$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
 

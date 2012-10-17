@@ -101,7 +101,7 @@ void ArrayWriteMag( Array<complex<T>,3>& temp, char *name){
 
 template< typename T>
 T ArrayEnergy( Array<complex<T>,5>& temp){
-T EE;
+T EE=0;
 for(int e=0; e< temp.extent(4);e++){	 
 for(int t=0; t< temp.extent(3);t++){
 	 for(int k=0; k< temp.extent(2);k++){

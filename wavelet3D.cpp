@@ -13,14 +13,25 @@ WAVELET3D::~WAVELET3D(){
  	// Not here yet
 }
 
+WAVELET3D::WAVELET3D( Array< complex<float>, 5 >& temp, int *l, int type){
+	Array< complex<float>,3>temp3 = temp(Range::all(),Range::all(),Range::all(),0,0);
+	setup(  temp3, l, type);		
+}
+WAVELET3D::WAVELET3D( Array< complex<float>, 4 >& temp, int *l, int type){
+	Array< complex<float>,3>temp3 = temp(Range::all(),Range::all(),Range::all(),0);
+	setup(  temp3, l, type);		
+}
 WAVELET3D::WAVELET3D( Array< complex<float>, 3 >& temp, int *l, int type){
-	
-	Coef = temp; 
+	setup(  temp, l, type);
+}
 
+void WAVELET3D::setup( Array< complex<float>, 3 >& temp, int *l, int type){
+
+	
 	/// cout << "Init Wavelet " << endl;
-	N[2] = temp.length(2);
-	N[1] = temp.length(1);
-	N[0] = temp.length(0);
+	N[2] = temp.length(thirdDim);
+	N[1] = temp.length(secondDim);
+	N[0] = temp.length(firstDim);
 	
 	L[2] = l[2];
 	L[1] = l[1];
@@ -357,22 +368,60 @@ void WAVELET3D::random_shift( void){
 	}
 }
 
+void WAVELET3D::forward( Array<complex<float>,5>&Coef){
+	for(int e=0;e<Coef.extent(fifthDim);e++){
+	for(int t=0;t<Coef.extent(fourthDim);t++){
+		Array<complex<float>,3>CoefRef=Coef(Range::all(),Range::all(),Range::all(),t,e);
+		forward3D(CoefRef);
+	}}
+}
 
-void WAVELET3D::forward( void){
+void WAVELET3D::backward( Array<complex<float>,5>&Coef){
+	for(int e=0;e<Coef.extent(fifthDim);e++){
+	for(int t=0;t<Coef.extent(fourthDim);t++){
+		Array<complex<float>,3>CoefRef=Coef(Range::all(),Range::all(),Range::all(),t,e);
+		backward3D(CoefRef);
+	}}
+}
+
+void WAVELET3D::forward( Array<complex<float>,4>&Coef){
+	for(int t=0;t<Coef.extent(fourthDim);t++){
+		Array<complex<float>,3>CoefRef=Coef(Range::all(),Range::all(),Range::all(),t);
+		forward3D(CoefRef);
+	}
+}
+
+void WAVELET3D::backward( Array<complex<float>,4>&Coef){
+	for(int t=0;t<Coef.extent(fourthDim);t++){
+		Array<complex<float>,3>CoefRef=Coef(Range::all(),Range::all(),Range::all(),t);
+		backward3D(CoefRef);
+	}
+}
+
+
+void WAVELET3D::forward( Array<complex<float>,3>&Coef){
+	forward3D(Coef);
+}
+
+void WAVELET3D::backward( Array<complex<float>,3>&Coef){
+	forward3D(Coef);
+}
+
+void WAVELET3D::forward3D( Array<complex<float>,3>&Coef){
 	int sz = N[2];
 	int sy = N[1];
 	int sx = N[0];
 	for(int l=0; l<max_level; l++){
 		if( l < L[0] ){
-			wave_x(N[4],N[3],sz,sy,sx,0);
+			wave_x(Coef,sz,sy,sx,0);
 		}
 		
 		if( l < L[1] ){
-			wave_y(N[4],N[3],sz,sy,sx,0);
+			wave_y(Coef,sz,sy,sx,0);
 		}
 		
 		if( l < L[2] ){
-			wave_z(N[4],N[3],sz,sy,sx,0);
+			wave_z(Coef,sz,sy,sx,0);
 		}
 		
 		if( l < L[2] ){
@@ -387,7 +436,7 @@ void WAVELET3D::forward( void){
 	}
 }
 
-void WAVELET3D::backward( void){
+void WAVELET3D::backward3D( Array<complex<float>,3>&Coef){
 	
 	int sz = N[2]/(int)pow(2.0,L[2]);
 	int sy = N[1]/(int)pow(2.0,L[1]);
@@ -406,15 +455,15 @@ void WAVELET3D::backward( void){
 		}
 			
 		if( l < L[2] ){
-			wave_z(N[4],N[3],sz,sy,sx,1);
+			wave_z(Coef,sz,sy,sx,1);
 		}
 		
 		if( l < L[1] ){
-			wave_y(N[4],N[3],sz,sy,sx,1);
+			wave_y(Coef,sz,sy,sx,1);
 		}
 		
 		if( l < L[0] ){
-			wave_x(N[4],N[3],sz,sy,sx,1);
+			wave_x(Coef,sz,sy,sx,1);
 		}
 	}
 }
@@ -423,10 +472,8 @@ void WAVELET3D::backward( void){
 /*----------------------------------------------
      Transform in X - Threaded version
  *----------------------------------------------*/ 
-void WAVELET3D::wave_x(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
+void WAVELET3D::wave_x(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int dir){
 	// cout << "Wave X = " << Le << "," << Lt << "," << Lz << "," << Ly << "," << Lx << "  Dir = " << dir << endl;
-	for(int e=0; e<Le; e++){
-	for(int t=0; t<Lt; t++){
 		
 	#pragma omp parallel for 
 	for(int k=0; k<Lz; k++){
@@ -458,19 +505,14 @@ void WAVELET3D::wave_x(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 		delete [] buffer;
 		delete [] buffer2;
 	}
-	}
-	}
 }
 
 
 /*----------------------------------------------
      Transform in Y - Pthread version
  *----------------------------------------------*/ 
-void WAVELET3D::wave_y(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
+void WAVELET3D::wave_y(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int dir){
 	// cout << "Wave Y = " << Le << "," << Lt << "," << Lz << "," << Ly << "," << Lx << "  Dir = " << dir << endl;
-	
-	for(int e=0; e<Le; e++){
-	for(int t=0; t<Lt; t++){
 	
 	#pragma omp parallel for 
 	for(int k=0; k<Lz; k++){
@@ -500,19 +542,14 @@ void WAVELET3D::wave_y(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 		delete [] buffer;
 		delete [] buffer2;
 	}
-	}
-	}
 }
 
 /*----------------------------------------------
      Transform in Z - Pthread version
  *----------------------------------------------*/ 
-void WAVELET3D::wave_z(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
+void WAVELET3D::wave_z(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int dir){
 	// cout << "Wave Z = " << Le << "," << Lt << "," << Lz << "," << Ly << "," << Lx << "  Dir = " << dir << endl;
 	
-	for(int e=0; e<Le; e++){
-	for(int t=0; t<Lt; t++){
-		
 	#pragma omp parallel for 
 	for(int j=0; j<Ly; j++){
 		complex<float> *buffer = new complex<float>[Lz];
@@ -541,8 +578,6 @@ void WAVELET3D::wave_z(int Le,int Lt,int Lz,int Ly,int Lx, int dir){
 		delete [] buffer;
 		delete [] buffer2;
 		
-	}
-	}
 	}
 }
 
