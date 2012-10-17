@@ -80,7 +80,7 @@ int main(int argc, char **argv){
 			ArrayWrite( Xref,fname);
 			sprintf(fname,"X_%d_%d.dat",ee,tt);
 			ArrayWriteMag( Xref,fname);
-		}}
+	}}
 
 
 	return(0);
