@@ -22,6 +22,16 @@ Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA data,R
 
 int main(int argc, char **argv){
 
+	// --------------------------
+	// Check for help message and output help
+	// --------------------------
+	for(int pos=0;pos<argc;pos++){
+		if( (strcmp(argv[pos],"-h")==0) || (strcmp(argv[pos],"-help")==0) || (strcmp(argv[pos],"--help")==0)){
+			RECON::help_message();	
+			exit(0);
+		}
+	}
+	
 	// ------------------------------------
 	// Setup Recon
 	// ------------------------------------
@@ -232,7 +242,6 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 							 // Temporal weighting (move to functions )
 							 TimeWeight = kwE;
 							 if(recon.rcframes>1){
-								 cout << "Set Times" << endl << flush;
 								 for(int k=0;k<timesE.extent(2);k++){
 									 for(int j=0;j<timesE.extent(1);j++){
 										 for(int i=0;i<timesE.extent(0);i++){
@@ -347,7 +356,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 						  // Get Residue
 						  R=0; 								
-						  cout << "\tInverse Gridding " << endl;
+						  cout << "\tGradient Calculation" << endl;
 						  for(int e=0; e< recon.rcencodes; e++){
 							  for(int t=0; t< recon.rcframes; t++){
 								  
@@ -361,7 +370,6 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								  // Temporal weighting
 								  TimeWeight = kwE;
 								  if(recon.rcframes>1){
-									  cout << "Set Times" << endl << flush;
 									  for(int k=0;k<timesE.extent(2);k++){
 										  for(int j=0;j<timesE.extent(1);j++){
 											  for(int i=0;i<timesE.extent(0);i++){

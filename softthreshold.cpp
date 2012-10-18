@@ -35,9 +35,8 @@ SOFTTHRESHOLD::SOFTTHRESHOLD( int numarg, char **pstring){
 
 }
 
-
 /*----------------------------------------------
-     Threshold
+     Calc threshold based on percentage removed
  *----------------------------------------------*/ 
 void SOFTTHRESHOLD::get_threshold(  const Array< complex<float>,5>&Coef){
 	

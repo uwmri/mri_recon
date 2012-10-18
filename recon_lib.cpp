@@ -1,10 +1,18 @@
-
 #include "recon_lib.h"
+#include "io_templates.cpp"
 
+// ----------------------
+//  Basic constructor (no args)
+// ----------------------
+RECON::RECON(void){
+	set_defaults();
+}
 
-RECON::RECON(int numarg, char **pstring){
-	
-	// Default Values
+// ----------------------
+//  Sets Default Recon Parameters
+// ----------------------
+void RECON::set_defaults( void){
+	// Help Message for recon
 	recon_type = RECON_SOS;
 	data_type = RECON_EXTERNAL;
 	
@@ -24,24 +32,63 @@ RECON::RECON(int numarg, char **pstring){
 	lp_frac=1.0;
 	smap_res=16;
 	
-	frames = 1;
-	
 	acc = 1;
 	compress_coils = 0.0;
-	max_iter = 50;
+	max_iter = 50;		
+}
+
+// ----------------------
+//  Constructor with Command Line Read
+// ----------------------
+
+RECON::RECON(int numarg, char **pstring){
+	set_defaults();	
+	parse_commandline(numarg,pstring);
+}
+
+// ----------------------
+// Help Message
+// ----------------------
+void RECON::help_message(void){
+	cout << "----------------------------------------------" << endl;
+	cout << "   Basic Recon Control " << endl;
+	cout << "----------------------------------------------" << endl;
+	cout << "Usage:" << endl;
+	cout << "   recon_binary -f header.txt [flags]" << endl;
+	
+	cout << "Recon Size:" << endl;
+	cout<<"\t"; help_flag("-rcxres","matrix size in x");
+	cout<<"\t"; help_flag("-rcyres","matrix size in y");
+	cout<<"\t"; help_flag("-rczres","matrix size in z");
+	cout<<"\t"; help_flag("-rcframes","reconstructed temporal frames");
+	cout<<"\t"; help_flag("-zoom_x","zoom factor in x");
+	cout<<"\t"; help_flag("-zoom_y","zoom factor in x");
+	cout<<"\t"; help_flag("-zoom_z","zoom factor in x");
+	
+	cout << "Recon Types:" << endl;
+	cout<<"\t"; help_flag("-sos","sum of squares");
+	cout<<"\t"; help_flag("-pils","pils (coil combine with low resolution images)");
+	cout<<"\t"; help_flag("-ist","iterative soft thresholding");
+	cout<<"\t"; help_flag("-fista","fast iterative soft thresholding");
+	
+	cout << "Recon Control:" << endl;
+	cout<<"\t"; help_flag("-max_iter","max iterations for iterative recons");
+
+}
+
+// --------------------
+//  Read command line and set variables
+// --------------------
+void RECON::parse_commandline(int numarg, char **pstring){
 
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
 #define char_flag(name,val)   }else if(strcmp(name,pstring[pos]) == 0){ pos++; strcpy(val,pstring[pos]);
-
+  	  
   for(int pos=0; pos < numarg; pos++){
-  
+ 	
   	if (strcmp("-h", pstring[pos] ) == 0) {
-	  	printf("\n*********************************************\n");
-	  	printf(" Basic Recon Control:\n");
-	  	printf("*********************************************\n");
-	  
 		char_flag("-f",filename);
 		
 		// Reconstruction Geometry
@@ -73,9 +120,6 @@ RECON::RECON(int numarg, char **pstring){
 		// Coil Combination + Resolution		
 		float_flag("-lp_frac",lp_frac);
 		float_flag("-smap_res",smap_res);
-		
-		// Time Resolved Flags
-		int_flag("-frames",frames);
 		
 		// Iterations for IST
 		int_flag("-max_iter",max_iter);

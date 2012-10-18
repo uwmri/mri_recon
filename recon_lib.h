@@ -69,10 +69,13 @@ class RECON{
 	  
 	  int max_iter;
 	  
-	  int frames; 
-	  	  
+	  
+	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 
+	  static void help_message(void);
 	  void parse_external_header(void);
+	  void set_defaults(void);
+	  void parse_commandline(int numarg, char **pstring);
 	private:	
 		
 };
