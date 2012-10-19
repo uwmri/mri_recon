@@ -57,22 +57,22 @@ void RECON::help_message(void){
 	cout << "   recon_binary -f header.txt [flags]" << endl;
 	
 	cout << "Recon Size:" << endl;
-	cout<<"\t"; help_flag("-rcxres","matrix size in x");
-	cout<<"\t"; help_flag("-rcyres","matrix size in y");
-	cout<<"\t"; help_flag("-rczres","matrix size in z");
-	cout<<"\t"; help_flag("-rcframes","reconstructed temporal frames");
-	cout<<"\t"; help_flag("-zoom_x","zoom factor in x");
-	cout<<"\t"; help_flag("-zoom_y","zoom factor in x");
-	cout<<"\t"; help_flag("-zoom_z","zoom factor in x");
+	help_flag("-rcxres []","matrix size in x");
+	help_flag("-rcyres []","matrix size in y");
+	help_flag("-rczres []","matrix size in z");
+	help_flag("-rcframes []","reconstructed temporal frames");
+	help_flag("-zoom_x []","zoom factor in x");
+	help_flag("-zoom_y []","zoom factor in x");
+	help_flag("-zoom_z []","zoom factor in x");
 	
 	cout << "Recon Types:" << endl;
-	cout<<"\t"; help_flag("-sos","sum of squares");
-	cout<<"\t"; help_flag("-pils","pils (coil combine with low resolution images)");
-	cout<<"\t"; help_flag("-ist","iterative soft thresholding");
-	cout<<"\t"; help_flag("-fista","fast iterative soft thresholding");
+	help_flag("-sos","sum of squares");
+	help_flag("-pils","pils (coil combine with low resolution images)");
+	help_flag("-ist","iterative soft thresholding");
+	help_flag("-fista","fast iterative soft thresholding");
 	
 	cout << "Recon Control:" << endl;
-	cout<<"\t"; help_flag("-max_iter","max iterations for iterative recons");
+	help_flag("-max_iter []","max iterations for iterative recons");
 
 }
 

@@ -1,5 +1,4 @@
-#ifndef hgridFFTLIB
-#define hgridFFTLIB
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -102,10 +101,12 @@ class gridFFT{
 		void deapp_chop_crop(void);
 		void icrop_deapp_chop(void);
 		void chop(void);
+		static void help_message(void);
+		
+		Array<complex<float>,3> return_array( void);
 		
 	private:	
 		
 };
 
-#endif
 

@@ -17,6 +17,7 @@ Usage Example:
 *************************************************/
 
 #include "gridFFT.h"
+#include "io_templates.cpp"
 
 //----------------------------------------
 // Deconstructor - Free's Memory
@@ -73,9 +74,8 @@ void gridFFT::alloc_grid(){
 	k3d_grid.resize(Sx,Sy,Sz);
 	k3d_grid = 0;
 
-	image.setStorage( ColumnMajorArray<3>());
-	image.resize(Nx,Ny,Nz);
-
+	Array< complex<float>,3>image2 = k3d_grid( Range(og_sx,og_ex-1),Range(og_sy,og_ey-1),Range(og_sz,og_ez-1));
+	image.reference(image2);
 }
 
 
@@ -111,10 +111,10 @@ void gridFFT::plan_fft( void ){
 	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(k3d_grid.data());
 		
 	cout << " Planning FFT " << endl << flush; 
-	fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
+	fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
 	
 	cout << " Planning Inverse FFT" << endl << flush;
-	ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
+	ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
 		
 	/*In case New Knowledge Was Gained*/	
 	if( (fid2 = fopen(fname, "w")) == NULL){
@@ -132,6 +132,35 @@ void gridFFT::plan_fft( void ){
 }
 
 
+// ----------------------
+// Help Message
+// ----------------------
+void gridFFT::help_message(void){
+	cout << "----------------------------------------------" << endl;
+	cout << "   Gridding Control " << endl;
+	cout << "----------------------------------------------" << endl;
+	
+	cout<<"Control" << endl;
+	help_flag("-kaiser","use kaiser bessel kernel");
+ 	help_flag("-triangle","use triangle kernel");
+ 	help_flag("-overgrid []","overgrid by factor []");
+ 	help_flag("-fast_grid","no overgrid,traingle kernel");
+	help_flag("-time_grid","output times for gridding");
+			
+	cout<<"Fine Control" << endl;
+	help_flag("-grid_in_x []","0=use nearest neighbor interpolation in x");
+	help_flag("-grid_in_y []","0=use nearest neighbor interpolation in y");
+	help_flag("-grid_in_z []","0=use nearest neighbor interpolation in z");
+	help_flag("-fft_in_x []","0=no fft in x");
+	help_flag("-fft_in_y []","0=no fft in y");
+	help_flag("-fft_in_z []","0=no fft in z");
+	help_flag("-dwinX []","Size of kernel in x");
+	help_flag("-dwinY []","Size of kernel in y");
+	help_flag("-dwinZ []","Size of kernel in z");
+	
+}
+	
+ 
 //----------------------------------------
 // Parse Command Line Args
 //----------------------------------------
@@ -145,18 +174,7 @@ void gridFFT::read_commandline(int numarg, char **pstring){
   for(int pos=0; pos < numarg; pos++){
   
   	if (strcmp("-h", pstring[pos] ) == 0) {
-	  	printf("\n*********************************************\n");
-	  	printf("Gridding Control:\n");
-	  	printf("*********************************************\n");
-	  	
-		printf("-kaiser                :use kaiser bessel kernel\n");
-	  	printf("-triangle              :use triangle kernel\n");
-	  	printf("-gauss                 :use gaussian kernel\n");
-	  	printf("-overgrid #            :overgrid factor\n");
-	  	printf("-fast_grid             :no overgriding with narrow kernel\n");
-	  	printf("-moderate_grid         :moderate kernel and overgrid\n");
-		printf("-large_grid            :use large oversampling with smaller kernel\n");
-		
+	 
 		float_flag("-overgrid",overgrid);
 		float_flag("-dwinX",dwinX);
 		float_flag("-dwinY",dwinY);
@@ -179,18 +197,6 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		dwinX = 1.0;
 		dwinY = 1.0;
 		dwinZ = 1.0;
-		
-	}else if(strcmp("-moderate_grid", pstring[pos]) == 0) {
-	  	overgrid = 1.25;
-		dwinX = 1.5;
-		dwinY = 1.5;
-		dwinZ = 1.5;
-				
-	}else if(strcmp("-large_grid", pstring[pos]) == 0) {
-	  	overgrid = 2.0;
-		dwinX = 4;
-		dwinY = 4;
-		dwinZ = 4;
 	}
   }
 }    
@@ -360,9 +366,11 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 	}
 	winx[i] = (float)grid_modX/winx[i];
 	
-	// Put chopping in window to save time
+	// Put chopping + zeroing in window to save time
 	float fact =  ((float)( 2*(( i  )%2) - 1));
 	winx[i]*=fact / Sx;
+	winx[i]*=( i < og_sx) ? ( 0.0 ) : ( 1.0);
+	winx[i]*=( i > og_ex-1) ? ( 0.0 ) : ( 1.0);
 	
 	if(grid_in_x==0){
 		winx[i]=1.0;
@@ -379,7 +387,10 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 	winy[i] = (float)grid_modY/winy[i];
 	float fact =  ((float)( 2*(( i  )%2) - 1));
 	winy[i]*=fact / Sy;
-  	if(grid_in_y==0){
+  	winy[i]*=( i < og_sy) ? ( 0.0 ) : ( 1.0);
+	winy[i]*=( i > og_ey-1) ? ( 0.0 ) : ( 1.0);
+	
+	if(grid_in_y==0){
 		winy[i]=1.0;
 	}
   }
@@ -394,6 +405,9 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 	winz[i]  = (float)grid_modZ/winz[i];
 	float fact =  ((float)( 2*(( i  )%2) - 1));
 	winz[i]*=fact / Sz;
+	winz[i]*=( i < og_sz) ? ( 0.0 ) : ( 1.0);
+	winz[i]*=( i > og_ez-1) ? ( 0.0 ) : ( 1.0);
+	
 	if(grid_in_z==0){
 		winz[i]=1.0;
 	}
@@ -443,16 +457,14 @@ void gridFFT::forward(Array<complex<float>,3>&data, const Array<float,3>&kx, con
 	
 }	
 
+
 void gridFFT::backward(Array<complex<float>,3>&data,const Array<float,3>&kx,const Array<float,3>&ky, const Array<float,3>&kz, const Array<float,3>&kw){
 	
 	double start=0;
 	double total=0;
-	if(time_grid) start = gettime();
-	total = start;
-	k3d_grid=0;
-	if(time_grid) cout << "  IGRID: Zero: " << gettime()-start;
 	
 	if(time_grid) start = gettime();
+	total = start;
 	icrop_deapp_chop();
 	if(time_grid) cout << "  Deapp: " << gettime()-start;
 	
@@ -468,7 +480,6 @@ void gridFFT::backward(Array<complex<float>,3>&data,const Array<float,3>&kx,cons
 }
 
 void gridFFT::chop(void){
-	#pragma omp parallel for 
 	for(int k=0; k < Sz; k++){
       for (int j=0; j< Sy; j++){
     	for (int i=0; i < Sx; i++){
@@ -481,14 +492,12 @@ void gridFFT::chop(void){
 //    Crop from Gridding Matrix to Image
 //----------------------------------------
 void gridFFT::deapp_chop_crop(){
-	
-	#pragma omp parallel for 
 	for(int k=0; k< Nz; k++){ 
 	  float wtz = winz[k+og_sz];
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy[j+og_sy];
 		for(int i=0; i<Nx; i++) {
-			image(i,j,k) = ( k3d_grid(i+og_sx,j+og_sy,k+og_sz)*(wty*winx[i+og_sx]));
+			image(i,j,k) *= (wty*winx[i+og_sx]);
 	}}}
 }
 
@@ -496,14 +505,12 @@ void gridFFT::deapp_chop_crop(){
 //    Crop from Gridding Matrix to Image
 //----------------------------------------
 void gridFFT::icrop_deapp_chop(){
-	
-	#pragma omp parallel for 
-	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz[k+og_sz];
-	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy[j+og_sy];
-		for(int i=0; i<Nx; i++) {
-			k3d_grid(i+og_sx,j+og_sy,k+og_sz) = ( image(i,j,k)*(wty*winx[i+og_sx]));
+	for(int k=0; k< Sz; k++){ 
+	  float wtz = winz[k]; // This zeros elements
+	  for(int j=0; j<Sy; j++){ 
+	    float wty = wtz*winy[j];
+		for(int i=0; i<Sx; i++) {
+			 k3d_grid(i,j,k)*=(wty*winx[i]);
 	}}}
 }
 
@@ -511,8 +518,7 @@ void gridFFT::icrop_deapp_chop(){
 //  Multiple by Precalculated Deappodization Window
 //-----------------------------------------------------
 void gridFFT::deapp_chop(){
- 	#pragma omp parallel for 
-	for(int k=0; k<Sz; k++){ 
+ 	for(int k=0; k<Sz; k++){ 
 	 float wtz = winz[k];
      for(int j=0; j<Sy; j++){ 
    	  float wty = wtz*winy[j];

@@ -128,8 +128,7 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 			}
 			
 			cout << "Can't Open " << fname << " or other forms " << endl;
-			exit(1);
-			
+			break;
 			}
 			
 			if(fid!=NULL){	

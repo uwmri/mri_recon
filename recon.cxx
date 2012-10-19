@@ -28,6 +28,7 @@ int main(int argc, char **argv){
 	for(int pos=0;pos<argc;pos++){
 		if( (strcmp(argv[pos],"-h")==0) || (strcmp(argv[pos],"-help")==0) || (strcmp(argv[pos],"--help")==0)){
 			RECON::help_message();	
+			gridFFT::help_message();	
 			exit(0);
 		}
 	}
@@ -68,8 +69,12 @@ int main(int argc, char **argv){
 	// Turn of parallel processing for 2D due to thread overhead
 	if(recon.rczres ==1){
 		omp_set_num_threads(1);
+	}else{
+		if( omp_get_max_threads() > 8){
+			omp_set_num_threads(omp_get_max_threads()-2);
+		}
 	}
-
+		
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
 	// --------------------------------------------------
@@ -359,6 +364,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  cout << "\tGradient Calculation" << endl;
 						  for(int e=0; e< recon.rcencodes; e++){
 							  for(int t=0; t< recon.rcframes; t++){
+								  T.tic();
 								  
 								  // Get Sub-Arrays for Encoding
 								  Array< float,3 >kxE = data.kx(all,all,all,e); 
@@ -418,6 +424,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								  }//Coils
 								  P*=conj(Rref);
 								  scale_RhP += sum(P); 
+								  cout << "took " << T << "s" << endl;
 							  }//Time
 						  }//Encode
 
@@ -442,25 +449,22 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  cout << "Took " << iteration_timer << " s " << endl;
 
 						  // Export X slice
-						  Array<complex<float>,2>Xslice=X(all,all,X.length(2)/2,0,0);
+						  Array<complex<float>,3>Xslice=X(all,all,X.length(2)/2,all,0);
 						  ArrayWriteMag(Xslice,"X.dat");
-
+						  
 						  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
 
 						  if(softthresh.thresh > 0.0){
+							  cout << "Soft thresh" << endl;
 							  tdiff.fft_t(X);
-							  cout << "Wavelet " << endl;
 							  wave.random_shift();
 							  wave.forward(X);	
-
 							  softthresh.get_threshold(X);
 							  softthresh.soft_threshold(X);
 							  wave.backward(X);
-							  cout << "Wavelet Done" << endl;
 							  tdiff.ifft_t(X);
-
 						  }
 
 					  }// Iteration			

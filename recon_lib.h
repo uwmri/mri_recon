@@ -1,5 +1,4 @@
-#ifndef hRECONLIB
-#define hRECONLIB
+#pragma once 
 
 #include <iostream>
 #include <fstream>
@@ -80,5 +79,3 @@ class RECON{
 		
 };
 
-
-#endif
