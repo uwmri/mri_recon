@@ -26,7 +26,6 @@ WAVELET3D::WAVELET3D( Array< complex<float>, 3 >& temp, int *l, int type){
 }
 
 void WAVELET3D::setup( Array< complex<float>, 3 >& temp, int *l, int type){
-
 	
 	/// cout << "Init Wavelet " << endl;
 	N[2] = temp.length(thirdDim);

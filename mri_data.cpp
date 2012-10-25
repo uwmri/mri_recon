@@ -58,6 +58,7 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 	Num_Pts = Nx;
 	Num_Slices = Ns;
 	Num_Coils = coils;
+	Range all = Range::all();
 	
 	cout << "Data size= " << Num_Coils << " coils x " << Num_Encodings << " encodings x "<< Num_Slices<< " slices x "<<  Num_Readouts << " readouts x" << Num_Pts << " pts" << endl;
 	cout << "Alloc Kx " << endl;
@@ -71,7 +72,8 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 				cout << "Exiting" << endl;
 				exit(1);
 			}else{	
-				ArrayRead(kx,fname);
+				Array<float,3>KxRef = kx(all,all,all,e);
+				ArrayRead(KxRef,fname);
 				fclose(fid);
 			}
 	}
@@ -87,7 +89,8 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 				cout << "Exiting" << endl;
 				exit(1);
 			}else{	
-				ArrayRead(ky,fname);
+				Array<float,3>KyRef = ky(all,all,all,e);
+				ArrayRead(KyRef,fname);
 				fclose(fid);
 			}
 	}
@@ -102,7 +105,8 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 				cout << "Can't Open " << fname << endl;
 				cout << "Assume 2D" << endl;
 			}else{	
-				ArrayRead(kz,fname);
+				Array<float,3>KzRef = kz(all,all,all,e);
+				ArrayRead(KzRef,fname);
 				fclose(fid);
 			}
 	}
@@ -132,7 +136,8 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 			}
 			
 			if(fid!=NULL){	
-				ArrayRead(times,fname);
+				Array<float,3>TimesRef = times(all,all,all,e);
+				ArrayRead(TimesRef,fname);
 				fclose(fid);
 			}
 	}
@@ -155,7 +160,8 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 			
 			if(fid!=NULL){
 				cout << "Read Kw "  << endl;
-				ArrayRead(kw,fname);
+				Array<float,3>KwRef = kw(all,all,all,e);
+				ArrayRead(KwRef,fname);
 				fclose(fid);
 			}
 	}

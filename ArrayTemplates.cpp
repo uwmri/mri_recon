@@ -150,3 +150,68 @@ void ArrayWriteMag( Array< complex<T>,5>& temp, char *name){
 }
 
 
+template< typename T>
+void ArrayWritePhase( Array<complex<T>,2>& temp, char *name){
+	 
+	 T *buffer = new T[temp.length(0)]; 
+	 ofstream ofs(name, ios_base::binary);
+	 	for(int j= 0; j<temp.extent(1); j++){
+			
+			for(int i=0; i<temp.extent(0);i++){
+				buffer[i]= arg(temp(i,j));
+			}
+			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
+     }	
+ delete [] buffer;
+}
+template< typename T>
+void ArrayWritePhase( Array<complex<T>,3>& temp, char *name){
+	 
+	 T *buffer = new T[temp.length(0)]; 
+	 ofstream ofs(name, ios_base::binary);
+	 for(int k=0; k< temp.extent(2);k++){
+	 	for(int j= 0; j<temp.extent(1); j++){
+			
+			for(int i=0; i<temp.extent(0);i++){
+				buffer[i]= arg(temp(i,j,k));
+			}
+			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
+     }}
+	 delete [] buffer;
+}
+
+template< typename T>
+void ArrayWritePhase( Array< complex<T>,4>& temp, char *name){
+	 
+	 T *buffer = new T[temp.length(0)]; 
+	 ofstream ofs(name, ios_base::binary);
+	 for(int t=0; t< temp.extent(3);t++){
+	 for(int k=0; k< temp.extent(2);k++){
+	 	for(int j= 0; j<temp.extent(1); j++){
+			
+			for(int i=0; i<temp.extent(0);i++){
+				buffer[i]= arg(temp(i,j,k,t));
+			}
+			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
+     }}}
+	 delete [] buffer;
+}
+
+
+template< typename T>
+void ArrayWritePhase( Array< complex<T>,5>& temp, char *name){
+	 
+	 T *buffer = new T[temp.length(0)]; 
+	 ofstream ofs(name, ios_base::binary);
+	 for(int e=0; e< temp.extent(4);e++){
+	 for(int t=0; t< temp.extent(3);t++){
+	 for(int k=0; k< temp.extent(2);k++){
+	 	for(int j= 0; j<temp.extent(1); j++){
+			
+			for(int i=0; i<temp.extent(0);i++){
+				buffer[i]= arg(temp(i,j,k,t,e));
+			}
+			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
+     }}}}
+	 delete [] buffer;
+}
