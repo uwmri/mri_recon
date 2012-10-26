@@ -31,6 +31,10 @@ using arma::uvec;
 #define RECON_PFILE 0
 #define RECON_EXTERNAL 1
 
+// Coil Combine Type
+#define COIL_LOWRES 0
+#define COIL_ESPIRIT 1
+
 class RECON{
 	public:
 	  int recon_type;
@@ -68,6 +72,8 @@ class RECON{
 	  
 	  int max_iter;
 	  
+	  int coil_combine_type;
+	  int export_smaps;
 	  
 	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 

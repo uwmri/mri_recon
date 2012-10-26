@@ -10,17 +10,18 @@
 #include "ArrayTemplates.cpp"
 #include "gridFFT.h"
 #include "recon_lib.h"
+#include "mri_data.h"
 
 enum {SP_SQUARE, SP_CIRCLE};
 enum {SP_TIK, SP_TSVD};
 
-void fftshift3(int,int,int,complex<float>*);
-void ifft3(arrayND< complex<float> > &);
+void fftshift3(Array<complex<float>,3>&);
+void ifft3(Array< complex<float>,3>&);
 
 class SPIRIT {
   public: 
-    arrayND< complex<float> > k;
-    arrayND< complex<float> > im;
+    Array< complex<float>,5> k;
+    Array< complex<float>,5> im;
     
     // enum flags
     int shape;
@@ -52,20 +53,20 @@ class SPIRIT {
     
     int ncoils;
     
+	static void help_message(void);
+	
     SPIRIT();
     void read_commandline(int numarg, char **pstring);
     void init(int, int, int, int);
     
-    void generateEigenCoils(array4D< complex<float> > &, gridFFT &, MRI_DATA &);
-    
-    void calibrate_ellipsoid(arrayND< complex<float> > &);
+    void generateEigenCoils(Array< complex<float>,4> &);
+    void calibrate_ellipsoid(Array< complex<float>,4>&);
     void prep();
     
-    void getcoils(array4D< complex<float> > &);
-    void rotateCoils(array4D< complex<float> > &maps, array4D< complex<float> > &ref);
-    void interpMaps(array4D< complex<float> >&, array4D< complex<float> >&);
-    
-    complex<float> getImPointDFT(float,float,float,int,int);
+    void getcoils( Array< complex<float>,4> &);
+    void rotateCoils(Array< complex<float>,4> &maps, Array< complex<float>,4>&ref);
+    void interpMaps(Array< complex<float>,4>&, Array< complex<float>,4>&);
+
 };
 
 #endif

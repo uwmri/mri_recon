@@ -6,6 +6,7 @@
 #include <time.h>
 #include <omp.h>
 
+using namespace std;
 class tictoc{
   public:
     double start;
@@ -17,10 +18,6 @@ class tictoc{
     
     void toc(){
       stop = omp_get_wtime();
->>>>>>>>>>>>>>>>>>>> File 1
-      printf("Elapsed time: %.6fs\n",stop-start);
->>>>>>>>>>>>>>>>>>>> File 2
-<<<<<<<<<<<<<<<<<<<<
     }
     
 	tictoc& operator=(const tictoc&);

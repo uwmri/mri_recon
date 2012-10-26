@@ -12,6 +12,7 @@
 // Switching to Blitz Based Arrays
 #include "blitz/array.h"
 using namespace blitz;
+#include <fftw3.h>
 
 /*
  * Class RowMajorArray specializes GeneralArrayStorage to provide column
@@ -36,6 +37,45 @@ public:
         base_ = 0;
     }
 };
+
+inline void fftshift( Array< complex<float>,3>& temp){
+	for(int k=0; k<temp.extent(thirdDim);k++){
+	for(int j=0; j<temp.extent(secondDim);j++){
+	for(int i=0; i<temp.extent(firstDim);i++){
+		int mod = ((i+j+k)%2) == 0 ? 1 : -1;
+        temp(i,j,k) *= mod;
+	}}}	
+}
+
+
+inline void ifft( Array< complex<float>,3>& temp){
+	fftwf_init_threads();
+    fftwf_plan_with_nthreads(omp_get_max_threads());
+     
+	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(temp.data());
+		
+	//cout << " Planning FFT " << endl << flush; 
+	fftwf_plan fft_plan = fftwf_plan_dft_3d(temp.length(thirdDim),temp.length(secondDim),temp.length(firstDim),ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
+	
+	fftshift( temp);
+	fftwf_execute(fft_plan);	
+	fftshift( temp);
+}
+
+
+inline void fft( Array< complex<float>,3>& temp){
+	fftwf_init_threads();
+    fftwf_plan_with_nthreads(omp_get_max_threads());
+     
+	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(temp.data());
+		
+	//cout << " Planning FFT " << endl << flush; 
+	fftwf_plan fft_plan = fftwf_plan_dft_3d(temp.length(thirdDim),temp.length(secondDim),temp.length(firstDim),ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
+	
+	fftshift( temp);
+	fftwf_execute(fft_plan);	
+	fftshift( temp);
+}
 
 
 template< typename T, int N>

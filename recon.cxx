@@ -29,7 +29,8 @@ int main(int argc, char **argv){
 	for(int pos=0;pos<argc;pos++){
 		if( (strcmp(argv[pos],"-h")==0) || (strcmp(argv[pos],"-help")==0) || (strcmp(argv[pos],"--help")==0)){
 			RECON::help_message();	
-			gridFFT::help_message();	
+			gridFFT::help_message();
+			SPIRIT::help_message();		
 			exit(0);
 		}
 	}
@@ -121,7 +122,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		cout << "Getting Coil Sensitivities " << endl;
 
 		// Low Pass filtering for Sensitivity Map
-		gridding.k_rad = 8;
+		gridding.k_rad = 16;
 
 		// Allocate Storage for Map	and zero	
 		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
@@ -145,39 +146,36 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
 			SmapC += gridding.image;
 		}
-
+		gridding.k_rad = 999;
+		
 		// Spirit Code
-		if (recon.sp_maps==1) {
-		  SPIRIT S;
-      	 S.read_commandline(argc,argv);
-      S.init(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
-		  
-      gridFFT shrinkgrid;
-		  shrinkgrid.read_commandline(argc,argv);
-      
-      S.generateEigenCoils(smaps, shrinkgrid, data);		  
-		}else{
-		// Sos Normalization 
-		cout << "Normalize Coils" << endl;
-#pragma omp parallel for 
-		for(int k=0; k<smaps.length(2); k++){
-			for(int j=0; j<smaps.length(1); j++){
-				for(int i=0; i<smaps.length(0); i++){
-					float sos=0.0;
-					for(int coil=0; coil< data.Num_Coils; coil++){
-						sos+= norm(smaps(i,j,k,coil));
-					}
-					sos = 1./sqrtf(sos);
-					for(int coil=0; coil< data.Num_Coils; coil++){
-						smaps(i,j,k,coil) *= sos;
-					}
-
-				}}}
+		if (recon.coil_combine_type==COIL_ESPIRIT){
+ 			SPIRIT S;
+      	 	S.read_commandline(argc,argv);
+      		S.init(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
+		    S.generateEigenCoils(smaps);		  
+		}else{ // E-spirit Code 
+		
+			// Sos Normalization 
+			cout << "Normalize Coils" << endl;
+			#pragma omp parallel for 
+			for(int k=0; k<smaps.length(2); k++){
+				for(int j=0; j<smaps.length(1); j++){
+					for(int i=0; i<smaps.length(0); i++){
+						float sos=0.0;
+						for(int coil=0; coil< data.Num_Coils; coil++){
+							sos+= norm(smaps(i,j,k,coil));
+						}
+						sos = 1./sqrtf(sos);
+						for(int coil=0; coil< data.Num_Coils; coil++){
+							smaps(i,j,k,coil) *= sos;
+						}
+			}}}
 
 		} // Normalization
 		
 		// Export need to add flag "-export_smaps"
-		if(1==0){
+		if(recon.export_smaps==1){
 			ArrayWrite(smaps,"SenseMaps.dat");
 		}
 	}else if(recon.recon_type != RECON_SOS){
