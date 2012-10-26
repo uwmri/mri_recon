@@ -24,49 +24,48 @@ using namespace std;
 #define WAVE_BO33 8
 
 #define THREADS 32
-
+ 
 class WAVELET3D{
 	public:
 		int N[5];
-		int L[5];
-		int W[5];
-		int S[5];
+		int L[3];
+		int S[3];
 		
 		int threads;
 		int max_level;
 		
-		float *lpf[5];
-		float *hpf[5];
-		float *Slpf[5];
-		float *Shpf[5];
-		int wN[5];
+		float *lpf;
+		float *hpf;
+		float *Slpf;
+		float *Shpf;
+		int wN;
+		int wType;
 		
-		int transform_in_z;
-				
-		array5D< complex<float> >Coef;
-						
-		//WAVELET3D(int,int,int,int,int);
-		//WAVELET3D( array3D< complex<float> > *,int,int);
+		WAVELET3D( Array< complex<float> , 3> &,int *,int);
+		WAVELET3D( Array< complex<float> , 4> &,int *,int);
+		WAVELET3D( Array< complex<float> , 5> &,int *,int);
+		void setup( Array< complex<float> , 3> &,int *,int);		
 		
-		WAVELET3D( array3D< complex<float> > *,int,int);
-		WAVELET3D( array3D< complex<float> > *,int *,int *);
-		
-		WAVELET3D( array4D< complex<float> > *,int,int);
-		WAVELET3D( array4D< complex<float> > *,int *,int *);
-		
-		WAVELET3D( array5D< complex<float> > *,int ,int );
-		WAVELET3D( array5D< complex<float> > *,int *,int *);
 		~WAVELET3D();
 		
 		void get_filter_banks();
-		void forward(void);		
-		void backward(void);
+		void forward( Array< complex<float> , 3> &);		
+		void backward( Array< complex<float> , 3> &);
+		
+		void forward( Array< complex<float> , 4> &);		
+		void backward( Array< complex<float> , 4> &);
+		
+		void forward( Array< complex<float> , 5> &);		
+		void backward( Array< complex<float> , 5> &);
+		
+		void forward3D( Array< complex<float> , 3> &);		
+		void backward3D( Array< complex<float> , 3> &);
+								
 		void random_shift(void);		
-		void wave_x(int,int,int,int,int,int);
-		void wave_y(int,int,int,int,int,int);
-		void wave_z(int,int,int,int,int,int);
-		void wave_e(int,int,int,int,int,int);
-		void wave_t(int,int,int,int,int,int);
+		void wave_x(Array< complex<float> , 3> &,int,int,int,int);
+		void wave_y(Array< complex<float> , 3> &,int,int,int,int);
+		void wave_z(Array< complex<float> , 3> &,int,int,int,int);
+		
 		void wave1D( complex<float> [],complex<float> [],int,int);
 		void iwave1D( complex<float> [],complex<float> [],int,int);
 		void wave_threshold(float);

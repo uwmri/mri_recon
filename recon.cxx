@@ -1,24 +1,38 @@
 /* 
 
    Recon Code for Cartesian and Non-Cartesian Data
-   (in process of reorganizing for template + 4D recons)
+   (in process of reorganizing for template + 5D recons)
 
- 
+
+
  */
 
-#include "wavelet3D.h"			 
+#include "wavelet3D.h"	
+#include "temporal_diff.h"	
 #include "gridFFT.h"
-#include "ge_pfile_lib.h"
+// #include "ge_pfile_lib.h"
 #include "recon_lib.h"
+#include "mri_data.h"
 #include "softthreshold.h"
 #include "spirit.h"
 #include "ArrayTemplates.cpp"
+#include "tictoc.cpp"
 using namespace std;
 
-double gettime(void);
-int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
+Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
 
 int main(int argc, char **argv){
+
+	// --------------------------
+	// Check for help message and output help
+	// --------------------------
+	for(int pos=0;pos<argc;pos++){
+		if( (strcmp(argv[pos],"-h")==0) || (strcmp(argv[pos],"-help")==0) || (strcmp(argv[pos],"--help")==0)){
+			RECON::help_message();	
+			gridFFT::help_message();	
+			exit(0);
+		}
+	}
 
 	// ------------------------------------
 	// Setup Recon
@@ -26,79 +40,116 @@ int main(int argc, char **argv){
 
 	RECON recon(argc,argv);
 	MRI_DATA data;
-	
-		
+
 	cout << "----Read Data-----" << endl;	
 	if(recon.data_type==RECON_PFILE){	
-		// Read in P-File
-		PFILE pfile;
-		pfile.read_header(recon.filename);
-		pfile.read_data(0);
+		// Read in P-File (doesn't work)
+		//PFILE pfile;
+		//pfile.read_header(recon.filename);
+		//pfile.read_data(0);
 	}else{
 		// Read in External Data Format
 		recon.parse_external_header();
-		data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_readouts,recon.xres);
+		data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres);
 	}
-	
-	if (recon.acc > 1){
-	  data.undersample(recon.acc);
-	}
-	if (recon.compress_coils > 0){
-	  data.coilcompress(recon.compress_coils);
-  }
-	
-	// --------------------------------------------------
-	// Code for recon (no PSD specific data/structures)
-	// --------------------------------------------------
-	reconstruction(argc,argv,data,recon);
-	
-	// ------------------------------------
-	// Post Processing + Export
-	// ------------------------------------
-
-
-	return(0);
-}
-
-
-
-
-int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 
 	cout << "----Geometry Modification-----" << endl;	
 	// Geometry Modification by Recon
 	data.kx *= ((float)(1.0/recon.zoom_x));
 	data.ky *= ((float)(1.0/recon.zoom_y));
 	data.kz *= ((float)(1.0/recon.zoom_z));
-	
-	
-	
+
+	if (recon.acc > 1){
+		data.undersample(recon.acc);
+	}
+
+	if (recon.compress_coils > 0){
+		data.coilcompress(recon.compress_coils);
+	}
+
+	// Turn of parallel processing for 2D due to thread overhead
+	if(recon.rczres ==1){
+		omp_set_num_threads(1);
+	}else{
+		if( omp_get_max_threads() > 8){
+			omp_set_num_threads(omp_get_max_threads()-2);
+		}
+	}
+
+	// --------------------------------------------------
+	// Code for recon (no PSD specific data/structures)
+	// --------------------------------------------------
+	Array< complex<float>,5 >X = reconstruction(argc,argv,data,recon);
+
+	// ------------------------------------
+	// Post Processing + Export
+	// ------------------------------------
+
+	//Export Binary Images for Now
+	for(int ee=0; ee<recon.rcencodes; ee++){
+		for(int tt=0; tt<recon.rcframes; tt++){
+			char fname[80];
+			sprintf(fname,"X_%d_%d.dat.complex",ee,tt);
+			Array< complex<float>,3>Xref = X(Range::all(),Range::all(),Range::all(),tt,ee);
+			ArrayWrite( Xref,fname);
+			sprintf(fname,"X_%d_%d.dat",ee,tt);
+			ArrayWriteMag( Xref,fname);
+		}}
+
+
+	return(0);
+}
+
+Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
+	// Shorthand for Blitz++
+	Range all=Range::all();
+
+	// Matlab like timer (openmp code base)
+	tictoc T; 
+
 	// Setup Gridding + FFT Structure
 	gridFFT gridding;
 	gridding.read_commandline(argc,argv);
 	gridding.precalc_gridding(recon.rczres,recon.rcyres,recon.rcxres,3);
 
 	// ------------------------------------
-	//  Get coil sensitivity map
+	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
 
-	array4D< complex<float> >smaps;
-	if( recon.recon_type != RECON_SOS){ 
+	Array<complex<float>,4 >smaps;
+	if( (recon.recon_type != RECON_SOS) && (data.Num_Coils>1)){ 
 		cout << "Getting Coil Sensitivities " << endl;
 
-		int e=0;
-		gridding.k_rad = (recon.sp_maps==1) ? 99999 : 24;
-		smaps.alloc(data.Num_Coils,recon.rczres,recon.rcyres,recon.rcxres);
+		// Low Pass filtering for Sensitivity Map
+		gridding.k_rad = 8;
+
+		// Allocate Storage for Map	and zero	
+		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
+		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
+		smaps = 0;
+
 		for(int coil=0; coil< data.Num_Coils; coil++){
-			gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-			smaps[coil]= ( gridding.return_array() );
+			int e =0;
+
+			// Blitz Referencing is a bit wordy
+			Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
+			Array< float,3 >kxE = data.kx(all,all,all,e); 
+			Array< float,3 >kyE = data.ky(all,all,all,e); 
+			Array< float,3 >kzE = data.kz(all,all,all,e); 
+			Array< float,3 >kwE = data.kw(all,all,all,e); 
+
+			//Do Gridding			
+			gridding.forward( kdataE,kxE,kyE,kzE,kwE);
+
+			//Add to 			
+			Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
+			SmapC += gridding.image;
 		}
-		gridding.k_rad = 99999;
 
 		// Spirit Code
 		if (recon.sp_maps==1) {
 		  SPIRIT S;
-      S.read_commandline(argc,argv);
+      	 S.read_commandline(argc,argv);
       S.init(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		  
       gridFFT shrinkgrid;
@@ -108,233 +159,332 @@ int reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 		}else{
 		// Sos Normalization 
 		cout << "Normalize Coils" << endl;
-		#pragma omp parallel for 
-		for(int k=0; k<smaps[0].Nz; k++){
-			for(int j=0; j<smaps[0].Ny; j++){
-				for(int i=0; i<smaps[0].Nx; i++){
+#pragma omp parallel for 
+		for(int k=0; k<smaps.length(2); k++){
+			for(int j=0; j<smaps.length(1); j++){
+				for(int i=0; i<smaps.length(0); i++){
 					float sos=0.0;
 					for(int coil=0; coil< data.Num_Coils; coil++){
-						sos+= norm(smaps[coil][k][j][i]);
+						sos+= norm(smaps(i,j,k,coil));
 					}
 					sos = 1./sqrtf(sos);
 					for(int coil=0; coil< data.Num_Coils; coil++){
-						smaps[coil][k][j][i] *= sos;
+						smaps(i,j,k,coil) *= sos;
 					}
-					
 
 				}}}
+
+		} // Normalization
+		
+		// Export need to add flag "-export_smaps"
+		if(1==0){
+			ArrayWrite(smaps,"SenseMaps.dat");
 		}
+	}else if(recon.recon_type != RECON_SOS){
+		// Allocate Storage for Map	and zero (simplifies IST/PILS code)	
+		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
+		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
+		smaps = complex<float>(1.0,0);
 	}
-	
-	
+
+
+	// ------------------------------------
+	//  If time resolved need to sort the times in to bins (need to move to function calls)
+	// ------------------------------------
+
+	if(recon.rcframes>1){
+		float max_time =max(data.times);
+		float min_time =min(data.times);
+
+		cout << "Time Range :: " << min_time << " to " << max_time << endl;
+
+		float delta_t = (max_time - min_time ) / ((float)(recon.rcframes));
+
+		// Sort times into discrete frames
+		int *frame_count = new int[recon.rcframes];
+		memset( (void *)frame_count,0,(size_t)((recon.rcframes)*sizeof(int)));
+		for(int e=0; e< data.times.length(3); e++){
+			for(int k=0; k< data.times.length(2); k++){
+				for(int j=0; j< data.times.length(1); j++){
+					for(int i=0; i< data.times.length(0); i++){
+
+						data.times(i,j,k,e) -= min_time;
+						data.times(i,j,k,e) /= delta_t;
+						int pos = (int)data.times(i,j,k,e);
+						if(pos > (recon.rcframes-1)){
+							pos= (recon.rcframes-1);
+						}
+						data.times(i,j,k,e) = (float)pos;
+
+						frame_count[pos]++;
+					}}}}
+
+		for(int t =0; t<recon.rcframes; t++){
+			cout << "Frame " << t << " count " << frame_count[t] << endl;
+		}
+		delete [] frame_count;
+	}
+
 
 	/*----------------------------Main Recons---------------------------------------*/	
 
+	// Final Image Solution
+	Array< complex<float>,5 >X(recon.rcxres,recon.rcyres,recon.rczres,recon.rcframes,recon.rcencodes,ColumnMajorArray<5>());
+	X=0;
+
+	// Weighting Array for Time coding
+	Array< float, 3 >TimeWeight(data.kx.length(0),data.kx.length(1),data.kx.length(2),ColumnMajorArray<3>());
+
 	switch(recon.recon_type){
 		default:
-		case(RECON_SOS):{
-
-					// ------------------------------------
-					// Sum of Squares Recon 
-					// ------------------------------------
-					array3D< float >sos;
-					sos.alloc(recon.rczres,recon.rcyres,recon.rcxres);
-					int e=0;
-					for(int coil=0; coil< data.Num_Coils; coil++){
-						cout << "Gridding Coil " << coil << endl;
-						gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-						for(int ii=0; ii< sos.Numel; ii++){
-							sos(ii) += norm( gridding.image(ii));	// adds square
-						}
-					}
-					sos.sqrt();
-					sos.write("Sos.dat");
-					
-					}break;
-
+		case(RECON_SOS):
 		case(RECON_PILS):{
 
-					 // ------------------------------------
-					 // PILS
-					 // ------------------------------------
-					 array3D< complex<float> >pils;
-					 pils.alloc(recon.rczres,recon.rcyres,recon.rcxres);
-					 int e =0;
-					 for(int coil=0; coil< data.Num_Coils; coil++){
-						 cout << "Gridding Coil " << coil << endl;
-						 gridding.forward( data.kdata[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-						 gridding.image.conjugate_multiply(smaps[coil]);
-						 pils += gridding.image;
+					 for(int e=0; e< recon.rcencodes; e++){
+						 for(int t=0; t< recon.rcframes; t++){
+							 cout << "Recon Encode" << e << " Frame " << t << endl;
+
+							 // Get Sub-Arrays for Encoding (Blitz-Subarray reference, no memory copied)
+							 Array< float,3 >kxE = data.kx(all,all,all,e); 
+							 Array< float,3 >kyE = data.ky(all,all,all,e); 
+							 Array< float,3 >kzE = data.kz(all,all,all,e); 
+							 Array< float,3 >kwE = data.kw(all,all,all,e); 
+							 Array< float,3 >timesE = data.times(all,all,all,e); 
+
+							 // Temporal weighting (move to functions )
+							 TimeWeight = kwE;
+							 if(recon.rcframes>1){
+								 for(int k=0;k<timesE.extent(2);k++){
+									 for(int j=0;j<timesE.extent(1);j++){
+										 for(int i=0;i<timesE.extent(0);i++){
+											 if( (timesE(i,j,k)) != (float)t){
+												 TimeWeight(i,j,k)= 0.0;
+											 }
+										 }}}
+							 }
+
+							 cout << "\tForward Gridding Coil ";
+							 for(int coil=0; coil< data.Num_Coils; coil++){
+								 // Subarray for Data
+								 Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
+
+								 cout << coil << "," << flush;
+
+								 //Gridding/FFT
+								 T.tic();
+								 gridding.forward( kdataE,kxE,kyE,kzE,TimeWeight);
+								 cout << "\tGridding took = " << T << endl;
+
+								 // Multiply by Sensitivity Map
+								 T.tic();
+								 if(recon.recon_type==RECON_PILS){
+									 Array<complex<float>,3>smapC = smaps(all,all,all,coil);
+									 gridding.image *=conj(smapC);
+								 }else{
+									 gridding.image *=conj(gridding.image);
+								 }								 
+								 cout << "Conj took = " << T << endl;
+
+								 // Add to accumulated image
+								 T.tic();
+								 Array<complex<float>,3>xet = X(all,all,all,t,e);
+								 xet += gridding.image;
+								 cout << "\tAdd to X = " << T << endl;
+							 }
+							 cout << endl;
+						 }
 					 }
-					 pils.write("PILS.dat");
+
+					 // Take Square Root for SOS	
+					 if(recon.recon_type==RECON_SOS){
+						 X = csqrt(X);
+					 }
 
 				 }break;
 
 		case(RECON_CG):{
-				  // ------------------------------------
-				  // Conjugate Gradient Recon
-				  // ------------------------------------
+				       // ------------------------------------
+				       // Conjugate Gradient Recon not yet
+				       // ------------------------------------
 
 
 
 			       }
 
-		case(RECON_IST):{
 
-					// ------------------------------------
-					// Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
-					//  Designed to not use memory
-					// Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
-					// ------------------------------------
+		case(RECON_IST):
+		case(RECON_FISTA):{
 
-					// Final Image Solution
-					array5D< complex<float> >X;
-					X.alloc(recon.rcencodes,recon.rcframes,recon.rczres,recon.rcyres,recon.rcxres);
-					X.zero();
+					  // ------------------------------------
+					  // Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
+					  //  Designed to not use memory
+					  // Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
+					  // ------------------------------------
 
-					// Residue 	
-					array5D< complex<float> >R;
-					R.alloc(recon.rcencodes,recon.rcframes,recon.rczres,recon.rcyres,recon.rcxres);
-					R.zero();
+					  // Previous Array for FISTA
+					  Array< complex<float>,5>X_old;
+					  if( recon.recon_type == RECON_FISTA){
+						  X_old.setStorage(ColumnMajorArray<5>());
+						  X_old.resize( X.shape());				  
+						  X_old = 0.0;
+					  }
 
-					// Temp variable for E'ER 
-					array3D< complex<float> >P;
-					P.alloc(recon.rczres,recon.rcyres,recon.rcxres);
-					P.zero();
+					  // Residue 	
+					  Array< complex<float>,5>R(X.shape(),ColumnMajorArray<5>());
+					  R=0.0;
 
-					// Storage for (Ex-d)
-					array4D< complex<float> >diff_data;
-					diff_data.samesize(&data.kdata);
-				
-					// Setup 5D Wavelet
-					int dirs[5] = {4, 4, 4, 0, 3};
-					int waves[5] = {WAVE_SYM6, WAVE_SYM6, WAVE_SYM6, WAVE_DB2, WAVE_DB2};
-					WAVELET3D wave(&X,dirs,waves);
-					
-					// Setup Soft Thresholding
-					SOFTTHRESHOLD softthresh(argc,argv);
-										
-					cout << "Iterate" << endl;
-					double error0=0.0;
-					for(int iteration =0; iteration<50; iteration++){
+					  // Temp variable for E'ER 
+					  Array< complex<float>,3 >P(recon.rcxres,recon.rcyres,recon.rczres,ColumnMajorArray<3>());
 
-						double start = gettime();
-						cout << "\nIteration = " << iteration << endl;
-						diff_data.zero();
-						
-						// Ex 								
-						for(int e=0; e< recon.rcencodes; e++){
-							for(int t=0; t< recon.rcframes; t++){
-								cout << "\tInverse Gridding Coil ";
-								for(int coil=0; coil< data.Num_Coils; coil++){
-									cout << coil << "," << flush;
-									gridding.image  = X[e][t];
-									gridding.image *=smaps[coil];
-									gridding.backward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-								}
-								cout << endl;
-							}
-						}
-						
-						// Ex-d
-						diff_data -= data.kdata;
-						
-						// E'(Ex-d)
-						R.zero();
-						for(int e=0; e< recon.rcencodes; e++){
-							for(int t=0; t< recon.rcframes; t++){
-								cout << "\tForward Gridding Coil ";
-								for(int coil=0; coil< data.Num_Coils; coil++){
-									cout << coil << "," << flush;
-									gridding.forward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-									gridding.image.conjugate_multiply(smaps[coil]);
-									R[e][t] += gridding.image;
-								}
-								cout << endl;
-							}
-						}
-						
-						// Get Scaling Factor
-						complex<float>scale_RhP(0,0);
-						for(int e=0; e< recon.rcencodes; e++){
-							for(int t=0; t< recon.rcframes; t++){
-						
-								// Compute Ex of Residue EE'(Ex-d)
-								cout << "\tInverse Gridding Coil ";
-								diff_data.zero();
-								for(int coil=0; coil< data.Num_Coils; coil++){
-									cout << coil << "," << flush;
-									gridding.image  = R[e][t];
-									gridding.image *=smaps[coil];
-									gridding.backward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-								}
-								cout << endl;
+					  // Storage for (Ex-d)
+					  Array< complex<float>,3 >diff_data(data.kdata.length(0),data.kdata.length(1),data.kdata.length(2),ColumnMajorArray<3>());
 
-								// Compute the Residue  E'E ( E'(Ex-d))
-								cout << "\tForward Gridding Coil ";
-								P.zero();
-								for(int coil=0; coil< data.Num_Coils; coil++){
-									cout << coil << "," << flush;
-									gridding.forward( diff_data[coil][e][0],data.kx[e][0],data.ky[e][0],data.kz[e][0],data.kw[e][0],data.Num_Pts*data.Num_Readouts);
-									gridding.image.conjugate_multiply(smaps[coil]);
-									P += gridding.image;
-								}
-								cout << endl;
+					  // Setup 3D Wavelet
+					  int dirs[3] = {4, 4, 4};
+					  Array< complex<float>,3>Xref=X(all,all,all,0,0);
+					  WAVELET3D wave(Xref,dirs,WAVE_DB4);
 
-								// Compute Scale  scale =  [ (Ex-d)'(Ex-d) ] / [ (Ex-d)' EE' (Ex-d) ]
-								//						= (r'r)/( r'EE'r) where r is k-space residue
-								P.conjugate_multiply(R[e][t]);
-								scale_RhP += P.sum();
+					  // Temporal differences or FFT
+					  TDIFF tdiff(X);
 
-							}// Time Frame
-						}// Encoding
-						complex<float>scale_RhR = complex<float>(R.energy(),0);
-						if(iteration==0){
-							error0 = abs( scale_RhR);
-						}
-						cout << "Residue Energy =" << scale_RhR << " ( " << 100*(abs(scale_RhR)/error0) << " % )  " << endl;
-						
-						// Step 
-						complex<float>scale = scale_RhR/scale_RhP;
-						cout << "Scale = " << scale << endl;
-						R *= scale;
-						X -= R;
-						cout << "Took " << (gettime()-start) << " s " << endl;
+					  // Setup Soft Thresholding
+					  SOFTTHRESHOLD softthresh(argc,argv);
 
-						// ------------------------------------
-					  	// Soft thresholding operation
-					  	// ------------------------------------
-						if( iteration > 10){
-						cout << "Wavelet " << endl;
-						wave.random_shift();
-						wave.forward();	
-						softthresh.hard_threshold(X);
-						wave.backward();
-						cout << "Wavelet Done" << endl;
-						}
-						
-						if(iteration%5==0) {
-						  char fname[80];
-						  sprintf(fname,"IST_iter_%d.dat",iteration);
-						  X[0][0].write(fname);
-						}
-						
-						// Export X		
-						X[0][0].write_mag("X.dat",X.Nz/2,"a+"); // Just one slice from one encoding
-					}// Iteration			
-					
-					// Export Complex Images for Now
-					for(int ee=0; ee<recon.rcencodes; ee++){
-						char fname[80];
-						sprintf(fname,"IST_%d.dat",ee);
-						X[ee][0].write_mag(fname);
-					}
-				}break;
+					  cout << "Iterate" << endl;
+					  double error0=0.0;
+					  for(int iteration =0; iteration< recon.max_iter; iteration++){
+
+						  tictoc iteration_timer;
+						  iteration_timer.tic();
+						  cout << "\nIteration = " << iteration << endl;
+
+						  // Update X based on FISTA 
+						  if(recon.recon_type==RECON_FISTA){
+							  softthresh.fista_update(X,X_old,iteration);
+						  }
+
+						  // Zero this for Cauchy set size
+						  complex<float>scale_RhP(0,0);						  
+
+						  // Get Residue
+						  R=0; 								
+						  cout << "\tGradient Calculation" << endl;
+						  for(int e=0; e< recon.rcencodes; e++){
+							  for(int t=0; t< recon.rcframes; t++){
+								  T.tic();
+
+								  // Get Sub-Arrays for Encoding
+								  Array< float,3 >kxE = data.kx(all,all,all,e); 
+								  Array< float,3 >kyE = data.ky(all,all,all,e); 
+								  Array< float,3 >kzE = data.kz(all,all,all,e); 
+								  Array< float,3 >kwE = data.kw(all,all,all,e); 
+								  Array< float,3 >timesE = data.times(all,all,all,e); 
+
+								  // Temporal weighting
+								  TimeWeight = kwE;
+								  if(recon.rcframes>1){
+									  for(int k=0;k<timesE.extent(2);k++){
+										  for(int j=0;j<timesE.extent(1);j++){
+											  for(int i=0;i<timesE.extent(0);i++){
+												  if( (timesE(i,j,k)) != (float)t){
+													  TimeWeight(i,j,k)= 0.0;
+												  }
+											  }}}
+								  }
+
+
+								  Array<complex<float>,3>Xref=X(all,all,all,t,e);
+								  Array<complex<float>,3>Rref=R(all,all,all,t,e);
+								  for(int coil=0; coil< data.Num_Coils; coil++){
+									  // Ex
+									  diff_data=0;
+									  Array<complex<float>,3>smapC=smaps(all,all,all,coil);
+									  gridding.image = Xref;
+									  gridding.image*= smapC;
+									  gridding.backward( diff_data,kxE,kyE,kzE,TimeWeight);
+
+									  //Ex-d
+									  Array< complex<float>,3>kdataC = data.kdata(all,all,all,e,coil); 
+									  diff_data -= kdataC;
+
+									  //E'(Ex-d)
+									  gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.image*=conj(smapC);
+									  Rref += gridding.image;
+								  }//Coils
+
+
+								  //Now Get Scale factor (for Cauchy-Step Size)
+								  P=0;
+								  for(int coil=0; coil< data.Num_Coils; coil++){
+									  // EE'(Ex-d)
+									  diff_data=0;
+									  Array<complex<float>,3>smapC=smaps(all,all,all,coil);
+									  gridding.image = Rref;
+									  gridding.image*= smapC;
+									  gridding.backward( diff_data,kxE,kyE,kzE,TimeWeight);
+
+									  //E'EE'(Ex-d)
+									  gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.image*=conj(smapC);
+									  P += gridding.image;
+								  }//Coils
+								  P*=conj(Rref);
+								  scale_RhP += sum(P); 
+								  cout << "took " << T << "s" << endl;
+							  }//Time
+						  }//Encode
+
+						  // Get Scaling Factor R'P / R'R 
+						  complex<float>scale_RhR = complex<float>(ArrayEnergy(R),0);
+
+						  // Error check
+						  if(iteration==0){
+							  error0 = abs(scale_RhR);
+						  }
+						  cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
+
+						  // Export R		
+						  Array<complex<float>,2>Rslice=R(all,all,R.length(2)/2,0,0);
+						  ArrayWriteMag(Rslice,"R.dat");						  
+
+						  // Step in direction
+						  complex<float>scale = (scale_RhR/scale_RhP);
+						  cout << "Scale = " << scale << endl;
+						  R *= scale;
+						  X -= R;
+						  cout << "Took " << iteration_timer << " s " << endl;
+
+						  // Export X slice
+						  Array<complex<float>,3>Xslice=X(all,all,X.length(2)/2,all,0);
+						  ArrayWriteMag(Xslice,"X_mag.dat");
+						  ArrayWritePhase(Xslice,"X_phase.dat");
+
+						  // ------------------------------------
+						  // Soft thresholding operation (need to add transform control)
+						  // ------------------------------------
+
+						  if(softthresh.thresh > 0.0){
+							  cout << "Soft thresh" << endl;
+							  tdiff.fft_t(X);
+							  wave.random_shift();
+							  wave.forward(X);	
+							  softthresh.get_threshold(X);
+							  softthresh.soft_threshold(X);
+							  wave.backward(X);
+							  tdiff.ifft_t(X);
+						  }
+
+					  }// Iteration			
+
+				  }break;
 
 	}//Recon Type
 
+
 	cout << "Recon was completed successfully " << endl;	
-	return(0);
+	return(X);
 }
+
 
 

@@ -1,5 +1,4 @@
-#ifndef hgridFFTLIB
-#define hgridFFTLIB
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -23,10 +22,17 @@ class gridFFT{
 	public:
 		int threads;
 		
-  		array3D< complex<float> >k3d_grid; 	/*Actual Gridding Space*/
-  		array3D< complex<float> >image;   	/*Complex Storage Space*/
-  		array3D< float >image_mag; /*Magnitude Storage Space*/
+  		Array< complex<float>,3 >k3d_grid; 	/*Actual Gridding Space*/
+  		Array< complex<float>,3 >image;   	/*Complex Storage Space*/
   
+  		// Controls for phase encode / 2D directions
+		int fft_in_x;
+  		int fft_in_y;
+  		int fft_in_z;
+  		int grid_in_x;
+  		int grid_in_y;
+  		int grid_in_z;
+  				
   		/*Overgridding Factor*/   
   		float grid_x;
   		float grid_y;
@@ -49,35 +55,35 @@ class gridFFT{
 		int Sx;
 		int Sy;
 		int Sz;
+		int kernel_type;
+		float overgrid;
 		  
   		/*Kaiser Bessel Beta - Calculated*/
   		float betaX;
   		float betaY;
   		float betaZ;
   
-  		/**Gridding Variables*/
+  		// Discrete Gridding Kernel Variables
   		float *winx;
   		float *winy;
   		float *winz;
-  
   		float dwinX;
   		float dwinY;
   		float dwinZ;
-  
   		float grid_modX;
   		float grid_modY;
   		float grid_modZ;
-  
   		float *grid_filterX;
   		float *grid_filterY;
   		float *grid_filterZ;
+  		
+		// FFT
   		fftwf_plan fft_plan;
 		fftwf_plan ifft_plan;
-		int kernel_type;
-		float overgrid;
 		
 		float k_rad; 
 		
+		int time_grid;
 		gridFFT();
 		~gridFFT();
 		
@@ -85,22 +91,22 @@ class gridFFT{
 		void read_commandline(int numarg, char **pstring);
 		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
 		void deapp_chop();
-		void forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
-		void backward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
-		
-		array3D< complex<float> >return_array( void);
-		
-		void grid_forward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
-		void grid_backward( complex<float> *data, float *kx, float *ky, float *kz, float *kw,int);
+		void forward( Array< complex<float>,3 >&data, const Array< float,3 >&kx,const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		void backward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+				
+		void chop_grid_forward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		void chop_grid_backward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
 		float bessi0(float);
 		void plan_fft( void );
 		void deapp_chop_crop(void);
 		void icrop_deapp_chop(void);
 		void chop(void);
+		static void help_message(void);
+		
+		Array<complex<float>,3> return_array( void);
 		
 	private:	
 		
 };
 
-#endif
 

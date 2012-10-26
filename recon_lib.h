@@ -1,5 +1,4 @@
-#ifndef hRECONLIB
-#define hRECONLIB
+#pragma once 
 
 #include <iostream>
 #include <fstream>
@@ -26,6 +25,7 @@ using arma::uvec;
 #define RECON_PILS 1
 #define RECON_CG 2
 #define RECON_IST 3
+#define RECON_FISTA 4
 
 // Data Types
 #define RECON_PFILE 0
@@ -54,48 +54,28 @@ class RECON{
 	  int xres;
 	  int num_readouts;
 	  int num_coils;
+	  int num_slices;
 	  int ss_2d;
 	  int multi_echo;
-	  
+	    
 	  int acc;
 	  float compress_coils;
 	  
 	  float lp_frac;
 	  float lp_sig;
-    float smap_res;
+      float smap_res;
 	  char filename[1024];
 	  
-	  int frames; 
+	  int max_iter;
 	  
-    int sp_maps;
-    
+	  
+	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 
+	  static void help_message(void);
 	  void parse_external_header(void);
+	  void set_defaults(void);
+	  void parse_commandline(int numarg, char **pstring);
 	private:	
 		
 };
 
-
-class MRI_DATA{
-	public:
-		/*Raw Data - 3rd Dimension is for encoding*/
-		array3D<float> kx;
-		array3D<float> ky;
-		array3D<float> kz;
-		array3D<float> kw;
-		array4D< complex<float> > kdata;
-		int Num_Encodings;
-		int Num_Readouts;
-		int Num_Pts;
-		int Num_Coils;
-		void read_external_data(char *folder,int NumRecv,int Ne,int Npr,int Nx);
-		void undersample(int);
-		void coilcompress(float);
-		MRI_DATA( MRI_DATA *);
-		MRI_DATA( void );
-	private:	
-		
-};
-
-
-#endif

@@ -1,5 +1,5 @@
-#ifndef hTICTOC
-#define hTICTOC
+#ifndef hTIMEARRAY
+#define hTIMEARRAY
 
 #include <iostream>
 #include <stdio.h>
@@ -17,14 +17,21 @@ class tictoc{
     
     void toc(){
       stop = omp_get_wtime();
+>>>>>>>>>>>>>>>>>>>> File 1
       printf("Elapsed time: %.6fs\n",stop-start);
+>>>>>>>>>>>>>>>>>>>> File 2
+<<<<<<<<<<<<<<<<<<<<
     }
     
-    void toc(char* message){
-      stop = omp_get_wtime();
-      printf("%s %.6fs\n", message, stop-start);
+	tictoc& operator=(const tictoc&);
+	
+	friend ostream& operator<<(ostream& out, tictoc& v){
+        v.toc();
+		return out << (v.stop-v.start);
     }
-    
+	
+	
 };
+
 
 #endif
