@@ -32,7 +32,7 @@ int main(int argc, char **argv){
 			exit(0);
 		}
 	}
-	
+
 	// ------------------------------------
 	// Setup Recon
 	// ------------------------------------
@@ -74,7 +74,7 @@ int main(int argc, char **argv){
 			omp_set_num_threads(omp_get_max_threads()-2);
 		}
 	}
-		
+
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
 	// --------------------------------------------------
@@ -93,7 +93,7 @@ int main(int argc, char **argv){
 			ArrayWrite( Xref,fname);
 			sprintf(fname,"X_%d_%d.dat",ee,tt);
 			ArrayWriteMag( Xref,fname);
-	}}
+		}}
 
 
 	return(0);
@@ -102,7 +102,7 @@ int main(int argc, char **argv){
 Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
 	// Shorthand for Blitz++
 	Range all=Range::all();
-	
+
 	// Matlab like timer (openmp code base)
 	tictoc T; 
 
@@ -136,10 +136,10 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			Array< float,3 >kyE = data.ky(all,all,all,e); 
 			Array< float,3 >kzE = data.kz(all,all,all,e); 
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
-			
+
 			//Do Gridding			
 			gridding.forward( kdataE,kxE,kyE,kzE,kwE);
-			
+
 			//Add to 			
 			Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
 			SmapC += gridding.image;
@@ -262,12 +262,12 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								 Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
 
 								 cout << coil << "," << flush;
-								 
+
 								 //Gridding/FFT
 								 T.tic();
 								 gridding.forward( kdataE,kxE,kyE,kzE,TimeWeight);
 								 cout << "\tGridding took = " << T << endl;
-								 
+
 								 // Multiply by Sensitivity Map
 								 T.tic();
 								 if(recon.recon_type==RECON_PILS){
@@ -277,7 +277,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									 gridding.image *=conj(gridding.image);
 								 }								 
 								 cout << "Conj took = " << T << endl;
-								 
+
 								 // Add to accumulated image
 								 T.tic();
 								 Array<complex<float>,3>xet = X(all,all,all,t,e);
@@ -353,9 +353,9 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 						  // Update X based on FISTA 
 						  if(recon.recon_type==RECON_FISTA){
-						  	  softthresh.fista_update(X,X_old,iteration);
+							  softthresh.fista_update(X,X_old,iteration);
 						  }
-						  
+
 						  // Zero this for Cauchy set size
 						  complex<float>scale_RhP(0,0);						  
 
@@ -365,7 +365,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  for(int e=0; e< recon.rcencodes; e++){
 							  for(int t=0; t< recon.rcframes; t++){
 								  T.tic();
-								  
+
 								  // Get Sub-Arrays for Encoding
 								  Array< float,3 >kxE = data.kx(all,all,all,e); 
 								  Array< float,3 >kyE = data.ky(all,all,all,e); 
@@ -382,7 +382,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 												  if( (timesE(i,j,k)) != (float)t){
 													  TimeWeight(i,j,k)= 0.0;
 												  }
-									  }}}
+											  }}}
 								  }
 
 
@@ -450,8 +450,9 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 						  // Export X slice
 						  Array<complex<float>,3>Xslice=X(all,all,X.length(2)/2,all,0);
-						  ArrayWriteMag(Xslice,"X.dat");
-						  
+						  ArrayWriteMag(Xslice,"X_mag.dat");
+						  ArrayWritePhase(Xslice,"X_phase.dat");
+
 						  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
