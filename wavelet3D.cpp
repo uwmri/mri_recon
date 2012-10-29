@@ -403,7 +403,7 @@ void WAVELET3D::forward( Array<complex<float>,3>&Coef){
 }
 
 void WAVELET3D::backward( Array<complex<float>,3>&Coef){
-	forward3D(Coef);
+	backward3D(Coef);
 }
 
 void WAVELET3D::forward3D( Array<complex<float>,3>&Coef){
