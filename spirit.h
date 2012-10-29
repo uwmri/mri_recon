@@ -46,7 +46,8 @@ class SPIRIT {
     int rcxres;
     int rcyres;
     int rczres;
-    
+    int debug;
+	
     int ncoils;
     
 	static void help_message(void);

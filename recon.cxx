@@ -128,23 +128,23 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
 		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		smaps = 0;
-
-		for(int coil=0; coil< data.Num_Coils; coil++){
-			int e =0;
-
-			// Blitz Referencing is a bit wordy
-			Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
+		
+		for(int e=0; e< recon.rcencodes;e++){
 			Array< float,3 >kxE = data.kx(all,all,all,e); 
 			Array< float,3 >kyE = data.ky(all,all,all,e); 
 			Array< float,3 >kzE = data.kz(all,all,all,e); 
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
+	
+			for(int coil=0; coil< data.Num_Coils; coil++){
+				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
+				
+				//Do Gridding			
+				gridding.forward( kdataE,kxE,kyE,kzE,kwE);
 
-			//Do Gridding			
-			gridding.forward( kdataE,kxE,kyE,kzE,kwE);
-
-			//Add to 			
-			Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
-			SmapC += gridding.image;
+				//Add to 			
+				Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
+				SmapC += gridding.image;
+			}
 		}
 		gridding.k_rad = 999;
 		
@@ -456,7 +456,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  cout << "Took " << iteration_timer << " s " << endl;
 
 						  // Export X slice
-						  Array<complex<float>,3>Xslice=X(all,all,X.length(2)/2,all,0);
+						  Array<complex<float>,4>Xslice=X(all,all,X.length(2)/2,all,all);
 						  ArrayWriteMag(Xslice,"X_mag.dat");
 						  ArrayWritePhase(Xslice,"X_phase.dat");
 

@@ -28,6 +28,8 @@ SPIRIT::SPIRIT()
   // Shrinkage operations for speed
   mapshrink = 2;
   mapthresh = 0.0;
+  
+  debug =0;
 }
 
 
@@ -87,6 +89,7 @@ void SPIRIT::help_message(void){
 	
 	help_flag("-sp_mapshrink []","shrink cal res for eigen decomp");
 	help_flag("-sp_mapthresh []","threshold of eigen vals");
+	help_flag("-sp_debug","write out intermediate images");
 }
 
 void SPIRIT::read_commandline(int numarg, char **pstring){
@@ -111,7 +114,8 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 		
 		trig_flag(SP_SQUARE,"-sp_square",shape);
 		trig_flag(SP_CIRCLE,"-sp_circle",shape);
-		
+
+		trig_flag(1,"-sp_debug",debug);		
 		trig_flag(SP_TIK,"-sp_tik",calib_type);
 		trig_flag(SP_TSVD,"-sp_tsvd",calib_type);
 		
@@ -127,7 +131,9 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 //-----------------------------------------------------
 void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 		  
-		  ArrayWriteMag(smaps,"InputSmaps.dat");
+		  if(debug){
+		  	ArrayWriteMag(smaps,"InputSmaps.dat");
+		  }
 		  
 		   // FFT Smaps Back to K-Space
 		  for(int coil=0; coil< smaps.length(fourthDim); coil++){
@@ -135,7 +141,9 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 			ifft(SmapRef); // In Place FFT
 		  }
 		  
-		  ArrayWriteMag(smaps,"SmapKspace.dat");
+		  if(debug){
+		  	ArrayWriteMag(smaps,"SmapKspace.dat");
+		  }
 		  		   
 		  // Array Reference for Low with Blitz		  
 		  calibrate_ellipsoid(smaps);
@@ -156,7 +164,9 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 		  // Interpolate back to high resolution size
 		  smaps=0;
 		  interpMaps(LRmaps,smaps);
-		  ArrayWriteMag(smaps,"FinalSmaps.dat");
+		  if(debug==1){
+		  	ArrayWriteMag(smaps,"FinalSmaps.dat");
+		  }
 		  
 }
 
@@ -527,14 +537,14 @@ void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,
     for (int y = 0; y < ref.length(secondDim); y++) {
       for (int x = 0; x < ref.length(firstDim); x++) {
         
-		// Seems Dangerous!
+		/* Seems Dangerous!
 		complex<float> Cref=conj(maps(x,y,z,1));
 		Cref = Cref/abs(Cref);
 		for (int coil = 0; coil < ref.length(fourthDim); coil++) {
 			maps(x,y,z,coil)*=Cref;
-		}
+		}*/
 		
-		/* Solve for scale factor + Normalization
+		// Solve for scale factor + Normalization
 		complex<float>CI(0,0);
 		float mag=0.0;
 		for (int coil = 0; coil < ref.length(fourthDim); coil++) {
@@ -547,7 +557,7 @@ void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,
 		// Scale
 		for (int coil = 0; coil < ref.length(fourthDim); coil++) {
 			maps(x,y,z,coil)*=CI;
-		}*/
+		}
 		
 		  
 		/*
