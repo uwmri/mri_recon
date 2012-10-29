@@ -1,5 +1,4 @@
-#ifndef hSPIRIT
-#define hSPIRIT
+#pragma once
 
 #include <iostream>
 #include <armadillo>
@@ -7,10 +6,7 @@
 #include <fftw3.h>
 #include <omp.h>
 #include "tictoc.cpp"
-#include "ArrayTemplates.cpp"
-#include "gridFFT.h"
-#include "recon_lib.h"
-#include "mri_data.h"
+#include "ArrayTemplates.hpp"
 
 enum {SP_SQUARE, SP_CIRCLE};
 enum {SP_TIK, SP_TSVD};
@@ -63,10 +59,9 @@ class SPIRIT {
     void calibrate_ellipsoid(Array< complex<float>,4>&);
     void prep();
     
-    void getcoils( Array< complex<float>,4> &);
-    void rotateCoils(Array< complex<float>,4> &maps, Array< complex<float>,4>&ref);
+    void getcoils( Array< complex<float>,4>&);
+    void rotateCoils(Array< complex<float>,4>&maps, Array< complex<float>,4>&ref);
     void interpMaps(Array< complex<float>,4>&, Array< complex<float>,4>&);
 
 };
 
-#endif

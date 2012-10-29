@@ -15,7 +15,7 @@
 #include "mri_data.h"
 #include "softthreshold.h"
 #include "spirit.h"
-#include "ArrayTemplates.cpp"
+#include "ArrayTemplates.hpp"
 #include "tictoc.cpp"
 using namespace std;
 
@@ -176,6 +176,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		
 		// Export need to add flag "-export_smaps"
 		if(recon.export_smaps==1){
+			cout << "Exporting Smaps" << endl;
 			ArrayWrite(smaps,"SenseMaps.dat");
 		}
 	}else if(recon.recon_type != RECON_SOS){
@@ -184,7 +185,8 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		smaps = complex<float>(1.0,0);
 	}
-
+	
+	
 
 	// ------------------------------------
 	//  If time resolved need to sort the times in to bins (need to move to function calls)

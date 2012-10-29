@@ -10,7 +10,7 @@
 #include <complex>
 using namespace std;
 #include <omp.h>
-#include "ArrayTemplates.cpp"
+#include "ArrayTemplates.hpp"
 
 #include <armadillo>
 using arma::cx_mat;

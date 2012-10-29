@@ -11,7 +11,7 @@
 #include <complex>
 using namespace std;
 #include <omp.h>
-#include "ArrayTemplates.cpp"
+#include "ArrayTemplates.hpp"
 
 #define WAVE_DB2 0
 #define WAVE_DB4 1
