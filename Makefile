@@ -49,7 +49,7 @@ INC_DIRS += -I$ /export/home/kmjohnso/linux/include/
 RUNPATH=$(MRFLOWHOME)/linux/arma322/usr/lib64/:$(MRFLOWHOME)/linux/acml440/gfortran64/lib/:$(MRFLOWHOME)/linux/acml440/gfortran64_mp/lib/
 
 # For Main COmpiles
-RECON_OBJECTS =  mri_data.o gridFFT.o temporal_diff.o wavelet3D.o recon.o recon_lib.o softthreshold.o #ge_pfile_lib.o
+RECON_OBJECTS =  mri_data.o ArrayTemplates.o gridFFT.o spirit.o temporal_diff.o wavelet3D.o recon.o recon_lib.o softthreshold.o #ge_pfile_lib.o
 
 # ditto
 all:  recon_binary
@@ -63,6 +63,8 @@ recon.o: recon.cxx
 	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) recon.cxx 
 wavelet3D.o: wavelet3D.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) wavelet3D.cpp
+spirit.o: spirit.cpp
+	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) spirit.cpp
 temporal_diff.o: temporal_diff.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) temporal_diff.cpp
 recon_lib.o: recon_lib.cpp
@@ -73,6 +75,8 @@ softthreshold.o: softthreshold.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) softthreshold.cpp
 gridFFT.o: gridFFT.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) gridFFT.cpp
+ArrayTemplates.o: ArrayTemplates.cpp
+	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) ArrayTemplates.cpp
 ge_pfile_lib.o: ge_pfile_lib.cpp
 	$(CC) $(INC_DIRS) $(CFLAGS) $(SLINK) ge_pfile_lib.cpp
 

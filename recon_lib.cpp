@@ -15,6 +15,7 @@ void RECON::set_defaults( void){
 	// Help Message for recon
 	recon_type = RECON_SOS;
 	data_type = RECON_EXTERNAL;
+	coil_combine_type = COIL_LOWRES;
 	
 	numrecv = 1;
 	zero_fill = 1.0;
@@ -34,6 +35,7 @@ void RECON::set_defaults( void){
 	
 	acc = 1;
 	compress_coils = 0.0;
+	export_smaps = 0;
 	max_iter = 50;		
 }
 
@@ -71,9 +73,13 @@ void RECON::help_message(void){
 	help_flag("-ist","iterative soft thresholding");
 	help_flag("-fista","fast iterative soft thresholding");
 	
-	cout << "Recon Control:" << endl;
+	cout << "Iterative Recon Control:" << endl;
 	help_flag("-max_iter []","max iterations for iterative recons");
-
+    
+	cout << "Coil Control:" << endl;
+	help_flag("-espirit","use ESPIRIT to get coil sensitivies");
+	help_flag("-coil_lowres","default,use low resolution images to get coil sensitivies");
+	help_flag("-export_smaps","write sensitivity maps");
 }
 
 // --------------------
@@ -109,6 +115,11 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(RECON_IST,"-ist",recon_type);
 		trig_flag(RECON_FISTA,"-fista",recon_type);
 		
+		trig_flag(COIL_ESPIRIT,"-espirit",coil_combine_type);
+		trig_flag(COIL_LOWRES,"-coil_lowres",coil_combine_type);
+		trig_flag(1,"-export_smaps",export_smaps);
+		
+				
 		// Source of data
 		trig_flag(RECON_EXTERNAL,"-external_data",data_type);
 		trig_flag(RECON_PFILE,"-pfile",data_type);

@@ -38,7 +38,7 @@
 #include <complex>
 #include <string.h>
 #include <omp.h>
-#include "ArrayTemplates.cpp"
+#include "ArrayTemplates.hpp"
 using namespace std;
 
 class PFILE{
