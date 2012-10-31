@@ -18,6 +18,7 @@ Usage Example:
 
 #include "gridFFT.h"
 #include "io_templates.cpp"
+#include "tictoc.cpp"
 
 //----------------------------------------
 // Deconstructor - Free's Memory
@@ -87,7 +88,8 @@ void gridFFT::plan_fft( void ){
     
 	fftwf_init_threads();
     fftwf_plan_with_nthreads(omp_get_max_threads());
-    	
+    cout << "FFT Planning with " << omp_get_max_threads() << " threads"<< endl;
+		
 	//- Load old Plan if Possible
 	FILE *fid;
 	FILE *fid2;
@@ -430,100 +432,162 @@ double gettime(void){
 };
   
 //----------------------------------------
-//    Forward Transform
+//    Gridding Calls
 //----------------------------------------
 
-void gridFFT::forward(Array<complex<float>,3>&data, const Array<float,3>&kx, const Array<float,3>&ky, const Array<float,3>&kz, const Array<float,3>&kw){
+void gridFFT::forward( Array<complex<float>,3>&X,\
+					   const Array<complex<float>,3>&smap,\
+					   const Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw){
+	tictoc T;
+	if(time_grid) T.tic(); 
+	k3d_grid=0; // Zero K-Space
+	if(time_grid) cout << "Forward::zero:"<< T;
 	
-	double start=0;
-	double total=0;
-	if(time_grid) start = gettime();
-	total = start;
-	k3d_grid=0;
-	if(time_grid) cout << endl << "Zero: " << gettime()-start;
+	if(time_grid) T.tic(); 
+	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
+	if(time_grid)cout << ",grid:"<< T;
 	
-	if(time_grid) start = gettime();
-	chop_grid_forward(data,kx,ky,kz,kw);
-	if(time_grid) cout << "Grid: " << gettime()-start;
+	if(time_grid) T.tic(); 
+	fftwf_execute(fft_plan); //FFT 
+	if(time_grid)cout << ",fft:"<< T;
 	
-	if(time_grid) start = gettime();
-	fftwf_execute(fft_plan);
-	if(time_grid) cout << "  FFT: " << gettime()-start;
-	
-	if(time_grid) start = gettime();
-	deapp_chop_crop();
-	if(time_grid) cout << "  Deapp: " << gettime()-start;
-	if(time_grid) cout << "  :: Total: " << gettime()-total << endl;
-	
-}	
-
-
-void gridFFT::backward(Array<complex<float>,3>&data,const Array<float,3>&kx,const Array<float,3>&ky, const Array<float,3>&kz, const Array<float,3>&kw){
-	
-	double start=0;
-	double total=0;
-	
-	if(time_grid) start = gettime();
-	total = start;
-	icrop_deapp_chop();
-	if(time_grid) cout << "  Deapp: " << gettime()-start;
-	
-	if(time_grid) start = gettime();
-	fftwf_execute(ifft_plan);
-	if(time_grid) cout << "  iFFT: " << gettime()-start;
-	
-	if(time_grid) start = gettime();
-	chop_grid_backward(data,kx,ky,kz,kw);
-	if(time_grid) cout << "  iGrid: " << gettime()-start;
-	
-	if(time_grid) cout << "  :: Total: " << gettime()-total << endl;
+	if(time_grid) T.tic(); 
+	forward_image_copy(X,smap); // Copy result to X
+	if(time_grid)cout << ",copy:"<< T << endl;
 }
 
-void gridFFT::chop(void){
-	for(int k=0; k < Sz; k++){
-      for (int j=0; j< Sy; j++){
-    	for (int i=0; i < Sx; i++){
-			float fact =  ((float)( 2*(( i + j + k )%2) - 1));
-			k3d_grid(i,j,k) *= fact;
-	}}}
+// No Sensitivity map
+void gridFFT::forward( Array<complex<float>,3>&X,\
+					   const Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw){
+	tictoc T;
+	if(time_grid) T.tic(); 
+	k3d_grid=0; // Zero K-Space
+	if(time_grid) cout << "Forward::zero:"<< T;
+	
+	if(time_grid) T.tic(); 
+	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
+	if(time_grid)cout << ",grid:"<< T;
+	
+	if(time_grid) T.tic(); 
+	fftwf_execute(fft_plan); //FFT 
+	if(time_grid)cout << ",fft:"<< T;
+	
+	if(time_grid) T.tic(); 
+	forward_image_copy(X); // Copy result to X
+	if(time_grid)cout << ",copy:"<< T << endl;
+}
+
+void gridFFT::backward(const Array<complex<float>,3>&X,\
+					   const Array<complex<float>,3>&smap,\
+					   Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw){
+	
+	tictoc T;
+	if(time_grid) T.tic(); 
+	backward_image_copy(X,smap); // Copy image to gridding 
+	if(time_grid) cout << "Backward::copy:"<< T;
+	
+	if(time_grid) T.tic(); 
+	fftwf_execute(ifft_plan); // Do FFT 
+	if(time_grid)cout << ",ifft:"<< T;
+	
+	if(time_grid) T.tic(); 
+	chop_grid_backward(data,kx,ky,kz,kw); // Inverse gridding
+	if(time_grid)cout << ",igrid:"<< T << endl;
+	
+}
+
+// Same but without smap
+void gridFFT::backward(const Array<complex<float>,3>&X,\
+					   Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw){
+	
+	tictoc T;
+	if(time_grid) T.tic(); 
+	backward_image_copy(X); // Copy image to gridding 
+	if(time_grid) cout << "Backward::copy:"<< T;
+	
+	if(time_grid) T.tic(); 
+	fftwf_execute(ifft_plan); // Do FFT 
+	if(time_grid)cout << ",ifft:"<< T;
+	
+	if(time_grid) T.tic();
+	chop_grid_backward(data,kx,ky,kz,kw); // Inverse gridding
+	if(time_grid)cout << ",igrid:"<< T << endl;
 }
 
 //----------------------------------------
 //    Crop from Gridding Matrix to Image
 //----------------------------------------
-void gridFFT::deapp_chop_crop(){
+void gridFFT::forward_image_copy(Array<complex<float>,3>&X){
+	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
 	  float wtz = winz[k+og_sz];
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy[j+og_sy];
 		for(int i=0; i<Nx; i++) {
-			image(i,j,k) *= (wty*winx[i+og_sx]);
+			X(i,j,k) += ( image(i,j,k)*wty*winx[i+og_sx]);
+	}}}
+}
+
+void gridFFT::forward_image_copy(Array<complex<float>,3>&X,const Array<complex<float>,3>&smap){
+	#pragma omp parallel for
+	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz[k+og_sz];
+	  for(int j=0; j<Ny; j++){ 
+	    float wty = wtz*winy[j+og_sy];
+		for(int i=0; i<Nx; i++) {
+			X(i,j,k) += ( image(i,j,k)*wty*winx[i+og_sx]*conj(smap(i,j,k)));
 	}}}
 }
 
 //----------------------------------------
-//    Crop from Gridding Matrix to Image
+//    Copy Image to gridding Matrix, Multiply by Smaps, and Zero 
 //----------------------------------------
-void gridFFT::icrop_deapp_chop(){
-	for(int k=0; k< Sz; k++){ 
-	  float wtz = winz[k]; // This zeros elements
-	  for(int j=0; j<Sy; j++){ 
-	    float wty = wtz*winy[j];
-		for(int i=0; i<Sx; i++) {
-			 k3d_grid(i,j,k)*=(wty*winx[i]);
+
+void gridFFT::backward_image_copy(const Array<complex<float>,3>&X){
+	
+	if(overgrid > 1.0){
+		k3d_grid = 0;
+	}
+	
+	#pragma omp parallel for
+	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz[k+og_sz];
+	  for(int j=0; j<Ny; j++){ 
+	    float wty = wtz*winy[j+og_sy];
+		for(int i=0; i<Nx; i++) {
+			image(i,j,k) = X(i,j,k)*wty*winx[i+og_sx];
 	}}}
 }
 
-//-----------------------------------------------------
-//  Multiple by Precalculated Deappodization Window
-//-----------------------------------------------------
-void gridFFT::deapp_chop(){
- 	for(int k=0; k<Sz; k++){ 
-	 float wtz = winz[k];
-     for(int j=0; j<Sy; j++){ 
-   	  float wty = wtz*winy[j];
-	  for(int i=0; i< Sx; i++) {
-    	k3d_grid(i,j,k) *= winx[i]*wty;
+void gridFFT::backward_image_copy(const Array<complex<float>,3>&X,const Array<complex<float>,3>&smap){
+	
+	if(overgrid > 1.0){
+		k3d_grid = 0;
+	}
+	
+	#pragma omp parallel for
+	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz[k+og_sz];
+	  for(int j=0; j<Ny; j++){ 
+	    float wty = wtz*winy[j+og_sy];
+		for(int i=0; i<Nx; i++) {
+			image(i,j,k) =  X(i,j,k)*wty*winx[i+og_sx]*smap(i,j,k);
 	}}}
 }
 
@@ -532,7 +596,7 @@ void gridFFT::deapp_chop(){
 //  is already density compensated, etc.
 // -------------------------------------------------------
 
-void gridFFT::chop_grid_forward( Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA){
+void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA){
 
 	float cx = Sx/2;
 	float cy = Sy/2;
@@ -544,7 +608,7 @@ void gridFFT::chop_grid_forward( Array<complex<float>,3>&dataA, const Array<floa
 	}
 	
 	int Npts = dataA.numElements();
-	complex<float> *data = dataA.data();
+	const complex<float> *data = dataA.data();
 	const float *kx = kxA.data();
 	const float *ky = kyA.data();
 	const float *kz = kzA.data();

@@ -82,8 +82,8 @@ class gridFFT{
 		fftwf_plan ifft_plan;
 		
 		float k_rad; 
-		
 		int time_grid;
+		
 		gridFFT();
 		~gridFFT();
 		
@@ -91,19 +91,29 @@ class gridFFT{
 		void read_commandline(int numarg, char **pstring);
 		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
 		void deapp_chop();
-		void forward( Array< complex<float>,3 >&data, const Array< float,3 >&kx,const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
-		void backward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
-				
-		void chop_grid_forward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		
+		// Main Calls with and without Sensitivity maps
+		void forward( Array< complex<float>,3 >&X,const Array< complex<float>,3 >&smap,const Array< complex<float>,3 >&data, const Array< float,3 >&kx,const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		void forward( Array< complex<float>,3 >&X,const Array< complex<float>,3 >&data, const Array< float,3 >&kx,const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		
+		void backward( const Array< complex<float>,3 >&X,const Array< complex<float>,3 >&smap,Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+		void backward( const Array< complex<float>,3 >&X,Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
+						
+		void chop_grid_forward( const Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
 		void chop_grid_backward( Array< complex<float>,3 >&data, const Array< float,3 >&kx, const Array< float,3 >&ky, const Array< float,3 >&kz, const Array< float,3 >&kw);
 		float bessi0(float);
 		void plan_fft( void );
-		void deapp_chop_crop(void);
-		void icrop_deapp_chop(void);
-		void chop(void);
-		static void help_message(void);
 		
-		Array<complex<float>,3> return_array( void);
+		// Copy Gridding to Image 
+		void forward_image_copy(Array< complex<float>,3 >&X);
+		void forward_image_copy(Array< complex<float>,3 >&X,const Array< complex<float>,3 >&smap);
+		
+		// Copy Image to Gridding
+		void backward_image_copy(const Array< complex<float>,3 >&X);
+		void backward_image_copy(const Array< complex<float>,3 >&X,const Array< complex<float>,3 >&smap);
+		
+		
+		static void help_message(void);
 		
 	private:	
 		

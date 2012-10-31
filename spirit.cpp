@@ -487,9 +487,9 @@ void SPIRIT::interpMaps(Array< complex<float>,4 > &LR, Array< complex<float>,4 >
 		int yp = (yy + 1) % EigVal.length(secondDim);
 		float dy = (float)(y%mapshrink)/(float)mapshrink;
 		  
-		for (int x = 0; x < out.length(thirdDim); x++) {
+		for (int x = 0; x < out.length(firstDim); x++) {
           int xx = x/mapshrink;
-		  int xp = (xx + 1) % EigVal.length(thirdDim);
+		  int xp = (xx + 1) % EigVal.length(firstDim);
 		  float dx = (float)(x%mapshrink)/(float)mapshrink;
 		    
 		  

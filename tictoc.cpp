@@ -1,5 +1,4 @@
-#ifndef hTIMEARRAY
-#define hTIMEARRAY
+#pragma once 
 
 #include <iostream>
 #include <stdio.h>
@@ -27,8 +26,5 @@ class tictoc{
 		return out << (v.stop-v.start);
     }
 	
-	
 };
 
-
-#endif

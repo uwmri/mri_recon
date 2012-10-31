@@ -269,21 +269,25 @@ void MRI_DATA::undersample(int us){
 */
 void MRI_DATA::coilcompress(float thresh)
 { 
- 
-}
 
-#ifdef XX
-  cout << "Coil compression . . . " << flush;
+  cout << "Coil compression . . .(thresh = " << thresh << " )" << flush;
   cx_mat A;
-  A.zeros(kdata.size(3)*kdata.size(2)*kdata.size(1)*kdata.size(0), kdata.size(4));
- 
-  for(int i = 0; i < kdata.size(4); i++) {
-    for(int s = 0; s < kdata.size(3); s++){
-		int offset = s*( kdata.size(2)*kdata.size(1)*kdata.size(0) );
-		for(int j = 0; j < kdata.size(2)*kdata.size(1)*kdata.size(0); j++) {
-      		A(j+offset,i) = kdata[i][s][0][0][j];
-  }}}
+  A.zeros(kdata.length(fourthDim)*kdata.length(thirdDim)*kdata.length(secondDim)*kdata.length(firstDim), kdata.length(fifthDim));
   
+  cout << "Copy to Array" << endl << flush; 
+  for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
+   	for(int e =0; e< kdata.length(fourthDim); e++){
+	for(int k =0; k< kdata.length(thirdDim); k++){
+	for(int j =0; j< kdata.length(secondDim); j++){
+	for(int i =0; i< kdata.length(firstDim); i++){
+		int offset = e*kdata.length(thirdDim)*kdata.length(secondDim)*kdata.length(firstDim)+  k*kdata.length(secondDim)*kdata.length(firstDim) + j*kdata.length(firstDim) + i;
+		A(offset,coil) = kdata(i,j,k,e,coil);
+  	}}}}
+  }
+  
+  cout << "Size A " << A.n_rows << " x " << A.n_cols << endl;
+  
+  cout << "Svd" << endl << flush; 
   cx_mat U;
   vec s;
   cx_mat V;
@@ -294,30 +298,29 @@ void MRI_DATA::coilcompress(float thresh)
     
   
   //cout << s << endl << endl;
-  uvec cc_find = arma::find(s > thresh, 1, "last");
-  int cc_ncoils = cc_find(0)+1; // New number of coils
+  //uvec cc_find = arma::find(s > thresh, 1, "last");
+  //int cc_ncoils = cc_find(0)+1; // New number of coils
+  int cc_ncoils = (int)thresh;
   
   cout << "(" << Num_Coils << " coils -> " << cc_ncoils << " coils) . . . " << flush;
   
   Num_Coils = cc_ncoils;
   
   A = A*V.cols(0,cc_ncoils-1);
+
+
+  cout << "Copy back to Array" << endl; 
+  kdata.resizeAndPreserve(kdata.length(firstDim),kdata.length(1),kdata.length(2),kdata.length(3),Num_Coils);
+  for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
+   	for(int e =0; e< kdata.length(fourthDim); e++){
+	for(int k =0; k< kdata.length(thirdDim); k++){
+	for(int j =0; j< kdata.length(secondDim); j++){
+	for(int i =0; i< kdata.length(firstDim); i++){
+		int offset = e*kdata.length(thirdDim)*kdata.length(secondDim)*kdata.length(firstDim)+  k*kdata.length(secondDim)*kdata.length(firstDim) + j*kdata.length(firstDim) + i;
+		kdata(i,j,k,e,coil) = A(offset,coil); 
+  }}}}}
   
-  array5D< complex<float> > kdata_cc;
-  kdata_cc.alloc(Num_Coils,Num_Encodings,Num_Slices,Num_Readouts,Num_Pts);
-  
-  for(int i = 0; i < kdata_cc.Nt; i++) {
-     for(int s = 0; s < kdata.size(3); s++){
-		int offset = s*( kdata.size(2)*kdata.size(1)*kdata.size(0) );
-		for(int j = 0; j < kdata_cc.size(2)*kdata_cc.size(1)*kdata_cc.size(0); j++) {
-      		kdata_cc[i][s][0][0][j] = A(j+offset,i);
-  }}}
-  
-//  kdata.Nt = Num_Coils;
-//  kdata.freeArray();
-//  kdata.point_to_5D(&kdata_cc);
-  
+
   cout << "done" << endl;
 }
 
-#endif

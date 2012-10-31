@@ -66,6 +66,7 @@ int main(int argc, char **argv){
 
 	if (recon.compress_coils > 0){
 		data.coilcompress(recon.compress_coils);
+		recon.num_coils = data.Num_Coils;
 	}
 
 	// Turn of parallel processing for 2D due to thread overhead
@@ -136,14 +137,12 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
 	
 			for(int coil=0; coil< data.Num_Coils; coil++){
+				// Arrays 
 				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
+				Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
 				
 				//Do Gridding			
-				gridding.forward( kdataE,kxE,kyE,kzE,kwE);
-
-				//Add to 			
-				Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
-				SmapC += gridding.image;
+				gridding.forward(SmapC,kdataE,kxE,kyE,kzE,kwE);
 			}
 		}
 		gridding.k_rad = 999;
@@ -270,26 +269,21 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 								 cout << coil << "," << flush;
 
-								 //Gridding/FFT
-								 T.tic();
-								 gridding.forward( kdataE,kxE,kyE,kzE,TimeWeight);
-								 cout << "\tGridding took = " << T << endl;
-
-								 // Multiply by Sensitivity Map
+								 // Image to add too
+								 Array<complex<float>,3>xet = X(all,all,all,t,e);
+								 
 								 T.tic();
 								 if(recon.recon_type==RECON_PILS){
+								 	 // adds to xet, does gridding + multiply by conj(smap)
 									 Array<complex<float>,3>smapC = smaps(all,all,all,coil);
-									 gridding.image *=conj(smapC);
+									 gridding.forward(xet,smapC,kdataE,kxE,kyE,kzE,TimeWeight);
 								 }else{
+								 	 gridding.image = 0;
+									 gridding.forward(gridding.image,kdataE,kxE,kyE,kzE,TimeWeight);
 									 gridding.image *=conj(gridding.image);
+									 xet += gridding.image;
 								 }								 
-								 cout << "Conj took = " << T << endl;
-
-								 // Add to accumulated image
-								 T.tic();
-								 Array<complex<float>,3>xet = X(all,all,all,t,e);
-								 xet += gridding.image;
-								 cout << "\tAdd to X = " << T << endl;
+								 cout << "Gridding took = " << T << endl;
 							 }
 							 cout << endl;
 						 }
@@ -399,18 +393,14 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									  // Ex
 									  diff_data=0;
 									  Array<complex<float>,3>smapC=smaps(all,all,all,coil);
-									  gridding.image = Xref;
-									  gridding.image*= smapC;
-									  gridding.backward( diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.backward(Xref,smapC,diff_data,kxE,kyE,kzE,TimeWeight);
 
 									  //Ex-d
 									  Array< complex<float>,3>kdataC = data.kdata(all,all,all,e,coil); 
 									  diff_data -= kdataC;
 
 									  //E'(Ex-d)
-									  gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
-									  gridding.image*=conj(smapC);
-									  Rref += gridding.image;
+									  gridding.forward( Rref,smapC,diff_data,kxE,kyE,kzE,TimeWeight);
 								  }//Coils
 
 
@@ -420,14 +410,10 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									  // EE'(Ex-d)
 									  diff_data=0;
 									  Array<complex<float>,3>smapC=smaps(all,all,all,coil);
-									  gridding.image = Rref;
-									  gridding.image*= smapC;
-									  gridding.backward( diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.backward(Rref,smapC, diff_data,kxE,kyE,kzE,TimeWeight);
 
 									  //E'EE'(Ex-d)
-									  gridding.forward( diff_data,kxE,kyE,kzE,TimeWeight);
-									  gridding.image*=conj(smapC);
-									  P += gridding.image;
+									  gridding.forward(P,smapC,diff_data,kxE,kyE,kzE,TimeWeight);
 								  }//Coils
 								  P*=conj(Rref);
 								  scale_RhP += sum(P); 
