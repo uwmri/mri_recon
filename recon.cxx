@@ -227,10 +227,11 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 
 	/*----------------------------Main Recons---------------------------------------*/	
+	/*
 	recon.rcencodes = 1;//Temp
 	for(int coil=0; coil< data.Num_Coils; coil++){
 		data.kdata(all,all,all,0,coil) = data.kdata(all,all,all,1,coil);
-	}
+	}*/
 	
 	// Final Image Solution
 	Array< complex<float>,5 >X(recon.rcxres,recon.rcyres,recon.rczres,recon.rcframes,recon.rcencodes,ColumnMajorArray<5>());
