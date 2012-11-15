@@ -24,15 +24,18 @@ class gridFFT{
 		
   		Array< complex<float>,3 >k3d_grid; 	/*Actual Gridding Space*/
   		Array< complex<float>,3 >image;   	/*Complex Storage Space*/
-  
-  		// Controls for phase encode / 2D directions
+  		
+		// Controls for phase encode / 2D directions
 		int fft_in_x;
   		int fft_in_y;
   		int fft_in_z;
   		int grid_in_x;
   		int grid_in_y;
   		int grid_in_z;
-  				
+  		
+		// Grid Testing for Double 
+		int double_grid;
+				
   		/*Overgridding Factor*/   
   		float grid_x;
   		float grid_y;

@@ -47,8 +47,6 @@ public:
 };
 
 
-
-
 template< typename T, int N>
 void ArrayRead( Array< T,N>& temp, char *name){
 	 	FILE *fid;

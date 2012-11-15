@@ -10,6 +10,8 @@
 
 enum {SP_SQUARE, SP_CIRCLE};
 enum {SP_TIK, SP_TSVD};
+enum {SP_LOW_RES_PHASE, SP_COIL_PHASE, SP_SMOOTH};
+
 
 void fftshift3(Array<complex<float>,3>&);
 void ifft3(Array< complex<float>,3>&);
@@ -49,7 +51,8 @@ class SPIRIT {
     int debug;
 	
     int ncoils;
-    
+    int phase_type;
+	
 	static void help_message(void);
 	
     SPIRIT();

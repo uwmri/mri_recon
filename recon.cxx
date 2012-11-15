@@ -118,18 +118,21 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
 
-	Array<complex<float>,4 >smaps;
+	Array<complex<float>,4>smaps; 
 	if( (recon.recon_type != RECON_SOS) && (data.Num_Coils>1)){ 
-		cout << "Getting Coil Sensitivities " << endl;
+		cout << "Getting Coil Sensitivities " << endl<< flush; 
 
 		// Low Pass filtering for Sensitivity Map
 		gridding.k_rad = 16;
 
 		// Allocate Storage for Map	and zero	
-		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
+		cout << "Allocate Sense Maps"  << endl << flush;
+		smaps.setStorage( ColumnMajorArray<4>());
 		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
-		smaps = 0;
+		smaps=0;
 		
+				
+		cout << "Recon Low Resolution Images"  << endl<< flush; 
 		for(int e=0; e< recon.rcencodes;e++){
 			Array< float,3 >kxE = data.kx(all,all,all,e); 
 			Array< float,3 >kyE = data.ky(all,all,all,e); 
@@ -137,19 +140,22 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
 	
 			for(int coil=0; coil< data.Num_Coils; coil++){
+				cout << "Coil = " << coil  << " encode = " << e << endl;
 				// Arrays 
 				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
-				Array< complex<float>,3>SmapC = smaps(all,all,all,coil);	
 				
-				//Do Gridding			
-				gridding.forward(SmapC,kdataE,kxE,kyE,kzE,kwE);
+				//Do Gridding
+				Array< complex<float>,3>smapC =smaps(all,all,all,coil);			
+				gridding.forward(smapC,kdataE,kxE,kyE,kzE,kwE);
 			}
 		}
 		gridding.k_rad = 999;
 		
+
 		// Spirit Code
 		if (recon.coil_combine_type==COIL_ESPIRIT){
- 			SPIRIT S;
+ 			cout << "eSPIRIT Based Maps"  << endl; 
+			SPIRIT S;
       	 	S.read_commandline(argc,argv);
       		S.init(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
 		    S.generateEigenCoils(smaps);		  
@@ -172,19 +178,14 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			}}}
 
 		} // Normalization
-		
-		// Export need to add flag "-export_smaps"
+
+		// Export 
 		if(recon.export_smaps==1){
 			cout << "Exporting Smaps" << endl;
 			ArrayWrite(smaps,"SenseMaps.dat");
+			
 		}
-	}else if(recon.recon_type != RECON_SOS){
-		// Allocate Storage for Map	and zero (simplifies IST/PILS code)	
-		smaps.setStorage( ColumnMajorArray<4>()); // Hopefully temporary
-		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
-		smaps = complex<float>(1.0,0);
-	}
-	
+	}	
 	
 
 	// ------------------------------------
@@ -226,7 +227,11 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 
 
 	/*----------------------------Main Recons---------------------------------------*/	
-
+	recon.rcencodes = 1;//Temp
+	for(int coil=0; coil< data.Num_Coils; coil++){
+		data.kdata(all,all,all,0,coil) = data.kdata(all,all,all,1,coil);
+	}
+	
 	// Final Image Solution
 	Array< complex<float>,5 >X(recon.rcxres,recon.rcyres,recon.rczres,recon.rcframes,recon.rcencodes,ColumnMajorArray<5>());
 	X=0;
@@ -275,7 +280,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 								 T.tic();
 								 if(recon.recon_type==RECON_PILS){
 								 	 // adds to xet, does gridding + multiply by conj(smap)
-									 Array<complex<float>,3>smapC = smaps(all,all,all,coil);
+									 Array< complex<float>,3>smapC =smaps(all,all,all,coil);			
 									 gridding.forward(xet,smapC,kdataE,kxE,kyE,kzE,TimeWeight);
 								 }else{
 								 	 gridding.image = 0;
@@ -449,8 +454,24 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
-
-						  if(softthresh.thresh > 0.0){
+						  if(iteration==0){
+						  	for(int k=0; k<X.extent(thirdDim);k++){
+							for(int j=0; j<X.extent(thirdDim);j++){
+							for(int i=0; i<X.extent(thirdDim);i++){
+							
+							complex<float>s(0,0);							
+							for(int t=0; t<X.extent(fourthDim);t++){
+								s += X(i,j,k,t,0);
+							}
+							s /= (float)X.extent(fourthDim);
+							for(int t=0; t<X.extent(fourthDim);t++){
+								X(i,j,k,t,0)=s;
+							}
+														
+							
+							}}}
+							
+						  }else if(softthresh.thresh > 0.0){
 							  cout << "Soft thresh" << endl;
 							  tdiff.fft_t(X);
 							  wave.random_shift();
@@ -460,7 +481,8 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 							  wave.backward(X);
 							  tdiff.ifft_t(X);
 						  }
-
+  						  ArrayWriteMag(Xslice,"X_mag_post.dat");
+	
 					  }// Iteration			
 
 				  }break;

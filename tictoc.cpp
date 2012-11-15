@@ -11,6 +11,11 @@ class tictoc{
     double start;
     double stop;
     
+	tictoc(void){
+		start = 0.0;
+		stop =0.0;
+	}	
+	
     void tic(){
       start = omp_get_wtime();
     }

@@ -64,6 +64,7 @@ gridFFT::gridFFT(){
   	grid_in_z=1;
 	k_rad=9999.0;
 	time_grid =0 ;
+	double_grid =0;
 }
 
 //----------------------------------------
@@ -159,7 +160,7 @@ void gridFFT::help_message(void){
 	help_flag("-dwinX []","Size of kernel in x");
 	help_flag("-dwinY []","Size of kernel in y");
 	help_flag("-dwinZ []","Size of kernel in z");
-	
+	help_flag("-double_grid","Use complex<double> for forward gridding (slow)");
 }
 	
  
@@ -192,6 +193,7 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		trig_flag(KAISER,"-kaiser",kernel_type);
 		trig_flag(TRIANGLE,"-triangle",kernel_type);
 		trig_flag(1,"-time_grid",time_grid);
+		trig_flag(1,"-double_grid",double_grid);
 	// Special Copies
 	}else if(strcmp("-fast_grid", pstring[pos]) == 0) {
 	  	overgrid = 1.0;
@@ -445,19 +447,19 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	tictoc T;
 	if(time_grid) T.tic(); 
 	k3d_grid=0; // Zero K-Space
-	if(time_grid) cout << "Forward::zero:"<< T;
+	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
-	if(time_grid)cout << ",grid:"<< T;
+	if(time_grid)cout << ",grid:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
 	fftwf_execute(fft_plan); //FFT 
-	if(time_grid)cout << ",fft:"<< T;
+	if(time_grid)cout << ",fft:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
 	forward_image_copy(X,smap); // Copy result to X
-	if(time_grid)cout << ",copy:"<< T << endl;
+	if(time_grid)cout << ",copy:"<< T << endl<< flush;
 }
 
 // No Sensitivity map
@@ -470,19 +472,19 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	tictoc T;
 	if(time_grid) T.tic(); 
 	k3d_grid=0; // Zero K-Space
-	if(time_grid) cout << "Forward::zero:"<< T;
+	if(time_grid) cout << "Forward::zero:"<< T << flush;
 	
 	if(time_grid) T.tic(); 
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
-	if(time_grid)cout << ",grid:"<< T;
+	if(time_grid)cout << ",grid:"<< T<< flush;
 	
 	if(time_grid) T.tic(); 
 	fftwf_execute(fft_plan); //FFT 
-	if(time_grid)cout << ",fft:"<< T;
+	if(time_grid)cout << ",fft:"<< T<< flush;
 	
 	if(time_grid) T.tic(); 
 	forward_image_copy(X); // Copy result to X
-	if(time_grid)cout << ",copy:"<< T << endl;
+	if(time_grid)cout << ",copy:"<< T << endl<< flush;
 }
 
 void gridFFT::backward(const Array<complex<float>,3>&X,\
@@ -613,6 +615,15 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	const float *ky = kyA.data();
 	const float *kz = kzA.data();
 	const float *kw = kwA.data();
+	
+	// For testing
+	Array< complex<double>,3>tempD;
+	if(double_grid==1){
+		cout << "WARNING::gridding using double" << endl; 
+		tempD.setStorage( ColumnMajorArray<3>());
+		tempD.resize(Sx,Sy,Sz);
+		tempD = 0;
+	}
 					
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {
@@ -679,25 +690,51 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 			 		
 					wtx *=  ((float)( 2*(( lx + ly + lz )%2) - 1)); // Chop in  gridding now
 					
-					complex<float>temp2 = wtx*temp;
-					float RD = real(temp2);
-					float ID = imag(temp2);
-					float *I = reinterpret_cast<float *>(&k3d_grid(lx,ly,lz));
-					float *R = I++;
+					if(double_grid){
+						complex<float>temp2 = wtx*temp;
+						double RD = (double)real(temp2);
+						double ID = (double)imag(temp2);
+						double *I = reinterpret_cast<double *>(&tempD(lx,ly,lz));
+						double *R = I++;
 					
-					// Prevent Race conditions in multi-threaded
-					#pragma omp atomic
-					*R+=RD;
+						// Prevent Race conditions in multi-threaded
+						#pragma omp atomic
+						*R+=RD;
 					
-					#pragma omp atomic
-					*I+=ID;
-																								
+						#pragma omp atomic
+						*I+=ID;
+					
+					}else{
+						complex<float>temp2 = wtx*temp;
+						float RD = real(temp2);
+						float ID = imag(temp2);
+						float *I = reinterpret_cast<float *>(&k3d_grid(lx,ly,lz));
+						float *R = I++;
+					
+						// Prevent Race conditions in multi-threaded
+						#pragma omp atomic
+						*R+=RD;
+					
+						#pragma omp atomic
+						*I+=ID;
+					}																	
 					/*This Memory Access is the Bottleneck - Also not thread safe!*/	 			 
 			 		// k3d_grid.vals[lz][ly][lx]+=temp2;
 			}/* end lz loop */
 	  	  }/* end ly */
 		 }/* end lx */
 	}/* end data loop */
+	
+	// Copy back if using double
+	if(double_grid){
+	for(int k=0; k< Sz; k++){ 
+	  for(int j=0; j<Sy; j++){ 
+	   for(int i=0; i<Sx; i++) {
+			k3d_grid(i,j,k) =  tempD(i,j,k);
+	}}}
+	}
+	
+	
 	return;
 }
 	
