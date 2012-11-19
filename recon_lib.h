@@ -17,23 +17,14 @@ using arma::cx_mat;
 using arma::vec;
 using arma::uvec;
 
-
-#define THREADS 32
-
 // Types of Recons
-#define RECON_SOS 0
-#define RECON_PILS 1
-#define RECON_CG 2
-#define RECON_IST 3
-#define RECON_FISTA 4
+enum { RECON_SOS, RECON_PILS, RECON_CG, RECON_IST, RECON_FISTA };
 
 // Data Types
-#define RECON_PFILE 0
-#define RECON_EXTERNAL 1
+enum { PFILE_DATA, EXTERNAL_DATA, SIMULATE_DATA, PHANTOM_DATA };
 
 // Coil Combine Type
-#define COIL_LOWRES 0
-#define COIL_ESPIRIT 1
+enum { COIL_LOWRES, COIL_ESPIRIT };
 
 class RECON{
 	public:

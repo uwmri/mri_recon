@@ -43,15 +43,31 @@ int main(int argc, char **argv){
 	MRI_DATA data;
 
 	cout << "----Read Data-----" << endl;	
-	if(recon.data_type==RECON_PFILE){	
-		// Read in P-File (doesn't work)
-		//PFILE pfile;
-		//pfile.read_header(recon.filename);
-		//pfile.read_data(0);
-	}else{
-		// Read in External Data Format
-		recon.parse_external_header();
-		data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres);
+	switch(recon.data_type){
+		case(PFILE_DATA):{	
+			// Read in P-File (doesn't work)
+			//PFILE pfile;
+			//pfile.read_header(recon.filename);
+			//pfile.read_data(0);
+		}break;
+		
+		case(SIMULATE_DATA):{
+			// Use completely made up data
+			
+		}break;
+		
+		case(PHANTOM_DATA):{
+			// Use external Kx,Ky,Kz but Create Data based on Phantom
+			
+			
+		}break;
+		
+		default:
+		case(EXTERNAL_DATA):{
+			// Read in External Data Format
+			recon.parse_external_header();
+			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres);
+		}break;
 	}
 
 	cout << "----Geometry Modification-----" << endl;	

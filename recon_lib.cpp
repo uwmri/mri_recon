@@ -14,7 +14,7 @@ RECON::RECON(void){
 void RECON::set_defaults( void){
 	// Help Message for recon
 	recon_type = RECON_SOS;
-	data_type = RECON_EXTERNAL;
+	data_type = EXTERNAL_DATA;
 	coil_combine_type = COIL_LOWRES;
 	
 	numrecv = 1;
@@ -119,11 +119,12 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(COIL_LOWRES,"-coil_lowres",coil_combine_type);
 		trig_flag(1,"-export_smaps",export_smaps);
 		
-				
 		// Source of data
-		trig_flag(RECON_EXTERNAL,"-external_data",data_type);
-		trig_flag(RECON_PFILE,"-pfile",data_type);
-		
+		trig_flag(EXTERNAL_DATA,"-external_data",data_type);
+		trig_flag(PFILE_DATA,"-pfile",data_type);
+		trig_flag(PHANTOM_DATA,"-phantom",data_type);
+		trig_flag(SIMULATE_DATA,"-simulate",data_type);
+				
 		// Data modification
 		int_flag("-acc",acc);
 		float_flag("-compress_coils",compress_coils);

@@ -24,7 +24,8 @@ set (SOURCES
      temporal_diff.cpp 
      wavelet3D.cpp 
      softthreshold.cpp 
-     recon_lib.cpp)
+     recon_lib.cpp
+	 phantom.cpp)
 
 #add_library(RECON_LIB recon_lib.cpp)
 

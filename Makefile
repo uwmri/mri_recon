@@ -183,6 +183,30 @@ mri_data.cpp.s:
 	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/mri_data.cpp.s
 .PHONY : mri_data.cpp.s
 
+phantom.o: phantom.cpp.o
+.PHONY : phantom.o
+
+# target to build an object file
+phantom.cpp.o:
+	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/phantom.cpp.o
+.PHONY : phantom.cpp.o
+
+phantom.i: phantom.cpp.i
+.PHONY : phantom.i
+
+# target to preprocess a source file
+phantom.cpp.i:
+	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/phantom.cpp.i
+.PHONY : phantom.cpp.i
+
+phantom.s: phantom.cpp.s
+.PHONY : phantom.s
+
+# target to generate assembly for a file
+phantom.cpp.s:
+	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/phantom.cpp.s
+.PHONY : phantom.cpp.s
+
 recon.o: recon.cxx.o
 .PHONY : recon.o
 
@@ -345,6 +369,9 @@ help:
 	@echo "... mri_data.o"
 	@echo "... mri_data.i"
 	@echo "... mri_data.s"
+	@echo "... phantom.o"
+	@echo "... phantom.i"
+	@echo "... phantom.s"
 	@echo "... recon.o"
 	@echo "... recon.i"
 	@echo "... recon.s"
