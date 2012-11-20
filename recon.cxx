@@ -16,12 +16,16 @@
 #include "softthreshold.h"
 #include "spirit.h"
 #include "ArrayTemplates.hpp"
+#include "phantom.h"
 #include "tictoc.cpp"
 using namespace std;
 
 Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
 
 int main(int argc, char **argv){
+
+	PHANTOM(256,256,256);
+	exit(1);
 
 	// --------------------------
 	// Check for help message and output help
