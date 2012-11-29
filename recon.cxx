@@ -23,9 +23,7 @@ using namespace std;
 Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
 
 int main(int argc, char **argv){
-
-	PHANTOM(256,256,256);
-	exit(1);
+	
 
 	// --------------------------
 	// Check for help message and output help
@@ -61,7 +59,41 @@ int main(int argc, char **argv){
 		}break;
 		
 		case(PHANTOM_DATA):{
-			// Use external Kx,Ky,Kz but Create Data based on Phantom
+			// Use external Kx,Ky,Kz 
+			recon.parse_external_header();
+			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres,0);
+			
+			// Initialize Phantom
+			PHANTOM phantom;
+			phantom.read_commandline(argc,argv);  
+			phantom.init(recon.rcxres,recon.rcyres,recon.rczres);
+			
+			// Accurate gridding for Phantom
+			gridFFT phantom_gridding;
+			phantom_gridding.kernel_type = KAISER_KERNEL;
+			phantom_gridding.overgrid = 1.25;
+			phantom_gridding.dwinX = 6;
+			phantom_gridding.dwinY = 6;
+			phantom_gridding.dwinZ = 6;
+			phantom_gridding.precalc_gridding(phantom.IMAGE.length(firstDim),phantom.IMAGE.length(secondDim),phantom.IMAGE.length(thirdDim),3);
+			
+			//Collect Data
+			int e= 0;
+			Range all=Range::all();
+			Array< float,3 >kxE = data.kx(all,all,all,e); 
+			Array< float,3 >kyE = data.ky(all,all,all,e); 
+			Array< float,3 >kzE = data.kz(all,all,all,e); 
+			Array< float,3 >kwE = data.kw(all,all,all,e); 
+			for(int coil =0; coil < recon.num_coils; coil++){
+				cout << "Getting phantom" << coil<<endl; 
+				phantom.update_smap(coil,recon.num_coils);				
+				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
+				kdataE=0;			
+				phantom_gridding.backward(phantom.IMAGE,phantom.SMAP,kdataE,kxE,kyE,kzE,kwE);
+			}
+			
+			// Add Noise
+			phantom.add_noise( data.kdata );
 			
 			
 		}break;
@@ -70,7 +102,7 @@ int main(int argc, char **argv){
 		case(EXTERNAL_DATA):{
 			// Read in External Data Format
 			recon.parse_external_header();
-			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres);
+			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres,0);
 		}break;
 	}
 
@@ -243,6 +275,13 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			cout << "Frame " << t << " count " << frame_count[t] << endl;
 		}
 		delete [] frame_count;
+	}else{
+		// Allocate Storage for Map	and zero	
+		cout << "Allocate Sense Maps"  << endl << flush;
+		smaps.setStorage( ColumnMajorArray<4>());
+		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
+		smaps=complex<float>(1.0,0.0);
+	
 	}
 
 

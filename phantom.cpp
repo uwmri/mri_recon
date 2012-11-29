@@ -9,16 +9,115 @@ Library to create data out of nothing!
 using namespace arma;
 using namespace std;
 
+PHANTOM::PHANTOM( void){
+	over_res=2;
+	phantom_type = FRACTAL_PHANTOM;
+	phantom_noise= 1.0;	
+}
 
-PHANTOM::PHANTOM(int Nx, int Ny, int Nz){
+void PHANTOM::init(int Nx, int Ny, int Nz){
 	
+
+	IMAGE.setStorage( ColumnMajorArray<3>());
+  	IMAGE.resize(Nx*over_res,Ny*over_res,Nz*over_res);
+  	IMAGE = 0;
+	
+	SMAP.setStorage( ColumnMajorArray<3>());
+  	SMAP.resize(Nx*over_res,Ny*over_res,Nz*over_res);
+  	SMAP = 1;
+		
 	// Array for Storage of Image
 	int Nt=1;
-	Array< complex<float>,4>P(Nx,Ny,Nz,Nt,ColumnMajorArray<4>());
-	
-	fractal3D(512,512,512);
-
+	switch(phantom_type){
+		case(FRACTAL_PHANTOM):{
+			fractal3D(over_res*Nx,over_res*Ny,over_res*Nz);
+		}break;
+		
+		case(SHEPP_PHANTOM):{
+			// Doesn't exist yet (but can be k-space based, Koay et al.)
+		}break;
+	}
 }
+
+void  PHANTOM::update_smap(int coil, int Ncoils){
+	float Nx = (float)SMAP.length(firstDim);
+	float Ny = (float)SMAP.length(secondDim);
+	float Nz = (float)SMAP.length(thirdDim);
+	float scale = 1./(Nx*Ny*Nz);
+	
+	switch(Ncoils){
+		case(1):{
+			SMAP = 1;
+		}break;
+		
+		case(2):{
+			for(int k=0; k<SMAP.length(thirdDim); k++){
+			for(int j=0; j<SMAP.length(secondDim); j++){
+			for(int i=0; i<SMAP.length(firstDim); i++){
+				switch(coil){
+					case(0):{ SMAP(i,j,k)=scale*(Nx - (float)i); }break;
+					case(1):{ SMAP(i,j,k)=scale*(     (float)i); }break;
+				}
+			}}}
+		}break;
+		
+		case(4):{
+			for(int k=0; k<SMAP.length(thirdDim); k++){
+			for(int j=0; j<SMAP.length(secondDim); j++){
+			for(int i=0; i<SMAP.length(firstDim); i++){
+				switch(coil){
+					case(0):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(Ny - (float)j); }break;
+					case(1):{ SMAP(i,j,k)=scale*(     (float)i)*(Ny - (float)j); }break;
+					case(2):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(     (float)j); }break;
+					case(3):{ SMAP(i,j,k)=scale*(     (float)i)*(     (float)j); }break;
+				}
+			}}}
+		}break;
+		
+		case(8):{
+			for(int k=0; k<SMAP.length(thirdDim); k++){
+			for(int j=0; j<SMAP.length(secondDim); j++){
+			for(int i=0; i<SMAP.length(firstDim); i++){
+				switch(coil){
+					case(0):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(Ny - (float)j)*(Nz - (float)k); }break;
+					case(1):{ SMAP(i,j,k)=scale*((float)i)*(Ny - (float)j)*(Nz - (float)k); }break;
+					case(2):{ SMAP(i,j,k)=scale*(Nx - (float)i)*((float)j)*(Nz - (float)k); }break;
+					case(3):{ SMAP(i,j,k)=scale*((float)i)*((float)j)*(Nz - (float)k); }break;
+					case(4):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(Ny - (float)j)*((float)k); }break;
+					case(5):{ SMAP(i,j,k)=scale*((float)i)*(Ny - (float)j)*((float)k); }break;
+					case(6):{ SMAP(i,j,k)=scale*(Nx - (float)i)*((float)j)*((float)k); }break;
+					case(7):{ SMAP(i,j,k)=scale*((float)i)*((float)j)*((float)k); }break;
+				}
+			}}}
+		}break;
+		
+	
+	
+	}
+}
+
+
+// Add Noise
+void PHANTOM::add_noise( Array<complex<float>,5>&kdata){
+	
+	// Estimate 
+	float mean_kdata = sum(abs(kdata)) / kdata.size();
+	cout << "Mean kdata = "<< mean_kdata << endl;
+	
+	// Add Complex Noise  
+	float noise_level = phantom_noise/sqrt(2.0)*mean_kdata;
+	cout << "Noise Level = "<< noise_level << endl;
+	
+	for(int c=0; c<kdata.extent(fifthDim); c++){
+		for(int ee=0; ee< kdata.extent(fourthDim); ee++){
+			for(int k=0; k< kdata.extent(thirdDim); k++){
+				for(int j=0; j< kdata.extent(secondDim); j++){
+					for(int i=0; i< kdata.extent(firstDim); i++){
+						arma::vec N = arma::randn<vec>(2);
+						kdata(i,j,k,ee,c)+= complex<float>(N(0)*noise_level,N(1)*noise_level);
+	}}}}}
+}
+
 
 class TFRACT{
   public:
@@ -48,9 +147,8 @@ class TFRACT{
   
 };
 
-#define PI 3.14156
 
-Array<float,3> PHANTOM::fractal3D(int Nx, int Ny, int Nz){
+void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 
 	int n = 10; // Maximum Branches
 	float branch_angle= PI/5;
@@ -244,12 +342,9 @@ Array<float,3> PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 		for(int t=0; t< trees; t++){
 			active_trees += tree[t].tactive;
 		}
-		cout << "Active trees = " << active_trees << endl;				
+		//cout << "Active trees = " << active_trees << endl;				
 	}
 
-	// Now Create Phantom
-	Array< float, 3> IMAGE(Nx,Ny,Nz,ColumnMajorArray<3>());
-	IMAGE = 0.0;
 	
 	// Count the total points
 	int total_points=0;
@@ -308,7 +403,7 @@ Array<float,3> PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 			for(int j=-rr; j<=rr; j++){
 			for(int i=-rr; i<=rr; i++){
 				float radius = sqrt( (float)(i*i) + (float)(j*j) + (float)(k*k)); 
-				IMAGE(i+xx,j+yy,k+zz)= max(IMAGE(i+xx,j+yy,k+zz), (float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) )); 
+				IMAGE(i+xx,j+yy,k+zz)= complex<float>( max(real(IMAGE(i+xx,j+yy,k+zz)), (float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) )),0.0); 
 			}}}
 		}
 		
@@ -328,17 +423,41 @@ Array<float,3> PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 		for(int j=-rr; j<=rr; j++){
 		for(int i=-rr; i<=rr; i++){
 			float radius = sqrt( (float)(i*i) + (float)(j*j) + (float)(k*k)); 
-			IMAGE(i+xx,j+yy,k+zz)= max(IMAGE(i+xx,j+yy,k+zz), (float)(0.1/( 1.0 + exp(2.0*(radius-0.5*(float)R))) )); 
+			IMAGE(i+xx,j+yy,k+zz)= complex<float>( max(real(IMAGE(i+xx,j+yy,k+zz)), (float)(0.1/( 1.0 + exp(2.0*(radius-0.5*(float)R))) )),0.0); 
 		}}}
 	}
-	ArrayWrite(IMAGE,"Phantom.dat"); 
+	ArrayWriteMag(IMAGE,"Phantom.dat"); 
+}
+
+// ----------------------
+// Help Message
+// ----------------------
+#include "io_templates.cpp"
+void PHANTOM::help_message(void){
+	cout << "----------------------------------------------" << endl;
+	cout << "   Phantom Control " << endl;
+	cout << "----------------------------------------------" << endl;
 	
-	return(IMAGE);
+	cout<<"Control" << endl;
+	help_flag("-phantom_noise []","Noise as fraction of mean of abs(kdata)");
 }
 
 
+//----------------------------------------
+// Phantome Read Command Line
+//----------------------------------------
 
+void PHANTOM::read_commandline(int numarg, char **pstring){
 
+#define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
+#define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
+#define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
 
-
-
+  for(int pos=0; pos < numarg; pos++){
+  
+  	if (strcmp("-h", pstring[pos] ) == 0) {
+	 
+		float_flag("-phantom_noise",phantom_noise);
+	}
+  }
+}    

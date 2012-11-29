@@ -32,7 +32,7 @@ class MRI_DATA{
 		int Num_Slices;
 		int Num_Pts;
 		int Num_Coils;
-		void read_external_data(char *folder,int NumRecv,int Ne,int Ns,int Npr,int Nx);
+		void read_external_data(char *folder,int NumRecv,int Ne,int Ns,int Npr,int Nx,int);
 		void undersample(int);
 		void coilcompress(float);
 		MRI_DATA( MRI_DATA *);

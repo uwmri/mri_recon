@@ -48,7 +48,7 @@ MRI_DATA::MRI_DATA( void){
 //    This function allocates and reads all data into memory
 //---------------------------------------------------
 
-void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,int Nx){
+void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,int Nx, int read_kdata){
 
 	FILE *fid;
 	char fname[1024];
@@ -61,6 +61,7 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 	Range all = Range::all();
 	
 	cout << "Data size= " << Num_Coils << " coils x " << Num_Encodings << " encodings x "<< Num_Slices<< " slices x "<<  Num_Readouts << " readouts x" << Num_Pts << " pts" << endl;
+	
 	cout << "Alloc Kx " << endl;
 	kx.setStorage( ColumnMajorArray<4>());
 	kx.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings); 
@@ -168,11 +169,14 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 	cout << "Max Kx = " << max(kx) << endl;
 	cout << "Max Ky = " << max(ky) << endl;
 	cout << "Max Kz = " << max(kz) << endl;
-	cout << "Completed Reading Kx,Ky,Kz" << endl;
-	cout << "Reading Kdata" << endl;
+	cout << "Completed Reading Kspace Sampling" << endl;
 	
+	cout << "Reading Kdata" << endl;
 	kdata.setStorage( ColumnMajorArray<5>());
 	kdata.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils); 
+	
+	
+	if(read_kdata==1){
 	
 	for(int c=0; c<Num_Coils;c++){
 		cout << "Reading CoilL: " << c << endl;
@@ -209,8 +213,10 @@ void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,
 			}
 	}}
 	
-	
+	}// Read Kdata 
 }
+
+
 
 /** Undersample the data by deleting argument 'us' readouts
 *

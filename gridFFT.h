@@ -13,10 +13,11 @@ using namespace std;
 #include <fftw3.h>
 
 // Kernel Types
-#define TRIANGLE 0
-#define KAISER   1 
+enum {TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL};
 
+#ifndef PI
 #define PI 3.14159265359
+#endif
 
 class gridFFT{
 	public:

@@ -41,7 +41,7 @@ gridFFT::gridFFT(){
   	grid_y=1.375;
   	grid_z=1.375;
 	overgrid = 1.375;
-	kernel_type = KAISER;
+	kernel_type = KAISER_KERNEL;
   	betaX=12;
 	betaY=12;
 	betaZ=12;
@@ -146,6 +146,7 @@ void gridFFT::help_message(void){
 	cout<<"Control" << endl;
 	help_flag("-kaiser","use kaiser bessel kernel");
  	help_flag("-triangle","use triangle kernel");
+ 	help_flag("-sinc","use sinc kernel");
  	help_flag("-overgrid []","overgrid by factor []");
  	help_flag("-fast_grid","no overgrid,traingle kernel");
 	help_flag("-time_grid","output times for gridding");
@@ -190,14 +191,15 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		int_flag("-fft_in_y",fft_in_y);
 		int_flag("-fft_in_z",fft_in_z);
 				
-		trig_flag(KAISER,"-kaiser",kernel_type);
-		trig_flag(TRIANGLE,"-triangle",kernel_type);
+		trig_flag(KAISER_KERNEL,"-kaiser",kernel_type);
+		trig_flag(TRIANGLE_KERNEL,"-triangle",kernel_type);
+		trig_flag(SINC_KERNEL,"-triangle",kernel_type);
 		trig_flag(1,"-time_grid",time_grid);
 		trig_flag(1,"-double_grid",double_grid);
 	// Special Copies
 	}else if(strcmp("-fast_grid", pstring[pos]) == 0) {
 	  	overgrid = 1.0;
-		kernel_type = TRIANGLE;
+		kernel_type = TRIANGLE_KERNEL;
 		dwinX = 1.0;
 		dwinY = 1.0;
 		dwinZ = 1.0;
@@ -251,7 +253,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
   // ------------------------------------------------
   
   switch(kernel_type){
-  		case(TRIANGLE):{
+  		case(TRIANGLE_KERNEL):{
 		// Kernel Half Size 
 		dwinX   = (dwinX == -1 ) ? ( 1.0) : ( dwinX );
 		dwinY   = (dwinY == -1 ) ? ( 1.0) : ( dwinY );
@@ -287,7 +289,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 	 	}
 	}break;
 	
-	case(KAISER):{
+	case(KAISER_KERNEL):{
 		
 		// Kernel Half Size 
 		dwinX   = (dwinX == -1 ) ? ( 2.5) : ( dwinX );
@@ -339,6 +341,58 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 		}
 		
 	}break;
+	
+	case(SINC_KERNEL):{
+		
+		// Kernel Half Size 
+		dwinX   = (dwinX == -1 ) ? ( 15.0) : ( dwinX );
+		dwinY   = (dwinY == -1 ) ? ( 15.0) : ( dwinY );
+		dwinZ   = (dwinZ == -1 ) ? ( 15.0) : ( dwinZ );
+	
+		// Grid Length for precomputed kernel
+		int grid_lengthX = (int)( (float)dwinX*(float)grid_modX);
+		int grid_lengthY = (int)( (float)dwinY*(float)grid_modY);
+		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
+		
+		// Alloc Structs for Gridding
+		grid_filterX= new float[ grid_lengthX+10];
+		grid_filterY= new float[ grid_lengthY+10];
+		grid_filterZ= new float[ grid_lengthZ+10];
+		memset(grid_filterX, 0, (size_t)( (int)(grid_lengthX+10)*sizeof(float)));
+  		memset(grid_filterY, 0, (size_t)( (int)(grid_lengthY+10)*sizeof(float)));
+  		memset(grid_filterZ, 0, (size_t)( (int)(grid_lengthZ+10)*sizeof(float)));
+    		
+		
+		// Compute Seperable Kernels
+		for(int i=0; i<(grid_lengthX+1); i++){
+			double grid_pos=  ( (double)i )/( (double)grid_lengthX);
+			if(grid_pos < 0.01){
+				grid_filterX[i] = 1.0;
+			}else{
+				grid_filterX[i]=(float)( sin(grid_pos*PI)/(grid_pos*PI));
+			}
+		}
+		
+		for(int i=0; i<(grid_lengthY+1); i++){
+			double grid_pos=  ( (double)i )/( (double)grid_lengthY);
+			if(grid_pos < 0.01){
+				grid_filterY[i] = 1.0;
+			}else{
+				grid_filterY[i]=(float)( sin(grid_pos*PI)/(grid_pos*PI));
+			}
+		}
+	
+		for(int i=0; i<(grid_lengthZ+1); i++){
+			double grid_pos=  ( (double)i )/( (double)grid_lengthZ);
+			if(grid_pos < 0.01){
+				grid_filterZ[i] = 1.0;
+			}else{
+				grid_filterZ[i]=(float)( sin(grid_pos*PI)/(grid_pos*PI));
+			}
+		}
+		
+	}break;
+	
   }
   
   // ------------------------------------------------
