@@ -25,7 +25,8 @@ set (SOURCES
      wavelet3D.cpp 
      softthreshold.cpp 
      recon_lib.cpp
-	 phantom.cpp)
+	 phantom.cpp
+	 threshold.cpp)
 
 #add_library(RECON_LIB recon_lib.cpp)
 

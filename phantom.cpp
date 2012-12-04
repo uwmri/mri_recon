@@ -1,36 +1,40 @@
-/************************************************
-
-Library to create data out of nothing!
-
-*************************************************/
-
 #include "phantom.h"
 
 using namespace arma;
 using namespace std;
 
+// Constructor:
+//	
+//
 PHANTOM::PHANTOM( void){
 	over_res=2;
 	phantom_type = FRACTAL_PHANTOM;
 	phantom_noise= 1.0;	
 }
 
+// Initialization:
+//	
+//
 void PHANTOM::init(int Nx, int Ny, int Nz){
 	
-
+	// Phantom Density
 	IMAGE.setStorage( ColumnMajorArray<3>());
-  	IMAGE.resize(Nx*over_res,Ny*over_res,Nz*over_res);
+  	IMAGE.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   	IMAGE = 0;
 	
+	//Sensitivity Map	
 	SMAP.setStorage( ColumnMajorArray<3>());
-  	SMAP.resize(Nx*over_res,Ny*over_res,Nz*over_res);
+  	SMAP.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   	SMAP = 1;
 		
-	// Array for Storage of Image
-	int Nt=1;
+	// Switch For Phantom
 	switch(phantom_type){
 		case(FRACTAL_PHANTOM):{
-			fractal3D(over_res*Nx,over_res*Ny,over_res*Nz);
+			TOA.setStorage( ColumnMajorArray<3>());
+  			TOA.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
+  			TOA = 0;
+			
+			fractal3D((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
 		}break;
 		
 		case(SHEPP_PHANTOM):{
@@ -39,6 +43,10 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
 	}
 }
 
+
+// Get a made up sensitivity map
+//	 Need to update to Biot-Savart of loop coil
+//
 void  PHANTOM::update_smap(int coil, int Ncoils){
 	float Nx = (float)SMAP.length(firstDim);
 	float Ny = (float)SMAP.length(secondDim);
@@ -96,8 +104,25 @@ void  PHANTOM::update_smap(int coil, int Ncoils){
 	}
 }
 
+// 
+// Add some phase to the phantom this could be better
+//
+void PHANTOM::add_phase( void ){	
 
-// Add Noise
+	for(int k=0; k<SMAP.length(thirdDim); k++){
+	for(int j=0; j<SMAP.length(secondDim); j++){
+	for(int i=0; i<SMAP.length(firstDim); i++){
+		float temp_phase = i*PI/Nx;
+		IMAGE(i,j,k) = IMAGE(i,j,k)*polar((float)1.0, temp_phase);
+
+	}}}
+
+}
+
+
+// 
+//	 Add some phase to the phantom
+//
 void PHANTOM::add_noise( Array<complex<float>,5>&kdata){
 	
 	// Estimate 
@@ -118,7 +143,9 @@ void PHANTOM::add_noise( Array<complex<float>,5>&kdata){
 	}}}}}
 }
 
-
+// 
+//	 Class to keep track of fractal tree
+//
 class TFRACT{
   public:
 	double r[3];
@@ -147,14 +174,17 @@ class TFRACT{
   
 };
 
-
+// 
+//	 Generate Base factal Tree 
+//
 void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 
-	int n = 10; // Maximum Branches
+	int n = 13; // Maximum Branches
 	float branch_angle= PI/5;
 	float branch_rotation = PI/4; //(3-sqrt(5));
 	float branch_fraction = 0.8;
 	float branch_length = 60;
+	float tissue_radius = 60;
 	
 	//Stores all the data
 	std::vector<TFRACT>tree(1);
@@ -360,6 +390,8 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 	float EX = 0;
 	float EY = 0;
 	float EZ = 0;
+	float Rmax = 0;
+	float Rmin =1000;
 	for(int t=0; t< trees; t++){
 		for(int ii=0; ii<tree[t].count; ii++){
 			SX = min( tree[t].xlist[ii],SX);
@@ -368,64 +400,93 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 			EX = max( tree[t].xlist[ii],EX);
 			EY = max( tree[t].ylist[ii],EY);
 			EZ = max( tree[t].zlist[ii],EZ);
+			Rmax = max( tree[t].rlist[ii],Rmax);
+			Rmin = min( tree[t].rlist[ii],Rmin);
 		}
 	}
 	cout << "Range is" << endl;
 	cout << "\t X:" << SX << "to " << EX << endl;
 	cout << "\t Y:" << SY << "to " << EY << endl;
 	cout << "\t Z:" << SZ << "to " << EZ << endl;
-	
+	cout << "\t R:" << Rmin << "to " << Rmax << endl;
 	float res = (float)Nx;
 	
-	float scaleX = res/(60 + EX - SX);
-	float scaleY = res/(60 + EY - SY);
-	float scaleZ = res/(60 + EZ - SZ);
+	float scaleX = 0.95*res/(tissue_radius + EX - SX);
+	float scaleY = 0.95*res/(tissue_radius + EY - SY);
+	float scaleZ = 0.95*res/(tissue_radius + EZ - SZ);
 	float scale = min(min(scaleX,scaleY),scaleZ);
 
 	float CX = scale*(EX + SX)/2 - res/2;
 	float CY = scale*(EY + SY)/2 - res/2;
 	float CZ = scale*(EZ + SZ)/2 - res/2;
 	
+	// Fermi-Lookup
+	float edge_width = 1.0;
+	
+	
+	cout << "Gridding Tree" << endl;
+	int count =0;
+//	#pragma omp parallel for schedule(static,1) 
 	for(int t=0; t< trees; t++){
-    	// Vessels
+    	cout << count << " of " << trees << endl;
+		
+//		#pragma omp atomic
+		count++;
+		
+		// Vessels
 		for(int ii=0; ii<tree[t].count; ii++){
         	float X=scale*tree[t].xlist[ii];
     		float Y=scale*tree[t].ylist[ii];
     		float Z=scale*tree[t].zlist[ii];
     		float R=scale*tree[t].rlist[ii];
-			
-			int xx = (int)floor(X - CX);
-        	int yy = (int)floor(Y - CY);
-        	int zz = (int)floor(Z - CZ);
-        	int rr = (int)ceil(R);
-        	
+			float T=tree[t].btime[ii];
+			if(R<1.0){
+				continue;
+			}
+			int xx = (int)round(X - CX);
+        	int yy = (int)round(Y - CY);
+        	int zz = (int)round(Z - CZ);
+			int rr = (int)ceil(R);
+        							
 			for(int k=-rr; k<=rr; k++){
 			for(int j=-rr; j<=rr; j++){
 			for(int i=-rr; i<=rr; i++){
 				float radius = sqrt( (float)(i*i) + (float)(j*j) + (float)(k*k)); 
-				IMAGE(i+xx,j+yy,k+zz)= complex<float>( max(real(IMAGE(i+xx,j+yy,k+zz)), (float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) )),0.0); 
+				//if(radius < 0.5*R){
+				float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) );
+				if( s > real(IMAGE(i+xx,j+yy,k+zz)) ){
+					IMAGE(i+xx,j+yy,k+zz) = complex<float>( s,0.0); 
+					TOA(i+xx,j+yy,k+zz) = T;
+				}
 			}}}
 		}
 		
-		// Tissue
+		// Tissue 
 		int ii=tree[t].count-1;
         float X=scale*tree[t].xlist[ii];
     	float Y=scale*tree[t].ylist[ii];
     	float Z=scale*tree[t].zlist[ii];
-    	float R=scale*30.0;
+    	float R=scale*tissue_radius;
+		float T=tree[t].btime[ii];
 			
 		int xx = (int)floor(X - CX);
         int yy = (int)floor(Y - CY);
         int zz = (int)floor(Z - CZ);
-        int rr = (int)ceil(R);
-        	
+		int rr = (int)ceil(R);
+       	
 		for(int k=-rr; k<=rr; k++){
 		for(int j=-rr; j<=rr; j++){
 		for(int i=-rr; i<=rr; i++){
 			float radius = sqrt( (float)(i*i) + (float)(j*j) + (float)(k*k)); 
-			IMAGE(i+xx,j+yy,k+zz)= complex<float>( max(real(IMAGE(i+xx,j+yy,k+zz)), (float)(0.1/( 1.0 + exp(2.0*(radius-0.5*(float)R))) )),0.0); 
+			float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) );
+			if( s > real(IMAGE(i+xx,j+yy,k+zz))){
+				IMAGE(i+xx,j+yy,k+zz) = complex<float>( s,0.0); 
+				TOA(i+xx,j+yy,k+zz) = T;
+			}
 		}}}
 	}
+	
+	// Export Magnitude
 	ArrayWriteMag(IMAGE,"Phantom.dat"); 
 }
 
@@ -444,9 +505,8 @@ void PHANTOM::help_message(void){
 
 
 //----------------------------------------
-// Phantome Read Command Line
+// Phantom Read Command Line
 //----------------------------------------
-
 void PHANTOM::read_commandline(int numarg, char **pstring){
 
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 

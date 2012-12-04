@@ -3,6 +3,10 @@
 //---------------------------------------------------
 #include "mri_data.h"
 
+using arma::cx_fmat;
+using arma::fvec;
+
+
 // Constructer for MRI data type
 MRI_DATA::MRI_DATA( MRI_DATA *base_data){
 	
@@ -277,7 +281,7 @@ void MRI_DATA::coilcompress(float thresh)
 { 
 
   cout << "Coil compression . . .(thresh = " << thresh << " )" << flush;
-  cx_mat A;
+  cx_fmat A;
   A.zeros(kdata.length(fourthDim)*kdata.length(thirdDim)*kdata.length(secondDim)*kdata.length(firstDim), kdata.length(fifthDim));
   
   cout << "Copy to Array" << endl << flush; 
@@ -294,14 +298,11 @@ void MRI_DATA::coilcompress(float thresh)
   cout << "Size A " << A.n_rows << " x " << A.n_cols << endl;
   
   cout << "Svd" << endl << flush; 
-  cx_mat U;
-  vec s;
-  cx_mat V;
-  
-  arma::svd_econ(U,s,V,A);
-  
+  cx_fmat U;
+  fvec s;
+  cx_fmat V;
+  arma::svd_econ(U,s,V,A,'r');
   s = s/s(0);
-    
   
   //cout << s << endl << endl;
   //uvec cc_find = arma::find(s > thresh, 1, "last");

@@ -327,6 +327,30 @@ temporal_diff.cpp.s:
 	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/temporal_diff.cpp.s
 .PHONY : temporal_diff.cpp.s
 
+threshold.o: threshold.cpp.o
+.PHONY : threshold.o
+
+# target to build an object file
+threshold.cpp.o:
+	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/threshold.cpp.o
+.PHONY : threshold.cpp.o
+
+threshold.i: threshold.cpp.i
+.PHONY : threshold.i
+
+# target to preprocess a source file
+threshold.cpp.i:
+	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/threshold.cpp.i
+.PHONY : threshold.cpp.i
+
+threshold.s: threshold.cpp.s
+.PHONY : threshold.s
+
+# target to generate assembly for a file
+threshold.cpp.s:
+	$(MAKE) -f CMakeFiles/recon_binary.dir/build.make CMakeFiles/recon_binary.dir/threshold.cpp.s
+.PHONY : threshold.cpp.s
+
 wavelet3D.o: wavelet3D.cpp.o
 .PHONY : wavelet3D.o
 
@@ -387,6 +411,9 @@ help:
 	@echo "... temporal_diff.o"
 	@echo "... temporal_diff.i"
 	@echo "... temporal_diff.s"
+	@echo "... threshold.o"
+	@echo "... threshold.i"
+	@echo "... threshold.s"
 	@echo "... wavelet3D.o"
 	@echo "... wavelet3D.i"
 	@echo "... wavelet3D.s"

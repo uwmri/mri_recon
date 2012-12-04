@@ -33,6 +33,7 @@ class RECON{
 	  
 	  int numrecv;
 	  float zero_fill;
+	  bool complex_diff;
 	  
 	  float zoom;
 	  float zoom_x;

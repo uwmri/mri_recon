@@ -30,7 +30,7 @@ SPIRIT::SPIRIT()
   mapthresh = 0.0;
   
   // Phase type
-  phase_type = SP_LOW_RES_PHASE;
+  phase_type = SP_COIL_PHASE;
   
   debug =0;
 }
@@ -526,7 +526,7 @@ void SPIRIT::interpMaps(Array< complex<float>,4 > &LR, Array< complex<float>,4 >
 void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,4 > &ref)
 {
 
-  if(1==1){ //phase_type==SP_SMOOTH){
+  if(1==1){ // phase_type==SP_SMOOTH){
   
   	// Try to find a map that provides smooth combination 
   	Array< complex<float>,3> GRAD;
@@ -574,7 +574,7 @@ void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,
 		fclose(fid);
 	}	
 	
-	for(int iter=0; iter<1000; iter++){
+	for(int iter=0; iter<100; iter++){
 		// Get Gradient
 		GRAD=(complex<float>(0.0,0));
 		int Nx = ref.length(firstDim);
@@ -630,8 +630,14 @@ void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,
 	for (int z = 0; z < ref.length(thirdDim); z++) {
     for (int y = 0; y < ref.length(secondDim); y++) {
     for (int x = 0; x < ref.length(firstDim); x++) {
-  		float phase = arg(P(x,y,z));
+  		float mag =0.0;
+		for(int coil=0; coil < Nc; coil++){			
+			mag+=norm(maps(x,y,z,coil));
+		}
+		
+		float phase = arg(P(x,y,z));
 		complex<float>temp(cos(phase),sin(phase));
+		temp = temp/sqrtf(mag);
 		for(int coil=0; coil < Nc; coil++){			
 			maps(x,y,z,coil)*=temp;
 		}
@@ -661,7 +667,14 @@ void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,
 			}
 		}else{
 			complex<float>CI = conj( maps(x,y,z,0));
+			
+			float mag=0.0;
+			for (int coil = 0; coil < ref.length(fourthDim); coil++) {
+				mag += norm(maps(x,y,z,coil));
+			}
+			
 			CI /= abs(CI);
+			CI /= sqrt(mag);
 			for (int coil = 0; coil < ref.length(fourthDim); coil++) {
 				maps(x,y,z,coil)*=CI;
 			}

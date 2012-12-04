@@ -92,6 +92,8 @@ void ArrayWriteMag( Array<complex<T>,2>& temp, char *name){
      }	
  delete [] buffer;
 }
+
+
 template< typename T>
 void ArrayWriteMag( Array<complex<T>,3>& temp, char *name){
 	 

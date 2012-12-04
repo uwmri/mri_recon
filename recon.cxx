@@ -13,7 +13,7 @@
 // #include "ge_pfile_lib.h"
 #include "recon_lib.h"
 #include "mri_data.h"
-#include "softthreshold.h"
+#include "threshold.h"
 #include "spirit.h"
 #include "ArrayTemplates.hpp"
 #include "phantom.h"
@@ -102,7 +102,7 @@ int main(int argc, char **argv){
 		case(EXTERNAL_DATA):{
 			// Read in External Data Format
 			recon.parse_external_header();
-			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres,0);
+			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres,1);
 		}break;
 	}
 
@@ -237,6 +237,13 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			ArrayWrite(smaps,"SenseMaps.dat");
 			
 		}
+	}else{
+		// Allocate Storage for Map	and zero	
+		cout << "Allocate Sense Maps:" <<   data.Num_Coils << endl << flush;
+		smaps.setStorage( ColumnMajorArray<4>());
+		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
+		smaps=complex<float>(1.0,0.0);
+	
 	}	
 	
 
@@ -275,15 +282,19 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 			cout << "Frame " << t << " count " << frame_count[t] << endl;
 		}
 		delete [] frame_count;
-	}else{
-		// Allocate Storage for Map	and zero	
-		cout << "Allocate Sense Maps"  << endl << flush;
-		smaps.setStorage( ColumnMajorArray<4>());
-		smaps.resize(recon.rcxres,recon.rcyres,recon.rczres,data.Num_Coils);
-		smaps=complex<float>(1.0,0.0);
-	
 	}
-
+	
+	/* ----- Temp For complex diff ----*/
+	if(recon.complex_diff){
+		cout << "Doing Complex Diff" << endl;
+		for(int coil=0; coil <data.Num_Coils; coil++){ 
+			Array<complex<float>,3>kdata1 = data.kdata(all,all,all,0,coil); 
+			Array<complex<float>,3>kdata2 = data.kdata(all,all,all,1,coil); 
+			kdata1 -= kdata2;
+		}
+		recon.rcencodes = 1; 
+	}
+	
 
 	/*----------------------------Main Recons---------------------------------------*/	
 
@@ -375,7 +386,9 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 					  //  Designed to not use memory
 					  // Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
 					  // ------------------------------------
-
+					  
+					  float reg_scale = 0.0;	
+						
 					  // Previous Array for FISTA
 					  Array< complex<float>,5>X_old;
 					  if( recon.recon_type == RECON_FISTA){
@@ -403,7 +416,7 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 					  TDIFF tdiff(X);
 
 					  // Setup Soft Thresholding
-					  SOFTTHRESHOLD softthresh(argc,argv);
+					  THRESHOLD softthresh(argc,argv);
 
 					  cout << "Iterate" << endl;
 					  double error0=0.0;
@@ -463,8 +476,17 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									  //E'(Ex-d)
 									  gridding.forward( Rref,smapC,diff_data,kxE,kyE,kzE,TimeWeight);
 								  }//Coils
-
-
+								 
+								  // TV of Image
+								  int Nx = Xref.length(firstDim);
+								  int Ny = Xref.length(secondDim);
+								  int Nz = Xref.length(thirdDim);
+								  for(int k =0; k < Xref.length(thirdDim);k++){
+								  for(int j =0; j < Xref.length(secondDim);j++){
+								  for(int i =0; i < Xref.length(firstDim);i++){
+								  	Rref(i,j,k) += reg_scale*( complex<float>(6.0,0.0)*Xref(i,j,k) - Xref((i+1)%Nx,j,k) - Xref((i+Nx-1)%Nx,j,k) - Xref(i,(j+1)%Ny,k) - Xref(i,(j+Ny-1)%Ny,k)  - Xref(i,j,(k+1)%Nz) - Xref(i,j,(k+Nz-1)%Nz));
+								  }}}
+								    
 								  //Now Get Scale factor (for Cauchy-Step Size)
 								  P=0;
 								  for(int coil=0; coil< data.Num_Coils; coil++){
@@ -476,7 +498,16 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 									  //E'EE'(Ex-d)
 									  gridding.forward(P,smapC,diff_data,kxE,kyE,kzE,TimeWeight);
 								  }//Coils
+								  
+								  // TV of Image
+								  for(int k =0; k < Xref.length(thirdDim);k++){
+								  for(int j =0; j < Xref.length(secondDim);j++){
+								  for(int i =0; i < Xref.length(firstDim);i++){
+								  	P(i,j,k) += reg_scale*( complex<float>(6.0,0.0)*Rref(i,j,k) - Rref((i+1)%Nx,j,k) - Rref((i+Nx-1)%Nx,j,k) - Rref(i,(j+1)%Ny,k) - Rref(i,(j+Ny-1)%Ny,k)  - Rref(i,j,(k+1)%Nz) - Rref(i,j,(k+Nz-1)%Nz));
+								  }}}
+								  
 								  P*=conj(Rref);
+								  
 								  scale_RhP += sum(P); 
 								  cout << "took " << T << "s" << endl;
 							  }//Time
@@ -501,9 +532,16 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 						  R *= scale;
 						  X -= R;
 						  cout << "Took " << iteration_timer << " s " << endl;
-
+						  
+						  //Temp L2 of image
+						  if(iteration == 1){
+						  	reg_scale = 0.005*sqrt(abs(scale_RhR))/(float)R.size(); // Add sqrt of scale Ex-d
+						  	cout << "Reg Scale = " << reg_scale << endl;
+							cout << "Energy X = " << ArrayEnergy(X) << endl;
+						  }
+						  
 						  // Export X slice
-						  Array<complex<float>,4>Xslice=X(all,all,X.length(2)/2,all,all);
+						  Array<complex<float>,2>Xslice=X(all,all,X.length(2)/2,0,0);
 						  ArrayWriteMag(Xslice,"X_mag.dat");
 						  ArrayWritePhase(Xslice,"X_phase.dat");
 
@@ -527,13 +565,12 @@ Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RE
 							
 							}}}
 							
-						  }else if(softthresh.thresh > 0.0){
+						  }else if(softthresh.getThresholdMethod() != TH_NONE){
 							  cout << "Soft thresh" << endl;
 							  tdiff.fft_t(X);
 							  wave.random_shift();
 							  wave.forward(X);	
-							  softthresh.get_threshold(X);
-							  softthresh.soft_threshold(X);
+							  softthresh.exec_threshold(X);
 							  wave.backward(X);
 							  tdiff.ifft_t(X);
 						  }

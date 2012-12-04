@@ -35,7 +35,9 @@ class PHANTOM{
 		float over_res;
 		Array< complex<float>,3>IMAGE;
 		Array< complex<float>,3>SMAP;
+		Array< complex<float>,3>TOA;
 		
+		void add_phase(void);
 		void fractal3D(int Nx, int Ny, int Nz);
 		void update_smap(int,int);
 		void help_message(void);

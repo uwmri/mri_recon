@@ -11,11 +11,8 @@
 using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.hpp"
-
 #include <armadillo>
-using arma::cx_mat;
-using arma::vec;
-using arma::uvec;
+
 
 class MRI_DATA{
 	public:

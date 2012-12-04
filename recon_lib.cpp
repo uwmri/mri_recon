@@ -17,6 +17,8 @@ void RECON::set_defaults( void){
 	data_type = EXTERNAL_DATA;
 	coil_combine_type = COIL_LOWRES;
 	
+	complex_diff = false;
+	
 	numrecv = 1;
 	zero_fill = 1.0;
 	zoom = 1.0;
@@ -72,6 +74,7 @@ void RECON::help_message(void){
 	help_flag("-pils","pils (coil combine with low resolution images)");
 	help_flag("-ist","iterative soft thresholding");
 	help_flag("-fista","fast iterative soft thresholding");
+	help_flag("-complex_diff","Subtract first encode");
 	
 	cout << "Iterative Recon Control:" << endl;
 	help_flag("-max_iter []","max iterations for iterative recons");
@@ -128,6 +131,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		// Data modification
 		int_flag("-acc",acc);
 		float_flag("-compress_coils",compress_coils);
+		trig_flag(true,"-complex_diff",complex_diff);
 		
 		// Coil Combination + Resolution		
 		float_flag("-lp_frac",lp_frac);
