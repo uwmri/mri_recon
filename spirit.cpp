@@ -1,8 +1,8 @@
 #include "spirit.h"
 #include "io_templates.cpp"
 
-using arma::cx_mat;
-using arma::vec;
+using arma::cx_fmat;
+using arma::fvec;
 using arma::uvec;
 using namespace std;
 
@@ -30,7 +30,7 @@ SPIRIT::SPIRIT()
   mapthresh = 0.0;
   
   // Phase type
-  phase_type = SP_COIL_PHASE;
+  phase_type = SP_SMOOTH;
   
   debug =0;
 }
@@ -229,9 +229,9 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
   cout << "num_ACS: " << num_ACS << " num_kernel: " << num_kernel << endl;
   
   // Kernel Matrix
-  cx_mat A(num_ACS,num_kernel);
-  cx_mat b(num_ACS,1);
-  cx_mat x;
+  cx_fmat A(num_ACS,num_kernel);
+  cx_fmat b(num_ACS,1);
+  cx_fmat x;
   
   cout << "Solving SPIRIT: ";
   for (int ic = 0; ic < ncoils; ic++) {
@@ -286,8 +286,8 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
     // -------------------------------  
 	
 	if (calib_type==SP_TIK) {
-      cx_mat AhA = arma::trans(A)*A;
-      cx_mat AhB = arma::trans(A)*b;
+      cx_fmat AhA = arma::trans(A)*A;
+      cx_fmat AhB = arma::trans(A)*b;
 	    
       float beta = arma::norm(AhA,"fro")*(calib_lam);
       for(unsigned int i=0; i< AhA.n_rows;i++){
@@ -295,9 +295,9 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
       }
       x = arma::solve(AhA,AhB);
     }else if (calib_type==SP_TSVD) {
-	  cx_mat U;
-	  vec s;
-	  cx_mat V;
+	  cx_fmat U;
+	  fvec s;
+	  cx_fmat V;
 	  
       arma::svd_econ(U,s,V,A);
       uint tsvd_i = 0;
@@ -418,11 +418,11 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
   for(int iz = 0; iz < im.extent(thirdDim); iz ++) {
     
 	// Arrays for storage
-  	cx_mat A;
+  	cx_fmat A;
 	A.zeros(ncoils,ncoils);
-  	cx_mat AtA;
+  	cx_fmat AtA;
 	AtA.zeros(ncoils,ncoils);
-  	cx_mat At;
+  	cx_fmat At;
 	At.zeros(ncoils,ncoils);
 
 	for(int iy = 0; iy < im.extent(secondDim); iy ++) {
@@ -440,8 +440,8 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
 		AtA = At*A;
   		
 		// Eigen Vector
-		vec eigval;
-		cx_mat eigvec;
+		fvec eigval;
+		cx_fmat eigvec;
 		eig_sym(eigval,eigvec,AtA);
 		
 		// Copy Back
@@ -526,7 +526,7 @@ void SPIRIT::interpMaps(Array< complex<float>,4 > &LR, Array< complex<float>,4 >
 void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,4 > &ref)
 {
 
-  if(1==1){ // phase_type==SP_SMOOTH){
+  if(phase_type==SP_SMOOTH){
   
   	// Try to find a map that provides smooth combination 
   	Array< complex<float>,3> GRAD;
@@ -574,7 +574,7 @@ void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,
 		fclose(fid);
 	}	
 	
-	for(int iter=0; iter<100; iter++){
+	for(int iter=0; iter<1000; iter++){
 		// Get Gradient
 		GRAD=(complex<float>(0.0,0));
 		int Nx = ref.length(firstDim);

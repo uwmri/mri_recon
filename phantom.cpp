@@ -419,11 +419,7 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 	float CX = scale*(EX + SX)/2 - res/2;
 	float CY = scale*(EY + SY)/2 - res/2;
 	float CZ = scale*(EZ + SZ)/2 - res/2;
-	
-	// Fermi-Lookup
-	float edge_width = 1.0;
-	
-	
+			
 	cout << "Gridding Tree" << endl;
 	int count =0;
 //	#pragma omp parallel for schedule(static,1) 
