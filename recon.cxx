@@ -20,7 +20,7 @@
 #include "tictoc.cpp"
 using namespace std;
 
-Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon);
+Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA& data,RECON& recon);
 
 int main(int argc, char **argv){
 	
@@ -148,13 +148,14 @@ int main(int argc, char **argv){
 			ArrayWrite( Xref,fname);
 			sprintf(fname,"X_%d_%d.dat",ee,tt);
 			ArrayWriteMag( Xref,fname);
-		}}
+	}}
 
 
 	return(0);
 }
 
-Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA data,RECON recon){
+Array< complex<float>,5 >reconstruction( int argc, char **argv, MRI_DATA& data,RECON& recon){
+	
 	// Shorthand for Blitz++
 	Range all=Range::all();
 

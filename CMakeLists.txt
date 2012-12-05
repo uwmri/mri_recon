@@ -28,7 +28,6 @@ set (SOURCES
      gridFFT.cpp 
 	 spirit.cpp 
      temporal_diff.cpp 
-     softthreshold.cpp 
      recon_lib.cpp
 	 threshold.cpp)
 
