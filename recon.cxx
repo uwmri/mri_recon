@@ -24,15 +24,20 @@ Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA& data,
 
 int main(int argc, char **argv){
 	
+	PHANTOM phantom;
+	phantom.update_smap_biotsavart(5,8);
 
 	// --------------------------
-	// Check for help message and output help
+	// Help Messages for Commandline Inputs
+	//   -Please add your own help message for new classes
 	// --------------------------
 	for(int pos=0;pos<argc;pos++){
 		if( (strcmp(argv[pos],"-h")==0) || (strcmp(argv[pos],"-help")==0) || (strcmp(argv[pos],"--help")==0)){
 			RECON::help_message();	
 			gridFFT::help_message();
-			SPIRIT::help_message();		
+			SPIRIT::help_message();	
+			THRESHOLD::help_message();
+			PHANTOM::help_message();	
 			exit(0);
 		}
 	}
@@ -86,7 +91,7 @@ int main(int argc, char **argv){
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
 			for(int coil =0; coil < recon.num_coils; coil++){
 				cout << "Getting phantom" << coil<<endl; 
-				phantom.update_smap(coil,recon.num_coils);				
+				phantom.update_smap_biotsavart(coil,recon.num_coils);				
 				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
 				kdataE=0;			
 				phantom_gridding.backward(phantom.IMAGE,phantom.SMAP,kdataE,kxE,kyE,kzE,kwE);

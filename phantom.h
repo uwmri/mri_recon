@@ -40,7 +40,8 @@ class PHANTOM{
 		void add_phase(void);
 		void fractal3D(int Nx, int Ny, int Nz);
 		void update_smap(int,int);
-		void help_message(void);
+		void update_smap_biotsavart(int,int);
+		static void help_message(void);
 		void add_noise( Array<complex<float>,5>&kdata);
 		void read_commandline(int numarg, char **pstring);
 	private:	

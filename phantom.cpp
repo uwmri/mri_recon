@@ -13,7 +13,7 @@ PHANTOM::PHANTOM( void){
 }
 
 // Initialization:
-//	
+//	-This function sets up a digital phantom of size (Nx,Ny,Nz)
 //
 void PHANTOM::init(int Nx, int Ny, int Nz){
 	
@@ -45,7 +45,7 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
 
 
 // Get a made up sensitivity map
-//	 Need to update to Biot-Savart of loop coil
+//	 Need to update to Biot-Savart of loop coils
 //
 void  PHANTOM::update_smap(int coil, int Ncoils){
 	float Nx = (float)SMAP.length(firstDim);
@@ -98,11 +98,167 @@ void  PHANTOM::update_smap(int coil, int Ncoils){
 				}
 			}}}
 		}break;
-		
-	
-	
 	}
 }
+
+
+// Get a sensitivity based on coil made up coil geometry
+//	 
+//
+void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
+
+	// Grab size for Short Hand
+	float Nx = (float)SMAP.length(firstDim);
+	float Ny = (float)SMAP.length(secondDim);
+	float Nz = (float)SMAP.length(thirdDim);
+		
+	// Made up Coil Geometry
+	float coil_length = 1.25*Nx/2;	
+	float coil_radius = 1.25*Nx/2; 
+	float overlap_angle = 2.0*PI/(float)Ncoils/4;
+	float overlap_length= coil_length/3;
+	
+	// Wire Positions
+	int RES = 100;
+	arma::fmat loop_pos(3,2*5*RES); // RES pts a side
+	arma::fmat loop_current(3,2*5*RES); // RES pts a side
+	int count=0;
+	
+	//----------------------------------------------
+	//  Create Wire Loop
+	//----------------------------------------------	
+		
+	/*Coil element looks like this
+	
+	/------\
+	|      |
+	|      |
+	|      |
+	\------/
+	
+	*/
+	
+	// First Rail Section ( left )
+	//cout << "First Rail" << endl << flush;
+	for(int pos=0;pos< RES; pos++){
+		loop_pos(0,count) = coil_radius*cos( -overlap_angle);
+		loop_pos(1,count) = coil_radius*sin( -overlap_angle);
+		loop_pos(2,count) = (coil_length -overlap_length)*( (float)pos/(float)RES);
+		count++;
+	}
+		
+	// First Overlap Section (top left )
+	//cout << "Overlap 1" << endl << flush;
+	for(int pos=0;pos< RES; pos++){
+		loop_pos(0,count) = coil_radius*cos( -overlap_angle + (2*overlap_angle)*( (float)pos/(float)RES));
+		loop_pos(1,count) = coil_radius*sin( -overlap_angle + (2*overlap_angle)*( (float)pos/(float)RES));
+		loop_pos(2,count) = (coil_length -overlap_length) + overlap_length*( (float)pos/(float)RES);
+		count++;
+	}
+	
+	// Loop (top line)
+	//cout << "Top Loop" << endl << flush;
+	for(int pos=0;pos< RES; pos++){
+		loop_pos(0,count) = coil_radius*cos(overlap_angle+ (2*PI/(float)Ncoils-2.0*overlap_angle)*( (float)pos/(float)RES));
+		loop_pos(1,count) = coil_radius*sin(overlap_angle+ (2*PI/(float)Ncoils-2.0*overlap_angle)*( (float)pos/(float)RES));
+		loop_pos(2,count) = coil_length;
+		count++;
+	}
+	
+	// Second Overlap Section (top right)
+	//cout << "Overlap 2" << endl << flush;
+	for(int pos=0;pos< RES; pos++){
+		loop_pos(0,count) = coil_radius*cos( 2*PI/(float)Ncoils -overlap_angle+ (2*overlap_angle)*( (float)pos/(float)RES));
+		loop_pos(1,count) = coil_radius*sin( 2*PI/(float)Ncoils -overlap_angle+ (2*overlap_angle)*( (float)pos/(float)RES));
+		loop_pos(2,count) = coil_length - overlap_length*( (float)(pos+1)/(float)RES);
+		count++;
+	}
+	
+	// Rail right side
+	//cout << "Second Rail" << endl << flush;
+	for(int pos=0;pos< RES; pos++){
+		loop_pos(0,count) = coil_radius*cos( overlap_angle+2*PI/(float)Ncoils);
+		loop_pos(1,count) = coil_radius*sin( overlap_angle+2*PI/(float)Ncoils);
+		loop_pos(2,count) = ( coil_length - overlap_length ) - (coil_length-overlap_length)*( (float)pos/(float)RES);
+		count++;
+	}
+	int backtrace_count=count;
+	
+	//cout << "Backtrace" << endl << flush;
+	// Backtrace to get symetric other side
+	for(int pos=0; pos< backtrace_count; pos++){
+		loop_pos(0,count)= loop_pos(0,backtrace_count-pos-1);
+		loop_pos(1,count)= loop_pos(1,backtrace_count-pos-1);
+		loop_pos(2,count)=-loop_pos(2,backtrace_count-pos-1);	
+		count++;
+	}	
+	
+	//----------------------------------------------
+	//  Rotate the Coil 
+	//----------------------------------------------	
+	arma::fmat R;
+	float a = 2*PI/(float)Ncoils * (float)coil;
+	
+	R << cos(a) << sin(a) << 0.0 << endr
+  	  <<-sin(a) << cos(a) << 0.0 << endr
+	  << 0.0    << 0.0    << 1.0 << endr;
+	
+	loop_pos = R*loop_pos;
+	
+	//----------------------------------------------
+	//  Get Current Vector (unscaled)
+	//----------------------------------------------	
+	
+	for(unsigned int pos=0; pos< loop_pos.n_cols; pos++){
+		loop_current(0,pos)= loop_pos(0,(pos+1)%loop_pos.n_cols)-loop_pos(0,pos);
+		loop_current(1,pos)= loop_pos(1,(pos+1)%loop_pos.n_cols)-loop_pos(1,pos);
+		loop_current(2,pos)= loop_pos(2,(pos+1)%loop_pos.n_cols)-loop_pos(2,pos);
+	}
+	
+	loop_pos.save("LoopPos.dat",arma::raw_ascii);
+	loop_current.save("LoopCur.dat",arma::raw_ascii);
+	
+	//----------------------------------------------
+	//   Now do Biot-Savart to Solve for Field
+	//----------------------------------------------
+	
+	float cx = Nx/2.0;
+	float cy = Ny/2.0;
+	float cz = Nz/2.0;
+		
+	#pragma omp parallel for
+	for(int k=0; k< (int)Nz; k++){
+	for(int j=0; j< (int)Ny; j++){
+	for(int i=0; i< (int)Nx; i++){
+		SMAP(i,j,k)=complex<float>(0.0,0.0);
+		
+		// Array Position
+		float x= ( (float)i - cx);
+		float y= ( (float)j - cy);
+		float z= ( (float)k - cz);
+		 
+		 // Objects have to be in the coil!	
+		if( (x*x + y*y) > (0.64*coil_radius*coil_radius) ){
+			continue;
+		}
+		
+		fvec S(3);
+		S(0)=x;
+		S(1)=y;
+		S(2)=z;
+		
+		for(unsigned int pos=0; pos< loop_pos.n_cols; pos++){	
+			fvec r = loop_pos.col(pos);
+			fvec I = loop_current.col(pos);
+			fvec diff =  S - r;
+			float dist = (float)pow( (float)(diff(0)*diff(0) + diff(1)*diff(1) + diff(2)*diff(2)),(float)(3.0/2.0));			
+			
+			fvec temp = cross(I,diff);  
+			SMAP(i,j,k)+=complex<float>( temp(0)/dist,temp(1)/dist);
+		}
+	}}}
+}
+
 
 // 
 // Add some phase to the phantom this could be better
@@ -512,7 +668,6 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
   for(int pos=0; pos < numarg; pos++){
   
   	if (strcmp("-h", pstring[pos] ) == 0) {
-	 
 		float_flag("-phantom_noise",phantom_noise);
 	}
   }
