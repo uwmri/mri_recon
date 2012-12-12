@@ -1,9 +1,7 @@
 #pragma once
 
-
 // Switching to Blitz Based Arrays
-#include "blitz/array.h"
-using namespace blitz;
+#include <blitz/array.h>
 #include <fftw3.h>
 #include <iostream>
 #include <fstream>
@@ -12,8 +10,10 @@ using namespace blitz;
 #include <cmath>
 #include <string.h>
 #include <complex>
-using namespace std;
 #include <omp.h>
+
+using namespace std;
+using namespace blitz;
 
 // FFT Libraries complex Float
 void fftshift( Array< complex<float>,3>& temp);

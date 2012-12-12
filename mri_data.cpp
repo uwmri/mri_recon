@@ -40,12 +40,97 @@ MRI_DATA::MRI_DATA( MRI_DATA *base_data){
 	//kdata = base_data.kdata;
 }
 
+
+// Constructer for MRI data type
+void MRI_DATA::init_memory(void){
+	
+	// Allocate Memory and Copy Values
+	kx.setStorage( ColumnMajorArray<4>());
+	kx.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
+	
+	ky.setStorage( ColumnMajorArray<4>());
+	ky.resize( kx.shape());  
+	
+	kz.setStorage( ColumnMajorArray<4>());
+	kz.resize( kx.shape());  
+	
+	kw.setStorage( ColumnMajorArray<4>());
+	kw.resize( kx.shape());  
+	
+	cout << "5D Copy " << endl;
+	kdata.setStorage( ColumnMajorArray<5>());
+	kdata.resize( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
+}
+
+
 MRI_DATA::MRI_DATA( void){
 	Num_Encodings = -1;
 	Num_Readouts = -1;
 	Num_Pts = -1;
 	Num_Coils = -1;
 	Num_Slices = -1; // Default for 3D Non-Cartesian
+}
+
+void MRI_DATA::set_kx(float *in,int e){
+	
+	Array<float,3>temp= kx(Range::all(), Range::all(), Range::all(),e);
+	int count =0;
+	for(int k=0; k < temp.extent(thirdDim); k++){
+	for(int j=0; j < temp.extent(secondDim); j++){
+	for(int i=0; i < temp.extent(firstDim); i++){
+	 	temp(i,j,k) = in[count];
+		count++;
+	}}}
+}
+
+
+void MRI_DATA::set_ky(float *in,int e){
+	
+	Array<float,3>temp= ky(Range::all(), Range::all(), Range::all(),e);
+	int count =0;
+	for(int k=0; k < temp.extent(thirdDim); k++){
+	for(int j=0; j < temp.extent(secondDim); j++){
+	for(int i=0; i < temp.extent(firstDim); i++){
+	 	temp(i,j,k) = in[count];
+		count++;
+	}}}
+}
+
+void MRI_DATA::set_kz(float *in,int e){
+	
+	Array<float,3>temp= kz(Range::all(), Range::all(), Range::all(),e);
+	int count =0;
+	for(int k=0; k < temp.extent(thirdDim); k++){
+	for(int j=0; j < temp.extent(secondDim); j++){
+	for(int i=0; i < temp.extent(firstDim); i++){
+	 	temp(i,j,k) = in[count];
+		count++;
+	}}}
+}
+
+void MRI_DATA::set_kw(float *in,int e){
+	
+	Array<float,3>temp= kw(Range::all(), Range::all(), Range::all(),e);
+	int count =0;
+	for(int k=0; k < temp.extent(thirdDim); k++){
+	for(int j=0; j < temp.extent(secondDim); j++){
+	for(int i=0; i < temp.extent(firstDim); i++){
+	 	temp(i,j,k) = in[count];
+		count++;
+	}}}
+}
+
+
+void MRI_DATA::set_kdata( complex<float> *in,int e, int coil){
+	
+	Array<complex<float>,3>temp= kdata(Range::all(), Range::all(), Range::all(),e,coil);
+	int count =0;
+	for(int k=0; k < temp.extent(thirdDim); k++){
+	for(int j=0; j < temp.extent(secondDim); j++){
+	for(int i=0; i < temp.extent(firstDim); i++){
+	 	temp(i,j,k) = in[count];
+		count++;
+	}}}
 }
 
 //---------------------------------------------------

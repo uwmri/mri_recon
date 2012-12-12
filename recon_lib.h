@@ -10,12 +10,22 @@
 #include <complex>
 using namespace std;
 #include <omp.h>
-#include "ArrayTemplates.hpp"
-
 #include <armadillo>
 using arma::cx_mat;
 using arma::vec;
 using arma::uvec;
+
+// Local Libraries
+#include "ArrayTemplates.hpp"
+#include "wavelet3D.h"	
+#include "temporal_diff.h"	
+#include "gridFFT.h"
+// #include "ge_pfile_lib.h"
+#include "mri_data.h"
+#include "threshold.h"
+#include "spirit.h"
+#include "phantom.h"
+#include "tictoc.cpp"
 
 // Types of Recons
 enum { RECON_SOS, RECON_PILS, RECON_CG, RECON_IST, RECON_FISTA };
@@ -73,6 +83,8 @@ class RECON{
 	  void parse_external_header(void);
 	  void set_defaults(void);
 	  void parse_commandline(int numarg, char **pstring);
+	  
+	  Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA& data);
 	private:	
 		
 };

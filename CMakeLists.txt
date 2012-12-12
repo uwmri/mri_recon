@@ -1,10 +1,7 @@
-#
-# Written by Orhan Unal, November 2012
-#
 
 cmake_minimum_required(VERSION 2.8)
 
-project(PCVIPR)
+project(MRI_RECON)
 set(PROGNAME recon_binary)
 
 file(GLOB LOCAL_INCS ${CMAKE_SOURCE_DIR}/*.h)
@@ -14,26 +11,22 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -m64 -O3 -fopenmp")
 set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} "-fopenmp")
 set(CMAKE_C_FLAGS "-g -Wno-deprecated")
 
-set(LOCAL_LIBS armadillo acml_mp acml_mv fftw3f_omp fftw3f blitzwave blitz pthread m)
-
-# Add Libraries
-add_library(PHANTOM_LIB phantom.cpp)
-add_library(WAVELET_LIB wavelet3D.cpp)
-add_library(ARRAY_LIB ArrayTemplates.cpp)
-
-# Set Soruce
-set (SOURCES 
-     recon.cxx 
-     mri_data.cpp 
-     gridFFT.cpp 
-	 spirit.cpp 
-     temporal_diff.cpp 
-     recon_lib.cpp
-	 threshold.cpp)
+set(LOCAL_LIBS armadillo acml_mp acml_mv fftw3f_omp fftw3f blitz  m)
 
 include_directories(${INCLUDE_DIRECTORIES} ${CMAKE_INCLUDE_PATH})
 link_directories(${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH})
+set(BUILD_SHARED_LIBS OFF)
 
-add_executable(${PROGNAME} ${SOURCES} ${LOCAL_INCS})
-target_link_libraries(${PROGNAME} WAVELET_LIB PHANTOM_LIB ARRAY_LIB ${LOCAL_LIBS})
+#--------------------------------------
+# Target Library 
+#--------------------------------------
+
+add_library(RECONLIB STATIC recon_lib.cpp ArrayTemplates.cpp threshold.cpp temporal_diff.cpp mri_data.cpp spirit.cpp gridFFT.cpp wavelet3D.cpp phantom.cpp)
+target_link_libraries(RECONLIB ${LOCAL_LIBS} )
+
+#--------------------------------------
+# Support for Command Line Binary
+#--------------------------------------
+add_executable(recon_binary commandline_recon.cxx ${LOCAL_INCS})
+target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB)
 

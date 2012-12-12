@@ -13,7 +13,6 @@ using namespace std;
 #include "ArrayTemplates.hpp"
 #include <armadillo>
 
-
 class MRI_DATA{
 	public:
 		/*Raw Data - 3rd Dimension is for encoding*/
@@ -32,6 +31,16 @@ class MRI_DATA{
 		void read_external_data(char *folder,int NumRecv,int Ne,int Ns,int Npr,int Nx,int);
 		void undersample(int);
 		void coilcompress(float);
+		
+		// Pointer 
+		void set_kx(float *,int e);
+		void set_ky(float *,int e);
+		void set_kz(float *,int e);
+		void set_kw(float *,int e);
+		void set_kdata(complex<float> *,int e,int coil);
+		
+		
+		void init_memory();
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 	private:	
