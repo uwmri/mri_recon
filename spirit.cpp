@@ -26,7 +26,7 @@ SPIRIT::SPIRIT()
   calib_lam = .01;
   
   // Shrinkage operations for speed
-  mapshrink = 2;
+  mapshrink = 4;
   mapthresh = 0.0;
   
   // Phase type

@@ -47,8 +47,27 @@ void RECON::set_defaults( void){
 
 RECON::RECON(int numarg, char **pstring){
 	set_defaults();	
+	
+	// --------------------------
+	// Help Messages for Commandline Inputs
+	//   -Please add your own help message for new classes
+	// --------------------------
+	for(int pos=0;pos< numarg;pos++){
+		if( (strcmp(pstring[pos],"-h")==0) || (strcmp(pstring[pos],"-help")==0) || (strcmp(pstring[pos],"--help")==0)){
+			help_message();	
+			gridFFT::help_message();
+			SPIRIT::help_message();	
+			THRESHOLD::help_message();
+			PHANTOM::help_message();	
+			exit(0);
+		}
+	}
+	
+	// Get Input Parameters
 	parse_commandline(numarg,pstring);
 }
+
+
 
 // ----------------------
 // Help Message
@@ -184,9 +203,24 @@ void RECON::parse_external_header(void){
 
 
 
-
 Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA& data){
 	
+	
+	// Option to compress coils
+	if (compress_coils > 0){
+		data.coilcompress(compress_coils);
+		num_coils = data.Num_Coils;
+	}
+
+	// Turn of parallel processing for 2D due to thread overhead
+	if(rczres ==1){
+		omp_set_num_threads(1);
+	}else{
+		if( omp_get_max_threads() > 8){
+			omp_set_num_threads(omp_get_max_threads()-2);
+		}
+	}
+		
 	// Shorthand for Blitz++
 	Range all=Range::all();
 
