@@ -13,9 +13,9 @@ RECON::RECON(void){
 // ----------------------
 void RECON::set_defaults( void){
 	// Help Message for recon
-	recon_type = RECON_SOS;
-	data_type = EXTERNAL_DATA;
-	coil_combine_type = COIL_LOWRES;
+	recon_type = SOS; 
+	data_type = EXTERNAL;
+	coil_combine_type = LOWRES;
 	
 	complex_diff = false;
 	
@@ -131,21 +131,21 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-zoom_z",zoom_z);
 		
 		// Type of Recons		
-		trig_flag(RECON_SOS,"-sos",recon_type);
-		trig_flag(RECON_CG,"-isense",recon_type);
-		trig_flag(RECON_PILS,"-pils",recon_type);
-		trig_flag(RECON_IST,"-ist",recon_type);
-		trig_flag(RECON_FISTA,"-fista",recon_type);
+		trig_flag(SOS,"-sos",recon_type);
+		trig_flag(CG,"-isense",recon_type);
+		trig_flag(PILS,"-pils",recon_type);
+		trig_flag(IST,"-ist",recon_type);
+		trig_flag(FISTA,"-fista",recon_type);
 		
-		trig_flag(COIL_ESPIRIT,"-espirit",coil_combine_type);
-		trig_flag(COIL_LOWRES,"-coil_lowres",coil_combine_type);
+		trig_flag(ESPIRIT,"-espirit",coil_combine_type);
+		trig_flag(LOWRES,"-coil_lowres",coil_combine_type);
 		trig_flag(1,"-export_smaps",export_smaps);
 		
 		// Source of data
-		trig_flag(EXTERNAL_DATA,"-external_data",data_type);
-		trig_flag(PFILE_DATA,"-pfile",data_type);
-		trig_flag(PHANTOM_DATA,"-phantom",data_type);
-		trig_flag(SIMULATE_DATA,"-simulate",data_type);
+		trig_flag(EXTERNAL,"-external_data",data_type);
+		trig_flag(PFILE,"-pfile",data_type);
+		trig_flag(PHANTOM,"-phantom",data_type);
+		trig_flag(SIMULATE,"-simulate",data_type);
 				
 		// Data modification
 		int_flag("-acc",acc);
@@ -237,7 +237,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	// ------------------------------------
 
 	Array<complex<float>,4>smaps; 
-	if( (recon_type != RECON_SOS) && (data.Num_Coils>1)){ 
+	if( (recon_type != SOS) && (data.Num_Coils>1)){ 
 		cout << "Getting Coil Sensitivities " << endl<< flush; 
 
 		// Low Pass filtering for Sensitivity Map
@@ -271,7 +271,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 		
 
 		// Spirit Code
-		if (coil_combine_type==COIL_ESPIRIT){
+		if (coil_combine_type==ESPIRIT){
  			cout << "eSPIRIT Based Maps"  << endl; 
 			SPIRIT S;
       	 	S.read_commandline(argc,argv);
@@ -374,8 +374,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 
 	switch(recon_type){
 		default:
-		case(RECON_SOS):
-		case(RECON_PILS):{
+		case(SOS):
+		case(PILS):{
 
 					 for(int e=0; e< rcencodes; e++){
 						 for(int t=0; t< rcframes; t++){
@@ -411,7 +411,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								 Array<complex<float>,3>xet = X(all,all,all,t,e);
 								 
 								 T.tic();
-								 if(recon_type==RECON_PILS){
+								 if(recon_type==PILS){
 								 	 // adds to xet, does gridding + multiply by conj(smap)
 									 Array< complex<float>,3>smapC =smaps(all,all,all,coil);			
 									 gridding.forward(xet,smapC,kdataE,kxE,kyE,kzE,TimeWeight);
@@ -428,13 +428,13 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 					 }
 
 					 // Take Square Root for SOS	
-					 if(recon_type==RECON_SOS){
+					 if(recon_type==SOS){
 						 X = csqrt(X);
 					 }
 
 				 }break;
 
-		case(RECON_CG):{
+		case(CG):{
 				       // ------------------------------------
 				       // Conjugate Gradient Recon not yet
 				       // ------------------------------------
@@ -444,8 +444,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 			       }
 
 
-		case(RECON_IST):
-		case(RECON_FISTA):{
+		case(IST):
+		case(FISTA):{
 
 					  // ------------------------------------
 					  // Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
@@ -457,7 +457,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 						
 					  // Previous Array for FISTA
 					  Array< complex<float>,5>X_old;
-					  if( recon_type == RECON_FISTA){
+					  if( recon_type == FISTA){
 						  X_old.setStorage(ColumnMajorArray<5>());
 						  X_old.resize( X.shape());				  
 						  X_old = 0.0;
@@ -493,7 +493,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 						  cout << "\nIteration = " << iteration << endl;
 
 						  // Update X based on FISTA 
-						  if(recon_type==RECON_FISTA){
+						  if(recon_type==FISTA){
 							  softthresh.fista_update(X,X_old,iteration);
 						  }
 

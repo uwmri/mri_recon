@@ -1,5 +1,6 @@
 #pragma once 
 
+// Standard Libraries
 #include <iostream>
 #include <fstream>
 #include <algorithm>
@@ -10,6 +11,8 @@
 #include <complex>
 using namespace std;
 #include <omp.h>
+
+// External Libraries
 #include <armadillo>
 using arma::cx_mat;
 using arma::vec;
@@ -27,19 +30,20 @@ using arma::uvec;
 #include "phantom.h"
 #include "tictoc.cpp"
 
-// Types of Recons
-enum { RECON_SOS, RECON_PILS, RECON_CG, RECON_IST, RECON_FISTA };
-
-// Data Types
-enum { PFILE_DATA, EXTERNAL_DATA, SIMULATE_DATA, PHANTOM_DATA };
-
-// Coil Combine Type
-enum { COIL_LOWRES, COIL_ESPIRIT };
 
 class RECON{
 	public:
-	  int recon_type;
-	  int data_type;
+	  // Types of Recons
+	  enum ReconType { SOS, PILS, CG, IST, FISTA };
+
+	  // Data Types
+	  enum DataType { PFILE, EXTERNAL, SIMULATE, PHANTOM };
+
+	  // Coil Combine Type
+	  enum CoilCombineType { LOWRES, ESPIRIT };
+	  
+	  ReconType recon_type;
+	  DataType data_type;
 	  
 	  int numrecv;
 	  float zero_fill;
@@ -74,7 +78,7 @@ class RECON{
 	  
 	  int max_iter;
 	  
-	  int coil_combine_type;
+	  CoilCombineType coil_combine_type;
 	  int export_smaps;
 	  
 	  RECON(void); 	  
