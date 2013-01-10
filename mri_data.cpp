@@ -73,16 +73,11 @@ MRI_DATA::MRI_DATA( void){
 //    This function allocates and reads all data into memory
 //---------------------------------------------------
 
-void MRI_DATA::read_external_data( char *folder,int coils,int Ne,int Ns,int Npr,int Nx, int read_kdata){
+void MRI_DATA::read_external_data( char *folder, int read_kdata){
 
 	FILE *fid;
 	char fname[1024];
 	
-	Num_Encodings = Ne;
-	Num_Readouts = Npr;
-	Num_Pts = Nx;
-	Num_Slices = Ns;
-	Num_Coils = coils;
 	Range all = Range::all();
 	
 	cout << "Data size= " << Num_Coils << " coils x " << Num_Encodings << " encodings x "<< Num_Slices<< " slices x "<<  Num_Readouts << " readouts x" << Num_Pts << " pts" << endl;

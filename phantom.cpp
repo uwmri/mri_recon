@@ -1,15 +1,35 @@
-#include "phantom.h"
+/*
 
+Title: Phantom Library   
+
+Summary: This code exists to create simulated phantom data 
+
+Usage: Currently 
+
+	PHANTOM phantom;						
+	phantom.read_commandline(argc,argv);  
+	phantom.init(recon.rcxres,recon.rcyres,recon.rczres);
+	phantom.update_smap_biotsavart(coil,recon.num_coils);	
+	
+	// Which will populate:
+	phantom.IMAGE // Image (density)
+	phantom.SMAP // Sensitivity Map 
+	phantom.TOA  // Time of arrival
+
+*/
+
+#include "phantom.h"
 using namespace arma;
 using namespace std;
 
-// Constructor:
+// Default Constructor
 //	
 //
 PHANTOM::PHANTOM( void){
 	over_res=2;
-	phantom_type = FRACTAL_PHANTOM;
-	phantom_noise= 1.0;	
+	phantom_type = FRACTAL;
+	phantom_noise= 0.0;	
+	debug = 0;
 }
 
 // Initialization:
@@ -22,14 +42,14 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
   	IMAGE.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   	IMAGE = 0;
 	
-	//Sensitivity Map	
+	// Sensitivity Map	
 	SMAP.setStorage( ColumnMajorArray<3>());
   	SMAP.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   	SMAP = 1;
 		
 	// Switch For Phantom
 	switch(phantom_type){
-		case(FRACTAL_PHANTOM):{
+		case(FRACTAL):{
 			TOA.setStorage( ColumnMajorArray<3>());
   			TOA.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   			TOA = 0;
@@ -37,76 +57,28 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
 			fractal3D((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
 		}break;
 		
-		case(SHEPP_PHANTOM):{
+		case(SHEPP):{
 			// Doesn't exist yet (but can be k-space based, Koay et al.)
 		}break;
+		
+		case(PSF):{
+			// Just Get PSF 
+		}
 	}
 }
 
 
-// Get a made up sensitivity map
-//	 Need to update to Biot-Savart of loop coils
-//
-void  PHANTOM::update_smap(int coil, int Ncoils){
-	float Nx = (float)SMAP.length(firstDim);
-	float Ny = (float)SMAP.length(secondDim);
-	float Nz = (float)SMAP.length(thirdDim);
-	float scale = 1./(Nx*Ny*Nz);
-	
-	switch(Ncoils){
-		case(1):{
-			SMAP = 1;
-		}break;
-		
-		case(2):{
-			for(int k=0; k<SMAP.length(thirdDim); k++){
-			for(int j=0; j<SMAP.length(secondDim); j++){
-			for(int i=0; i<SMAP.length(firstDim); i++){
-				switch(coil){
-					case(0):{ SMAP(i,j,k)=scale*(Nx - (float)i); }break;
-					case(1):{ SMAP(i,j,k)=scale*(     (float)i); }break;
-				}
-			}}}
-		}break;
-		
-		case(4):{
-			for(int k=0; k<SMAP.length(thirdDim); k++){
-			for(int j=0; j<SMAP.length(secondDim); j++){
-			for(int i=0; i<SMAP.length(firstDim); i++){
-				switch(coil){
-					case(0):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(Ny - (float)j); }break;
-					case(1):{ SMAP(i,j,k)=scale*(     (float)i)*(Ny - (float)j); }break;
-					case(2):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(     (float)j); }break;
-					case(3):{ SMAP(i,j,k)=scale*(     (float)i)*(     (float)j); }break;
-				}
-			}}}
-		}break;
-		
-		case(8):{
-			for(int k=0; k<SMAP.length(thirdDim); k++){
-			for(int j=0; j<SMAP.length(secondDim); j++){
-			for(int i=0; i<SMAP.length(firstDim); i++){
-				switch(coil){
-					case(0):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(Ny - (float)j)*(Nz - (float)k); }break;
-					case(1):{ SMAP(i,j,k)=scale*((float)i)*(Ny - (float)j)*(Nz - (float)k); }break;
-					case(2):{ SMAP(i,j,k)=scale*(Nx - (float)i)*((float)j)*(Nz - (float)k); }break;
-					case(3):{ SMAP(i,j,k)=scale*((float)i)*((float)j)*(Nz - (float)k); }break;
-					case(4):{ SMAP(i,j,k)=scale*(Nx - (float)i)*(Ny - (float)j)*((float)k); }break;
-					case(5):{ SMAP(i,j,k)=scale*((float)i)*(Ny - (float)j)*((float)k); }break;
-					case(6):{ SMAP(i,j,k)=scale*(Nx - (float)i)*((float)j)*((float)k); }break;
-					case(7):{ SMAP(i,j,k)=scale*((float)i)*((float)j)*((float)k); }break;
-				}
-			}}}
-		}break;
-	}
-}
-
-
-// Get a sensitivity based on coil made up coil geometry
-//	 
+// Get a sensitivity based on coil geometry
+// with Biot-Savart simulation of field.
 //
 void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
-
+	
+	// Doesn't Make sense for one coil
+	if(Ncoils==1){
+		SMAP = 1;	
+		return;
+	}
+	
 	// Grab size for Short Hand
 	float Nx = (float)SMAP.length(firstDim);
 	float Ny = (float)SMAP.length(secondDim);
@@ -136,6 +108,7 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 	|      |
 	\------/
 	
+	Elements are placed in the Surface of a cylinder with beveled edges for overlap.
 	*/
 	
 	// First Rail Section ( left )
@@ -215,9 +188,10 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 		loop_current(2,pos)= loop_pos(2,(pos+1)%loop_pos.n_cols)-loop_pos(2,pos);
 	}
 	
-	loop_pos.save("LoopPos.dat",arma::raw_ascii);
-	loop_current.save("LoopCur.dat",arma::raw_ascii);
-	
+	if(debug){
+		loop_pos.save("LoopPos.dat",arma::raw_ascii);
+		loop_current.save("LoopCur.dat",arma::raw_ascii);
+	}
 	//----------------------------------------------
 	//   Now do Biot-Savart to Solve for Field
 	//----------------------------------------------
@@ -242,6 +216,7 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 			continue;
 		}
 		
+		// Store Position
 		fvec S(3);
 		S(0)=x;
 		S(1)=y;
@@ -275,9 +250,8 @@ void PHANTOM::add_phase( void ){
 
 }
 
-
 // 
-//	 Add some phase to the phantom
+//	 Add Noise to the phantom
 //
 void PHANTOM::add_noise( Array<complex<float>,5>&kdata){
 	
@@ -578,11 +552,13 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 			
 	cout << "Gridding Tree" << endl;
 	int count =0;
-//	#pragma omp parallel for schedule(static,1) 
+	
 	for(int t=0; t< trees; t++){
-    	cout << count << " of " << trees << endl;
+    	ostringstream temp;
+		temp << count << " of " << trees << endl;
+		cout << temp.str() << flush;
 		
-//		#pragma omp atomic
+		#pragma omp atomic
 		count++;
 		
 		// Vessels
@@ -592,9 +568,7 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
     		float Z=scale*tree[t].zlist[ii];
     		float R=scale*tree[t].rlist[ii];
 			float T=tree[t].btime[ii];
-			if(R<1.0){
-				continue;
-			}
+			
 			int xx = (int)round(X - CX);
         	int yy = (int)round(Y - CY);
         	int zz = (int)round(Z - CZ);
@@ -604,8 +578,8 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 			for(int j=-rr; j<=rr; j++){
 			for(int i=-rr; i<=rr; i++){
 				float radius = sqrt( (float)(i*i) + (float)(j*j) + (float)(k*k)); 
-				//if(radius < 0.5*R){
 				float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) );
+				
 				if( s > real(IMAGE(i+xx,j+yy,k+zz)) ){
 					IMAGE(i+xx,j+yy,k+zz) = complex<float>( s,0.0); 
 					TOA(i+xx,j+yy,k+zz) = T;
@@ -630,16 +604,21 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 		for(int j=-rr; j<=rr; j++){
 		for(int i=-rr; i<=rr; i++){
 			float radius = sqrt( (float)(i*i) + (float)(j*j) + (float)(k*k)); 
-			float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) );
-			if( s > real(IMAGE(i+xx,j+yy,k+zz))){
+			float s=(float)(0.1/( 1.0 + exp(2.0*(radius-0.5*(float)R))) );
+			
+			if( s > real(IMAGE(i+xx,j+yy,k+zz)) ){
 				IMAGE(i+xx,j+yy,k+zz) = complex<float>( s,0.0); 
 				TOA(i+xx,j+yy,k+zz) = T;
 			}
+
 		}}}
 	}
 	
 	// Export Magnitude
-	ArrayWriteMag(IMAGE,"Phantom.dat"); 
+	if(debug==1){
+		ArrayWriteMag(IMAGE,"Phantom.dat"); 
+		ArrayWrite(TOA,"TOA.dat"); 
+	}
 }
 
 // ----------------------

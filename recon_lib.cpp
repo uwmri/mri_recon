@@ -19,8 +19,6 @@ void RECON::set_defaults( void){
 	
 	complex_diff = false;
 	
-	numrecv = 1;
-	zero_fill = 1.0;
 	zoom = 1.0;
 	zoom_x = 1.0;
 	zoom_y = 1.0;
@@ -31,8 +29,7 @@ void RECON::set_defaults( void){
 	rczres=-1;
 	rcframes=1;
 	rcencodes=1;
-	num_slices =1;    
-	lp_frac=1.0;
+	
 	smap_res=16;
 	
 	acc = 1;
@@ -95,6 +92,11 @@ void RECON::help_message(void){
 	help_flag("-fista","fast iterative soft thresholding");
 	help_flag("-complex_diff","Subtract first encode");
 	
+	cout << "Transforms for Compressed Sensing:" << endl;
+	help_flag("-spatial_transform []","none/wavelet");
+    help_flag("-temporal_transform []","none/diff/pca/dft");
+    help_flag("-encode_transform []","none/diff");
+    	
 	cout << "Iterative Recon Control:" << endl;
 	help_flag("-max_iter []","max iterations for iterative recons");
     
@@ -137,8 +139,51 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(IST,"-ist",recon_type);
 		trig_flag(FISTA,"-fista",recon_type);
 		
+		// Spatial Transforms
+		}else if(strcmp("-spatial_transform",pstring[pos]) == 0) {
+			pos++;
+			if( pos==numarg){
+				cout << "Please provide spatial transform type..none/wavelet" << endl;
+				exit(1);
+				trig_flag(NONE,"none",cs_spatial_transform);
+				trig_flag(WAVELET,"wavelet",cs_spatial_transform);
+			}else{
+				cout << "Please provide spatial transform type..none/wavelet" << endl;
+				exit(1);
+			}
+		
+		// Temporal Transforms
+		}else if(strcmp("-temporal_transform",pstring[pos]) == 0) {
+			pos++;
+			if( pos==numarg){
+				cout << "Please provide temporal transform type..none/dft/diff/pca" << endl;
+				exit(1);
+				trig_flag(NONE,"none",cs_temporal_transform);
+				trig_flag(DIFF,"diff",cs_temporal_transform);
+				trig_flag(DFT,"dft",cs_temporal_transform);
+				trig_flag(PCA,"pca",cs_temporal_transform);
+			}else{
+				cout << "Please provide temporal transform type..none/dft/diff/pca" << endl;
+				exit(1);
+			}
+				
+		// Encode Transforms
+		}else if(strcmp("-encode_transform",pstring[pos]) == 0) {
+			pos++;
+			if( pos==numarg){
+				cout << "Please provide encode transform type..none/dft/diff/pca" << endl;
+				exit(1);
+				trig_flag(NONE,"none",cs_encode_transform);
+				trig_flag(DIFF,"diff",cs_encode_transform);
+			}else{
+				cout << "Please provide encode transform type..none/diff" << endl;
+				exit(1);
+			}
+				
+		// Coil Combination		
 		trig_flag(ESPIRIT,"-espirit",coil_combine_type);
 		trig_flag(LOWRES,"-coil_lowres",coil_combine_type);
+		float_flag("-smap_res",smap_res);
 		trig_flag(1,"-export_smaps",export_smaps);
 		
 		// Source of data
@@ -152,22 +197,17 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-compress_coils",compress_coils);
 		trig_flag(true,"-complex_diff",complex_diff);
 		
-		// Coil Combination + Resolution		
-		float_flag("-lp_frac",lp_frac);
-		float_flag("-smap_res",smap_res);
-		
 		// Iterations for IST
 		int_flag("-max_iter",max_iter);
 		
 	}
   }
 } 
-
 //--------------------------------------------------
 //  Read external header
 //--------------------------------------------------
 
-void RECON::parse_external_header(void){
+void RECON::parse_external_header(MRI_DATA& mri_data){
 	
 	char parameter[80];
 	float value;
@@ -182,26 +222,37 @@ void RECON::parse_external_header(void){
 	fid = fopen(filename,"r");
 	while( fgets(line, sizeof(line),fid) != NULL ) {
     	if(sscanf(line,"%s\t%f\t%f\t%f\t%f",parameter,&value,&value2,&value3,&value4) < 2){
-		}else if(strcmp("acq_bw",parameter) == 0){ acq_bw = value;
-		}else if(strcmp("xres",parameter) == 0){ xres = (int)value;
-		}else if(strcmp("numrecv",parameter) == 0){ num_coils = (int)value;
-		}else if(strcmp("slices",parameter) == 0){ num_slices = (int)value;
-		}else if(strcmp("2d_flag",parameter) == 0){ ss_2d = (int)value;
-		}else if(strcmp("nproj",parameter) == 0){ num_readouts = (int)value;
+		}else if(strcmp("acq_bw",parameter) == 0){ 
+		}else if(strcmp("xres",parameter) == 0){  mri_data.Num_Pts = (int)value;
+		}else if(strcmp("numrecv",parameter) == 0){ mri_data.Num_Coils = (int)value;
+		}else if(strcmp("slices",parameter) == 0){ mri_data.Num_Slices = (int)value;
+		}else if(strcmp("2d_flag",parameter) == 0){ 
+			if( (int)value ==1){
+				mri_data.trajectory_dims = TWOD;
+			}else{
+				mri_data.trajectory_dims = THREED;
+			}		
+		}else if(strcmp("nproj",parameter) == 0){ mri_data.Num_Readouts = (int)value;
 		}else if(strcmp("rcxres",parameter) == 0){ 
-			rcxres     = (rcxres == -1 ) ?  ( (int)value ) : ( rcxres);
+			mri_data.xres = (int)value;
 		}else if(strcmp("rcyres",parameter) == 0){ 
-			rcyres     = (rcyres == -1 ) ?  ( (int)value ) : ( rcyres);
+			mri_data.yres = (int)value;
 		}else if(strcmp("rczres",parameter) == 0){ 
-			rczres     = (rczres == -1 ) ?  ( (int)value ) : ( rczres);
-		}else if(strcmp("multi_echo",parameter) == 0){ multi_echo = (int)value;
-		}else if(strcmp("num_encodes",parameter) == 0){ rcencodes = (int)value;
+			mri_data.zres = (int)value;
+		}else if(strcmp("multi_echo",parameter) == 0){ 
+		}else if(strcmp("num_encodes",parameter) == 0){ mri_data.Num_Encodings = (int)value;
 		}
 	}
+	
+	// Use Native Resultion 
+	rcxres = (rcxres == -1) ? ( mri_data.xres ) : ( rcxres );
+	rcyres = (rcyres == -1) ? ( mri_data.yres ) : ( rcyres );
+	rczres = (rczres == -1) ? ( mri_data.zres ) : ( rczres );
+	
+	
+	
 	fclose(fid);
 }
-
-
 
 Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA& data){
 	
@@ -209,7 +260,6 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	// Option to compress coils
 	if (compress_coils > 0){
 		data.coilcompress(compress_coils);
-		num_coils = data.Num_Coils;
 	}
 
 	// Turn of parallel processing for 2D due to thread overhead
@@ -599,12 +649,12 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 						  X -= R;
 						  cout << "Took " << iteration_timer << " s " << endl;
 						  
-						  //Temp L2 of image
+						  /* Temp L2 of image
 						  if(iteration == 1){
 						  	reg_scale = 0.005*sqrt(abs(scale_RhR))/(float)R.size(); // Add sqrt of scale Ex-d
 						  	cout << "Reg Scale = " << reg_scale << endl;
 							cout << "Energy X = " << ArrayEnergy(X) << endl;
-						  }
+						  }*/
 						  
 						  // Export X slice
 						  Array<complex<float>,2>Xslice=X(all,all,X.length(2)/2,0,0);
@@ -633,12 +683,44 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 							
 						  }else if(softthresh.getThresholdMethod() != TH_NONE){
 							  cout << "Soft thresh" << endl;
-							  tdiff.fft_t(X);
-							  wave.random_shift();
-							  wave.forward(X);	
+							  switch(cs_temporal_transform){
+							  	case(DFT):{	
+									tdiff.fft_t(X); 
+								}break;
+								default:{
+								
+								}break;
+							  }
+							  
+							  switch(cs_spatial_transform){
+							  	case(WAVELET):{
+							  		wave.random_shift();
+							  		wave.forward(X);
+								}break;
+								default:{
+								
+								}break;
+							  }
+							  
 							  softthresh.exec_threshold(X);
-							  wave.backward(X);
-							  tdiff.ifft_t(X);
+							  
+							  switch(cs_spatial_transform){
+							  	case(WAVELET):{
+							  		wave.backward(X);
+								}break;
+								default:{
+								
+								}break;
+							  }
+							  
+							  switch(cs_temporal_transform){
+							  	case(DFT):{ 
+									tdiff.ifft_t(X); 
+								}break;
+								default:{
+								
+								}break;
+							  }
 						  }
   						  ArrayWriteMag(Xslice,"X_mag_post.dat");
 	

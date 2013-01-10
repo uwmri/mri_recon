@@ -18,34 +18,43 @@ using namespace std;
 #define PI 3.14159265359
 #endif
 
-enum {FRACTAL_PHANTOM, SHEPP_PHANTOM};
+enum PhantomType {FRACTAL, SHEPP, PSF};
 
 class PHANTOM{
 	public:
+		
+		// Size of Phantom
 		int Nx;
 		int Ny;
 		int Nz;
 		int Nt;
-		void init(int,int,int);
-		int phantom_type;
+		float over_res; // Create higher resolution
+		
+		// Noise Factor
 		float phantom_noise;
 		
-		PHANTOM(void);
+		// Type of Phantom
+		PhantomType phantom_type;
 		
-		float over_res;
+		// Constructor,I/O, and Init				
+		PHANTOM(void);
+		void init(int,int,int);
+		static void help_message(void);
+		void read_commandline(int numarg, char **pstring);
+		
+		// Arrays for holding Images
 		Array< complex<float>,3>IMAGE;
 		Array< complex<float>,3>SMAP;
-		Array< complex<float>,3>TOA;
+		Array< float,3>TOA;
 		
+		// Functions
 		void add_phase(void);
-		void fractal3D(int Nx, int Ny, int Nz);
-		void update_smap(int,int);
-		void update_smap_biotsavart(int,int);
-		static void help_message(void);
 		void add_noise( Array<complex<float>,5>&kdata);
-		void read_commandline(int numarg, char **pstring);
-	private:	
+		void fractal3D(int Nx, int Ny, int Nz);
+		void update_smap_biotsavart(int,int);
 		
+	private:	
+		bool debug;
 };
 
 

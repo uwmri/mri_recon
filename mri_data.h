@@ -37,7 +37,12 @@ class MRI_DATA{
 		int Num_Slices;
 		int Num_Pts;
 		int Num_Coils;
-				
+		
+		// Native Resolution
+		int xres;
+		int yres;
+		int zres;
+						
 		// 2D/3D Cartesian/Non-Cartesian
 		TrajDim trajectory_dims;
 		TrajType trajectory_type;
@@ -48,7 +53,7 @@ class MRI_DATA{
 		
 		// Initialization Filling Operations				
 		void init_memory();
-		void read_external_data(char *folder,int NumRecv,int Ne,int Ns,int Npr,int Nx,int);
+		void read_external_data(char *folder,int);
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 	private:	

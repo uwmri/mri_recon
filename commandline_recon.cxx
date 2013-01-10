@@ -31,8 +31,9 @@ int main(int argc, char **argv){
 		
 		case(RECON::PHANTOM):{
 			// Use external Kx,Ky,Kz 
-			recon.parse_external_header();
-			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres,0);
+			recon.parse_external_header(data);
+			data.read_external_data("./",0);
+			data.kdata = complex<float>(1.0,0.0);
 			
 			// Initialize Phantom
 			PHANTOM phantom;
@@ -55,10 +56,10 @@ int main(int argc, char **argv){
 			Array< float,3 >kyE = data.ky(all,all,all,e); 
 			Array< float,3 >kzE = data.kz(all,all,all,e); 
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
-			for(int coil =0; coil < recon.num_coils; coil++){
-				cout << "Getting phantom" << coil << flush;
+			for(int coil =0; coil < data.Num_Coils; coil++){
+				cout << "Getting phantom" << coil << ":" << flush;
 				cout << "Smap " << flush;
-				phantom.update_smap_biotsavart(coil,recon.num_coils);				
+				phantom.update_smap_biotsavart(coil,data.Num_Coils);				
 				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
 				kdataE=0;			
 				cout << " Grid " << flush;
@@ -69,14 +70,13 @@ int main(int argc, char **argv){
 			// Add Noise
 			phantom.add_noise( data.kdata );
 			
-			
 		}break;
 		
 		default:
 		case(RECON::EXTERNAL):{
 			// Read in External Data Format
-			recon.parse_external_header();
-			data.read_external_data("./",recon.num_coils,recon.rcencodes,recon.num_slices,recon.num_readouts,recon.xres,1);
+			recon.parse_external_header(data);
+			data.read_external_data("./",1);
 		}break;
 	}
 
