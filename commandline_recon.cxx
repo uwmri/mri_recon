@@ -5,6 +5,12 @@
 
 int main(int argc, char **argv){
 	
+	/*
+	PHANTOM phantom;
+	phantom.fractal3D_new(128,128,128);
+	exit(1);
+	*/
+	
 	// ------------------------------------
 	// Initialize Recon - reading the command line
 	// ------------------------------------

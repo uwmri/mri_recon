@@ -1,8 +1,8 @@
 #include "spirit.h"
 #include "io_templates.cpp"
 
-using arma::cx_fmat;
-using arma::fvec;
+using arma::cx_mat;
+using arma::vec;
 using arma::uvec;
 using namespace std;
 
@@ -229,9 +229,9 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
   cout << "num_ACS: " << num_ACS << " num_kernel: " << num_kernel << endl;
   
   // Kernel Matrix
-  cx_fmat A(num_ACS,num_kernel);
-  cx_fmat b(num_ACS,1);
-  cx_fmat x;
+  cx_mat A(num_ACS,num_kernel);
+  cx_mat b(num_ACS,1);
+  cx_mat x;
   
   cout << "Solving SPIRIT: ";
   for (int ic = 0; ic < ncoils; ic++) {
@@ -247,7 +247,7 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 		  	continue;
 		   
 		  // Data Point
-		  b(Arow,0) = (complex<double>)kdata(ix+cx,iy+cy,iz+cz,ic);
+		  b(Arow,0) = (complex<float>)kdata(ix+cx,iy+cy,iz+cz,ic);
 		  
   		  // Get Neighborhood Values
           int Acol = 0;
@@ -266,7 +266,7 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 				  
 				  if( (jc==ic) && (jz==0) && (jy==0) && (jx==0)){
 				  }else{				  				  
-                    A(Arow,Acol) = (complex<double>)kdata(kern_xx,kern_yy,kern_zz,jc);
+                    A(Arow,Acol) = (complex<float>)kdata(kern_xx,kern_yy,kern_zz,jc);
                     Acol++;
                   }
                   } else {continue;}
@@ -286,8 +286,8 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
     // -------------------------------  
 	
 	if (calib_type==SP_TIK) {
-      cx_fmat AhA = arma::trans(A)*A;
-      cx_fmat AhB = arma::trans(A)*b;
+      cx_mat AhA = arma::trans(A)*A;
+      cx_mat AhB = arma::trans(A)*b;
 	    
       float beta = arma::norm(AhA,"fro")*(calib_lam);
       for(unsigned int i=0; i< AhA.n_rows;i++){
@@ -295,9 +295,9 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
       }
       x = arma::solve(AhA,AhB);
     }else if (calib_type==SP_TSVD) {
-	  cx_fmat U;
-	  fvec s;
-	  cx_fmat V;
+	  cx_mat U;
+	  vec s;
+	  cx_mat V;
 	  
       arma::svd_econ(U,s,V,A);
       uint tsvd_i = 0;
@@ -397,6 +397,7 @@ void SPIRIT::prep() {
   
   if(debug){
    ArrayWriteMag(im,"KernelImage.dat");
+   ArrayWriteMag(im,"KernelKspace.dat");
   }
 }
 
@@ -418,11 +419,11 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
   for(int iz = 0; iz < im.extent(thirdDim); iz ++) {
     
 	// Arrays for storage
-  	cx_fmat A;
+  	cx_mat A;
 	A.zeros(ncoils,ncoils);
-  	cx_fmat AtA;
+  	cx_mat AtA;
 	AtA.zeros(ncoils,ncoils);
-  	cx_fmat At;
+  	cx_mat At;
 	At.zeros(ncoils,ncoils);
 
 	for(int iy = 0; iy < im.extent(secondDim); iy ++) {
@@ -440,8 +441,8 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
 		AtA = At*A;
   		
 		// Eigen Vector
-		fvec eigval;
-		cx_fmat eigvec;
+		vec eigval;
+		cx_mat eigvec;
 		eig_sym(eigval,eigvec,AtA);
 		
 		// Copy Back

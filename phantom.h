@@ -13,6 +13,7 @@ using namespace std;
 #include "ArrayTemplates.hpp"
 #include <armadillo>
 #include "gridFFT.h"
+#include "tictoc.cpp"
 
 #ifndef PI
 #define PI 3.14159265359
@@ -22,6 +23,8 @@ enum PhantomType {FRACTAL, SHEPP, PSF};
 
 class PHANTOM{
 	public:
+		
+		enum PerfType { ASL,ELLIPSE};
 		
 		// Size of Phantom
 		int Nx;
@@ -44,6 +47,7 @@ class PHANTOM{
 		
 		// Arrays for holding Images
 		Array< complex<float>,3>IMAGE;
+		Array< float,4>FUZZY;
 		Array< complex<float>,3>SMAP;
 		Array< float,3>TOA;
 		
@@ -51,8 +55,9 @@ class PHANTOM{
 		void add_phase(void);
 		void add_noise( Array<complex<float>,5>&kdata);
 		void fractal3D(int Nx, int Ny, int Nz);
+		void fractal3D_new(int Nx, int Ny, int Nz);
 		void update_smap_biotsavart(int,int);
-		
+		Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
 	private:	
 		bool debug;
 };

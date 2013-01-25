@@ -48,6 +48,10 @@ void ifft( Array< complex<float>,3>& temp){
 	// Fix Phase from Shift
 	fftshift( temp);
 	
+	// Scale
+	float scale = 1.0/sqrt( (float)temp.extent(thirdDim) * (float)temp.extent(secondDim) * (float)temp.extent(firstDim));
+	temp *= scale;
+		
 	// Cleanup	
 	fftwf_destroy_plan(fft_plan);
 }
@@ -91,6 +95,10 @@ void fft( Array< complex<float>,3>& temp){
 	
 	// Fix Phase from Shift
 	fftshift( temp);
+	
+	// Scale
+	float scale = 1.0/sqrt( (float)temp.extent(thirdDim) * (float)temp.extent(secondDim) * (float)temp.extent(firstDim));
+	temp *= scale;
 	
 	// Cleanup	
 	fftwf_destroy_plan(fft_plan);

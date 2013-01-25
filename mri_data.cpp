@@ -56,6 +56,9 @@ void MRI_DATA::init_memory(void){
 	kw.setStorage( ColumnMajorArray<4>());
 	kw.resize( kx.shape());  
 	
+	times.setStorage( ColumnMajorArray<4>());
+	times.resize(kx.shape()); 
+	
 	kdata.setStorage( ColumnMajorArray<5>());
 	kdata.resize( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
 }

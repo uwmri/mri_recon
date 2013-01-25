@@ -19,6 +19,10 @@ void RECON::set_defaults( void){
 	
 	complex_diff = false;
 	
+	cs_spatial_transform = WAVELET;
+	cs_temporal_transform = DFT;
+	cs_encode_transform = NONE;
+	
 	zoom = 1.0;
 	zoom_x = 1.0;
 	zoom_y = 1.0;
@@ -30,7 +34,7 @@ void RECON::set_defaults( void){
 	rcframes=1;
 	rcencodes=1;
 	
-	smap_res=16;
+	smap_res=8;
 	
 	acc = 1;
 	compress_coils = 0.0;
@@ -256,6 +260,7 @@ void RECON::parse_external_header(MRI_DATA& mri_data){
 
 Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA& data){
 	
+	rcencodes = data.Num_Encodings;
 	
 	// Option to compress coils
 	if (compress_coils > 0){
@@ -263,13 +268,14 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	}
 
 	// Turn of parallel processing for 2D due to thread overhead
-	if(rczres ==1){
+	/*if(rczres ==1){
 		omp_set_num_threads(1);
+		cout << "Using a Single Thread " << endl;
 	}else{
 		if( omp_get_max_threads() > 8){
 			omp_set_num_threads(omp_get_max_threads()-2);
 		}
-	}
+	}*/
 		
 	// Shorthand for Blitz++
 	Range all=Range::all();
@@ -291,8 +297,10 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 		cout << "Getting Coil Sensitivities " << endl<< flush; 
 
 		// Low Pass filtering for Sensitivity Map
-		gridding.k_rad = 16;
-
+		if(coil_combine_type!=ESPIRIT){
+			gridding.k_rad = smap_res;
+		}
+		
 		// Allocate Storage for Map	and zero	
 		cout << "Allocate Sense Maps"  << endl << flush;
 		smaps.setStorage( ColumnMajorArray<4>());
@@ -625,7 +633,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								  P*=conj(Rref);
 								  
 								  scale_RhP += sum(P); 
-								  cout << "took " << T << "s" << endl;
+								  cout << e << "," << t << "took " << T << "s" << endl;
 							  }//Time
 						  }//Encode
 
@@ -657,7 +665,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 						  }*/
 						  
 						  // Export X slice
-						  Array<complex<float>,2>Xslice=X(all,all,X.length(2)/2,0,0);
+						  Array<complex<float>,3>Xslice=X(all,all,X.length(2)/2,all,0);
 						  ArrayWriteMag(Xslice,"X_mag.dat");
 						  ArrayWritePhase(Xslice,"X_phase.dat");
 
@@ -685,6 +693,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 							  cout << "Soft thresh" << endl;
 							  switch(cs_temporal_transform){
 							  	case(DFT):{	
+									cout << "DFT in Time" << endl;
 									tdiff.fft_t(X); 
 								}break;
 								default:{
@@ -694,7 +703,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 							  
 							  switch(cs_spatial_transform){
 							  	case(WAVELET):{
-							  		wave.random_shift();
+							  		cout << "Wavelet in Space" << endl;
+									wave.random_shift();
 							  		wave.forward(X);
 								}break;
 								default:{

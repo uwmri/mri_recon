@@ -304,6 +304,427 @@ class TFRACT{
   
 };
 
+
+// 
+//	 Class to keep track of fractal tree
+//
+class TFRACT_RAND{
+  public:
+	fvec start;
+	fvec stop;
+	int root;
+	float Q;
+	float l;
+	float cost;
+    
+	void update_cost( float qPower){
+		l = norm( stop - start,2);
+		cost = l*pow(Q,qPower);
+	}
+	
+};
+
+Array< int,3 > PHANTOM::synthetic_perfusion(int xs, int ys, int zs, PerfType ptype){
+				
+	
+	// Input Perfusion Image
+	Array< int,3>perf;
+	perf.setStorage( ColumnMajorArray<3>());
+	
+	// Now Create Synthetic Image to Start
+	switch(ptype){
+		case(ELLIPSE):{
+			
+  			perf.resize(xs,ys,zs);
+  			perf = 0;
+			
+			for(int k=0; k<perf.extent(thirdDim); k++){
+			for(int j=0; j<perf.extent(secondDim); j++){
+			for(int i=0; i<perf.extent(firstDim); i++){
+			
+			float x = (i - perf.extent(firstDim)*0.5)/perf.extent(firstDim);
+			float y = (j - perf.extent(secondDim)*0.5)/perf.extent(secondDim);
+			float z = (k - perf.extent(thirdDim)*0.5)/perf.extent(thirdDim);
+	
+			if( ( (x*x)/(0.5*0.5) + (y*y)/(0.35*0.35) + (z*z)/(0.25*0.25) ) < 0.75){
+				perf(i,j,k)=1;
+			}else if( ( (x*x)/(0.5*0.5) + (y*y)/(0.35*0.35) + (z*z)/(0.25*0.25) ) < 1){
+				perf(i,j,k)=4;
+			}  
+			
+			}}}
+			
+		}break;
+			
+		case(ASL):{
+			// Input Perfusion Image
+			perf.resize(128,128,128);
+  			
+			ArrayRead(perf,"ASL_perf.dat");
+			int max_perf = max(perf);
+			cout << "Max of Perf = " << max_perf << endl;
+		}break;
+	
+		
+	}
+	
+	ArrayWrite(perf,"Perf.dat");	
+	return(perf);
+
+}
+
+
+// 
+//	 Generate Fractal Based on Random Generation within Volume
+//     Similar to Karch et al. Computers in Biology and Medicine 29(1999)19-38
+//
+void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
+	
+	// Set number of threads 
+	if( omp_get_max_threads() > 8){
+		omp_set_num_threads(omp_get_max_threads()-2);
+	}
+		
+	// Inputs
+	int terminal_pts = 100000; // Number of Endpoints
+	float qPower = (2.0/3.0);
+		
+	// Input Perfusion Image
+	Array< int,3>perf = synthetic_perfusion(128,128,128,ASL);
+		
+	// Convert The Perf to Random Ordered Point
+	int perf_max = max(perf);
+	cout << "Max perf : " << perf_max << endl;
+	
+	// Convert to points	
+	fmat X= zeros<fmat>(3,terminal_pts);
+	for(int pos=0; pos < terminal_pts; pos++){
+		int found =0;
+		while(found==0){
+			int k =  (int)(( (float)perf.extent(thirdDim)*(float)rand() ) / ((float)RAND_MAX));
+			int j =  (int)(( (float)perf.extent(secondDim)*(float)rand() ) / ((float)RAND_MAX));
+			int i =  (int)(( (float)perf.extent(firstDim)*(float)rand() ) / ((float)RAND_MAX));
+			int val = (int)(( (float)perf_max*(float)rand() ) / ((float)RAND_MAX));
+			if(val < perf(i,j,k)){
+				X(0,pos) = ((float)i + (float)rand()/(float)RAND_MAX - 0.5f - (float)perf.extent(firstDim)*0.5)/(float)perf.extent(firstDim);
+				X(1,pos) = ((float)j + (float)rand()/(float)RAND_MAX - 0.5f- (float)perf.extent(secondDim)*0.5)/(float)perf.extent(secondDim);
+				X(2,pos) = ((float)k + (float)rand()/(float)RAND_MAX - 0.5f- (float)perf.extent(thirdDim)*0.5)/(float)perf.extent(thirdDim);
+				found =1;
+			}
+		}
+	} 	
+		
+	
+	int Nseeds =3;
+	fmat seeds_start= zeros<fmat>(3,Nseeds);
+	fmat seeds_stop= zeros<fmat>(3,Nseeds);
+	seeds_start(0,0) =  -0.05;
+	seeds_start(1,0) =  0.1;
+	seeds_start(2,0) = -0.3;
+	
+	seeds_stop(0,0) =  -0.05;
+	seeds_stop(1,0) =  0.1;
+	seeds_stop(2,0) =  0.0;
+	
+	
+	seeds_start(0,1) = -0.05;
+	seeds_start(1,1) = -0.1;
+	seeds_start(2,1) = -0.3;
+	seeds_stop(0,1) =  -0.05;
+	seeds_stop(1,1) = -0.1;
+	seeds_stop(2,1) =  0.0;
+	
+	seeds_start(0,2) =  0.05;
+	seeds_start(1,2) =  0.0;
+	seeds_start(2,2) =  -0.3;
+	seeds_stop(0,2) =  0.05;
+	seeds_stop(1,2) =  0.0;
+	seeds_stop(2,2) =  -0.28;
+	
+	// Tree Structure 
+	field<TFRACT_RAND>tree(terminal_pts*2+Nseeds);
+	fvec all_costs(terminal_pts*2+Nseeds);
+	int count = Nseeds;
+
+	// Generate Initial Tree
+	for( int s =0; s<Nseeds; s++){	
+		tree(s).start= seeds_start.col(s);
+		tree(s).stop= seeds_stop.col(s);
+		tree(s).root = -1;
+		tree(s).Q = 1;
+		tree(s).update_cost(qPower);
+	}
+	
+	// Loop to generate points
+	
+	for(int n=0; n < terminal_pts; n++){
+		
+		if(n%100==0){
+			cout << "Starting tree : " << n << " of " << terminal_pts << endl;
+		}		
+		// Location of Perfusion Point
+		fvec XT = X.col(n);
+			
+		// Search Loop for best connection
+		float best_cost=0;
+		int best_idx=0;
+		
+		#pragma omp parallel for
+		for(int pos=0; pos < count; pos++){
+			
+			float delta_cost = -tree(pos).cost;
+						
+			float wTrunk = pow( tree(pos).Q + 1.0f, qPower);
+			float wBranch = pow( tree(pos).Q, qPower);
+			fvec centroid = ( XT + wTrunk*tree(pos).start + wBranch*tree(pos).stop);
+			centroid *= 1.0f/(1.0f + wTrunk + wBranch);
+			
+			// Old Segment Branch
+			float old_branch_l =  norm(centroid - tree(pos).stop,2);
+			delta_cost += old_branch_l*pow( tree(pos).Q,qPower);
+			
+			// New Segment Branch
+			float new_branch_l  = norm( centroid - XT,2);
+			delta_cost += new_branch_l;
+		
+			//Old Segment (parent)
+			float old_root_l  = norm( centroid - tree(pos).start,2);
+			delta_cost += old_root_l*pow(tree(pos).Q+1,qPower); 
+						
+			// Add new flow from perfusion point
+			int to_initial =0;
+			int loc = pos;
+			while( to_initial == 0){
+				int root = tree(loc).root;
+				if( root == -1){
+					to_initial =1;
+				}else{
+					//tree2(root).Q+=1.0;
+					//tree2(root).update_cost(qPower);
+					delta_cost += tree(root).l*( pow(tree(root).Q+1,qPower) - pow(tree(root).Q,qPower));		
+					loc = root;
+				}
+			}
+			
+			/// Sum Cost
+			all_costs(pos)=delta_cost;
+			
+		}// Count
+		
+		for(int pos=0; pos < count; pos++){
+		if( (all_costs(pos)<best_cost) || (pos==0)){
+			best_idx = pos;
+			best_cost =all_costs(pos);
+		}
+		}
+		
+		int pos = best_idx;
+		
+		// Now Update to tree
+		float wTrunk = pow( tree(pos).Q + 1.0f, qPower);
+		float wBranch = pow( tree(pos).Q, qPower);
+		fvec centroid = ( XT + wTrunk*tree(pos).start + wBranch*tree(pos).stop);
+		centroid *= 1.0f/(1.0f + wTrunk + wBranch);
+			
+		// Old Segment Branch
+		tree(count).start = centroid;
+		tree(count).stop = tree(pos).stop;
+		tree(count).Q = tree(pos).Q;
+		tree(count).root = pos;
+		tree(count).update_cost(qPower);
+					
+		// Update Parent for Downstream Branches
+		for(int jj=0; jj<count; jj++){
+			if( tree(jj).root ==pos){
+				tree(jj).root = count;	
+			}
+		}
+			
+		// New Segment Branch			
+		tree(count+1).start = centroid;
+		tree(count+1).stop = XT;
+		tree(count+1).Q = 1;
+		tree(count+1).root = pos;
+		tree(count+1).update_cost(qPower);
+			
+		//Old Segment (parent)
+		tree(pos).stop = centroid;
+		
+		// Add new flow from perfusion point
+		int to_initial =0;
+		int loc = count +1;
+		while( to_initial == 0){
+			int root = tree(loc).root;
+			if( root== -1){
+				to_initial =1;
+			}else{
+				tree(root).Q+=1.0;
+				tree(root).update_cost(qPower);
+				loc = root;
+			}
+		}
+		count +=2;
+		
+	}// Terminal Pts
+
+	/* Write to File */
+	FILE *fid = fopen("Points.dat","w");
+	for(int pos=0; pos < count; pos++){
+		fwrite(&tree(pos).start(0),1,sizeof(double),fid);
+		fwrite(&tree(pos).start(1),1,sizeof(double),fid);
+		fwrite(&tree(pos).start(2),1,sizeof(double),fid);
+		fwrite(&tree(pos).stop(0),1,sizeof(double),fid);
+		fwrite(&tree(pos).stop(1),1,sizeof(double),fid);
+		fwrite(&tree(pos).stop(2),1,sizeof(double),fid);
+		fwrite(&tree(pos).Q,1,sizeof(double),fid);
+	}
+	fclose(fid);
+	
+	float tissue_radius = 0.05;
+	// Phantom Density
+	Nx = 512;
+	Ny = 512;
+	Nz = 512;
+	
+	// Arterial, Perfusion, and Venous Compartments
+	FUZZY.setStorage( ColumnMajorArray<4>());
+  	FUZZY.resize(Nx,Ny,Nz,3);
+  	FUZZY = 0;
+	
+	// Find Min/Max
+	float SX = 10000;
+	float SY = 10000;
+	float SZ = 10000;
+	float EX = 0;
+	float EY = 0;
+	float EZ = 0;
+	float Qmax = 0.0;
+	for(int t=0; t< count; t++){
+		SX = min( tree(t).start(0),SX);
+		SY = min( tree(t).start(1),SY);
+		SZ = min( tree(t).start(2),SZ);
+		EX = max( tree(t).start(0),EX);
+		EY = max( tree(t).start(1),EY);
+		EZ = max( tree(t).start(2),EZ);
+		SX = min( tree(t).stop(0),SX);
+		SY = min( tree(t).stop(1),SY);
+		SZ = min( tree(t).stop(2),SZ);
+		EX = max( tree(t).stop(0),EX);
+		EY = max( tree(t).stop(1),EY);
+		EZ = max( tree(t).stop(2),EZ);
+		Qmax = max(tree[t].Q,Qmax);
+	}
+	float Qscale = 0.035 / pow( Qmax,1.0f/3.0f);
+	float Rmin =0;
+	float Rmax = max(0.035f,tissue_radius);
+		
+	cout << "Range is" << endl;
+	cout << "\t X:" << SX << "to " << EX << endl;
+	cout << "\t Y:" << SY << "to " << EY << endl;
+	cout << "\t Z:" << SZ << "to " << EZ << endl;
+	cout << "\t R:" << Rmin << "to " << Rmax << endl;
+	
+	float scaleX = 0.95*((float)Nx)/( 2*tissue_radius + EX - SX );
+	float scaleY = 0.95*((float)Ny)/( 2*tissue_radius + EY - SY );
+	float scaleZ = 0.95*((float)Nz)/( 2*tissue_radius + EZ - SZ );
+	float scale = min(min(scaleX,scaleY),scaleZ);
+		
+	float CX = scale*(EX + SX)/2 - Nx/2;
+	float CY = scale*(EY + SY)/2 - Ny/2;
+	float CZ = scale*(EZ + SZ)/2 - Nz/2;
+			
+	cout << "Gridding Tree" << endl;
+	cout << " scale = " <<  scale << endl;
+	
+	#pragma omp parallel for	
+	for(int t=0; t< count; t++){
+  								
+		// Get  Length	
+		fvec vessel_dir = scale*(tree(t).stop-tree(t).start);
+		float vessel_length = norm(vessel_dir,2);
+		int n_vessel = (int)round(vessel_length /0.1);
+		float R= scale*Qscale*pow( tree(t).Q,1.0f/3.0f);
+								
+		// Vessels
+		if( n_vessel > 1){
+		for(int ii=0; ii<n_vessel; ii++){
+			
+			fvec vessel_pos = scale*tree(t).start + vessel_dir*( (float)ii/(n_vessel-1));
+			
+			int xx = (int)round(vessel_pos(0) - CX);
+        	int yy = (int)round(vessel_pos(1) - CY);
+        	int zz = (int)round(vessel_pos(2) - CZ);
+			float dx = vessel_pos(0) - CX - (float)xx;
+			float dy = vessel_pos(1) - CY - (float)yy;
+			float dz = vessel_pos(2) - CZ - (float)zz;
+			int rr = (int)ceil(R);
+        	
+			// cout << "Vessel Position = " << xx << "," << yy << "," << zz << " R = " << rr << endl << flush;
+		
+			// cout << "Position = " << xx << "," << yy << "," << zz << " R = " << rr << endl << flush;
+			for(int k=-rr; k<=rr; k++){
+			for(int j=-rr; j<=rr; j++){
+			for(int i=-rr; i<=rr; i++){
+				
+				float iact = (float)i - dx;
+				float jact = (float)j - dy;
+				float kact = (float)k - dz;
+				
+				float radius = sqrt( iact*iact + jact*jact + kact*kact);
+				float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.25*(float)R))) );
+				if( s > FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0) ){
+					FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0) = s; 
+				}
+				
+			}}}
+		}
+		}
+		
+		// Tissue
+		if( tree(t).Q == 1){
+			fvec vessel_pos = scale*tree(t).stop; 
+			
+			float R= scale*tissue_radius;
+			
+			int xx = (int)round(vessel_pos(0) - CX);
+        	int yy = (int)round(vessel_pos(1) - CY);
+        	int zz = (int)round(vessel_pos(2) - CZ);
+			float dx = vessel_pos(0) - CX - (float)xx;
+			float dy = vessel_pos(1) - CY - (float)yy;
+			float dz = vessel_pos(2) - CZ - (float)zz;
+			
+			int rr = (int)ceil(R);
+        	// cout << "Tissue Position = " << xx << "," << yy << "," << zz << " R = " << rr << endl << flush;
+								
+			for(int k=-rr; k<=rr; k++){
+			for(int j=-rr; j<=rr; j++){
+			for(int i=-rr; i<=rr; i++){
+				
+				float iact = (float)i - dx;
+				float jact = (float)j - dy;
+				float kact = (float)k - dz;
+						
+				float radius = sqrt( iact*iact + jact*jact + kact*kact);
+				float s=(float)(1.0/( 1.0 + exp(0.5*(radius-0.25*(float)R))) );
+				FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s;
+				
+			}}}
+		}
+		
+	}
+	
+	cout << "Writing to files " << endl;
+	ArrayWrite(FUZZY,"Phantom.dat"); 
+	
+	// Export Magnitude
+	if(debug==1){
+		ArrayWriteMag(IMAGE,"Phantom.dat"); 
+		ArrayWrite(TOA,"TOA.dat"); 
+	}
+
+}
+
+
 // 
 //	 Generate Base factal Tree 
 //
