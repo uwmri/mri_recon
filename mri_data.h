@@ -12,6 +12,7 @@ using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 #include <armadillo>
+#include <sys/stat.h>
 
 // Data Types
 enum TrajDim { THREED, TWOD };
@@ -54,6 +55,7 @@ class MRI_DATA{
 		// Initialization Filling Operations				
 		void init_memory();
 		void read_external_data(char *folder,int);
+		void write_external_data(char *folder);
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 	private:	

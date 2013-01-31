@@ -7,7 +7,8 @@ int main(int argc, char **argv){
 	
 	/*
 	PHANTOM phantom;
-	phantom.fractal3D_new(128,128,128);
+	phantom.read_commandline(argc,argv);  
+	phantom.fractal3D_new(256,256,256);
 	exit(1);
 	*/
 	
@@ -66,15 +67,26 @@ int main(int argc, char **argv){
 				cout << "Getting phantom" << coil << ":" << flush;
 				cout << "Smap " << flush;
 				phantom.update_smap_biotsavart(coil,data.Num_Coils);				
-				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); 
-				kdataE=0;			
+								
+				// Update Image 
+				phantom.calc_image();
+				
+				// Yijing add  looping for time resolved code here times are in data.times
+				
+				// Inverse Grid Data 
 				cout << " Grid " << flush;
-				phantom_gridding.backward(phantom.IMAGE,phantom.SMAP,kdataE,kxE,kyE,kzE,kwE);
+				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); // Get one encoding, one coil
+				kdataE=0;	// Zero data
+				phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,kwE);
 				cout << " Done " << endl;
+				
 			}
 			
 			// Add Noise
 			phantom.add_noise( data.kdata );
+			
+			data.write_external_data("PhantomData/");
+			exit(1);
 			
 		}break;
 		

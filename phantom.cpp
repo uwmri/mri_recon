@@ -54,7 +54,8 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
   			TOA.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   			TOA = 0;
 			
-			fractal3D((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
+			// OLD One::fractal3D((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
+			fractal3D_new((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
 		}break;
 		
 		case(SHEPP):{
@@ -199,12 +200,15 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 	float cx = Nx/2.0;
 	float cy = Ny/2.0;
 	float cz = Nz/2.0;
-		
+	
+	int mapshrink = 4;
+	SMAP= complex<float>(0.0,0.0);
+	
 	#pragma omp parallel for
-	for(int k=0; k< (int)Nz; k++){
-	for(int j=0; j< (int)Ny; j++){
-	for(int i=0; i< (int)Nx; i++){
-		SMAP(i,j,k)=complex<float>(0.0,0.0);
+	for(int k=0; k< (int)Nz; k+=mapshrink){
+	for(int j=0; j< (int)Ny; j+=mapshrink){
+	for(int i=0; i< (int)Nx; i+=mapshrink){
+		complex<float>temp_smap(0.0,0.0); 
 		
 		// Array Position
 		float x= ( (float)i - cx);
@@ -229,9 +233,56 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 			float dist = (float)pow( (float)(diff(0)*diff(0) + diff(1)*diff(1) + diff(2)*diff(2)),(float)(3.0/2.0));			
 			
 			fvec temp = cross(I,diff);  
-			SMAP(i,j,k)+=complex<float>( temp(0)/dist,temp(1)/dist);
+			temp_smap +=complex<float>( temp(0)/dist,temp(1)/dist);
 		}
+		
+		// Now add to higher resolution smap
+		int sz = k - mapshrink + 1;
+		int ez = k + mapshrink - 1;
+		sz = ( sz < 0 ) ? ( 0 ) : ( sz);
+		ez = ( ez >=Nz ) ? ( Nz-1 ) : ( ez); 
+		for(int kk=sz; kk<=ez; kk++){
+			float wz = 1 - abs((float)kk-(float)k)/(float)mapshrink;
+			
+						
+			int sy = j - mapshrink + 1;
+			int ey = j + mapshrink - 1;
+			sy = ( sy < 0 ) ? ( 0 ) : ( sy);
+			ey = ( ey >=Ny ) ? ( Ny-1 ) : ( ey); 
+			for(int jj=sy; jj<=ey; jj++){
+				float wy = wz*( 1 - abs((float)jj-(float)j)/(float)mapshrink);
+				
+				int sx = i - mapshrink + 1;
+				int ex = i + mapshrink - 1;
+				sx = ( sx < 0 ) ? ( 0 ) : ( sx);
+				ex = ( ex >=Nx ) ? ( Nx-1 ) : ( ex); 
+				for(int ii=sx; ii<=ex; ii++){
+					float wx = wy*( 1 - abs((float)ii-(float)i)/(float)mapshrink);
+			
+				
+					complex<float>temp2 = wx*temp_smap;
+					float RD = real(temp2);
+					float ID = imag(temp2);
+					float *I = reinterpret_cast<float *>(&SMAP(ii,jj,kk));
+					float *R = I++;
+					
+					// Prevent Race conditions in multi-threaded
+					#pragma omp atomic
+					*R+=RD;
+					
+					#pragma omp atomic
+					*I+=ID;
+		}}}
+			
+				
 	}}}
+	
+   
+	cout << "Write";
+	ArrayWriteMag(SMAP,"Smap_Resolution.dat");
+	
+    
+    
 }
 
 
@@ -313,9 +364,11 @@ class TFRACT_RAND{
 	fvec start;
 	fvec stop;
 	int root;
+	int children[2];
 	float Q;
 	float l;
 	float cost;
+	float time;
     
 	void update_cost( float qPower){
 		l = norm( stop - start,2);
@@ -373,75 +426,32 @@ Array< int,3 > PHANTOM::synthetic_perfusion(int xs, int ys, int zs, PerfType pty
 
 }
 
-
-// 
-//	 Generate Fractal Based on Random Generation within Volume
-//     Similar to Karch et al. Computers in Biology and Medicine 29(1999)19-38
-//
-void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
-	
-	// Set number of threads 
-	if( omp_get_max_threads() > 8){
-		omp_set_num_threads(omp_get_max_threads()-2);
+void update_children(field<TFRACT_RAND>&tree, int pos){
+	if( tree(pos).children[0] != -1){
+		int cpos = tree(pos).children[0];
+		float rsquare = pow( tree(pos).Q,2.0f/3.0f);
+		float vel = tree(pos).Q/rsquare;
+		tree(cpos).time =tree(pos).time + tree(pos).l/vel;
+		update_children(tree,cpos);	
 	}
-		
-	// Inputs
-	int terminal_pts = 100000; // Number of Endpoints
+	
+	if( tree(pos).children[0] != -1){
+		int cpos = tree(pos).children[1];
+		float rsquare = pow( tree(pos).Q,2.0f/3.0f);
+		float vel = tree(pos).Q/rsquare;
+		tree(cpos).time =tree(pos).time + tree(pos).l/vel;
+		update_children(tree,cpos);		
+	}
+} 
+
+
+field<TFRACT_RAND> create_tree( fmat seeds_start, fmat seeds_stop,fmat X){ 
+	
+	// Variables						
+	int Nseeds = seeds_start.n_cols;
+	int terminal_pts = X.n_cols;
 	float qPower = (2.0/3.0);
-		
-	// Input Perfusion Image
-	Array< int,3>perf = synthetic_perfusion(128,128,128,ASL);
-		
-	// Convert The Perf to Random Ordered Point
-	int perf_max = max(perf);
-	cout << "Max perf : " << perf_max << endl;
-	
-	// Convert to points	
-	fmat X= zeros<fmat>(3,terminal_pts);
-	for(int pos=0; pos < terminal_pts; pos++){
-		int found =0;
-		while(found==0){
-			int k =  (int)(( (float)perf.extent(thirdDim)*(float)rand() ) / ((float)RAND_MAX));
-			int j =  (int)(( (float)perf.extent(secondDim)*(float)rand() ) / ((float)RAND_MAX));
-			int i =  (int)(( (float)perf.extent(firstDim)*(float)rand() ) / ((float)RAND_MAX));
-			int val = (int)(( (float)perf_max*(float)rand() ) / ((float)RAND_MAX));
-			if(val < perf(i,j,k)){
-				X(0,pos) = ((float)i + (float)rand()/(float)RAND_MAX - 0.5f - (float)perf.extent(firstDim)*0.5)/(float)perf.extent(firstDim);
-				X(1,pos) = ((float)j + (float)rand()/(float)RAND_MAX - 0.5f- (float)perf.extent(secondDim)*0.5)/(float)perf.extent(secondDim);
-				X(2,pos) = ((float)k + (float)rand()/(float)RAND_MAX - 0.5f- (float)perf.extent(thirdDim)*0.5)/(float)perf.extent(thirdDim);
-				found =1;
-			}
-		}
-	} 	
-		
-	
-	int Nseeds =3;
-	fmat seeds_start= zeros<fmat>(3,Nseeds);
-	fmat seeds_stop= zeros<fmat>(3,Nseeds);
-	seeds_start(0,0) =  -0.05;
-	seeds_start(1,0) =  0.1;
-	seeds_start(2,0) = -0.3;
-	
-	seeds_stop(0,0) =  -0.05;
-	seeds_stop(1,0) =  0.1;
-	seeds_stop(2,0) =  0.0;
-	
-	
-	seeds_start(0,1) = -0.05;
-	seeds_start(1,1) = -0.1;
-	seeds_start(2,1) = -0.3;
-	seeds_stop(0,1) =  -0.05;
-	seeds_stop(1,1) = -0.1;
-	seeds_stop(2,1) =  0.0;
-	
-	seeds_start(0,2) =  0.05;
-	seeds_start(1,2) =  0.0;
-	seeds_start(2,2) =  -0.3;
-	seeds_stop(0,2) =  0.05;
-	seeds_stop(1,2) =  0.0;
-	seeds_stop(2,2) =  -0.28;
-	
-	// Tree Structure 
+	 
 	field<TFRACT_RAND>tree(terminal_pts*2+Nseeds);
 	fvec all_costs(terminal_pts*2+Nseeds);
 	int count = Nseeds;
@@ -450,13 +460,14 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	for( int s =0; s<Nseeds; s++){	
 		tree(s).start= seeds_start.col(s);
 		tree(s).stop= seeds_stop.col(s);
+		tree(s).children[0] =-1; /*No Children*/
+		tree(s).children[1] =-1; 
 		tree(s).root = -1;
 		tree(s).Q = 1;
 		tree(s).update_cost(qPower);
 	}
 	
 	// Loop to generate points
-	
 	for(int n=0; n < terminal_pts; n++){
 		
 		if(n%100==0){
@@ -511,11 +522,12 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 			
 		}// Count
 		
+		// Find Best Position
 		for(int pos=0; pos < count; pos++){
-		if( (all_costs(pos)<best_cost) || (pos==0)){
-			best_idx = pos;
-			best_cost =all_costs(pos);
-		}
+			if( (all_costs(pos)<best_cost) || (pos==0)){
+				best_idx = pos;
+				best_cost =all_costs(pos);
+			}
 		}
 		
 		int pos = best_idx;
@@ -526,13 +538,15 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		fvec centroid = ( XT + wTrunk*tree(pos).start + wBranch*tree(pos).stop);
 		centroid *= 1.0f/(1.0f + wTrunk + wBranch);
 			
-		// Old Segment Branch
+		// Old Segment Branch (Same children as old parent)
 		tree(count).start = centroid;
 		tree(count).stop = tree(pos).stop;
 		tree(count).Q = tree(pos).Q;
 		tree(count).root = pos;
 		tree(count).update_cost(qPower);
-					
+		tree(count).children[0] = tree(pos).children[0];
+		tree(count).children[1] = tree(pos).children[1];
+									
 		// Update Parent for Downstream Branches
 		for(int jj=0; jj<count; jj++){
 			if( tree(jj).root ==pos){
@@ -546,10 +560,14 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		tree(count+1).Q = 1;
 		tree(count+1).root = pos;
 		tree(count+1).update_cost(qPower);
+		tree(count+1).children[0] = -1;
+		tree(count+1).children[1] = -1;
 			
 		//Old Segment (parent)
 		tree(pos).stop = centroid;
-		
+		tree(pos).children[0] = count;
+		tree(pos).children[1] = count+1;
+				
 		// Add new flow from perfusion point
 		int to_initial =0;
 		int loc = count +1;
@@ -566,30 +584,156 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		count +=2;
 		
 	}// Terminal Pts
-
-	/* Write to File */
-	FILE *fid = fopen("Points.dat","w");
-	for(int pos=0; pos < count; pos++){
-		fwrite(&tree(pos).start(0),1,sizeof(double),fid);
-		fwrite(&tree(pos).start(1),1,sizeof(double),fid);
-		fwrite(&tree(pos).start(2),1,sizeof(double),fid);
-		fwrite(&tree(pos).stop(0),1,sizeof(double),fid);
-		fwrite(&tree(pos).stop(1),1,sizeof(double),fid);
-		fwrite(&tree(pos).stop(2),1,sizeof(double),fid);
-		fwrite(&tree(pos).Q,1,sizeof(double),fid);
-	}
-	fclose(fid);
 	
+	/*Get the time*/	
+	for(int pos=0; pos < count; pos++){
+		if(tree(pos).root==-1){
+			tree(pos).time = 0;
+			
+			//Iterate Through Children (recursive)
+			update_children(tree,pos);			
+		}
+	}
+	
+	return(tree);
+}
+
+
+
+// 
+//	 Generate Fractal Based on Random Generation within Volume
+//     Similar to Karch et al. Computers in Biology and Medicine 29(1999)19-38
+//
+void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
+	
+	// Set number of threads 
+	if( omp_get_max_threads() > 8){
+		omp_set_num_threads(omp_get_max_threads()-2);
+	}
+		
+	// Inputs
+	int terminal_pts = fractal_pts; // Number of Endpoints
+		
+	// Input Perfusion Image
+	Array< int,3>perf = synthetic_perfusion(128,128,128,ASL);
+		
+	// Convert The Perf to Random Ordered Point
+	int perf_max = max(perf);
+	cout << "Max perf : " << perf_max << endl;
+	
+	// Convert to points	
+	fmat X= zeros<fmat>(3,terminal_pts);
+	for(int pos=0; pos < terminal_pts; pos++){
+		int found =0;
+		while(found==0){
+			int k =  (int)(( (float)perf.extent(thirdDim)*(float)rand() ) / ((float)RAND_MAX));
+			int j =  (int)(( (float)perf.extent(secondDim)*(float)rand() ) / ((float)RAND_MAX));
+			int i =  (int)(( (float)perf.extent(firstDim)*(float)rand() ) / ((float)RAND_MAX));
+			int val = (int)(( (float)perf_max*(float)rand() ) / ((float)RAND_MAX));
+			if(val < perf(i,j,k)){
+				X(0,pos) = ((float)i + (float)rand()/(float)RAND_MAX - 0.5f - (float)perf.extent(firstDim)*0.5)/(float)perf.extent(firstDim);
+				X(1,pos) = ((float)j + (float)rand()/(float)RAND_MAX - 0.5f- (float)perf.extent(secondDim)*0.5)/(float)perf.extent(secondDim);
+				X(2,pos) = ((float)k + (float)rand()/(float)RAND_MAX - 0.5f- (float)perf.extent(thirdDim)*0.5)/(float)perf.extent(thirdDim);
+				found =1;
+			}
+		}
+	} 	
+	
+	// ---------------------------------------------
+	//    Arterial Tree
+	// ---------------------------------------------
+	
+	cout << "Arterial Tree" << endl << flush;
+	// Get Seed Points	
+	int Nseeds =3;
+	fmat seeds_start= zeros<fmat>(3,Nseeds);
+	fmat seeds_stop= zeros<fmat>(3,Nseeds);
+	seeds_start(0,0) =  -0.05;
+	seeds_start(1,0) =  0.1;
+	seeds_start(2,0) = -0.3;
+	
+	seeds_stop(0,0) =  -0.05;
+	seeds_stop(1,0) =  0.1;
+	seeds_stop(2,0) =  0.0;
+	
+	
+	seeds_start(0,1) = -0.05;
+	seeds_start(1,1) = -0.1;
+	seeds_start(2,1) = -0.3;
+	seeds_stop(0,1) =  -0.05;
+	seeds_stop(1,1) = -0.1;
+	seeds_stop(2,1) =  0.0;
+	
+	seeds_start(0,2) =  0.05;
+	seeds_start(1,2) =  0.0;
+	seeds_start(2,2) =  -0.3;
+	seeds_stop(0,2) =  0.05;
+	seeds_stop(1,2) =  0.0;
+	seeds_stop(2,2) =  -0.28;
+	
+	// Arterial Tree 
+	field<TFRACT_RAND>arterial_tree = create_tree(seeds_start,seeds_stop,X);
+	
+	// ---------------------------------------------
+	//    Venous Tree
+	// ---------------------------------------------
+	
+	cout << "Venous Tree" << endl << flush;
+	// Get Seed Points	
+	fmat Vseeds_start= zeros<fmat>(3,1);
+	fmat Vseeds_stop= zeros<fmat>(3,1);
+	
+	// Venous Seeds
+	Vseeds_start(0,0) =  0.25;
+	Vseeds_start(1,0) =  0.0;
+	Vseeds_start(2,0) =  -0.3;
+	Vseeds_stop(0,0) =  seeds_stop(0,0);
+	Vseeds_stop(1,0) =  seeds_stop(1,0);
+	Vseeds_stop(2,0) =  seeds_stop(2,0);
+	
+	// Need to add arterial seed points to X
+	X.resize(3,terminal_pts+Nseeds-1); 
+	for(int t=1; t<Nseeds; t++){
+		X(0,terminal_pts+t-1)=seeds_stop(0,t);
+		X(1,terminal_pts+t-1)=seeds_stop(1,t);
+		X(2,terminal_pts+t-1)=seeds_stop(2,t);
+	}
+	
+	// Venous Tree
+	field<TFRACT_RAND>venous_tree = create_tree(Vseeds_start,Vseeds_stop,X);
+	
+	// ---------------------------------------------
+	//    Tissue Tree
+	// ---------------------------------------------
+	cout << "Tissue Tree" << endl << flush;
+	field<TFRACT_RAND>tissue_tree(terminal_pts+Nseeds);
+	int cpos =0;
+	for( int t=0; t< arterial_tree.n_elem; t++){
+		if(arterial_tree(t).Q==1){
+			tissue_tree(cpos).stop= arterial_tree(t).stop;
+			tissue_tree(cpos).start= arterial_tree(t).stop;
+			tissue_tree(cpos).time= arterial_tree(t).time;
+			cpos++;
+		}
+	}	
+			
+	// ---------------------------------------------
+	//    Now Grid The Data
+	// ---------------------------------------------
+
 	float tissue_radius = 0.05;
 	// Phantom Density
-	Nx = 512;
-	Ny = 512;
-	Nz = 512;
 	
 	// Arterial, Perfusion, and Venous Compartments
 	FUZZY.setStorage( ColumnMajorArray<4>());
   	FUZZY.resize(Nx,Ny,Nz,3);
   	FUZZY = 0;
+	
+	// Arterial, Perfusion, and Venous Compartments
+	FUZZYT.setStorage( ColumnMajorArray<4>());
+  	FUZZYT.resize(Nx,Ny,Nz,3);
+  	FUZZYT = 0;
+		
 	
 	// Find Min/Max
 	float SX = 10000;
@@ -599,20 +743,20 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	float EY = 0;
 	float EZ = 0;
 	float Qmax = 0.0;
-	for(int t=0; t< count; t++){
-		SX = min( tree(t).start(0),SX);
-		SY = min( tree(t).start(1),SY);
-		SZ = min( tree(t).start(2),SZ);
-		EX = max( tree(t).start(0),EX);
-		EY = max( tree(t).start(1),EY);
-		EZ = max( tree(t).start(2),EZ);
-		SX = min( tree(t).stop(0),SX);
-		SY = min( tree(t).stop(1),SY);
-		SZ = min( tree(t).stop(2),SZ);
-		EX = max( tree(t).stop(0),EX);
-		EY = max( tree(t).stop(1),EY);
-		EZ = max( tree(t).stop(2),EZ);
-		Qmax = max(tree[t].Q,Qmax);
+	for(unsigned int t=0; t< arterial_tree.n_elem; t++){
+		SX = min( arterial_tree(t).start(0),SX);
+		SY = min( arterial_tree(t).start(1),SY);
+		SZ = min( arterial_tree(t).start(2),SZ);
+		EX = max( arterial_tree(t).start(0),EX);
+		EY = max( arterial_tree(t).start(1),EY);
+		EZ = max( arterial_tree(t).start(2),EZ);
+		SX = min( arterial_tree(t).stop(0),SX);
+		SY = min( arterial_tree(t).stop(1),SY);
+		SZ = min( arterial_tree(t).stop(2),SZ);
+		EX = max( arterial_tree(t).stop(0),EX);
+		EY = max( arterial_tree(t).stop(1),EY);
+		EZ = max( arterial_tree(t).stop(2),EZ);
+		Qmax = max(arterial_tree[t].Q,Qmax);
 	}
 	float Qscale = 0.035 / pow( Qmax,1.0f/3.0f);
 	float Rmin =0;
@@ -636,20 +780,30 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	cout << "Gridding Tree" << endl;
 	cout << " scale = " <<  scale << endl;
 	
+	// ---------------------------------------------
+	//    Arterial
+	// ---------------------------------------------
+
 	#pragma omp parallel for	
-	for(int t=0; t< count; t++){
+	for(int t=0; t< arterial_tree.n_elem; t++){
   								
 		// Get  Length	
-		fvec vessel_dir = scale*(tree(t).stop-tree(t).start);
+		fvec vessel_dir = scale*(arterial_tree(t).stop-arterial_tree(t).start);
 		float vessel_length = norm(vessel_dir,2);
 		int n_vessel = (int)round(vessel_length /0.1);
-		float R= scale*Qscale*pow( tree(t).Q,1.0f/3.0f);
-								
+		float R= scale*Qscale*pow( arterial_tree(t).Q,1.0f/3.0f);
+		
+		float rsquare = pow( arterial_tree(t).Q,2.0f/3.0f);
+		float vel = arterial_tree(t).Q/rsquare;
+		float total_time =arterial_tree(t).l/vel;					
+		
 		// Vessels
 		if( n_vessel > 1){
 		for(int ii=0; ii<n_vessel; ii++){
 			
-			fvec vessel_pos = scale*tree(t).start + vessel_dir*( (float)ii/(n_vessel-1));
+			fvec vessel_pos = scale*arterial_tree(t).start + vessel_dir*( (float)ii/(n_vessel-1));
+			
+			float time = arterial_tree(t).time + total_time*( (float)ii/(n_vessel-1));
 			
 			int xx = (int)round(vessel_pos(0) - CX);
         	int yy = (int)round(vessel_pos(1) - CY);
@@ -673,18 +827,40 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 				float radius = sqrt( iact*iact + jact*jact + kact*kact);
 				float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.25*(float)R))) );
 				if( s > FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0) ){
-					FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0) = s; 
+					FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0) = s;
+					FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0)= s*time;
 				}
 				
 			}}}
 		}
 		}
+	}// Arterial tree
+	
+
+	// ---------------------------------------------
+	//    Venous
+	// ---------------------------------------------
+
+	#pragma omp parallel for	
+	for( int t=0; t< venous_tree.n_elem; t++){
+  								
+		// Get  Length	
+		fvec vessel_dir = scale*(venous_tree(t).stop-venous_tree(t).start);
+		float vessel_length = norm(vessel_dir,2);
+		int n_vessel = (int)round(vessel_length /0.1);
+		float R= scale*Qscale*pow( venous_tree(t).Q,1.0f/3.0f);
 		
-		// Tissue
-		if( tree(t).Q == 1){
-			fvec vessel_pos = scale*tree(t).stop; 
+		float rsquare = pow( venous_tree(t).Q,2.0f/3.0f);
+		float vel = venous_tree(t).Q/rsquare;
+		float total_time =venous_tree(t).l/vel;					
+		
+		// Vessels
+		if( n_vessel > 1){
+		for(int ii=0; ii<n_vessel; ii++){
 			
-			float R= scale*tissue_radius;
+			fvec vessel_pos = scale*venous_tree(t).start + vessel_dir*( (float)ii/(n_vessel-1));
+			
+			float time = venous_tree(t).time + total_time*( (float)ii/(n_vessel-1));
 			
 			int xx = (int)round(vessel_pos(0) - CX);
         	int yy = (int)round(vessel_pos(1) - CY);
@@ -692,7 +868,50 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 			float dx = vessel_pos(0) - CX - (float)xx;
 			float dy = vessel_pos(1) - CY - (float)yy;
 			float dz = vessel_pos(2) - CZ - (float)zz;
+			int rr = (int)ceil(R);
+        	
+			// cout << "Vessel Position = " << xx << "," << yy << "," << zz << " R = " << rr << endl << flush;
+		
+			// cout << "Position = " << xx << "," << yy << "," << zz << " R = " << rr << endl << flush;
+			for(int k=-rr; k<=rr; k++){
+			for(int j=-rr; j<=rr; j++){
+			for(int i=-rr; i<=rr; i++){
+				
+				float iact = (float)i - dx;
+				float jact = (float)j - dy;
+				float kact = (float)k - dz;
+				
+				float radius = sqrt( iact*iact + jact*jact + kact*kact);
+				float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.25*(float)R))) );
+				if( s > FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,2) ){
+					FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,2) = s;
+					FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,2)= s*time;
+				}
+				
+			}}}
+		}
+		}
+	}// Venous_tree
+	
+	
+	// ---------------------------------------------
+	//    Tissue
+	// ---------------------------------------------
+
+	#pragma omp parallel for	
+	for( int t=0; t< tissue_tree.n_elem; t++){
+		
+			fvec vessel_pos = scale*tissue_tree(t).start;
 			
+			float R= scale*tissue_radius;
+						
+			int xx = (int)round(vessel_pos(0) - CX);
+        	int yy = (int)round(vessel_pos(1) - CY);
+        	int zz = (int)round(vessel_pos(2) - CZ);
+			float dx = vessel_pos(0) - CX - (float)xx;
+			float dy = vessel_pos(1) - CY - (float)yy;
+			float dz = vessel_pos(2) - CZ - (float)zz;
+			float time = tissue_tree(t).time;
 			int rr = (int)ceil(R);
         	// cout << "Tissue Position = " << xx << "," << yy << "," << zz << " R = " << rr << endl << flush;
 								
@@ -705,16 +924,24 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 				float kact = (float)k - dz;
 						
 				float radius = sqrt( iact*iact + jact*jact + kact*kact);
-				float s=(float)(1.0/( 1.0 + exp(0.5*(radius-0.25*(float)R))) );
+				float s=(float)(1.0/( 1.0 + exp(0.25*(radius-0.25*(float)R))) );
 				FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s;
+				FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s*time;
 				
 			}}}
-		}
-		
 	}
+	
+	// Adjust Perfusion by Max
+	Array< float,3>TISSUE = FUZZY( Range::all(),Range::all(),Range::all(),1);
+	float max_tissue = max(TISSUE);
+	TISSUE /= max_tissue;
+	
+	
+	FUZZYT/=(FUZZY+1e-6*max(FUZZY));
 	
 	cout << "Writing to files " << endl;
 	ArrayWrite(FUZZY,"Phantom.dat"); 
+	ArrayWrite(FUZZYT,"PhantomT.dat"); 
 	
 	// Export Magnitude
 	if(debug==1){
@@ -1025,7 +1252,7 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 		for(int j=-rr; j<=rr; j++){
 		for(int i=-rr; i<=rr; i++){
 			float radius = sqrt( (float)(i*i) + (float)(j*j) + (float)(k*k)); 
-			float s=(float)(0.1/( 1.0 + exp(2.0*(radius-0.5*(float)R))) );
+			float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.5*(float)R))) );
 			
 			if( s > real(IMAGE(i+xx,j+yy,k+zz)) ){
 				IMAGE(i+xx,j+yy,k+zz) = complex<float>( s,0.0); 
@@ -1034,14 +1261,30 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 
 		}}}
 	}
-	
+		
 	// Export Magnitude
 	if(debug==1){
 		ArrayWriteMag(IMAGE,"Phantom.dat"); 
 		ArrayWrite(TOA,"TOA.dat"); 
 	}
 }
-
+// ----------------------
+// Create Image (simple for test)
+// ----------------------
+void  PHANTOM::calc_image(void){
+	float max_t = 0.333*max(FUZZYT);
+	cout << "Max Time = " << max_t << endl;
+	
+	IMAGE = 0;
+	// Arterial Component
+	IMAGE += FUZZY(Range::all(),Range::all(),Range::all(),0)*exp(-FUZZYT(Range::all(),Range::all(),Range::all(),0)/max_t);
+	
+	// Perfusion Component
+	IMAGE += 0.1*FUZZY(Range::all(),Range::all(),Range::all(),1)*exp(-FUZZYT(Range::all(),Range::all(),Range::all(),1)/max_t);
+	
+	// Multiply by Sensitivity
+	IMAGE *= SMAP;
+}
 // ----------------------
 // Help Message
 // ----------------------
@@ -1053,6 +1296,7 @@ void PHANTOM::help_message(void){
 	
 	cout<<"Control" << endl;
 	help_flag("-phantom_noise []","Noise as fraction of mean of abs(kdata)");
+	help_flag("-fractal_pts []","Terminal Points for Fractal");
 }
 
 
@@ -1069,6 +1313,7 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
   
   	if (strcmp("-h", pstring[pos] ) == 0) {
 		float_flag("-phantom_noise",phantom_noise);
+		int_flag("-fractal_pts",fractal_pts);
 	}
   }
 }    

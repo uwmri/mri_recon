@@ -11,7 +11,7 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -m64 -O3 -fopenmp")
 set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} "-fopenmp")
 set(CMAKE_C_FLAGS "-g -Wno-deprecated")
 
-set(LOCAL_LIBS armadillo acml_mp acml_mv fftw3f_omp fftw3f blitz  m)
+set(LOCAL_LIBS armadillo acml_mp acml_mv fftw3f_omp fftw3f blitz m)
 
 include_directories(${INCLUDE_DIRECTORIES} ${CMAKE_INCLUDE_PATH})
 link_directories(${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH})

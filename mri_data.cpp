@@ -241,6 +241,72 @@ void MRI_DATA::read_external_data( char *folder, int read_kdata){
 
 
 
+//---------------------------------------------------
+//    This function allocates and reads all data into memory
+//---------------------------------------------------
+
+void MRI_DATA::write_external_data( char *folder){
+
+	FILE *fid;
+	char fname[1024];
+	
+	mkdir(folder,0777);
+	
+	Range all = Range::all();
+	
+	cout << "Data size= " << Num_Coils << " coils x " << Num_Encodings << " encodings x "<< Num_Slices<< " slices x "<<  Num_Readouts << " readouts x" << Num_Pts << " pts" << endl;
+	
+	cout << "Write Kx " << endl;
+	for(int e=0; e<Num_Encodings; e++){
+			sprintf(fname,"%sKMAPX_VD_%d.dat",folder,e);
+			Array<float,3>KxRef = kx(all,all,all,e);
+			ArrayWrite(KxRef,fname);
+	}
+	
+	cout << "Write Ky " << endl;
+	for(int e=0; e<Num_Encodings; e++){
+			sprintf(fname,"%sKMAPY_VD_%d.dat",folder,e);
+			Array<float,3>KyRef = ky(all,all,all,e);
+			ArrayWrite(KyRef,fname);
+	}
+	
+	cout << "Write Kz " << endl;
+	for(int e=0; e<Num_Encodings; e++){
+			sprintf(fname,"%sKMAPZ_VD_%d.dat",folder,e);
+			Array<float,3>KzRef = kz(all,all,all,e);
+			ArrayWrite(KzRef,fname);
+	}		
+	
+	
+	cout << "Write Times " << endl;
+	for(int e=0; e<Num_Encodings; e++){
+			sprintf(fname,"%sTimes_VD_%d.dat",folder,e);
+			Array<float,3>TimesRef = times(all,all,all,e);
+			ArrayWrite(TimesRef,fname);
+	}	
+	
+	cout << "Write Kw " << endl;
+	for(int e=0; e<Num_Encodings; e++){
+			sprintf(fname,"%sKWEIGHT_VD_%d.dat",folder,e);
+			Array<float,3>KwRef = kw(all,all,all,e);
+			ArrayWrite(KwRef,fname);
+	}		
+	
+	
+	cout << "Writing Kdata" << endl;
+	for(int c=0; c<Num_Coils;c++){
+		cout << "Write Coil: " << c << endl;
+		for(int e=0; e<Num_Encodings; e++){
+		
+			sprintf(fname,"%sKDATA_C%02d_VD_%d.dat",folder,c,e);
+			Array< complex<float>,3>kdataC= kdata(Range::all(),Range::all(),Range::all(),e,c);
+			ArrayWrite(kdataC,fname);
+			
+	}}
+}
+
+
+
 /** Undersample the data by deleting argument 'us' readouts
 *
 * TODO:
