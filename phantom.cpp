@@ -1272,7 +1272,7 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 // ----------------------
 // Create Image (simple for test)
 // ----------------------
-void  PHANTOM::calc_image(void){
+void  PHANTOM::calc_image(int t, int frames){
 	float max_t = 0.333*max(FUZZYT);
 	cout << "Max Time = " << max_t << endl;
 	

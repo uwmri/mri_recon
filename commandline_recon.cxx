@@ -65,19 +65,17 @@ int main(int argc, char **argv){
 				cout << "Getting phantom" << coil << ":" << flush;
 				cout << "Smap " << flush;
 				phantom.update_smap_biotsavart(coil,data.Num_Coils);				
-								
+				
 				// Update Image 
-				// phantom.calc_image();
-				
-				// Yijing add  looping for time resolved code here times are in data.times
-				
-				// Inverse Grid Data 
-				cout << " Grid " << flush;
 				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); // Get one encoding, one coil
 				kdataE=0;	// Zero data
-				phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,kwE);
-				cout << " Done " << endl;
-				
+				for(int t =0; t < recon.rcframes; t++){
+					phantom.calc_image(t,recon.rcframes);
+					
+					// Now Inverse Grid
+					cout << " Grid :: " << t << flush;
+					phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,kwE);
+				}
 			}
 			
 			// Add Noise

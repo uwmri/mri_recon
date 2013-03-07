@@ -258,6 +258,8 @@ void RECON::parse_external_header(MRI_DATA& mri_data){
 	fclose(fid);
 }
 
+
+
 Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA& data){
 	
 	rcencodes = data.Num_Encodings;
@@ -268,14 +270,14 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	}
 
 	// Turn of parallel processing for 2D due to thread overhead
-	/*if(rczres ==1){
+	if(rczres ==1){
 		omp_set_num_threads(1);
 		cout << "Using a Single Thread " << endl;
 	}else{
 		if( omp_get_max_threads() > 8){
 			omp_set_num_threads(omp_get_max_threads()-2);
 		}
-	}*/
+	}
 		
 	// Shorthand for Blitz++
 	Range all=Range::all();
@@ -288,10 +290,11 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	gridding.read_commandline(argc,argv);
 	gridding.precalc_gridding(rczres,rcyres,rcxres,3);
 
+	
 	// ------------------------------------
 	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
-
+		
 	Array<complex<float>,4>smaps; 
 	if( (recon_type != SOS) && (data.Num_Coils>1)){ 
 		cout << "Getting Coil Sensitivities " << endl<< flush; 
@@ -359,7 +362,6 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 		if(export_smaps==1){
 			cout << "Exporting Smaps" << endl;
 			ArrayWrite(smaps,"SenseMaps.dat");
-			
 		}
 	}else{
 		// Allocate Storage for Map	and zero	
@@ -367,10 +369,9 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 		smaps.setStorage( ColumnMajorArray<4>());
 		smaps.resize(rcxres,rcyres,rczres,data.Num_Coils);
 		smaps=complex<float>(1.0,0.0);
-	
 	}	
 	
-
+	
 	// ------------------------------------
 	//  If time resolved need to sort the times in to bins (need to move to function calls)
 	// ------------------------------------

@@ -63,7 +63,7 @@ class PHANTOM{
 		void fractal3D(int Nx, int Ny, int Nz);
 		void fractal3D_new(int Nx, int Ny, int Nz);
 		void update_smap_biotsavart(int,int);
-		void calc_image(void);
+		void calc_image(int,int);
 		Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
 	private:	
 		bool debug;
