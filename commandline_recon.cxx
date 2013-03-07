@@ -41,8 +41,8 @@ int main(int argc, char **argv){
 			phantom.read_commandline(argc,argv);  
 			phantom.init(recon.rcxres,recon.rcyres,recon.rczres);
 			
-			// Accurate gridding for Phantom
-			gridFFT phantom_gridding;
+			// More accurate gridding for Phantom
+			gridFFT phantom_gridding;			
 			phantom_gridding.kernel_type = KAISER_KERNEL;
 			phantom_gridding.overgrid = 1.25;
 			phantom_gridding.dwinX = 6;
@@ -50,7 +50,9 @@ int main(int argc, char **argv){
 			phantom_gridding.dwinZ = 6;
 			phantom_gridding.precalc_gridding(phantom.IMAGE.length(firstDim),phantom.IMAGE.length(secondDim),phantom.IMAGE.length(thirdDim),3);
 			
-			//Collect Data
+			/*-----------------------------
+			   Collect Data
+			 ------------------------------*/
 			int e= 0;
 			Range all=Range::all();
 			Array< float,3 >kxE = data.kx(all,all,all,e); 
@@ -81,7 +83,7 @@ int main(int argc, char **argv){
 			// Add Noise
 			phantom.add_noise( data.kdata );
 			
-			// data.write_external_data("PhantomData/");
+			data.write_external_data("PhantomData/");
 			//exit(1);
 			
 		}break;
