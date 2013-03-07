@@ -19,7 +19,7 @@ using namespace std;
 #define PI 3.14159265359
 #endif
 
-enum PhantomType {FRACTAL, SHEPP, PSF};
+enum PhantomType {FRACTAL, SHEPP, PSF, EXTERNAL};
 
 class PHANTOM{
 	public:
@@ -41,6 +41,8 @@ class PHANTOM{
 		
 		// Fractal Input
 		int fractal_pts;
+		
+		char *external_phantom_name;
 		
 		// Constructor,I/O, and Init				
 		PHANTOM(void);

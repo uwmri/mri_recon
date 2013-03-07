@@ -247,9 +247,7 @@ void MRI_DATA::read_external_data( char *folder, int read_kdata){
 
 void MRI_DATA::write_external_data( char *folder){
 
-	FILE *fid;
 	char fname[1024];
-	
 	mkdir(folder,0777);
 	
 	Range all = Range::all();

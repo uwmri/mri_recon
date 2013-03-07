@@ -10,7 +10,7 @@
 
 enum {SP_SQUARE, SP_CIRCLE};
 enum {SP_TIK, SP_TSVD};
-enum {SP_LOW_RES_PHASE, SP_COIL_PHASE, SP_SMOOTH};
+enum {SP_LOW_RES_PHASE, SP_COIL_PHASE, SP_SMOOTH,SP_SMOOTH_OLD};
 
 
 void fftshift3(Array<complex<float>,3>&);

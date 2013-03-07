@@ -26,11 +26,11 @@ SPIRIT::SPIRIT()
   calib_lam = .01;
   
   // Shrinkage operations for speed
-  mapshrink = 4;
+  mapshrink = 1; // No long due to phase errors
   mapthresh = 0.0;
   
   // Phase type
-  phase_type = SP_SMOOTH;
+  phase_type = SP_COIL_PHASE;
   
   debug =0;
 }
@@ -94,6 +94,7 @@ void SPIRIT::help_message(void){
 	help_flag("-sp_mapthresh []","threshold of eigen vals");
 	help_flag("-sp_debug","write out intermediate images");
 	help_flag("-sp_coil_phase","use phase from one coil");
+	help_flag("-sp_low_res_phase","use phase from low res images");
 	
 }
 
@@ -124,6 +125,7 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 		trig_flag(SP_TIK,"-sp_tik",calib_type);
 		trig_flag(SP_TSVD,"-sp_tsvd",calib_type);
 		trig_flag(SP_COIL_PHASE,"-sp_coil_phase",phase_type);
+		trig_flag(SP_LOW_RES_PHASE,"-sp_lowres_phase",phase_type);
 		
 		int_flag("-sp_mapshrink",mapshrink);
 		float_flag("-sp_mapthresh",mapthresh);
@@ -158,7 +160,9 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 
 		  // Code to get Sense maps from kernel		  
 		  prep();		  
-		  Array< complex<float>,4>LRmaps(rcxres/mapshrink,rcyres/mapshrink,rczres/mapshrink,smaps.length(fourthDim)+1);
+		  Array< complex<float>,4>LRmaps;
+		  LRmaps.setStorage( ColumnMajorArray<4>());
+  		  LRmaps.resize(rcxres/mapshrink,rcyres/mapshrink,rczres/mapshrink,smaps.length(fourthDim)+1);
 		  getcoils(LRmaps);
 
 		  // Phase Correction for Sense Maps
@@ -528,6 +532,101 @@ void SPIRIT::rotateCoils(Array< complex<float>,4 > &maps, Array< complex<float>,
 {
 
   if(phase_type==SP_SMOOTH){
+  
+  	// Try to find a map that provides smooth combination 
+  	
+	Array< complex<float>,4> Sblur;
+	Sblur.setStorage( ColumnMajorArray<4>());
+  	Sblur.resize(maps.length(firstDim),maps.length(secondDim),maps.length(thirdDim),maps.length(fourthDim));
+  	Sblur = complex<float>(1.0f,0.0);
+			
+	int Nc = maps.length(fourthDim)-1;
+		
+	if(debug==1){
+		FILE *fid = fopen("SpiritCoilPhase.dat","a");
+		for(int coil=0; coil < Nc; coil++){
+		for(int j= 0; j<maps.extent(1); j++){
+	  	for(int i=0; i<maps.extent(0);i++){
+			float b = arg(maps(i,j,ref.length(thirdDim)/2)*maps(i,j,ref.length(thirdDim)/2,coil));
+			fwrite(&b,1,sizeof(float),fid);
+		}}}
+		fclose(fid);
+	}	
+	
+	for(int iter=0; iter<1000; iter++){
+		
+		float cx = maps.length(firstDim)/2;
+		float cy = maps.length(secondDim)/2;
+		float cz = maps.length(thirdDim)/2;
+		float ksx = 2; //0.1.*(krx_f*krx_f);
+		float ksy = 2; //0.1.*(kry_f*kry_f);
+		float ksz = 2; //1.*(krz_f*krz_f);
+		
+		// Get a blurred sensitivity map
+		cout << "Blurring" << endl << flush;
+		Sblur = maps;
+		
+		for( int coil=0; coil<maps.length(fourthDim); coil++){
+			Array<complex<float>,3> Sblur_ref = Sblur(Range::all(),Range::all(),Range::all(),coil);
+			fft(Sblur_ref);
+		}
+		
+		for( int coil=0; coil<Sblur.length(fourthDim); coil++){
+		 for (int k = 0; k < Sblur.length(thirdDim); k++) {
+    	  for (int j = 0; j < Sblur.length(secondDim); j++) {
+    		for (int i = 0; i < Sblur.length(firstDim); i++) {
+				float x = (float)i - cx;
+				float y = (float)j - cy;
+				float z = (float)k - cz;
+				Sblur(i,j,k,coil) *= exp( -( x*x/ksx + y*y/ksy + z*z/ksz));
+			}}}				
+		}
+		
+		for( int coil=0; coil<maps.length(fourthDim); coil++){
+			Array<complex<float>,3> Sblur_ref = Sblur(Range::all(),Range::all(),Range::all(),coil);
+			ifft(Sblur_ref);
+		}		
+		
+		// Now Phase 
+		cout << "Aligning Iteration = " << iter << endl << flush;
+		for (int k = 0; k < ref.length(thirdDim); k++) {
+    	for (int j = 0; j < ref.length(secondDim); j++) {
+    	for (int i = 0; i < ref.length(firstDim); i++) {		
+			complex<float>p(0,0);
+			for( int coil=0; coil<maps.length(fourthDim); coil++){
+				p+= maps(i,j,k,coil)*conj(Sblur(i,j,k,coil));
+			}
+			p = polar(1.0f,arg(p));
+						
+			for( int coil=0; coil<maps.length(fourthDim); coil++){
+				maps(i,j,k,coil)*= conj(p);
+			}
+		}}}
+		
+		
+		if(debug==1){					
+			FILE *fid = fopen("SpiritCoilPhaseBlur.dat","a");
+			for(int coil=0; coil < Nc; coil++){
+			for(int j= 0; j<maps.extent(1); j++){
+	  		for(int i=0; i<maps.extent(0);i++){
+				float b = arg(Sblur(i,j,ref.length(thirdDim)/2,coil));
+				fwrite(&b,1,sizeof(float),fid);
+			}}}
+			fclose(fid);			// Export
+			
+			
+			fid = fopen("SpiritCoilPhase.dat","a");
+			for(int coil=0; coil < Nc; coil++){
+			for(int j= 0; j<maps.extent(1); j++){
+	  		for(int i=0; i<maps.extent(0);i++){
+				float b = arg(maps(i,j,ref.length(thirdDim)/2,coil));
+				fwrite(&b,1,sizeof(float),fid);
+			}}}
+			fclose(fid);
+		}
+	}				
+	
+  }else if(phase_type==SP_SMOOTH_OLD){
   
   	// Try to find a map that provides smooth combination 
   	Array< complex<float>,3> GRAD;

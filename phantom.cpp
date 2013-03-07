@@ -26,7 +26,7 @@ using namespace std;
 //	
 //
 PHANTOM::PHANTOM( void){
-	over_res=2;
+	over_res=1;
 	phantom_type = FRACTAL;
 	phantom_noise= 0.0;	
 	debug = 0;
@@ -64,7 +64,12 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
 		
 		case(PSF):{
 			// Just Get PSF 
-		}
+		}break;
+		
+		case(EXTERNAL):{
+			cout << "Reading External Phantom" << external_phantom_name << endl;
+			ArrayRead(IMAGE,external_phantom_name);
+		}break;
 	}
 }
 
@@ -76,15 +81,11 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 	
 	// Doesn't Make sense for one coil
 	if(Ncoils==1){
-		SMAP = 1;	
+		SMAP = 1;
+		cout << "No Coil Mapping! (one coil)" << endl;	
 		return;
 	}
-	
-	// Grab size for Short Hand
-	float Nx = (float)SMAP.length(firstDim);
-	float Ny = (float)SMAP.length(secondDim);
-	float Nz = (float)SMAP.length(thirdDim);
-		
+			
 	// Made up Coil Geometry
 	float coil_length = 1.25*Nx/2;	
 	float coil_radius = 1.25*Nx/2; 
@@ -708,7 +709,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	cout << "Tissue Tree" << endl << flush;
 	field<TFRACT_RAND>tissue_tree(terminal_pts+Nseeds);
 	int cpos =0;
-	for( int t=0; t< arterial_tree.n_elem; t++){
+	for( int t=0; t< (int)arterial_tree.n_elem; t++){
 		if(arterial_tree(t).Q==1){
 			tissue_tree(cpos).stop= arterial_tree(t).stop;
 			tissue_tree(cpos).start= arterial_tree(t).stop;
@@ -785,7 +786,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	// ---------------------------------------------
 
 	#pragma omp parallel for	
-	for(int t=0; t< arterial_tree.n_elem; t++){
+	for(int t=0; t< (int)arterial_tree.n_elem; t++){
   								
 		// Get  Length	
 		fvec vessel_dir = scale*(arterial_tree(t).stop-arterial_tree(t).start);
@@ -842,7 +843,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	// ---------------------------------------------
 
 	#pragma omp parallel for	
-	for( int t=0; t< venous_tree.n_elem; t++){
+	for( int t=0; t< (int)venous_tree.n_elem; t++){
   								
 		// Get  Length	
 		fvec vessel_dir = scale*(venous_tree(t).stop-venous_tree(t).start);
@@ -899,7 +900,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	// ---------------------------------------------
 
 	#pragma omp parallel for	
-	for( int t=0; t< tissue_tree.n_elem; t++){
+	for( int t=0; t< (int)tissue_tree.n_elem; t++){
 		
 			fvec vessel_pos = scale*tissue_tree(t).start;
 			
@@ -1297,6 +1298,7 @@ void PHANTOM::help_message(void){
 	cout<<"Control" << endl;
 	help_flag("-phantom_noise []","Noise as fraction of mean of abs(kdata)");
 	help_flag("-fractal_pts []","Terminal Points for Fractal");
+	help_flag("-external_phantom []","Use phantom of name []");
 }
 
 
@@ -1308,12 +1310,21 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
+#define char_flag(name,val)   }else if(strcmp(name,pstring[pos]) == 0){ pos++; strcpy(val,pstring[pos]); 
 
   for(int pos=0; pos < numarg; pos++){
   
   	if (strcmp("-h", pstring[pos] ) == 0) {
 		float_flag("-phantom_noise",phantom_noise);
 		int_flag("-fractal_pts",fractal_pts);
-	}
-  }
-}    
+	}else if(strcmp("-external_phantom",pstring[pos]) == 0) {
+		pos++;
+		phantom_type = EXTERNAL;
+		if( pos==numarg){
+			cout << "Please provide external phantom name" << endl;
+		}else{
+			strcpy(external_phantom_name,pstring[pos]);
+		}
+  	}
+  }  
+}  

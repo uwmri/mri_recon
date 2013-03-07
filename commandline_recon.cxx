@@ -4,13 +4,7 @@
 #include "recon_lib.h"
 
 int main(int argc, char **argv){
-	
-	/*
-	PHANTOM phantom;
-	phantom.read_commandline(argc,argv);  
-	phantom.fractal3D_new(256,256,256);
-	exit(1);
-	*/
+
 	
 	// ------------------------------------
 	// Initialize Recon - reading the command line
@@ -40,7 +34,7 @@ int main(int argc, char **argv){
 			// Use external Kx,Ky,Kz 
 			recon.parse_external_header(data);
 			data.read_external_data("./",0);
-			data.kdata = complex<float>(1.0,0.0);
+			data.kdata = complex<float>(0.0,0.0);
 			
 			// Initialize Phantom
 			PHANTOM phantom;
@@ -63,13 +57,15 @@ int main(int argc, char **argv){
 			Array< float,3 >kyE = data.ky(all,all,all,e); 
 			Array< float,3 >kzE = data.kz(all,all,all,e); 
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
+			data.Num_Coils = 1;
+			cout << "Num coils = " << data.Num_Coils << endl;
 			for(int coil =0; coil < data.Num_Coils; coil++){
 				cout << "Getting phantom" << coil << ":" << flush;
 				cout << "Smap " << flush;
 				phantom.update_smap_biotsavart(coil,data.Num_Coils);				
 								
 				// Update Image 
-				phantom.calc_image();
+				// phantom.calc_image();
 				
 				// Yijing add  looping for time resolved code here times are in data.times
 				
@@ -85,8 +81,8 @@ int main(int argc, char **argv){
 			// Add Noise
 			phantom.add_noise( data.kdata );
 			
-			data.write_external_data("PhantomData/");
-			exit(1);
+			// data.write_external_data("PhantomData/");
+			//exit(1);
 			
 		}break;
 		
