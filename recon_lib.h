@@ -12,11 +12,13 @@
 using namespace std;
 #include <omp.h>
 
+
 // External Libraries
 #include <armadillo>
 using arma::cx_mat;
 using arma::vec;
 using arma::uvec;
+
 
 // Local Libraries
 #include "ArrayTemplates.hpp"
@@ -28,7 +30,9 @@ using arma::uvec;
 #include "threshold.h"
 #include "spirit.h"
 #include "phantom.h"
+#include "gating.h"
 #include "tictoc.cpp"
+#include "gating.h"
 
 class RECON{
 	public:

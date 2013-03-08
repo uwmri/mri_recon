@@ -59,7 +59,8 @@ RECON::RECON(int numarg, char **pstring){
 			gridFFT::help_message();
 			SPIRIT::help_message();	
 			THRESHOLD::help_message();
-			PHANTOM::help_message();	
+			PHANTOM::help_message();
+			GATING::help_message();
 			exit(0);
 		}
 	}
@@ -269,7 +270,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 		data.coilcompress(compress_coils);
 	}
 
-	// Turn of parallel processing for 2D due to thread overhead
+	/* Turn of parallel processing for 2D due to thread overhead
 	if(rczres ==1){
 		omp_set_num_threads(1);
 		cout << "Using a Single Thread " << endl;
@@ -277,7 +278,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 		if( omp_get_max_threads() > 8){
 			omp_set_num_threads(omp_get_max_threads()-2);
 		}
-	}
+	}*/
 		
 	// Shorthand for Blitz++
 	Range all=Range::all();
@@ -289,8 +290,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	gridFFT gridding;
 	gridding.read_commandline(argc,argv);
 	gridding.precalc_gridding(rczres,rcyres,rcxres,3);
-
-	
+		
 	// ------------------------------------
 	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
@@ -375,38 +375,10 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	// ------------------------------------
 	//  If time resolved need to sort the times in to bins (need to move to function calls)
 	// ------------------------------------
-
+	
+	GATING gate(argc,argv);
 	if(rcframes>1){
-		float max_time =max(data.times);
-		float min_time =min(data.times);
-
-		cout << "Time Range :: " << min_time << " to " << max_time << endl;
-
-		float delta_t = (max_time - min_time ) / ((float)(rcframes));
-
-		// Sort times into discrete frames
-		int *frame_count = new int[rcframes];
-		memset( (void *)frame_count,0,(size_t)((rcframes)*sizeof(int)));
-		for(int e=0; e< data.times.length(3); e++){
-			for(int k=0; k< data.times.length(2); k++){
-				for(int j=0; j< data.times.length(1); j++){
-					for(int i=0; i< data.times.length(0); i++){
-
-						data.times(i,j,k,e) -= min_time;
-						data.times(i,j,k,e) /= delta_t;
-						int pos = (int)data.times(i,j,k,e);
-						if(pos > (rcframes-1)){
-							pos= (rcframes-1);
-						}
-						data.times(i,j,k,e) = (float)pos;
-
-						frame_count[pos]++;
-					}}}}
-
-		for(int t =0; t<rcframes; t++){
-			cout << "Frame " << t << " count " << frame_count[t] << endl;
-		}
-		delete [] frame_count;
+		gate.init(data.times,rcframes,data.kx,data.ky,data.kz);
 	}
 	
 	/* ----- Temp For complex diff ----*/
@@ -449,15 +421,10 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 
 							 // Temporal weighting (move to functions )
 							 TimeWeight = kwE;
+							 
 							 if(rcframes>1){
-								 for(int k=0;k<timesE.extent(2);k++){
-									 for(int j=0;j<timesE.extent(1);j++){
-										 for(int i=0;i<timesE.extent(0);i++){
-											 if( (timesE(i,j,k)) != (float)t){
-												 TimeWeight(i,j,k)= 0.0;
-											 }
-										 }}}
-							 }
+								gate.weight_data( TimeWeight,timesE, kxE, kyE,kzE,t);
+   							 }
 
 							 cout << "\tForward Gridding Coil ";
 							 for(int coil=0; coil< data.Num_Coils; coil++){
@@ -673,24 +640,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 						  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
-						  if(iteration==0){
-						  	for(int k=0; k<X.extent(thirdDim);k++){
-							for(int j=0; j<X.extent(thirdDim);j++){
-							for(int i=0; i<X.extent(thirdDim);i++){
-							
-							complex<float>s(0,0);							
-							for(int t=0; t<X.extent(fourthDim);t++){
-								s += X(i,j,k,t,0);
-							}
-							s /= (float)X.extent(fourthDim);
-							for(int t=0; t<X.extent(fourthDim);t++){
-								X(i,j,k,t,0)=s;
-							}
-														
-							
-							}}}
-							
-						  }else if(softthresh.getThresholdMethod() != TH_NONE){
+						  if(softthresh.getThresholdMethod() != TH_NONE){
 							  cout << "Soft thresh" << endl;
 							  switch(cs_temporal_transform){
 							  	case(DFT):{	
