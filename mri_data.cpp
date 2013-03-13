@@ -6,6 +6,51 @@
 using arma::cx_fmat;
 using arma::fvec;
 
+
+//--------------------------------------------------
+//  Read external header
+//--------------------------------------------------
+
+void MRI_DATA::parse_external_header(char *filename){
+	
+	char parameter[200];
+	float value;
+	float value2;
+	float value3;
+	float value4;
+	FILE *fid;
+	char line[1024];
+	
+	cout << "Reading External Header: " << endl;
+	
+	fid = fopen(filename,"r");
+	while( fgets(line, sizeof(line),fid) != NULL ) {
+    	if(sscanf(line,"%s\t%f\t%f\t%f\t%f",parameter,&value,&value2,&value3,&value4) < 2){
+		}else if(strcmp("acq_bw",parameter) == 0){ 
+		}else if(strcmp("xres",parameter) == 0){  Num_Pts = (int)value;
+		}else if(strcmp("numrecv",parameter) == 0){ Num_Coils = (int)value;
+		}else if(strcmp("slices",parameter) == 0){ Num_Slices = (int)value;
+		}else if(strcmp("2d_flag",parameter) == 0){ 
+			if( (int)value ==1){
+				trajectory_dims = TWOD;
+			}else{
+				trajectory_dims = THREED;
+			}		
+		}else if(strcmp("nproj",parameter) == 0){  Num_Readouts = (int)value;
+		}else if(strcmp("rcxres",parameter) == 0){ 
+			xres = (int)value;
+		}else if(strcmp("rcyres",parameter) == 0){ 
+			yres = (int)value;
+		}else if(strcmp("rczres",parameter) == 0){ 
+			zres = (int)value;
+		}else if(strcmp("num_encodes",parameter) == 0){ 
+			Num_Encodings = (int)value;
+		}else if 
+	}
+	fclose(fid);
+}
+
+
 // Constructer for MRI data type
 MRI_DATA::MRI_DATA( MRI_DATA *base_data){
 	
@@ -56,9 +101,6 @@ void MRI_DATA::init_memory(void){
 	kw.setStorage( ColumnMajorArray<4>());
 	kw.resize( kx.shape());  
 	
-	times.setStorage( ColumnMajorArray<4>());
-	times.resize(kx.shape()); 
-	
 	kdata.setStorage( ColumnMajorArray<5>());
 	kdata.resize( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
 }
@@ -69,7 +111,7 @@ MRI_DATA::MRI_DATA( void){
 	Num_Readouts = -1;
 	Num_Pts = -1;
 	Num_Coils = -1;
-	Num_Slices = -1; 
+	Num_Slices =  1; 
 }
 
 //---------------------------------------------------
@@ -135,37 +177,6 @@ void MRI_DATA::read_external_data( char *folder, int read_kdata){
 			}
 	}
 	
-	cout << "Alloc Times " << endl;
-	times.setStorage( ColumnMajorArray<4>());
-	times.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings); 
-	cout << "Read  Times " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			
-			while(1==1){
-			 
-			sprintf(fname,"%sTimes_VD_%d.dat",folder,e);
-			if( (fid=fopen(fname,"r")) != NULL){
-				cout << "\tUsing name " << fname << endl;
-				break;
-			}
-			
-			sprintf(fname,"%sTimes.dat",folder);
-			if( (fid=fopen(fname,"r")) != NULL){
-				cout << "\tUsing name same name for all encodings " << fname << endl;
-				break;
-			}
-			
-			cout << "Can't Open " << fname << " or other forms " << endl;
-			break;
-			}
-			
-			if(fid!=NULL){	
-				Array<float,3>TimesRef = times(all,all,all,e);
-				ArrayRead(TimesRef,fname);
-				fclose(fid);
-			}
-	}
-
 	cout << "Alloc Kw " << endl;
 	kw.setStorage( ColumnMajorArray<4>());
 	kw.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings); 
@@ -193,6 +204,12 @@ void MRI_DATA::read_external_data( char *folder, int read_kdata){
 	cout << "Max Ky = " << max(ky) << endl;
 	cout << "Max Kz = " << max(kz) << endl;
 	cout << "Completed Reading Kspace Sampling" << endl;
+	
+	// Now Read Physiologic Data
+	
+		
+		
+		
 	
 	cout << "Reading Kdata" << endl;
 	kdata.setStorage( ColumnMajorArray<5>());
@@ -274,14 +291,6 @@ void MRI_DATA::write_external_data( char *folder){
 			Array<float,3>KzRef = kz(all,all,all,e);
 			ArrayWrite(KzRef,fname);
 	}		
-	
-	
-	cout << "Write Times " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sTimes_VD_%d.dat",folder,e);
-			Array<float,3>TimesRef = times(all,all,all,e);
-			ArrayWrite(TimesRef,fname);
-	}	
 	
 	cout << "Write Kw " << endl;
 	for(int e=0; e<Num_Encodings; e++){

@@ -31,9 +31,11 @@ class GATING {
         
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
-        
+        enum WeightType { ITERATIVE,NON_ITERATIVE};
+		enum GateType{ ECG,RESP,TIME,PREP};
+				
 		GATING(int numarg,char **pstring);
-		void init( Array<float,4>&times,int,const Array<float,4>&,const Array<float,4>&,const Array<float,4>&);
+		void init( const MRI_DATA &data,int);
 		
 		// Filter Parameters
         int wdth_low;	// k=0 width
@@ -46,17 +48,19 @@ class GATING {
 		float offset_time;
 		
 		//Control Gating Method		
-		ViewshareType type;	
+		ViewshareType vs_type;	
+		GateType gate_type;
+		Array< float, 3>gate_times;
 		
 		// Frame Centers	
 		float *gate_frames;
 		
 		// Function Calls		
 		static void help_message(void);
-        void weight_data(Array<float,3>&Tw, Array<float,3>&times, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t);
+        void weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType);
 
-	   	void hist_weight( Array<float,3>&Tw,Array<float,3>&times, int t);
-		void tornado_weight(Array<float,3>&Tw, Array<float,3>&times, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t);
+	   	void hist_weight( Array<float,3>&Tw, int e, int t);
+		void tornado_weight(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType);
 
     private:
 

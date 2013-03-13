@@ -12,7 +12,7 @@ Usage: Currently
 	phantom.update_smap_biotsavart(coil,recon.num_coils);	
 	
 	// Which will populate:
-	phantom.IMAGE // Image (density)
+	phantom.IMAGE // Image (density)
 	phantom.SMAP // Sensitivity Map 
 	phantom.TOA  // Time of arrival
 
@@ -26,7 +26,7 @@ using namespace std;
 //	
 //
 PHANTOM::PHANTOM( void){
-	over_res=1;
+	over_res=2;
 	phantom_type = FRACTAL;
 	phantom_noise= 0.0;	
 	debug = 0;
@@ -894,6 +894,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		}
 	}// Venous_tree
 	
+
 	
 	// ---------------------------------------------
 	//    Tissue
@@ -932,13 +933,19 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 			}}}
 	}
 	
-	// Adjust Perfusion by Max
-	Array< float,3>TISSUE = FUZZY( Range::all(),Range::all(),Range::all(),1);
-	float max_tissue = max(TISSUE);
-	TISSUE /= max_tissue;
-	
-	
+	// Times Are Weighted in Averaging Calcs
 	FUZZYT/=(FUZZY+1e-6*max(FUZZY));
+	
+	
+	// Adjust Perfusion by Max
+	// CBV is about 10%
+	Array< float, 3>Tissue = FUZZY(Range::all(),Range::all(),Range::all(),1);
+	Array< float, 3>Arterial = FUZZY(Range::all(),Range::all(),Range::all(),0);
+	Tissue*= 0.1*max(Arterial)/max(Tissue);
+	
+	// Normalize times to 1
+	FUZZYT/= max(FUZZYT);
+	
 	
 	cout << "Writing to files " << endl;
 	ArrayWrite(FUZZY,"Phantom.dat"); 
@@ -1269,20 +1276,48 @@ void  PHANTOM::fractal3D(int Nx, int Ny, int Nz){
 		ArrayWrite(TOA,"TOA.dat"); 
 	}
 }
+
+inline float Factorial(float x) {
+  return (x == 1.0 ? x : x * Factorial(x - 1.0));
+}
+
+inline float gamma_variate(float x,float beta,float alpha){
+ return(  (1.0/Factorial(alpha)/pow(beta,alpha))*pow(x,alpha)*exp(-x/beta));
+}
+
+	
 // ----------------------
 // Create Image (simple for test)
 // ----------------------
 void  PHANTOM::calc_image(int t, int frames){
-	float max_t = 0.333*max(FUZZYT);
+	float max_t = max(FUZZYT);
 	cout << "Max Time = " << max_t << endl;
 	
-	IMAGE = 0;
-	// Arterial Component
-	IMAGE += FUZZY(Range::all(),Range::all(),Range::all(),0)*exp(-FUZZYT(Range::all(),Range::all(),Range::all(),0)/max_t);
+	float current_time = (float)t* max_t / (float)frames;
+	IMAGE = complex<float>(0,0);
 	
-	// Perfusion Component
-	IMAGE += 0.1*FUZZY(Range::all(),Range::all(),Range::all(),1)*exp(-FUZZYT(Range::all(),Range::all(),Range::all(),1)/max_t);
+	float beta = 0.05;
+	float alpha = 2;
 	
+	for(int compartment =0; compartment < 2 /*FUZZYT.length(fourthDim)*/; compartment++){
+	for(int k= 0; k< FUZZYT.length(thirdDim); k++){
+	for(int j= 0; j< FUZZYT.length(secondDim); j++){
+	for(int i= 0; i< FUZZYT.length(firstDim); i++){
+		float time = FUZZYT(i,j,k,compartment);
+		float dens = FUZZY(i,j,k,compartment);
+		float beta_t = ( (1+time/max_t)*beta);
+		
+		if( current_time > time){
+			float tdiff = (current_time - time);
+			IMAGE(i,j,k) += dens*gamma_variate(tdiff,beta_t,alpha); // Bolus
+			IMAGE(i,j,k) += dens*gamma_variate(tdiff,4*beta_t,alpha); // Persistent signal 
+		}			
+	}}}}
+	
+	char fname[1024];
+	sprintf(fname,"Frame_%d.dat",t);
+	ArrayWriteMag(IMAGE,fname);
+		
 	// Multiply by Sensitivity
 	IMAGE *= SMAP;
 }

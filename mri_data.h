@@ -18,21 +18,27 @@ using namespace std;
 enum TrajDim { THREED, TWOD };
 enum TrajType { CARTESIAN, NONCARTESIAN};
 
+
 class MRI_DATA{
 	public:
 		// Raw Data
 		//  readout x phase encode x slice x encoding x coil 
 		
 		// Non-Cartesian Trajectory
-		Array<float,4> kx;
+		Array<float,4> kx;	// Fov = 1 unit, delta k =1
 		Array<float,4> ky;
 		Array<float,4> kz;
 		Array<float,4> kw;
 		Array<float,4> kt;	  // TE Time (s)
-		Array<float,4> times; // Time of readout for gating etc (s)
 		Array< complex<float>,5> kdata;
 		
-		// Sizes
+		//Physiologic Data for gating 
+		Array< float,3>ecg;		// Distance from ECG in MS
+		Array< float,3>resp;	// Respiratory signal from bellows or navigator
+		Array< float,3>time;	// Acquisition Time 
+		Array< float,3>prep;	// Time since a prep event (for example inversion)
+		
+		// Sizes for shorthand
 		int Num_Encodings;
 		int Num_Readouts;
 		int Num_Slices;
@@ -56,6 +62,8 @@ class MRI_DATA{
 		void init_memory();
 		void read_external_data(char *folder,int);
 		void write_external_data(char *folder);
+		void parse_external_header(char *filename);
+		
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 	private:	

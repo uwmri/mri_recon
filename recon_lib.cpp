@@ -9,7 +9,7 @@ RECON::RECON(void){
 }
 
 // ----------------------
-//  Sets Default Recon Parameters
+//  Sets Default Recon Parameterrs
 // ----------------------
 void RECON::set_defaults( void){
 	// Help Message for recon
@@ -208,62 +208,18 @@ void RECON::parse_commandline(int numarg, char **pstring){
 	}
   }
 } 
-//--------------------------------------------------
-//  Read external header
-//--------------------------------------------------
-
-void RECON::parse_external_header(MRI_DATA& mri_data){
-	
-	char parameter[80];
-	float value;
-	float value2;
-	float value3;
-	float value4;
-	FILE *fid;
-	char line[200];
-	
-	cout << "Reading External Header: " << endl;
-	
-	fid = fopen(filename,"r");
-	while( fgets(line, sizeof(line),fid) != NULL ) {
-    	if(sscanf(line,"%s\t%f\t%f\t%f\t%f",parameter,&value,&value2,&value3,&value4) < 2){
-		}else if(strcmp("acq_bw",parameter) == 0){ 
-		}else if(strcmp("xres",parameter) == 0){  mri_data.Num_Pts = (int)value;
-		}else if(strcmp("numrecv",parameter) == 0){ mri_data.Num_Coils = (int)value;
-		}else if(strcmp("slices",parameter) == 0){ mri_data.Num_Slices = (int)value;
-		}else if(strcmp("2d_flag",parameter) == 0){ 
-			if( (int)value ==1){
-				mri_data.trajectory_dims = TWOD;
-			}else{
-				mri_data.trajectory_dims = THREED;
-			}		
-		}else if(strcmp("nproj",parameter) == 0){ mri_data.Num_Readouts = (int)value;
-		}else if(strcmp("rcxres",parameter) == 0){ 
-			mri_data.xres = (int)value;
-		}else if(strcmp("rcyres",parameter) == 0){ 
-			mri_data.yres = (int)value;
-		}else if(strcmp("rczres",parameter) == 0){ 
-			mri_data.zres = (int)value;
-		}else if(strcmp("multi_echo",parameter) == 0){ 
-		}else if(strcmp("num_encodes",parameter) == 0){ mri_data.Num_Encodings = (int)value;
-		}
-	}
-	
-	// Use Native Resultion 
-	rcxres = (rcxres == -1) ? ( mri_data.xres ) : ( rcxres );
-	rcyres = (rcyres == -1) ? ( mri_data.yres ) : ( rcyres );
-	rczres = (rczres == -1) ? ( mri_data.zres ) : ( rczres );
-	
-	
-	
-	fclose(fid);
-}
 
 
 
 Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA& data){
 	
 	rcencodes = data.Num_Encodings;
+	
+	// Use Native Resultion 
+	rcxres = (rcxres == -1) ? ( data.xres ) : ( rcxres );
+	rcyres = (rcyres == -1) ? ( data.yres ) : ( rcyres );
+	rczres = (rczres == -1) ? ( data.zres ) : ( rczres );
+		
 	
 	// Option to compress coils
 	if (compress_coils > 0){
@@ -376,9 +332,14 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	//  If time resolved need to sort the times in to bins (need to move to function calls)
 	// ------------------------------------
 	
+	
+	
+	// -------------------------------------
+	//	This handles all the gating, assuming mri_data physiodata is populated 
+	// -------------------------------------
 	GATING gate(argc,argv);
 	if(rcframes>1){
-		gate.init(data.times,rcframes,data.kx,data.ky,data.kz);
+		gate.init( data,rcframes);
 	}
 	
 	/* ----- Temp For complex diff ----*/
@@ -417,13 +378,12 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 							 Array< float,3 >kyE = data.ky(all,all,all,e); 
 							 Array< float,3 >kzE = data.kz(all,all,all,e); 
 							 Array< float,3 >kwE = data.kw(all,all,all,e); 
-							 Array< float,3 >timesE = data.times(all,all,all,e); 
 
 							 // Temporal weighting (move to functions )
 							 TimeWeight = kwE;
 							 
 							 if(rcframes>1){
-								gate.weight_data( TimeWeight,timesE, kxE, kyE,kzE,t);
+								gate.weight_data( TimeWeight, e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
    							 }
 
 							 cout << "\tForward Gridding Coil ";
@@ -538,19 +498,13 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								  Array< float,3 >kyE = data.ky(all,all,all,e); 
 								  Array< float,3 >kzE = data.kz(all,all,all,e); 
 								  Array< float,3 >kwE = data.kw(all,all,all,e); 
-								  Array< float,3 >timesE = data.times(all,all,all,e); 
-
+								  
 								  // Temporal weighting
 								  TimeWeight = kwE;
 								  if(rcframes>1){
-									  for(int k=0;k<timesE.extent(2);k++){
-										  for(int j=0;j<timesE.extent(1);j++){
-											  for(int i=0;i<timesE.extent(0);i++){
-												  if( (timesE(i,j,k)) != (float)t){
-													  TimeWeight(i,j,k)= 0.0;
-												  }
-											  }}}
-								  }
+										gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::ITERATIVE);
+   							 	  }
+
 
 
 								  Array<complex<float>,3>Xref=X(all,all,all,t,e);
