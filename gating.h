@@ -32,7 +32,7 @@ class GATING {
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
         enum WeightType { ITERATIVE,NON_ITERATIVE};
-		enum GateType{ ECG,RESP,TIME,PREP};
+		enum GateType{ ECG,RESP,TIME,PREP,RESP_GATE}; 
 				
 		GATING(int numarg,char **pstring);
 		void init( const MRI_DATA &data,int);
@@ -55,13 +55,15 @@ class GATING {
 		// Frame Centers	
 		float *gate_frames;
 		
+		int correct_resp_drift;
+		
 		// Function Calls		
 		static void help_message(void);
         void weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType);
 
 	   	void hist_weight( Array<float,3>&Tw, int e, int t);
 		void tornado_weight(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType);
-
+		void filter_resp(  const MRI_DATA &data );
     private:
 
 };

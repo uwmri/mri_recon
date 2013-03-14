@@ -35,6 +35,7 @@ GATING::GATING( int numarg, char **pstring) {
         tornado_shape = VIPR; // Kr^2 shape
 		kmax = 128; // TEMP
 		gate_type = TIME;
+		correct_resp_drift = 0;
 		
         // Catch command line switches
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
@@ -74,7 +75,8 @@ GATING::GATING( int numarg, char **pstring) {
 				
 			int_flag("-vs_wdth_low",wdth_low);
             int_flag("-vs_wdth_high",wdth_high);
-     		}
+     		trig_flag(1,"-correct_resp_drift",correct_resp_drift);
+			}
 		}
 }
 
@@ -93,23 +95,107 @@ void GATING::help_message() {
 		help_flag("","  ecg = gate by cardiac");
 		help_flag("","  time = bin by acquisition time");
 		help_flag("","  prep = bin by time from prep pulses");
+		help_flag("","  resp_gate = single respiratory frame");
 		
 		cout << "Filter parameters for tornado:" << endl;
         help_flag("-vs_wdth_low []","width in the center of k-space in frames");
         help_flag("-vs_wdth_high []","width in the periphery of k-space in frames");
         help_flag("-vs_vipr_tornado","3D radial tornado (default)");
 		help_flag("-vs_radial_tornado","2D radial tornado");
+		
+		cout << "Prefilters for Data" << endl;
+		help_flag("-correct_resp_drift","Median filter with 10s interval");
+		help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
 }
+
+/*----------------------------------------------
+     Smooths the Resp and subtracts off to correct drift
+ *----------------------------------------------*/ 
+void GATING::filter_resp(  const MRI_DATA &data ){
+	
+	
+		int fsize = 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ); // 10s filter / delta time
+	
+		cout << "Sorting Gate Data by Acquisition Time" << endl;
+		
+		// Use Aradillo Sort function
+		arma::fvec time(gate_times.numElements());
+		arma::fvec resp(gate_times.numElements());
+		arma::fvec time_linear_resp(gate_times.numElements());
+		
+		// Put into Matrix for Armadillo
+		int count = 0;
+		for(int e=0; e< gate_times.length(thirdDim); e++){
+		 for(int slice=0; slice< gate_times.length(secondDim); slice++){
+		  for(int view=0; view< gate_times.length(firstDim); view++){
+		   time(count) = data.time(view,slice,e);
+		   resp(count) = data.resp(view,slice,e);
+		   count++;
+		}}}
+		int Ncount = count;
+		
+		// Sort
+		arma::uvec idx = arma::sort_index(time); 
+		
+		// Copy Resp
+		idx.save("Sorted.dat", arma::raw_ascii);
+		for(int i=0; i<gate_times.numElements(); i++){
+			time_linear_resp( i )= resp( idx(i));
+		}
+		time_linear_resp.save("RSorted.dat",arma::raw_ascii);
+		
+		
+		// Now Filter
+		cout << "Filtering Resp Data by" << fsize << endl;
+		for(int i=0; i<gate_times.numElements(); i++){
+			int start = i - fsize;
+			int stop  = i + fsize;
+			if(start < 0){
+				stop  = 2*fsize;
+				start = 0; 
+			}
+			
+			if(stop >=  gate_times.numElements()){
+				stop  = gate_times.numElements() -1;
+				start = gate_times.numElements() - 1 - 2*fsize;
+			}
+			
+			resp(idx(i)) -= median(  time_linear_resp.rows( start,stop) );
+		}
+		resp.save("RFilteres.dat",arma::raw_ascii);
+		
+		// Copy Resp
+		for(int i=0; i<gate_times.numElements(); i++){
+			time_linear_resp( i )= resp( idx(i));
+		}
+		time_linear_resp.save("RSorted_Filter.dat",arma::raw_ascii);
+		
+		
+		// Write Back to Blitz
+		count = 0;
+		for(int e=0; e< gate_times.length(thirdDim); e++){
+		 for(int slice=0; slice< gate_times.length(secondDim); slice++){
+		  for(int view=0; view< gate_times.length(firstDim); view++){
+		   gate_times(view,slice,e)=resp(count);
+		   count++;
+		}}}
+}
+
 
 void GATING::init( const MRI_DATA& data,int frames){
 	
-	
+		
 	// Create Array and Fill with Base 
 	gate_times.setStorage(ColumnMajorArray<3>());
 	switch(gate_type){
+		case(RESP_GATE):
 		case(RESP):{
 			gate_times.resize( data.resp.shape());				  
 			gate_times = data.resp;
+			cout << "Correcting Drift" << endl;
+			if( correct_resp_drift ==1){
+				filter_resp( data );
+			}
 		}break;
 		
 		case(ECG):{
@@ -127,7 +213,8 @@ void GATING::init( const MRI_DATA& data,int frames){
 			gate_times = data.prep;
 		}break;
 	}
-				
+	
+		
 	// Get Range
 	float max_time =max(gate_times);
 	float min_time =min(gate_times);
@@ -145,8 +232,10 @@ void GATING::init( const MRI_DATA& data,int frames){
 		gate_frames[i] = 0.5+(float)i;
 	}
 	cout << "Time Range :: " << min_time << " to " << max_time << endl;
+	
+	switch(vs_type){
 
-	if(vs_type==TORNADO && (wdth_low != wdth_high) ){
+	case(TORNADO ):{
 		switch(tornado_shape){
 			case(VIPR):{
 				kmax = max( data.kx*data.kx + data.ky*data.ky + data.kz*data.kz);
@@ -163,9 +252,14 @@ void GATING::init( const MRI_DATA& data,int frames){
 			}
 					}
 		cout << "Kmax = " << kmax << endl;
-	}
-		
-	if( vs_type== HIST_MODE){
+	}break;
+	
+	case(NONE):{
+		gate_times = floor(gate_times);
+	
+	}break;
+			
+	case(HIST_MODE):{
 		cout << "Sorting Data into Histogram" << endl;
 		// Use Aradillo Sort function
 		arma::fvec time_sort(gate_times.numElements());
@@ -193,8 +287,8 @@ void GATING::init( const MRI_DATA& data,int frames){
 		   gate_times(view,slice,e) = t_frame;
 		   count++;
 		}}}
-	}	
-
+	}break;	
+  }//Switch
 }
 
 
