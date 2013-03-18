@@ -120,10 +120,9 @@ void RECON::parse_commandline(int numarg, char **pstring){
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
 #define char_flag(name,val)   }else if(strcmp(name,pstring[pos]) == 0){ pos++; strcpy(val,pstring[pos]);
-  	  
+   
   for(int pos=0; pos < numarg; pos++){
- 	
-  	if (strcmp("-h", pstring[pos] ) == 0) {
+ 	if (strcmp("-h", pstring[pos] ) == 0) {
 		char_flag("-f",filename);
 		
 		// Reconstruction Geometry
@@ -338,10 +337,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	//	This handles all the gating, assuming mri_data physiodata is populated 
 	// -------------------------------------
 	GATING gate(argc,argv);
-	if(rcframes>1){
-		gate.init( data,rcframes);
-	}
-	
+	gate.init( data,rcframes);
+		
 	/* ----- Temp For complex diff ----*/
 	if(complex_diff){
 		cout << "Doing Complex Diff" << endl;
@@ -381,11 +378,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 
 							 // Temporal weighting (move to functions )
 							 TimeWeight = kwE;
-							 
-							 if(rcframes>1){
-								gate.weight_data( TimeWeight, e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
-   							 }
-
+							 gate.weight_data( TimeWeight, e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
+   							 
 							 cout << "\tForward Gridding Coil ";
 							 for(int coil=0; coil< data.Num_Coils; coil++){
 								 // Subarray for Data
@@ -501,12 +495,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								  
 								  // Temporal weighting
 								  TimeWeight = kwE;
-								  if(rcframes>1){
-										gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::ITERATIVE);
-   							 	  }
-
-
-
+								  gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::ITERATIVE);
+   							 	  
 								  Array<complex<float>,3>Xref=X(all,all,all,t,e);
 								  Array<complex<float>,3>Rref=R(all,all,all,t,e);
 								  for(int coil=0; coil< data.Num_Coils; coil++){

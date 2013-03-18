@@ -60,7 +60,6 @@ class PHANTOM{
 		// Functions
 		void add_phase(void);
 		void add_noise( Array<complex<float>,5>&kdata);
-		void fractal3D(int Nx, int Ny, int Nz);
 		void fractal3D_new(int Nx, int Ny, int Nz);
 		void update_smap_biotsavart(int,int);
 		void calc_image(int,int);

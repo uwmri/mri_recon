@@ -32,30 +32,39 @@ class GATING {
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
         enum WeightType { ITERATIVE,NON_ITERATIVE};
-		enum GateType{ ECG,RESP,TIME,PREP,RESP_GATE}; 
-				
+		enum GateType{ GATE_NONE,ECG,RESP,TIME,PREP}; 
+		
+		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
+								
 		GATING(int numarg,char **pstring);
 		void init( const MRI_DATA &data,int);
-		
-		// Filter Parameters
+		void init_resp_gating(const MRI_DATA &data,int);
+		void init_time_resolved(const MRI_DATA &data,int);
+	
+		// Tornado Filter Parameters
         int wdth_low;	// k=0 width
 		int wdth_high; 	// k=kmax width
 		float kmax;
 		TornadoType tornado_shape; // kr^2 vs kr                         
         
-		// Scaling
+		// Scaling for Waveform
 		float scale_time;
 		float offset_time;
 		
 		//Control Gating Method		
 		ViewshareType vs_type;	
 		GateType gate_type;
-		Array< float, 3>gate_times;
 		
+		Array< float, 3>gate_times;
+		Array< float, 3>resp_weight;
+		
+		// Control of Retrospective Respiratory Gating
+		RespGateType resp_gate_type;
+		int correct_resp_drift;
+		float resp_gate_efficiency;
+				
 		// Frame Centers	
 		float *gate_frames;
-		
-		int correct_resp_drift;
 		
 		// Function Calls		
 		static void help_message(void);

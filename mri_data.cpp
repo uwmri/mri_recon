@@ -138,6 +138,20 @@ void MRI_DATA::init_memory(void){
 	
 	kdata.setStorage( ColumnMajorArray<5>());
 	kdata.resize( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
+
+	// Timesd
+	time.setStorage( ColumnMajorArray<3>());
+	time.resize(Num_Readouts,Num_Slices,Num_Encodings);
+
+	ecg.setStorage( ColumnMajorArray<3>());
+	ecg.resize(Num_Readouts,Num_Slices,Num_Encodings);
+
+	resp.setStorage( ColumnMajorArray<3>());
+	resp.resize(Num_Readouts,Num_Slices,Num_Encodings);
+
+	prep.setStorage( ColumnMajorArray<3>());
+	prep.resize(Num_Readouts,Num_Slices,Num_Encodings);
+
 }
 
 
