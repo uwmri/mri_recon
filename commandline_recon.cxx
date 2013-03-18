@@ -4,7 +4,6 @@
 #include "recon_lib.h"
 
 int main(int argc, char **argv){
-
 	
 	// ------------------------------------
 	// Initialize Recon - reading the command line
@@ -37,11 +36,13 @@ int main(int argc, char **argv){
 			data.kdata = complex<float>(0.0,0.0);
 			
 			// Initialize Phantom
+			cout << "Phantom " << endl;
 			PHANTOM phantom;
 			phantom.read_commandline(argc,argv);  
-			phantom.init(recon.rcxres,recon.rcyres,recon.rczres);
+			phantom.init(data.xres,data.yres,data.zres);
 			
 			// More accurate gridding for Phantom
+			cout << "Grid " << endl;
 			gridFFT phantom_gridding;			
 			phantom_gridding.kernel_type = KAISER_KERNEL;
 			phantom_gridding.overgrid = 1.25;
@@ -53,9 +54,8 @@ int main(int argc, char **argv){
 			GATING gate(argc,argv);
 			// Weighting Array for Time coding
 			Array< float, 3 >TimeWeight(data.kx.length(0),data.kx.length(1),data.kx.length(2),ColumnMajorArray<3>());
-			if(recon.rcframes>1){
-				gate.init(data,recon.rcframes);
-			}	
+			gate.init(data,recon.rcframes);
+			
 			
 			/*-----------------------------
 			   Collect Data
@@ -83,10 +83,8 @@ int main(int argc, char **argv){
 					
 					// Weight Image
 					TimeWeight = kwE;
-					if(recon.rcframes > 1){
-						gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
-   					}	
-											
+					gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
+   											
 					// Now Inverse Grid
 					cout << " Imverse Grid :: " << t << flush;
 					phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,TimeWeight);

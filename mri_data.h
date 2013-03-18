@@ -18,11 +18,17 @@ using namespace std;
 enum TrajDim { THREED, TWOD };
 enum TrajType { CARTESIAN, NONCARTESIAN};
 
-
 class MRI_DATA{
 	public:
 		// Raw Data
 		//  readout x phase encode x slice x encoding x coil 
+		
+		// Sizes for shorthand
+		int Num_Encodings;
+		int Num_Readouts;
+		int Num_Slices;
+		int Num_Pts;
+		int Num_Coils;
 		
 		// Non-Cartesian Trajectory
 		Array<float,4> kx;	// Fov = 1 unit, delta k =1
@@ -37,14 +43,7 @@ class MRI_DATA{
 		Array< float,3>resp;	// Respiratory signal from bellows or navigator
 		Array< float,3>time;	// Acquisition Time 
 		Array< float,3>prep;	// Time since a prep event (for example inversion)
-		
-		// Sizes for shorthand
-		int Num_Encodings;
-		int Num_Readouts;
-		int Num_Slices;
-		int Num_Pts;
-		int Num_Coils;
-		
+				
 		// Native Resolution
 		int xres;
 		int yres;
@@ -53,13 +52,13 @@ class MRI_DATA{
 		// 2D/3D Cartesian/Non-Cartesian
 		TrajDim trajectory_dims;
 		TrajType trajectory_type;
-						
-		// Data Operations (move?)
-		void undersample(int);
-		void coilcompress(float);
 		
 		//Temp
 		char gate_name[1024];
+		
+		// Data Operations (move?)
+		void undersample(int);
+		void coilcompress(float);
 		
 		// Initialization Filling Operations				
 		void init_memory();
@@ -68,7 +67,7 @@ class MRI_DATA{
 		void parse_external_header(char *filename);
 		void load_pcvipr_gating_file(char *full_filename); //Temp
 		void data_stats(void);
-		
+				
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 	private:	

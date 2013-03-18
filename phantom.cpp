@@ -38,11 +38,13 @@ PHANTOM::PHANTOM( void){
 void PHANTOM::init(int Nx, int Ny, int Nz){
 	
 	// Phantom Density
+	cout << "Init IMAGE: " << Nx << " by " << Ny << " by " << Nz << endl << flush;
 	IMAGE.setStorage( ColumnMajorArray<3>());
   	IMAGE.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   	IMAGE = 0;
 	
 	// Sensitivity Map	
+	cout << "Init Smap" << endl << flush;
 	SMAP.setStorage( ColumnMajorArray<3>());
   	SMAP.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   	SMAP = 1;
@@ -50,10 +52,13 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
 	// Switch For Phantom
 	switch(phantom_type){
 		case(FRACTAL):{
+			
+			cout << "Init TOA" << endl << flush;
 			TOA.setStorage( ColumnMajorArray<3>());
   			TOA.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
   			TOA = 0;
 			
+			cout << "Build Tree" << endl << flush;
 			fractal3D_new((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
 		}break;
 		
