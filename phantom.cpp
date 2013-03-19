@@ -735,9 +735,9 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		EZ = max( arterial_tree(t).stop(2),EZ);
 		Qmax = max(arterial_tree[t].Q,Qmax);
 	}
-	float Qscale = 0.035 / pow( Qmax,1.0f/3.0f);
+	float Qscale = 0.010 / pow( Qmax,1.0f/3.0f);
 	float Rmin =0;
-	float Rmax = max(0.035f,tissue_radius);
+	float Rmax = max(0.010f,tissue_radius);
 		
 	cout << "Range is" << endl;
 	cout << "\t X:" << SX << "to " << EX << endl;
@@ -802,7 +802,14 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 				float kact = (float)k - dz;
 				
 				float radius = sqrt( iact*iact + jact*jact + kact*kact);
-				float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.25*(float)R))) );
+				float s;
+				if(R < 1.5){
+				   // For small vessels below resolution of matrix need to normalize size
+				   s=(float)(1.0/( 1.0 + exp(2.0*(radius-(float)R))) )*( R*R /2.25);
+				}else{
+				   s=(float)(1.0/( 1.0 + exp(2.0*(radius-(float)R))) );
+				}
+				
 				if( s > FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0) ){
 					FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0) = s;
 					FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,0)= s*time;
@@ -815,7 +822,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	
 
 	// ---------------------------------------------
-	//    Venous
+	//    Venous 
 	// ---------------------------------------------
 
 	#pragma omp parallel for	
@@ -859,7 +866,14 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 				float kact = (float)k - dz;
 				
 				float radius = sqrt( iact*iact + jact*jact + kact*kact);
-				float s=(float)(1.0/( 1.0 + exp(2.0*(radius-0.25*(float)R))) );
+				float s;
+				if(R < 1.5){
+				   // For small vessels below resolution of matrix need to normalize size
+				   s=(float)(1.0/( 1.0 + exp(2.0*(radius-(float)R))) )*( R*R /2.25);
+				}else{
+				   s=(float)(1.0/( 1.0 + exp(2.0*(radius-(float)R))) );
+				}
+				
 				if( s > FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,2) ){
 					FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,2) = s;
 					FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,2)= s*time;
@@ -870,7 +884,6 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		}
 	}// Venous_tree
 	
-
 	
 	// ---------------------------------------------
 	//    Tissue
@@ -902,7 +915,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 				float kact = (float)k - dz;
 						
 				float radius = sqrt( iact*iact + jact*jact + kact*kact);
-				float s=(float)(1.0/( 1.0 + exp(0.25*(radius-0.25*(float)R))) );
+				float s=(float)(1.0/( 1.0 + exp(8.0*(radius-0.5*(float)R))) );
 				FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s;
 				FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s*time;
 				
@@ -918,8 +931,12 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	Array< float, 3>Arterial = FUZZY(Range::all(),Range::all(),Range::all(),0);
 	Tissue*= 0.1*max(Arterial)/max(Tissue);
 	
-	// Normalize times to 1
-	FUZZYT/= max(FUZZYT);
+	// Normalize times to 0.5
+	FUZZYT/= 2.0*max(FUZZYT);
+	
+	// Make venous go backwards and rescale to 1
+	FUZZYT(Range::all(),Range::all(),Range::all(),2 )= 1.0-FUZZYT(Range::all(),Range::all(),Range::all(),2 );
+	
 		
 	cout << "Writing to files " << endl;
 	if(debug==1){
@@ -950,27 +967,26 @@ inline float gamma_variate(float x,float beta,float alpha){
 // Create Image (simple for test)
 // ----------------------
 void  PHANTOM::calc_image(int t, int frames){
-	float max_t = max(FUZZYT);
-	cout << "Max Time = " << max_t << endl;
 	
-	float current_time = (float)t* max_t / (float)frames;
+	float current_time = (float)t* 3.0 / (float)frames;
 	IMAGE = complex<float>(0,0);
 	
-	float beta = 0.05;
+	float beta = 0.25;
 	float alpha = 2;
 	
-	for(int compartment =0; compartment < 2 /*FUZZYT.length(fourthDim)*/; compartment++){
+	for(int compartment =0; compartment < FUZZYT.length(fourthDim); compartment++){
+	#pragma omp parallel for
 	for(int k= 0; k< FUZZYT.length(thirdDim); k++){
 	for(int j= 0; j< FUZZYT.length(secondDim); j++){
 	for(int i= 0; i< FUZZYT.length(firstDim); i++){
 		float time = FUZZYT(i,j,k,compartment);
 		float dens = FUZZY(i,j,k,compartment);
-		float beta_t = ( (1+time/max_t)*beta);
+		float beta_t = ( (1+2*time)*beta); // Curve Smooths in time
 		
 		if( current_time > time){
 			float tdiff = (current_time - time);
 			IMAGE(i,j,k) += dens*gamma_variate(tdiff,beta_t,alpha); // Bolus
-			IMAGE(i,j,k) += dens*gamma_variate(tdiff,4*beta_t,alpha); // Persistent signal 
+			IMAGE(i,j,k) += 0.25*dens*gamma_variate(tdiff,4*beta_t,alpha); // Persistent signal 
 		}			
 	}}}}
 	

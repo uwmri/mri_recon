@@ -86,7 +86,7 @@ int main(int argc, char **argv){
 					gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
    											
 					// Now Inverse Grid
-					cout << " Imverse Grid :: " << t << flush;
+					cout << " Ivverse Grid :: " << t << endl;
 					phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,TimeWeight);
 				}
 			}
