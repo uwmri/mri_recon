@@ -306,7 +306,7 @@ void MRI_DATA::read_external_data( char *folder, int read_kdata){
 
 
 //---------------------------------------------------
-//    This function allocates and reads all data into memory
+//  Temporary Function to Write Data ( will be replaced by ismrmd ) 
 //---------------------------------------------------
 
 void MRI_DATA::write_external_data( char *folder){
@@ -357,6 +357,57 @@ void MRI_DATA::write_external_data( char *folder){
 			ArrayWrite(kdataC,fname);
 			
 	}}
+	
+	
+	// Write ECG file
+	if( ecg.numElements()==0){
+		cout << "Physiologic data does not exist yet" << endl;
+	}else{
+		sprintf(fname,"%sgating_track",folder);
+		FILE *fid = fopen(fname,"w");
+		for( int i=0; i< ecg.numElements(); i++){
+			int temp = ( (int)(1e3*ecg(i)));
+			endian_swap(temp);
+			fwrite(&temp,1,sizeof(int),fid);
+		}
+		
+		for( int i=0; i< ecg.numElements(); i++){
+			int temp = ( (int)(resp(i)));
+			endian_swap(temp);
+			fwrite(&temp,1,sizeof(int),fid);
+		}
+		
+		for( int i=0; i< ecg.numElements(); i++){
+			int temp = ( (int)(1e6*time(i)));
+			endian_swap(temp);
+			fwrite(&temp,1,sizeof(int),fid);
+		}
+		
+		for( int i=0; i< ecg.numElements(); i++){
+			int temp = ( (int)(1e6*prep(i)));
+			endian_swap(temp);
+			fwrite(&temp,1,sizeof(int),fid);
+		}
+		fclose(fid);
+		
+	}
+		
+	// Write a Header
+	sprintf(fname,"%sHeader.txt",folder);
+	ofstream header;
+  	header.open (fname);
+  	header << "version " << 1 << endl;
+	header << "numrecv " << Num_Coils << endl;
+	header << "xres " << Num_Pts << endl;
+	header << "nproj " << Num_Readouts << endl;
+	header << "rcxres " << xres << endl;
+	header << "rcyres " << yres << endl;
+	header << "rczres " << zres << endl;
+	header << "slices " << Num_Slices << endl;
+	header << "num_encodes " << Num_Encodings << endl;	
+	header << "2d_flag " << trajectory_dims << endl;
+	header << "gate_name " << "gating_track" << endl;
+	header.close();
 }
 
 
@@ -468,13 +519,6 @@ void MRI_DATA::coilcompress(float thresh)
   
 
   cout << "done" << endl;
-}
-
-inline void endian_swap( int& x){
-    x = ( x<<24 & 0xFF000000) |
-        ( x<<8  & 0x00FF0000) |
-        ( x>>8  & 0x0000FF00) |
-        ( x>>24 & 0x000000FF);
 }
 
 

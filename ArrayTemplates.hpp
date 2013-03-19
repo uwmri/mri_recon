@@ -20,7 +20,12 @@ void fftshift( Array< complex<float>,3>& temp);
 void fft( Array< complex<float>,3>& temp);
 void ifft( Array< complex<float>,3>& temp);
 
-
+inline void endian_swap( int& x){
+    x = ( x<<24 & 0xFF000000) |
+        ( x<<8  & 0x00FF0000) |
+        ( x>>8  & 0x0000FF00) |
+        ( x>>24 & 0x000000FF);
+}
 
 /*
  * Class RowMajorArray specializes GeneralArrayStorage to provide column
@@ -69,6 +74,19 @@ template< typename T, int N>
 void ArrayWrite( Array< T,N>& temp, char *name){
 	 	FILE *fid;
 		if( (fid=fopen(name,"w")) == NULL){
+			cout << "ArrayWrite:Can't Open " << name << endl;
+			cout << "Exiting" << endl;
+			exit(1);
+		}else{	
+			fwrite(temp.data(),temp.numElements(),sizeof(T),fid);
+			fclose(fid);
+		}
+}
+
+template< typename T, int N>
+void ArrayWrite( Array< T,N>& temp, char *name, char *op){
+	 	FILE *fid;
+		if( (fid=fopen(name,op)) == NULL){
 			cout << "ArrayWrite:Can't Open " << name << endl;
 			cout << "Exiting" << endl;
 			exit(1);
