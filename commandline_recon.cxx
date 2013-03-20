@@ -67,11 +67,10 @@ int main(int argc, char **argv){
 			Array< float,3 >kzE = data.kz(all,all,all,e); 
 			Array< float,3 >kwE = data.kw(all,all,all,e); 
 			
-			data.Num_Coils = 1;
 			cout << "Num coils = " << data.Num_Coils << endl;
 			for(int coil =0; coil < data.Num_Coils; coil++){
 				cout << "Getting phantom" << coil << ":" << flush;
-				cout << "Smap " << flush;
+				cout << "Smap " << endl << flush;
 				phantom.update_smap_biotsavart(coil,data.Num_Coils);				
 				
 				// Update Image 
@@ -86,7 +85,7 @@ int main(int argc, char **argv){
 					gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
    											
 					// Now Inverse Grid
-					cout << " Ivverse Grid :: " << t << endl;
+					cout << " Inverse Grid :: " << t << endl;
 					phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,TimeWeight);
 				}
 			}
@@ -95,6 +94,11 @@ int main(int argc, char **argv){
 			phantom.add_noise( data.kdata );
 			
 			data.write_external_data("PhantomData/");
+			
+			phantom.write_matlab_truth_script("PhantomData/");
+			ArrayWrite(phantom.FUZZY,"PhantomData/Phantom.dat"); 
+			ArrayWrite(phantom.FUZZYT,"PhantomData/PhantomT.dat");	
+			 
 			cout << "Only generating data" << endl;
 			exit(1);
 			

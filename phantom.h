@@ -41,6 +41,8 @@ class PHANTOM{
 		
 		// Fractal Input
 		int fractal_pts;
+		float alpha;
+		float beta;
 		
 		char *external_phantom_name;
 		
@@ -64,6 +66,8 @@ class PHANTOM{
 		void update_smap_biotsavart(int,int);
 		void calc_image(int,int);
 		Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
+		void write_matlab_truth_script( char *);
+		
 	private:	
 		bool debug;
 };

@@ -35,18 +35,24 @@ PHANTOM::PHANTOM( void){
 // Initialization:
 //	-This function sets up a digital phantom of size (Nx,Ny,Nz)
 //
-void PHANTOM::init(int Nx, int Ny, int Nz){
+void PHANTOM::init(int Sx, int Sy, int Sz){
+	
+	// Copy Size
+	Nx = (int)(over_res*Sx);
+	Ny = (int)(over_res*Sy);
+	Nz = (int)(over_res*Sz);
+	
 	
 	// Phantom Density
 	cout << "Init IMAGE: " << Nx << " by " << Ny << " by " << Nz << endl << flush;
 	IMAGE.setStorage( ColumnMajorArray<3>());
-  	IMAGE.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
+  	IMAGE.resize(Nx,Ny,Nz);
   	IMAGE = 0;
 	
 	// Sensitivity Map	
 	cout << "Init Smap" << endl << flush;
 	SMAP.setStorage( ColumnMajorArray<3>());
-  	SMAP.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
+  	SMAP.resize(Nx,Ny,Nz);
   	SMAP = 1;
 		
 	// Switch For Phantom
@@ -55,11 +61,11 @@ void PHANTOM::init(int Nx, int Ny, int Nz){
 			
 			cout << "Init TOA" << endl << flush;
 			TOA.setStorage( ColumnMajorArray<3>());
-  			TOA.resize((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
+  			TOA.resize(Nx,Ny,Nz);
   			TOA = 0;
 			
 			cout << "Build Tree" << endl << flush;
-			fractal3D_new((int)((float)Nx*over_res),(int)((float)Ny*over_res),(int)((float)Nz*over_res));
+			fractal3D_new(Nx,Ny,Nz);
 		}break;
 		
 		case(SHEPP):{
@@ -282,7 +288,7 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 			
 				
 	}}}
-	
+
   
   	if(debug==1){ 
 		cout << "Write";
@@ -949,8 +955,8 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		ArrayWriteMag(IMAGE,"Phantom.dat"); 
 		ArrayWrite(TOA,"TOA.dat"); 
 	}
-
-}
+	
+	}
 
 
 
@@ -959,7 +965,117 @@ inline float Factorial(float x) {
 }
 
 inline float gamma_variate(float x,float beta,float alpha){
- return(  (1.0/Factorial(alpha)/pow(beta,alpha))*pow(x,alpha)*exp(-x/beta));
+ 	if(x < 0.0){
+		return(0.0);
+	}else{
+		return(  (1.0/Factorial(alpha)/pow(beta,alpha))*pow(x,alpha)*exp(-x/beta) );
+	}
+}
+
+void PHANTOM::write_matlab_truth_script( char *folder){
+	
+	char fname[1024];
+	sprintf(fname,"%s%s",folder,"get_pixel_timecourse.m");
+	
+	ofstream script;
+	script.open( fname);
+	script << "function st = get_pixel_timecourse( i,j,k ) " << endl;
+	script << "Nx = " << Nx << ";" << endl;
+	script << "Ny = " << Ny << ";" << endl;
+	script << "Nz = " << Nz << ";" << endl;
+	script << "Nt = " << Nt << ";" << endl;
+	
+	// Read in a script (density)
+	script << "fid = fopen('Phantom.dat','r'); " << endl;
+	script << "fseek(fid,( Nx*Ny*(k-1)+Nx*(j-1)+(i-1))*4,'bof'); " << endl;
+	script << "dens_a = fread(fid,1,'float'); " << endl;
+	script << "fseek(fid,(Nx*Ny*Nz + Nx*Ny*(k-1)+Nx*(j-1)+(i-1))*4,'bof'); " << endl;
+	script << "dens_v = fread(fid,1,'float'); " << endl;
+	script << "fseek(fid,(2*Nx*Ny*Nz + Nx*Ny*(k-1)+Nx*(j-1)+(i-1))*4,'bof'); " << endl;
+	script << "dens_t = fread(fid,1,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	// Read in a script (TOA)
+	script << "fid = fopen('PhantomT.dat','r'); " << endl;
+	script << "fseek(fid,( Nx*Ny*(k-1)+Nx*(j-1)+(i-1))*4,'bof'); " << endl;
+	script << "toa_a = fread(fid,1,'float'); " << endl;
+	script << "fseek(fid,(Nx*Ny*Nz + Nx*Ny*(k-1)+Nx*(j-1)+(i-1))*4,'bof'); " << endl;
+	script << "toa_v = fread(fid,1,'float'); " << endl;
+	script << "fseek(fid,(2*Nx*Ny*Nz + Nx*Ny*(k-1)+Nx*(j-1)+(i-1))*4,'bof'); " << endl;
+	script << "toa_t = fread(fid,1,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	// Calc signal
+	script << "t = 3.0* (0:Nt-1)/Nt;" << endl;
+	script << "st =t*0;" << endl;
+	script << "beta = " << beta << endl;
+	script << "alpha = " << alpha << endl;
+	script << "st = st + dens_a*gamma_variate((t-toa_a),beta*(1+2*toa_a),alpha);" << endl;		
+	script << "st = st + dens_v*gamma_variate((t-toa_v),beta*(1+2*toa_v),alpha);" << endl;		
+	script << "st = st + dens_t*gamma_variate((t-toa_t),beta*(1+2*toa_t),alpha);" << endl;		
+	
+	script << "function s = gamma_variate( x,beta,alpha) " << endl;
+	script << "s = double(x>0)*(  (1.0./factorial(alpha)/(beta^alpha)).*(x.^alpha).*exp(-x/beta));" << endl;
+	script.close();
+	
+		
+	sprintf(fname,"%s%s",folder,"get_truth_image.m");
+	script.open(fname);
+	script << "function s = get_truth_image( tt ) " << endl;
+	script << "%t=position in waveform (0 < tt < 1)" << endl;
+	script << "Nx = " << Nx << ";" << endl;
+	script << "Ny = " << Ny << ";" << endl;
+	script << "Nz = " << Nz << ";" << endl;
+	script << "Nt = " << Nt << ";" << endl;
+	script << "beta = " << beta << endl;
+	script << "alpha = " << alpha << endl;
+	script << "t = tt*3.0;" << endl;
+	
+	// Arterial
+	script << "fid = fopen('Phantom.dat','r'); " << endl;
+	script << "dens = fread(fid,Nx*Ny*Nz,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	script << "fid = fopen('PhantomT.dat','r'); " << endl;
+	script << "toa = fread(fid,Nx*Ny*Nz,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	script << "s = dens.*gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
+		
+	// Venous
+	script << "fid = fopen('Phantom.dat','r'); " << endl;
+	script << "fseek(fid,Nx*Ny*Nz*4,'bof'); " << endl;
+	script << "dens = fread(fid,Nx*Ny*Nz,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	script << "fid = fopen('PhantomT.dat','r'); " << endl;
+	script << "fseek(fid,Nx*Ny*Nz*4,'bof'); " << endl;
+	script << "toa = fread(fid,Nx*Ny*Nz,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	script << "s = s + dens.*gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
+		
+	// Tissue
+	script << "fid = fopen('Phantom.dat','r'); " << endl;
+	script << "fseek(fid,2*Nx*Ny*Nz*4,'bof'); " << endl;
+	script << "dens = fread(fid,Nx*Ny*Nz,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	script << "fid = fopen('PhantomT.dat','r'); " << endl;
+	script << "fseek(fid,2*Nx*Ny*Nz*4,'bof'); " << endl;
+	script << "toa = fread(fid,Nx*Ny*Nz,'float'); " << endl;
+	script << "fclose(fid);" << endl;
+	
+	script << "s = s + dens.*gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
+	script << "s = reshape(s,[" << Nx << " " << Ny << " " << Nz << "]);" << endl;
+	
+	script << "function s = gamma_variate( x,beta,alpha) " << endl;
+	script << "s = double(x>0).*(  (1.0./factorial(alpha)./(beta.^alpha)).*(x.^alpha).*exp(-x./beta));" << endl;
+	
+	script.close();
+	
+	
+	
 }
 
 	
@@ -971,8 +1087,8 @@ void  PHANTOM::calc_image(int t, int frames){
 	float current_time = (float)t* 3.0 / (float)frames;
 	IMAGE = complex<float>(0,0);
 	
-	float beta = 0.25;
-	float alpha = 2;
+	beta = 0.25;
+	alpha = 2;
 	
 	for(int compartment =0; compartment < FUZZYT.length(fourthDim); compartment++){
 	#pragma omp parallel for
@@ -990,12 +1106,14 @@ void  PHANTOM::calc_image(int t, int frames){
 		}			
 	}}}}
 	
-	char fname[1024];
-	sprintf(fname,"Frame_%d.dat",t);
-	ArrayWriteMag(IMAGE,fname);
-		
+	if(debug){
+		char fname[1024];
+		sprintf(fname,"Frame_%d.dat",t);
+		ArrayWriteMag(IMAGE,fname);
+	}	
 	// Multiply by Sensitivity
 	IMAGE *= SMAP;
+
 }
 // ----------------------
 // Help Message
