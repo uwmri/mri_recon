@@ -82,10 +82,7 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
 		}break;
 		
 		case(EXTERNAL):{
-			
-			
-			cout << "Reading External Phantom" << external_phantom_name << endl;
-			ArrayRead(IMAGE,external_phantom_name);
+			// Read on the fly 
 		}break;
 	}
 }
@@ -1118,7 +1115,8 @@ void  PHANTOM::calc_image(int t, int frames){
 	
 	default:
 	case(EXTERNAL):{
-		// No changes
+		cout << "Reading External Phantom" << external_phantom_name << endl;
+		ArrayRead(IMAGE,external_phantom_name);
 	}break;
 	
 	}
