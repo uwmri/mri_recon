@@ -111,6 +111,23 @@ void ArrayWriteMag( Array<complex<T>,2>& temp, char *name){
  delete [] buffer;
 }
 
+template< typename T>
+void ArrayWriteMagAppend( Array<complex<T>,2>& temp, char *name){
+	 
+	 T *buffer = new T[temp.length(0)]; 
+	 
+	 fstream filestr;
+	 ofstream ofs(name, ios_base::binary | ios_base::app);
+	 	for(int j= 0; j<temp.extent(1); j++){
+			
+			for(int i=0; i<temp.extent(0);i++){
+				buffer[i]= abs(temp(i,j));
+			}
+			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
+     }	
+ 	delete [] buffer;
+}
+
 
 template< typename T>
 void ArrayWriteMag( Array<complex<T>,3>& temp, char *name){
@@ -141,6 +158,24 @@ for(int t=0; t< temp.extent(3);t++){
      }}}}}
 	 return(EE);
 }
+
+
+template< typename T>
+T ArrayEnergy( Array<complex<T>,6>& temp){
+T EE=0;
+for(int c=0; c< temp.extent(5);c++){	 
+for(int e=0; e< temp.extent(4);e++){	 
+for(int t=0; t< temp.extent(3);t++){
+	 for(int k=0; k< temp.extent(2);k++){
+	 	for(int j= 0; j<temp.extent(1); j++){
+			for(int i=0; i<temp.extent(0);i++){
+				EE += norm(temp(i,j,k,t,e,c));
+					
+     }}}}}}
+	 return(EE);
+}
+
+
 
 template< typename T>
 void ArrayWriteMag( Array< complex<T>,4>& temp, char *name){

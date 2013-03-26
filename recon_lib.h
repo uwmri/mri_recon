@@ -33,11 +33,12 @@ using arma::uvec;
 #include "gating.h"
 #include "tictoc.cpp"
 #include "gating.h"
+#include "clear.h"
 
 class RECON{
 	public:
 	  // Types of Recons
-	  enum ReconType { SOS, PILS, CG, IST, FISTA };
+	  enum ReconType { SOS, PILS, CG, IST, FISTA, CLEAR};
 	   
 	  // Data Types
 	  enum DataType { PFILE, EXTERNAL, SIMULATE, PHANTOM };

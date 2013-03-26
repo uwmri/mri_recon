@@ -1015,7 +1015,7 @@ void PHANTOM::write_matlab_truth_script( char *folder){
 	script << "st = st + dens_t*gamma_variate((t-toa_t),beta*(1+2*toa_t),alpha);" << endl;		
 	
 	script << "function s = gamma_variate( x,beta,alpha) " << endl;
-	script << "s = double(x>0)*(  (1.0./factorial(alpha)/(beta^alpha)).*(x.^alpha).*exp(-x/beta));" << endl;
+	script << "s = double(x>0).*(  (1.0./factorial(alpha)./(beta.^alpha)).*(x.^alpha).*exp(-x./beta));" << endl;
 	script.close();
 	
 		
