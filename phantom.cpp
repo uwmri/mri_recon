@@ -37,11 +37,15 @@ PHANTOM::PHANTOM( void){
 //
 void PHANTOM::init(int Sx, int Sy, int Sz){
 	
+	// Don't change resolution
+	if(phantom_type==EXTERNAL){
+		over_res =1.0;
+	}	
+	
 	// Copy Size
 	Nx = (int)(over_res*Sx);
 	Ny = (int)(over_res*Sy);
 	Nz = (int)(over_res*Sz);
-	
 	
 	// Phantom Density
 	cout << "Init IMAGE: " << Nx << " by " << Ny << " by " << Nz << endl << flush;
@@ -56,8 +60,9 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
   	SMAP = 1;
 		
 	// Switch For Phantom
-	switch(phantom_type){
+	switch(EXTERNAL){
 		case(FRACTAL):{
+		
 			
 			cout << "Init TOA" << endl << flush;
 			TOA.setStorage( ColumnMajorArray<3>());
@@ -77,6 +82,8 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
 		}break;
 		
 		case(EXTERNAL):{
+			
+			
 			cout << "Reading External Phantom" << external_phantom_name << endl;
 			ArrayRead(IMAGE,external_phantom_name);
 		}break;
@@ -1083,7 +1090,9 @@ void PHANTOM::write_matlab_truth_script( char *folder){
 // Create Image (simple for test)
 // ----------------------
 void  PHANTOM::calc_image(int t, int frames){
+	switch(phantom_type){
 	
+	case(FRACTAL):{	
 	float current_time = (float)t* 3.0 / (float)frames;
 	IMAGE = complex<float>(0,0);
 	
@@ -1105,6 +1114,14 @@ void  PHANTOM::calc_image(int t, int frames){
 			IMAGE(i,j,k) += 0.25*dens*gamma_variate(tdiff,4*beta_t,alpha); // Persistent signal 
 		}			
 	}}}}
+	}break;
+	
+	default:
+	case(EXTERNAL):{
+		// No changes
+	}break;
+	
+	}
 	
 	if(debug){
 		char fname[1024];
