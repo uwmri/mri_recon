@@ -109,8 +109,34 @@ void THRESHOLD::exec_threshold(Array<complex<float>,5>&Coef) {
 void THRESHOLD::get_threshold(Array< complex<float>,5>&Coef){
 
 	// Get range
-	float max_wave= max(abs(Coef));
-	float min_wave= min(abs(Coef));
+	float *max_wave_t = new float[Coef.extent(thirdDim)];
+	float *min_wave_t = new float[Coef.extent(thirdDim)];
+		
+	for(int e=0; e< Coef.extent(fifthDim);e++){
+		for(int t=0; t< Coef.extent(fourthDim);t++){
+#pragma omp parallel for 
+			for(int k=0; k< Coef.extent(thirdDim); k++){
+			for(int j=0; j< Coef.extent(secondDim); j++){
+			for(int i=0; i< Coef.extent(firstDim); i++){    
+				float v=abs( Coef(i,j,k,t,e));
+				max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
+				min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
+				
+				
+			}}}				
+		}
+	}
+	
+	float max_wave= max_wave_t[0];
+	float min_wave= min_wave_t[0];
+	
+	for(int k=0; k< Coef.extent(thirdDim); k++){
+		max_wave = ( max_wave_t[k] > max_wave ) ? ( max_wave_t[k] ) : ( max_wave );
+		min_wave = ( min_wave_t[k] < max_wave ) ? ( min_wave_t[k] ) : ( min_wave );	
+	}
+	
+	
+	
 	if(VERBOSE) cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
 
 	// Estimate histogram (sort)
@@ -141,7 +167,7 @@ void THRESHOLD::get_threshold(Array< complex<float>,5>&Coef){
 				min_t = threshold;
 			}
 			threshold = 0.5*(max_t + min_t);
-			// cout << "New threshold = " << threshold << " Min= " << min_t << " Max= " << max_t << endl;
+			//cout << "New threshold = " << threshold << " Min= " << min_t << " Max= " << max_t << endl;
 		}
 		iter++;
 
@@ -378,15 +404,14 @@ void THRESHOLD::exec_fractionthreshold(Array< complex<float>,5>&Coef) {
 	int tt = 0;
 	int st = Coef.extent(fourthDim);
 
-	if(temporal==true) tt=1;
+	// This makes no sense ? if(temporal==true) tt=1;
 
 	cout<<"Fractional Thresholding ";
 	if(soft==true)	{ cout<<"(soft)"<<endl; }
 	else { cout<<"(hard)"<<endl; }
 
-	Array<complex<float>,5> Cf = Coef(Range::all(),Range::all(),Range::all(),Range(tt,st-1),Range::all());
-	get_threshold(Cf);
-	thresholding(Cf);
+	get_threshold(Coef);
+	thresholding(Coef);
 
 }
 

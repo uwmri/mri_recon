@@ -39,7 +39,8 @@ void RECON::set_defaults( void){
 	acc = 1;
 	compress_coils = 0.0;
 	export_smaps = 0;
-	max_iter = 50;		
+	max_iter = 50;
+
 }
 
 // ----------------------
@@ -197,6 +198,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(PFILE,"-pfile",data_type);
 		trig_flag(PHANTOM,"-phantom",data_type);
 		trig_flag(SIMULATE,"-simulate",data_type);
+		trig_flag(PSF,"-psf",data_type);
 				
 		// Data modification
 		int_flag("-acc",acc);
@@ -471,6 +473,11 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 						  iteration_timer.tic();
 						  cout << "\nIteration = " << iteration << endl;
 
+						  //----------------------------------------------------
+						  //  First get Gradient Descent 
+						  //----------------------------------------------------
+						  
+						  
 						  // Zero this for Cauchy set size
 						  complex<float>scale_RhP(0,0);						  
 
@@ -586,8 +593,11 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 					  	  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
+						  
 						  if(softthresh.getThresholdMethod() != TH_NONE){
+							  iteration_timer.tic();
 							  cout << "Soft thresh" << endl;
+							  T.tic();
 							  switch(cs_spatial_transform){
 							  	case(WAVELET):{
 							  		cout << "Wavelet in Space" << endl;
@@ -601,11 +611,15 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								
 								}break;
 							  }
-							  
+							  cout << "\ttransform took " << T << endl;
+							  							  
 							  // TEMP HACK
+							  T.tic();
 							  Array<complex<float>,5>XTEMPX=XX(all,all,all,all,0,all);
 							  softthresh.exec_threshold(XTEMPX);
+							  cout << "\tthresh took " << T << endl;
 							  
+							  T.tic();
 							  switch(cs_spatial_transform){
 							  	case(WAVELET):{
 							  		for(int coil =0; coil < data.Num_Coils; coil++){
@@ -617,8 +631,10 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								
 								}break;
 							  }
+							  cout << "\tInverse transform took " << T << endl;
 							  
 						  }
+						  cout << "Threshold took " << iteration_timer << endl; 
 					  	  
 						  SS= 0;  
 						  for(int k=0; k < X2slice.extent(thirdDim); k++){
@@ -648,7 +664,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 
 		case(IST):
 		case(FISTA):{
-
+	
+					 
 					  // ------------------------------------
 					  // Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
 					  //  Designed to not use memory
@@ -792,10 +809,9 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 						  cout << "Took " << iteration_timer << " s " << endl;
 												  
 						  // Export X slice
-						  Array<complex<float>,3>Xslice=X(all,all,X.length(2)/2,all,0);
-						  ArrayWriteMag(Xslice,"X_mag.dat");
-						  ArrayWritePhase(Xslice,"X_phase.dat");
-
+						  Array<complex<float>,2>Xslice=X(all,all,X.length(2)/2,0,0);
+						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  
 						  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
@@ -842,8 +858,8 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								}break;
 							  }
 						  }
-  						  ArrayWriteMag(Xslice,"X_mag_post.dat");
-	
+  						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  
 					  }// Iteration			
 
 				  }break;

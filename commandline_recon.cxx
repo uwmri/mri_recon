@@ -29,6 +29,13 @@ int main(int argc, char **argv){
 			
 		}break;
 		
+		case(RECON::PSF):{
+			// Use external Kx,Ky,Kz 
+			data.parse_external_header(recon.filename);
+			data.read_external_data("./",0);
+			data.kdata = complex<float>(1.0,0.0);
+		}break;
+		
 		case(RECON::PHANTOM):{
 			// Use external Kx,Ky,Kz 
 			data.parse_external_header(recon.filename);
@@ -41,15 +48,17 @@ int main(int argc, char **argv){
 			phantom.read_commandline(argc,argv);  
 			phantom.init(data.xres,data.yres,data.zres);
 			
+			
 			// More accurate gridding for Phantom
 			cout << "Grid " << endl;
 			gridFFT phantom_gridding;			
 			phantom_gridding.kernel_type = KAISER_KERNEL;
-			phantom_gridding.overgrid = 1.25;
+			phantom_gridding.overgrid = 1.5;
 			phantom_gridding.dwinX = 6;
 			phantom_gridding.dwinY = 6;
 			phantom_gridding.dwinZ = 6;
 			phantom_gridding.precalc_gridding(phantom.IMAGE.length(firstDim),phantom.IMAGE.length(secondDim),phantom.IMAGE.length(thirdDim),3);
+			
 			
 			GATING gate(argc,argv);
 			// Weighting Array for Time coding

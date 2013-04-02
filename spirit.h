@@ -64,7 +64,7 @@ class SPIRIT {
     void prep();
     
     void getcoils( Array< complex<float>,4>&);
-    void rotateCoils(Array< complex<float>,4>&maps, Array< complex<float>,4>&ref);
+    void phase_correct(Array< complex<float>,4>&maps, Array< complex<float>,4>&ref);
     void interpMaps(Array< complex<float>,4>&, Array< complex<float>,4>&);
 
 };

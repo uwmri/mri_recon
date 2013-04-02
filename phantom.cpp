@@ -12,7 +12,7 @@ Usage: Currently
 	phantom.update_smap_biotsavart(coil,recon.num_coils);	
 	
 	// Which will populate:
-	phantom.IMAGE // Image (density)
+	phantom.IMAGE // Image (density)
 	phantom.SMAP // Sensitivity Map 
 	phantom.TOA  // Time of arrival
 
@@ -30,6 +30,7 @@ PHANTOM::PHANTOM( void){
 	phantom_type = FRACTAL;
 	phantom_noise= 0.0;	
 	debug = 0;
+	external_phantom_name = new char[2048];
 }
 
 // Initialization:
@@ -78,10 +79,12 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
 		}break;
 		
 		case(PSF):{
-			// Just Get PSF 
+			// Just Get PSF
+			
 		}break;
 		
 		case(EXTERNAL):{
+			cout << "External Phantom Read " << external_phantom_name << " on the fly " << endl;
 			// Read on the fly 
 		}break;
 	}
@@ -1155,7 +1158,7 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
 #define char_flag(name,val)   }else if(strcmp(name,pstring[pos]) == 0){ pos++; strcpy(val,pstring[pos]); 
-
+  
   for(int pos=0; pos < numarg; pos++){
   
   	if (strcmp("-h", pstring[pos] ) == 0) {

@@ -30,7 +30,7 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
   block_size_y = 4;
   block_size_z = 4;
 
-  clear_alpha = 0.1;
+  clear_alpha = 0.01;
   debug =0;
   smax = 1.0;
 
@@ -104,6 +104,11 @@ void LOWRANKCOIL::update_threshold( Array< complex<float>,4 > &image){
 //  Clear Threshold Call 
 //-----------------------------------------------------
 void LOWRANKCOIL::thresh( Array< complex<float>,4 > &image,Array< complex<float>,4 > &temp){
+	
+	
+	if(clear_alpha==0.0){
+		return;
+	}	
 	
 	// Copy to temp location
 	temp = image;

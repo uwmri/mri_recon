@@ -41,7 +41,7 @@ class RECON{
 	  enum ReconType { SOS, PILS, CG, IST, FISTA, CLEAR};
 	   
 	  // Data Types
-	  enum DataType { PFILE, EXTERNAL, SIMULATE, PHANTOM };
+	  enum DataType { PFILE, EXTERNAL, SIMULATE, PSF, PHANTOM };
 
 	  // Coil Combine Type
 	  enum CoilCombineType { LOWRES, ESPIRIT };
@@ -78,10 +78,9 @@ class RECON{
     
 	  int acc;
 	  float compress_coils;
-	  
 	  float lp_frac;
 	  float lp_sig;
-      float smap_res;
+      	  float smap_res;
 	  char filename[1024];
 	  
 	  int max_iter;
