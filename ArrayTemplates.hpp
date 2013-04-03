@@ -19,6 +19,9 @@ using namespace blitz;
 void fftshift( Array< complex<float>,3>& temp);
 void fft( Array< complex<float>,3>& temp);
 void ifft( Array< complex<float>,3>& temp);
+void fft( Array< complex<float>,3>& temp,int);
+void ifft( Array< complex<float>,3>& temp,int);
+void fft3( Array< complex<float>,3>& temp,int,int);
 
 inline void endian_swap( int& x){
     x = ( x<<24 & 0xFF000000) |

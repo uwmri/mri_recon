@@ -16,12 +16,12 @@ SPIRIT::SPIRIT()
 	
 	// Calibration Size Defaults 
 	cr = 0;
-	crx = 14;
-	cry = 14;
-	crz = 14;
+	crx = 12;
+	cry = 12;
+	crz = 12;
 	
 	// Shape of Calibration Region
-	shape = SP_CIRCLE;
+	shape = SP_SQUARE;
 	calib_type = SP_TIK;
 	calib_lam = .001;
 	
@@ -39,8 +39,8 @@ SPIRIT::SPIRIT()
 
 void SPIRIT::init(int xres, int yres, int zres, int nc){
 
-    // Size of Final Images
-    rcxres = xres;
+    	// Size of Final Images
+    	rcxres = xres;
 	rcyres = yres;
 	rczres = zres;
 	ncoils = nc;
@@ -51,7 +51,7 @@ void SPIRIT::init(int xres, int yres, int zres, int nc){
 		kry_f = kr_f;  
 		krz_f = kr_f;  
 	}
-    krx = (int)ceil(krx_f);
+    	krx = (int)ceil(krx_f);
 	kry = (int)ceil(kry_f);
 	krz = (int)ceil(krz_f);
 	
@@ -62,10 +62,6 @@ void SPIRIT::init(int xres, int yres, int zres, int nc){
 		crz = cr;  
 	} 
     
-	// Blitz Alocation of Kernel (ColumnMajor Now!)
-	k.setStorage( ColumnMajorArray<5>());
-	k.resize(krx*2+1,kry*2+1,krz*2+1,nc,nc);
-	k = 0;
 }
 
 // ----------------------
@@ -151,8 +147,8 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
     // FFT Smaps Back to K-Space
     cout<< "FFT back to K-space" << endl << flush;
     for(int coil=0; coil< smaps.length(fourthDim); coil++){
-	Array< complex<float>,3>SmapRef = smaps(Range::all(),Range::all(),Range::all(),coil);
-	ifft(SmapRef); // In Place FFT
+		Array< complex<float>,3>SmapRef = smaps(Range::all(),Range::all(),Range::all(),coil);
+		ifft(SmapRef); // In Place FFT
     }
 
     if(debug){
@@ -198,7 +194,8 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 {
     cout << "Calibrating..." << endl << flush;
-    // Centers of k-space
+    
+	// Centers of k-space
     int cx, cy, cz;
     cx = kdata.length(firstDim)/2;
     cy = kdata.length(secondDim)/2;
@@ -213,152 +210,136 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
     int num_kernel = 0;
 
     if (shape==SP_CIRCLE) { // ellipse mode check
-	// Figure out how many acs there are in the ellipse
-	for (int z = -crz; z <= crz; z++) {
+		// Figure out how many acs there are in the ellipse
+		for (int z = -crz; z <= crz; z++) {
 	    for (int y = -cry; y <= cry; y++) {
 		for (int x = -crx; x <= crx; x++) {
 		    float rad = (float)(x*x)/(crx*crx) + (float)(y*y)/(cry*cry) + (float)(z*z)/(crz*crz);
 		    if (rad <= 1) {num_ACS++;}      
 		}}}
 
-	// Figure out how many points are in the kernel
-	for (int z = -krz; z <= krz; z++) {
+		// Figure out how many points are in the kernel
+		for (int z = -krz; z <= krz; z++) {
 	    for (int y = -kry; y <= kry; y++) {
 		for (int x = -krx; x <= krx; x++) {
 		    float rad = (float)(x*x)/(krx_f*krx_f) + (float)(y*y)/(kry_f*kry_f) + (float)(z*z)/(krz_f*krz_f);
 		    if (rad <= 1) {num_kernel++;}      
 		}}}
-	num_kernel *= ncoils;
-	num_kernel -= 1; // Identity point
-    } else {
-	num_ACS = (2*crx+1)*(2*cry+1)*(2*crz+1);
-	num_kernel = (2*krx+1)*(2*kry+1)*(2*krz+1)*ncoils-1;
+		num_kernel *= ncoils;
+	} else {
+		num_ACS = (2*crx+1)*(2*cry+1)*(2*crz+1);
+		num_kernel = (2*krx+1)*(2*kry+1)*(2*krz+1)*ncoils;
     }
-
-    cout << "num_ACS: " << num_ACS << " num_kernel: " << num_kernel << endl;
+	cout << "num_ACS: " << num_ACS << " num_kernel: " << num_kernel << endl;
 
     // Kernel Matrix
     cx_fmat A(num_ACS,num_kernel);
-    cx_fmat b(num_ACS,1);
-    cx_fmat x;
-
-    cout << "Solving SPIRIT: ";
-    for (int ic = 0; ic < ncoils; ic++) {
-
-	cout << ic << " " << flush; 
-	int Arow = 0;
+    	
+    cout << "Populating Kernel: " << endl << flush;
+    int Arow = 0;
 	for (int iz = -crz; iz <= crz; iz++) { 
-	    for (int iy = -cry; iy <= cry; iy++) {
-		for (int ix = -crx; ix <= crx; ix++) {
+	for (int iy = -cry; iy <= cry; iy++) {
+	for (int ix = -crx; ix <= crx; ix++) {
 
 		    float rad = (shape == SP_SQUARE) ? 0 : (float)(ix*ix)/(crx*crx) + (float)(iy*iy)/(cry*cry) + (float)(iz*iz)/(crz*crz);
 		    if (rad > 1)
 			continue;
 
-		    // Data Point
-		    b(Arow,0) = (complex<float>)kdata(ix+cx,iy+cy,iz+cz,ic);
-
+		    
 		    // Get Neighborhood Values
 		    int Acol = 0;
 		    for (int jc = 0; jc < ncoils; jc++) {
 			for (int jz = -krz; jz <= krz; jz++) {
-			    for (int jy = -kry; jy <= kry; jy++) {
-				for (int jx = -krx; jx <= krx; jx++) {
+			for (int jy = -kry; jy <= kry; jy++) {
+			for (int jx = -krx; jx <= krx; jx++) {
 
 				    float krad = (shape == SP_SQUARE) ? 0 : (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
 				    if (krad <= 1) {
+			
+						// Get New Coord
+						int kern_xx = jx+ix+cx;
+						int kern_yy = jy+iy+cy;
+						int kern_zz = jz+iz+cz;
 
-					// Get New Coord
-					int kern_xx = cx+jx+ix;
-					int kern_yy = cy+jy+iy;
-					int kern_zz = cz+jz+iz;
-
-					if( (jc==ic) && (jz==0) && (jy==0) && (jx==0)){
-					}else{				  				  
-					    A(Arow,Acol) = (complex<float>)kdata(kern_xx,kern_yy,kern_zz,jc);
-					    Acol++;
+						A(Arow,Acol) = (complex<float>)kdata(kern_xx,kern_yy,kern_zz,jc);
+						Acol++;
+					
+				    }else{
+						continue;
 					}
-				    } else {continue;}
 
-				}
-			    }
-			}
-		    } // jc
+			}}}} // Block of cal matrix
 		    Arow++;
 
-		} // ix
-	    }// iy
+	} // ix
+	} // iy
 	} // iz
 
 	// -------------------------------
-	// Do the spirit calibration
+	// Do SVD Decomposition
 	// -------------------------------  
-
-	if (calib_type==SP_TIK) {
-	    cx_fmat AhA = arma::trans(A)*A;
-	    cx_fmat AhB = arma::trans(A)*b;
-
-	    float beta = arma::norm(AhA,"fro")*(calib_lam);
-	    for(unsigned int i=0; i< AhA.n_rows;i++){
-		AhA(i,i) += beta;
-	    }
-	    x = arma::solve(AhA,AhB);
-	}else if (calib_type==SP_TSVD) {
-	    cx_fmat U;
-	    fvec s;
-	    cx_fmat V;
-
-	    arma::svd_econ(U,s,V,A);
-	    uint tsvd_i = 0;
-	    float tsvd_max = s.max();
-	    while( s(tsvd_i)>calib_lam*tsvd_max && tsvd_i < A.n_cols-1) { tsvd_i++; }
-	    cout << "Last SV index = " << tsvd_i << " out of " << s.n_elem << endl;
-	    for(uint ti = 0; ti < A.n_cols; ti++) {
-		if (ti<tsvd_i) {s(ti) = 1.0/s(ti);}
-		else {s(ti) = 0;}
-	    }
-	    x = V*arma::diagmat(s)*U.t()*b;
+	
+	cout << "A is " << A.n_rows << " x " << A.n_cols << endl;
+		
+	cout << "SVD on Kernel: "  << endl << flush;
+  	cx_fmat U;
+	fvec s;
+	cx_fmat V;
+	arma::svd_econ(U,s,V,A,'r');
+	
+	cout << "U is " << U.n_rows << " x " << U.n_cols << endl;
+	cout << "S is " << s.n_rows << " x " << s.n_cols << endl;
+	cout << "V is " << V.n_rows << " x " << V.n_cols << endl;
+	
+	V.save("V.txt",arma::raw_binary);
+	s.save("S.txt",arma::raw_binary);
+		
+	cout << "Finding Number of Singular Values "  << endl << flush;
+	float thresh = s(0)*sqrt(0.001);
+	nV=1; 
+	while( s(nV) > thresh ){
+		nV++;	
 	}
-
-
+	nV--;
+	cout << "Using " << nV << " singular values of kernel" << endl;
+	
+	cout << "Alloc Kernel: "  << endl << flush;
+	
+	// Blitz Alocation of Kernel (ColumnMajor Now!)
+	k.setStorage( ColumnMajorArray<5>());
+	k.resize(krx*2+1,kry*2+1,krz*2+1,ncoils,nV);
+	k = complex<float>(0.0,0.0);
+			
 	// -------------------------------
 	// Put the results into the right place in the kernel matrix
 	// -------------------------------  
 
-	// Kernel centers
-	int ckx = k.length(firstDim)/2;
-	int cky = k.length(secondDim)/2;
-	int ckz = k.length(thirdDim)/2;
-
-	// Copy to Kernel Matrix
-	int xrow = 0;
-	for (int jc = 0; jc < ncoils; jc++) {
+	for(int v=0; v<nV; v++){
+	
+		int xrow = 0;
+		for (int jc = 0; jc < ncoils; jc++) {
 	    for (int jz = -krz; jz <= krz; jz++) {
 		for (int jy = -kry; jy <= kry; jy++) {
-		    for (int jx = -krx; jx <= krx; jx++) {
-
-			float grad = (shape == SP_SQUARE) ? 0 : (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
-			if (grad > 1)
-			    continue;
-
-			// Reverse x and y and z so it works right
-			int kern_xx = ckx - jx;
-			int kern_yy = cky - jy;
-			int kern_zz = ckz - jz;
-
-			if( (jc==ic) && (jz==0) && (jy==0) && (jx==0)){
-			}else{				  				  
-			    k(kern_xx,kern_yy,kern_zz,ic,jc) = x(xrow,0);
-			    xrow++;
-			}        
-
-		    }
-		}
-	    }
-	} // jc
-	
-    } // ic
+		for (int jx = -krx; jx <= krx; jx++) {
+			float krad = (shape == SP_SQUARE) ? 0 : (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
+			if (krad <= 1) {
+			
+			  // Get New Coord
+			  int kern_xx = jx + krx;
+			  int kern_yy = jy + kry;
+			  int kern_zz = jz + krz;
+			  
+			  k(kern_xx,kern_yy,kern_zz,jc,v) = V(xrow,v);
+			  xrow++;
+			}else{
+				continue;
+			}
+		}}}} // Block 	        
+	} // nV 
     
+	if(debug){
+	    ArrayWriteMag(k,"KernelKspace.dat");
+	}
 	return;    
 }
 
@@ -367,48 +348,58 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
  */
 void SPIRIT::prep() {
     
-	cout << "FFT to SPIRiT Image space" << endl;
+	cout << "FFT to SPIRiT Hybrid Space" << endl;
 	
-	int sx = rcxres/mapshrink;
-	int sy = rcyres/mapshrink;
-	int sz = rczres/mapshrink;
+	// Hybrid Storage to save memory
+	int sx = k.length(firstDim);
+	int sy = k.length(secondDim);
+	int sz = rczres;
 	int nc = ncoils;
 	
 	// Blitz Alocation of Kernel (ColumnMajor Now!)
 	im.setStorage( ColumnMajorArray<5>());
-	im.resize(sx,sy,sz,nc,nc);
+	im.resize(sx,sy,sz,nc,nV);
 	im = 0;  
+	
+	cout << "Hybrid Kernel Size = " << sx << " x " << sy << " x " << sz << " x " << nc << " x " << nV << endl;
 	
 	/////////////
 	// Copy k into the right place into im
-	int x_off = (im.length(firstDim)/2);
-	int y_off = (im.length(secondDim)/2);
 	int z_off = (im.length(thirdDim)/2);
 	
-	int ksx = ((k.length(firstDim)-1)/2);
-	int ksy = ((k.length(secondDim)-1)/2);
-	int ksz = ((k.length(secondDim)-1)/2);
-	
-	int neg_mod = 0 - (im.length(firstDim)/2+im.length(secondDim)/2+im.length(thirdDim)/2)%2;
-	if (neg_mod==0) {neg_mod = 1;}
-	    
-		Range all = Range::all();
-		for (int j = 0; j < nc; j++) {
-		    for (int i = 0; i < nc; i++) {
-			
-			    Array< complex<float>,3>KernelCoil = k(all,all,all,i,j);
-			    Array< complex<float>,3>ImCoil = im(all,all,all,i,j);
-			    ImCoil(Range(-ksx+x_off,ksx+x_off),Range(-ksy+y_off,ksy+y_off),Range(-ksz+z_off,ksz+z_off)) = KernelCoil;
-			    fft(ImCoil);
-			    
-		    }
-		}
+	Range all = Range::all();
+	for (int v = 0; v < nV; v++) {
+	    for (int coil = 0; coil < nc; coil++) {
+		    Array< complex<float>,3>KernelCoil = k(all,all,all,coil,v);
+		    Array< complex<float>,3>ImCoil = im(all,all,all,coil,v);
+		    ImCoil(all,all,Range(-krz+z_off,krz+z_off)) = KernelCoil;
+		    ifft(ImCoil,2); // Only FFT in third Dimension
+	    }
+	}
     
 	if(debug){
-	    ArrayWriteMag(im,"KernelImage.dat");
-		ArrayWriteMag(im,"KernelKspace.dat");
+	    ArrayWriteMag(im,"HybridKernelImage.dat");
 	}
 }
+
+/* To Do
+void orthogonal_iteration(cx_fmat &m){
+
+
+
+
+}
+
+void gs_orthogonalization(cx_fmat &m){
+  
+  for(int i=0; i< m.n_rows; i++){
+ 	
+	
+	    
+  
+  }
+}
+*/
 
 /**
  * Generate coils from SPIRiT kernel.
@@ -418,104 +409,99 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
     int Nx = LR.length(firstDim);
     int Ny = LR.length(secondDim);
     int Nz = LR.length(thirdDim);
-
-    // Kernel Size
+	
+	Range all = Range::all();
+    
+	// Kernel Size
     int kNx = im.length(firstDim);
     int kNy = im.length(secondDim);
     int kNz = im.length(thirdDim);
     
+	int cx = (Nx/2);
+	int cy = (Ny/2);
+	
 	tictoc T;
 	T.tic();
-	cout << "Starting eig" << endl;
+    cout << "Starting eig" << endl;
 
-	int count = 0;
-
-#pragma omp parallel for 
-    for(int iz = 0; iz < Nz; iz ++) {
-
-#pragma omp atomic
-	count++;
-	if( omp_get_thread_num( )==0){
-	    cout << count << " of " << Nz << endl << flush;
-	}   
+    int count = 0;
 	
-	    // Arrays for storage
-	    cx_fmat A;
-	    A.zeros(ncoils,ncoils);
-	    cx_fmat AtA;
-	    AtA.zeros(ncoils,ncoils);
-	    cx_fmat At;
-	    At.zeros(ncoils,ncoils);
+	// Storage for Hybrid kx-y-coil-vector Kernel
+	Array< complex<float>,4>temp;
+	temp.setStorage( ColumnMajorArray<4>() );
+	temp.resize(kNx,Ny,ncoils,nV);
+	
+	// Storage for x-coil-vector Kernel
+	Array< complex<float>,3>x_line_full;
+	x_line_full.setStorage( ColumnMajorArray<3>() );
+	x_line_full.resize(Nx,ncoils,nV);
+    
+	for(int iz = 0; iz < Nz; iz ++) {
 
-	    // Setup Z interpolation
-	    int zz = (int)( (float)iz/(float)mapshrink);
-	    int zp = (zz + 1) % kNz;
-	    float dz = (float)(iz%mapshrink)/(float)mapshrink;
-
-	    for(int iy = 0; iy < Ny; iy ++) {
-
-		// Setup Z interpolation
-		int yy = (int)( (float)iy/(float)mapshrink);
-		    int yp = (yy + 1) % kNy;
-		    float dy = (float)(iy%mapshrink)/(float)mapshrink;
-
-		    for(int ix = 0; ix < Nx; ix ++) {
+		cout << iz << " of " << Nz << endl << flush;
 			
-			    // Setup X interpolation
-			    int xx = (int)( (float)ix/(float)mapshrink);
-			    int xp = (xx + 1) % kNx;
-			    float dx = (float)(ix%mapshrink)/(float)mapshrink;
-			    
-			    // Copy to A with interpolation		
-			    for(int ii = 0; ii < ncoils; ii++) {
-				for(int jj = 0; jj < ncoils; jj++) {
-				    A(ii,jj) = (1.0f-dz)*(1.0f-dy)*(1.0f-dx)*im(xx,yy,zz,ii,jj);
-				    A(ii,jj)+= (1.0f-dz)*(1.0f-dy)*(dx    )*im(xp,yy,zz,ii,jj);
-				    A(ii,jj)+= (1.0f-dz)*(dy    )*(1.0f-dx)*im(xx,yp,zz,ii,jj);
-				    A(ii,jj)+= (1.0f-dz)*(dy    )*(dx    )*im(xp,yp,zz,ii,jj);
-				    A(ii,jj)+= (  dz )*(1.0f-dy )*(1.0f-dx)*im(xx,yy,zp,ii,jj);
-				    A(ii,jj)+= (  dz )*(1.0f-dy )*(dx    )*im(xp,yy,zp,ii,jj);
-				    A(ii,jj)+= (  dz )*(dy     )*(1.0f-dx)*im(xx,yp,zp,ii,jj);
-				    A(ii,jj)+= (  dz )*(dy     )*(dx    )*im(xp,yp,zp,ii,jj);
-				}
-			    }
+		// Get one Slice
+		temp=complex<float>(0.0,0.0);
+		Array< complex<float>,4>KernelTemp= im(all,all,iz,all,all);
+		temp( all,Range(-kry+cy,kry+cy),all,all) = KernelTemp;
+	
+		// FFT to Full resolution in kx - y - z space
+		for(int v=0; v<nV; v++){
+			Array< complex<float>,3>fft_temp = temp(all,all,all,v);
+			ifft(fft_temp,1);
+		}
 			
-			    // Compute AtA
-			    AtA = A.t()*A;
-			    
-			    // Eigen fvector
-			    //fvec eigval;
-			    //cx_fmat eigfvec;
-			    //eig_sym(eigval,eigfvec,AtA);
-
-			    // SVD is somehow much faster?
-			    cx_fmat U;
-			cx_fmat V;
-			fvec s;
-			svd_econ(U,s,V,A, 'r'); 
-			    // Copy Back
-			    for(int jj = 0; jj < ncoils; jj++) {
-				LR(ix,iy,iz,jj)=V(jj,0);
-			    }
-			LR(ix,iy,iz,ncoils)=s(0);
-
-			// Eigen fvector
-			//fvec eigval;
-			//cx_fmat eigfvec;
-			//eig_sym(eigval,eigfvec,AtA,'r');
-
-
-			// Copy Back
-			//for(int jj = 0; jj < ncoils; jj++) {
-			//	LR(ix,iy,iz,jj)=eigfvec(jj,ncoils-1);
-			//}
-			//LR(ix,iy,iz,ncoils)=eigval(ncoils-1);
-		    }}}
-	cout<< "Done with eig: took " << T << endl;
+		for(int iy = 0; iy < Ny; iy ++) {
+     	
+		// Grab one row at a time
+		Array< complex<float>,3>x_line = temp(all,iy,all,all); // fixed y and z
+		x_line_full=complex<float>(0.0,0.0);
+		x_line_full(Range(-krx+cx,krx+cx),all,all) = x_line;
+		ifft(x_line_full,0);
+		
+		#pragma omp parallel for
+	 	for(int ix = 0; ix < Nx; ix ++) {
+		    
+	 	   // Copy to A 
+		   cx_fmat A( ncoils ,nV);
+		   for(int v = 0; v < nV; v++) {
+			for(int coil = 0; coil < ncoils; coil++) {
+				A(coil,v) = x_line_full(ix,coil,v);
+		   }}
+		   
+		   // Compute AtA
+		   //cx_fmat AtA = A*A.t();
+		   
+		   /*
+		   fvec eigval;
+		   cx_fmat eigvec;
+		   eig_sym(eigval, eigvec, AtA); 
+		   
+		     Copy Back
+           for(int jj = 0; jj < ncoils; jj++) {
+                  LR(ix,iy,iz,jj)=conj( eigvec(jj,ncoils-1));
+           }
+           LR(ix,iy,iz,ncoils)=eigval(ncoils-1);
+		   */
+		   
+		   // SVD_econ is somehow much faster (but still slow). Maybe do a orthogonal iteration method?  
+		   cx_fmat U;
+		   fvec s;
+		   cx_fmat V;
+		   svd_econ(U, s, V, A, 'l');
+		   for(int jj = 0; jj < ncoils; jj++) {
+                  LR(ix,iy,iz,jj)=conj( U(jj,0));
+           }
+           LR(ix,iy,iz,ncoils)=s(0);
+			
+		}}
+	  
+	 }// Slice
+	 cout<< "Done with eig: took " << T << endl;
 	    
-	    if(debug){
+	 if(debug){
 		ArrayWriteMag(LR,"CoilsEig.dat");
-	    }
+	 }
 }
 
 

@@ -105,3 +105,124 @@ void fft( Array< complex<float>,3>& temp){
 }
 
 
+
+// FFT in only one dimension
+void fft( Array< complex<float>,3>& temp, int dim){
+	fft3( temp, dim, FFTW_FORWARD);
+}
+
+void ifft( Array< complex<float>,3>& temp, int dim){
+	fft3( temp, dim, FFTW_BACKWARD);
+}
+
+void fft3( Array< complex<float>,3>& temp, int dim, int direction){
+	
+	fftwf_init_threads();
+    	fftwf_plan_with_nthreads(1);
+	
+	// Get Size		
+	int N;
+	switch(dim){
+		case(0):{ N=temp.length(firstDim); }break;
+		case(1):{ N=temp.length(secondDim); }break;
+		case(2):{ N=temp.length(thirdDim); }break;
+		default:{
+			cout << "Error trying to FFT a dimension that doesn't exist" << endl;
+			exit(1);
+		}
+	}
+	
+	
+	// Get a plan but never use
+	complex<float> *data_temp = new complex<float>[N];
+	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
+	fftwf_plan plan = fftwf_plan_dft_1d(N,ptr,ptr,direction, FFTW_MEASURE);
+	delete [] data_temp;
+	
+	float scale = 1./sqrt(N);
+	switch(dim){
+		case(0):{
+			#pragma omp parallel for
+			for(int k=0;k<temp.extent(thirdDim);k++){
+		
+			complex<float> *data = new complex<float>[N];
+			fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
+			
+			for(int j=0;j<temp.extent(secondDim);j++){
+				// Copy
+				for(int i=0;i<temp.extent(firstDim);i++){
+					data[i] = temp(i,j,k)*((float)( 2*(i%2)-1));
+				}
+				
+				// FFT
+				fftwf_execute_dft(plan,data_ptr,data_ptr);
+				
+				// Copy Back
+				for(int i=0;i<temp.extent(firstDim);i++){
+					temp(i,j,k)=data[i]*((float)( 2*(i%2)-1))*scale;
+				}
+			}
+			delete [] data;
+			}
+		}break;
+	
+		case(1):{
+			#pragma omp parallel for
+			for(int k=0;k<temp.extent(thirdDim);k++){
+		
+			complex<float> *data = new complex<float>[N];
+			fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
+			
+			for(int i=0;i<temp.extent(firstDim);i++){
+				
+				// Copy
+				for(int j=0;j<temp.extent(secondDim);j++){
+					data[j] = temp(i,j,k)*((float)( 2*(j%2)-1));
+				}
+				
+				// FFT
+				fftwf_execute_dft(plan,data_ptr,data_ptr);
+				
+				// Copy Back
+				for(int j=0;j<temp.extent(secondDim);j++){
+					temp(i,j,k) = data[j]*((float)( 2*(j%2)-1))*scale;
+				}
+			}
+			delete [] data;
+			}
+		
+		}break;
+	
+		case(2):{
+			#pragma omp parallel for
+			for(int j=0;j<temp.extent(secondDim);j++){
+				
+			complex<float> *data = new complex<float>[N];
+			fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
+			
+			for(int i=0;i<temp.extent(firstDim);i++){
+				
+				// Copy
+				for(int k=0;k<temp.extent(thirdDim);k++){
+					data[k] = temp(i,j,k)*((float)( 2*(k%2)-1));
+				}
+				
+				// FFT
+				fftwf_execute_dft(plan,data_ptr,data_ptr);
+				
+				// Copy Back
+				for(int k=0;k<temp.extent(thirdDim);k++){
+					temp(i,j,k)= data[k]*((float)( 2*(k%2)-1))*scale;
+				}
+			}
+			
+			delete [] data;
+			}
+			
+		}break;
+	}// Switch
+	
+	// Cleanup	
+	fftwf_destroy_plan(plan);
+}
+

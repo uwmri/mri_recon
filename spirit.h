@@ -51,9 +51,10 @@ class SPIRIT {
     int debug;
 	
     int ncoils;
+    int nV;
     int phase_type;
 	
-	static void help_message(void);
+    static void help_message(void);
 	
     SPIRIT();
     void read_commandline(int numarg, char **pstring);
