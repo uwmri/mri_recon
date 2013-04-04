@@ -10,7 +10,7 @@
 
 enum {SP_SQUARE, SP_CIRCLE};
 enum {SP_TIK, SP_TSVD};
-enum {SP_LOW_RES_PHASE, SP_COIL_PHASE, SP_SMOOTH,SP_SMOOTH_OLD};
+enum {SP_COIL_PHASE, SP_SMOOTH};
 
 
 void fftshift3(Array<complex<float>,3>&);
@@ -23,10 +23,7 @@ class SPIRIT {
     
     // enum flags
     int shape;
-    int calib_type;
-    
-    float calib_lam;
-    
+        
     int mapshrink;
     float mapthresh;
     
@@ -65,8 +62,10 @@ class SPIRIT {
     void prep();
     
     void getcoils( Array< complex<float>,4>&);
-    void phase_correct(Array< complex<float>,4>&maps, Array< complex<float>,4>&ref);
-    void interpMaps(Array< complex<float>,4>&, Array< complex<float>,4>&);
+    void phase_correct(Array< complex<float>,4>&maps);
+    
+    static void orthogonal_iteration(arma::cx_fmat &m);
+    static void gs_orthogonalization(arma::cx_fmat &m);
 
 };
 

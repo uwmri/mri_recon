@@ -5,6 +5,44 @@
 
 int main(int argc, char **argv){
 	
+	/*	
+	
+	arma::cx_fmat A;
+	A << 1 << 1 << 1 << 1 << arma::endr
+	  << 1 <<-1 << 1 <<-1 << arma::endr
+	  << 1 << 1 <<-1 <<-1 << arma::endr
+	  << 1 <<-1 <<-1 << 1 << arma::endr;
+		
+	
+	arma::cx_fmat eig = arma::eye<arma::cx_fmat>(4,4);
+	eig(0,0)=5;
+	eig(1,1)=25;
+	A.print("X =");	
+	eig.print("E =");	
+	
+	A = A.t()*eig*A.i();	
+	A.print("A=");
+	
+	arma::cx_fmat IN = A;
+	SPIRIT::orthogonal_iteration(A);
+	A.print("A =");
+	
+	arma::fvec eigval;
+	arma::cx_fmat eigvec;
+	arma::eig_sym(eigval, eigvec, IN); 
+	eigvec.print("EigV=");
+		
+	arma::cx_fmat H = A.t()*IN*A;
+	H.print("H =");
+	
+	arma::cx_fmat He = eigvec.t()*IN*eigvec;
+	He.print("He =");
+	
+	eigval.print("Evals=");
+	
+	
+	exit(1);*/
+	
 	// ------------------------------------
 	// Initialize Recon - reading the command line
 	// ------------------------------------

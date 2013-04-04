@@ -10,9 +10,9 @@ SPIRIT::SPIRIT()
 {    
     // Kernel Size Defaults 
     kr_f = 0.0;
-	krx_f = 3.0;  
-	kry_f = 3.0;  
-	krz_f = 3.0;  
+	krx_f = 2.0;  
+	kry_f = 2.0;  
+	krz_f = 2.0;  
 	
 	// Calibration Size Defaults 
 	cr = 0;
@@ -21,9 +21,7 @@ SPIRIT::SPIRIT()
 	crz = 12;
 	
 	// Shape of Calibration Region
-	shape = SP_SQUARE;
-	calib_type = SP_TIK;
-	calib_lam = .001;
+	shape = SP_CIRCLE;
 	
 	// Shrinkage operations for memory saving
 	mapshrink = 2;
@@ -39,8 +37,8 @@ SPIRIT::SPIRIT()
 
 void SPIRIT::init(int xres, int yres, int zres, int nc){
 
-    	// Size of Final Images
-    	rcxres = xres;
+    // Size of Final Images
+    rcxres = xres;
 	rcyres = yres;
 	rczres = zres;
 	ncoils = nc;
@@ -51,16 +49,19 @@ void SPIRIT::init(int xres, int yres, int zres, int nc){
 		kry_f = kr_f;  
 		krz_f = kr_f;  
 	}
-    	krx = (int)ceil(krx_f);
+    krx = (int)ceil(krx_f);
 	kry = (int)ceil(kry_f);
 	krz = (int)ceil(krz_f);
+	krz = (zres ==1) ? ( 0 ) : ( krz); // for 2D Kernel
 	
 	// For Calibration Size
 	if (cr > 0) {
 	    crx = cr;  
 		cry = cr;  
 		crz = cr;  
-	} 
+	}
+	crz = (zres == 1) ? ( 0 ) : ( crz); // for 2D Kernel
+	
     
 }
 
@@ -85,16 +86,11 @@ void SPIRIT::help_message(void){
 	help_flag("-sp_square","square cal shape");
 	help_flag("-sp_circle","circle cal shape");
 	
-	help_flag("-sp_tik","regularized kernel cal");
-	help_flag("-sp_lambda","regularized kernel cal");
-	help_flag("-sp_tsvd","truncated svd kernel cal");
-
 	help_flag("-sp_mapshrink []","shrink cal res for eigen decomp");
 	help_flag("-sp_mapthresh []","threshold of eigen vals");
 	help_flag("-sp_debug","write out intermediate images");
 	help_flag("-sp_coil_phase","use phase from one coil");
-	help_flag("-sp_low_res_phase","use phase from low res images");
-	
+
 }
 
 void SPIRIT::read_commandline(int numarg, char **pstring){
@@ -107,27 +103,25 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 	    
 		if(strcmp("-h", pstring[pos] ) == 0) {
 		    
+			// Kernel Size
 			float_flag("-sp_kr_f",kr_f);
 			float_flag("-sp_krx_f",krx_f);
 			float_flag("-sp_kry_f",kry_f);
 			float_flag("-sp_krz_f",krz_f);
 
-			float_flag("-sp_lambda",calib_lam);
-		    
+			// ACS Size
 			int_flag("-sp_cr",cr);
 			int_flag("-sp_crx",crx);
 			int_flag("-sp_cry",cry);
 			int_flag("-sp_crz",crz);
 			
+			// ACS Shape
 			trig_flag(SP_SQUARE,"-sp_square",shape);
 			trig_flag(SP_CIRCLE,"-sp_circle",shape);
 			
 			trig_flag(1,"-sp_debug",debug);		
-			trig_flag(SP_TIK,"-sp_tik",calib_type);
-			trig_flag(SP_TSVD,"-sp_tsvd",calib_type);
 			trig_flag(SP_COIL_PHASE,"-sp_coil_phase",phase_type);
-			trig_flag(SP_LOW_RES_PHASE,"-sp_lowres_phase",phase_type);
-
+		
 		    int_flag("-sp_mapshrink",mapshrink);
 		    float_flag("-sp_mapthresh",mapthresh);
 
@@ -141,7 +135,7 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 
     if(debug){
-	ArrayWriteMag(smaps,"InputSmaps.dat");
+		ArrayWriteMag(smaps,"InputSmaps.dat");
     }
 
     // FFT Smaps Back to K-Space
@@ -152,7 +146,7 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
     }
 
     if(debug){
-	ArrayWriteMag(smaps,"SmapKspace.dat");
+		ArrayWriteMag(smaps,"SmapKspace.dat");
     }
 
     // Array Reference for Low with Blitz		  
@@ -161,24 +155,14 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 
     // Code to get Sense maps from kernel		  
     prep(); // FFTs		  
-    Array< complex<float>,4>LRmaps;
-    LRmaps.setStorage( ColumnMajorArray<4>());
-    LRmaps.resize(rcxres,rcyres,rczres,smaps.length(fourthDim)+1);
-    getcoils(LRmaps);
+    getcoils(smaps);
 
     // Phase Correction for Sense Maps
-    for(int coil=0; coil< smaps.length(fourthDim); coil++){
-	Array< complex<float>,3>SmapRef = smaps(Range::all(),Range::all(),Range::all(),coil);
-	fft(SmapRef); // In Place FFT
-    }
-    Array< complex<float>,4>PhaseRef = smaps(Range(fromStart,toEnd,mapshrink),Range(fromStart,toEnd,mapshrink),Range(fromStart,toEnd,mapshrink),Range::all());
-    phase_correct(LRmaps,PhaseRef);
+    phase_correct(smaps);
 
     // Interpolate back to high resolution size
-    smaps=LRmaps;
-    // interpMaps(LRmaps,smaps); (no more copy)
     if(debug==1){
-	ArrayWriteMag(smaps,"FinalSmaps.dat");
+		ArrayWriteMag(smaps,"FinalSmaps.dat");
     }
 
 }
@@ -200,7 +184,8 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
     cx = kdata.length(firstDim)/2;
     cy = kdata.length(secondDim)/2;
     cz = kdata.length(thirdDim)/2;
-
+	cout << "Calibration Centered on " << cx << "," << cy << "," << cz << endl;
+	
     // Subtract kernel borders from ACS size
     crx -= krx;
     cry -= kry;
@@ -214,16 +199,27 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 		for (int z = -crz; z <= crz; z++) {
 	    for (int y = -cry; y <= cry; y++) {
 		for (int x = -crx; x <= crx; x++) {
-		    float rad = (float)(x*x)/(crx*crx) + (float)(y*y)/(cry*cry) + (float)(z*z)/(crz*crz);
-		    if (rad <= 1) {num_ACS++;}      
+		    
+			float rad; 
+			if(crz ==0){
+				rad = (float)(x*x)/(crx*crx) + (float)(y*y)/(cry*cry);
+		    }else{
+				rad = (float)(x*x)/(crx*crx) + (float)(y*y)/(cry*cry) + (float)(z*z)/(crz*crz);
+		    }
+			if (rad <= 1) {num_ACS++;}      
 		}}}
 
 		// Figure out how many points are in the kernel
 		for (int z = -krz; z <= krz; z++) {
 	    for (int y = -kry; y <= kry; y++) {
 		for (int x = -krx; x <= krx; x++) {
-		    float rad = (float)(x*x)/(krx_f*krx_f) + (float)(y*y)/(kry_f*kry_f) + (float)(z*z)/(krz_f*krz_f);
-		    if (rad <= 1) {num_kernel++;}      
+		    float rad; 
+			if(krz_f ==0){
+				rad = (float)(x*x)/(krx_f*krx_f) + (float)(y*y)/(kry_f*kry_f);
+		    }else{
+				rad = (float)(x*x)/(krx_f*krx_f) + (float)(y*y)/(kry_f*kry_f) + (float)(z*z)/(krz_f*krz_f);
+		    }
+			if (rad <= 1) {num_kernel++;}      
 		}}}
 		num_kernel *= ncoils;
 	} else {
@@ -241,7 +237,14 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 	for (int iy = -cry; iy <= cry; iy++) {
 	for (int ix = -crx; ix <= crx; ix++) {
 
-		    float rad = (shape == SP_SQUARE) ? 0 : (float)(ix*ix)/(crx*crx) + (float)(iy*iy)/(cry*cry) + (float)(iz*iz)/(crz*crz);
+		    float rad;
+			if( shape == SP_SQUARE){
+				rad =0.0;
+			}else if(crz==0){
+				rad = (float)(ix*ix)/(crx*crx) + (float)(iy*iy)/(cry*cry);
+			}else{
+				rad = (float)(ix*ix)/(crx*crx) + (float)(iy*iy)/(cry*cry) + (float)(iz*iz)/(crz*crz);
+			}
 		    if (rad > 1)
 			continue;
 
@@ -253,7 +256,14 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 			for (int jy = -kry; jy <= kry; jy++) {
 			for (int jx = -krx; jx <= krx; jx++) {
 
-				    float krad = (shape == SP_SQUARE) ? 0 : (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
+				    float krad;
+					if( shape == SP_SQUARE){
+						krad = 0.0;
+					}else if(krz_f == 0 ){
+						krad =  (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f);
+					}else{
+						krad =  (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
+					}
 				    if (krad <= 1) {
 			
 						// Get New Coord
@@ -321,7 +331,16 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 	    for (int jz = -krz; jz <= krz; jz++) {
 		for (int jy = -kry; jy <= kry; jy++) {
 		for (int jx = -krx; jx <= krx; jx++) {
-			float krad = (shape == SP_SQUARE) ? 0 : (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
+			float krad;
+			if( shape == SP_SQUARE){
+				krad = 0.0;
+			}else if(krz_f == 0 ){
+				krad =  (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f);
+			}else{
+				krad =  (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
+			}
+			
+			
 			if (krad <= 1) {
 			
 			  // Get New Coord
@@ -382,24 +401,47 @@ void SPIRIT::prep() {
 	}
 }
 
-/* To Do
-void orthogonal_iteration(cx_fmat &m){
 
-
-
-
-}
-
-void gs_orthogonalization(cx_fmat &m){
+void SPIRIT::gs_orthogonalization(cx_fmat &m){
   
   for(int i=0; i< m.n_rows; i++){
  	
+	// Actual GS
+	cx_fmat v = m.col(i);
+	for(int j=0; j< i; j++){
+		complex<float>scale(0,0);
+		for(int k=0; k< m.n_cols; k++){
+			scale+= v(k)*conj(m(k,j));
+		}
+		v = v - scale*m.col(j);	
+	}
 	
-	    
-  
+	// Normalize
+	float vsum =0;
+	for(int k=0; k< m.n_cols; k++){
+		vsum += norm(v(k));
+	}
+	vsum = sqrt(vsum);
+	
+	// Put back
+	for(int k=0; k< m.n_cols; k++){
+		m(k,i)=v(k)/vsum;
+	}
   }
 }
-*/
+
+// Inplace orthognal iteration
+void SPIRIT::orthogonal_iteration(cx_fmat &m){
+	cx_fmat Q = arma::eye<cx_fmat>(m.n_rows,m.n_rows);
+	cx_fmat A = Q;
+	for(int iter=0; iter<30; iter++){
+		A = Q;
+		Q = m*A;	
+		gs_orthogonalization(Q);
+	}	
+	m = Q;
+}
+
 
 /**
  * Generate coils from SPIRiT kernel.
@@ -484,7 +526,7 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
            LR(ix,iy,iz,ncoils)=eigval(ncoils-1);
 		   */
 		   
-		   // SVD_econ is somehow much faster (but still slow). Maybe do a orthogonal iteration method?  
+		   // SVD_econ is much faster than eig_sym and orthogonal iteration (but still slow). 
 		   cx_fmat U;
 		   fvec s;
 		   cx_fmat V;
@@ -492,8 +534,15 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
 		   for(int jj = 0; jj < ncoils; jj++) {
                   LR(ix,iy,iz,jj)=conj( U(jj,0));
            }
-           LR(ix,iy,iz,ncoils)=s(0);
-			
+           //LR(ix,iy,iz,ncoils)=s(0);
+		
+			/*
+		   cx_fmat AtA = A*A.t();
+		   orthogonal_iteration(AtA);
+		   for(int jj = 0; jj < ncoils; jj++) {
+             LR(ix,iy,iz,jj)= conj( AtA(jj,0));
+           }*/
+		   
 		}}
 	  
 	 }// Slice
@@ -510,7 +559,7 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
  * The rotation is weighted by the norm of the data's magnitude.  This still ends 
  * up leaving some small discontinuities, but not many.
  */
-void SPIRIT::phase_correct(Array< complex<float>,4 > &maps, Array< complex<float>,4 > &ref)
+void SPIRIT::phase_correct(Array< complex<float>,4 > &maps)
 {
     
 	if(phase_type==SP_SMOOTH){
@@ -529,7 +578,7 @@ void SPIRIT::phase_correct(Array< complex<float>,4 > &maps, Array< complex<float
 			for(int coil=0; coil < Nc; coil++){
 			    for(int j= 0; j<maps.extent(1); j++){
 				for(int i=0; i<maps.extent(0);i++){
-				    float b = arg(maps(i,j,ref.length(thirdDim)/2)*maps(i,j,ref.length(thirdDim)/2,coil));
+				    float b = arg(maps(i,j,maps.length(thirdDim)/2)*maps(i,j,maps.length(thirdDim)/2,coil));
 					fwrite(&b,1,sizeof(float),fid);
 				}}}
 		    fclose(fid);
@@ -571,9 +620,9 @@ void SPIRIT::phase_correct(Array< complex<float>,4 > &maps, Array< complex<float
 		    
 			// Now Phase 
 			cout << "Aligning Iteration = " << iter << endl << flush;
-			for (int k = 0; k < ref.length(thirdDim); k++) {
-			    for (int j = 0; j < ref.length(secondDim); j++) {
-				for (int i = 0; i < ref.length(firstDim); i++) {		
+			for (int k = 0; k < maps.length(thirdDim); k++) {
+			    for (int j = 0; j < maps.length(secondDim); j++) {
+				for (int i = 0; i < maps.length(firstDim); i++) {		
 				    complex<float>p(0,0);
 					for( int coil=0; coil<maps.length(fourthDim); coil++){
 					    p+= maps(i,j,k,coil)*conj(Sblur(i,j,k,coil));
@@ -591,7 +640,7 @@ void SPIRIT::phase_correct(Array< complex<float>,4 > &maps, Array< complex<float
 				for(int coil=0; coil < Nc; coil++){
 				    for(int j= 0; j<maps.extent(1); j++){
 					for(int i=0; i<maps.extent(0);i++){
-					    float b = arg(Sblur(i,j,ref.length(thirdDim)/2,coil));
+					    float b = arg(Sblur(i,j,maps.length(thirdDim)/2,coil));
 						fwrite(&b,1,sizeof(float),fid);
 					}}}
 			    fclose(fid);			// Export
@@ -601,153 +650,12 @@ void SPIRIT::phase_correct(Array< complex<float>,4 > &maps, Array< complex<float
 			    for(int coil=0; coil < Nc; coil++){
 				for(int j= 0; j<maps.extent(1); j++){
 				    for(int i=0; i<maps.extent(0);i++){
-					float b = arg(maps(i,j,ref.length(thirdDim)/2,coil));
+					float b = arg(maps(i,j,maps.length(thirdDim)/2,coil));
 					fwrite(&b,1,sizeof(float),fid);
 				    }}}
 			    fclose(fid);
 			}
 		}				
-
-	}else if(phase_type==SP_SMOOTH_OLD){
-
-	    // Try to find a map that provides smooth combination 
-	    Array< complex<float>,3> GRAD;
-	    GRAD.setStorage( ColumnMajorArray<3>());
-	    GRAD.resize(ref.length(firstDim),ref.length(secondDim),ref.length(thirdDim));
-
-	    Array< complex<float>,3> P;
-	    P.setStorage( ColumnMajorArray<3>());
-	    P.resize(ref.length(firstDim),ref.length(secondDim),ref.length(thirdDim));
-	    P = complex<float>(1.0,0.0);
-
-	    int Nc = maps.length(fourthDim)-1;
-
-	    if(debug==1){
-		FILE *fid = fopen("SpiritCoilPhase.dat","a");
-		for(int coil=0; coil < Nc; coil++){
-		    for(int j= 0; j<maps.extent(1); j++){
-			for(int i=0; i<maps.extent(0);i++){
-			    float b = arg( P(i,j,ref.length(thirdDim)/2) * maps(i,j,ref.length(thirdDim)/2,coil) );
-			    fwrite(&b,1,sizeof(float),fid);
-			}}}
-		fclose(fid);
-	    }
-
-#pragma omp parallel for
-	    for (int z = 0; z < ref.length(thirdDim); z++) {
-		for (int y = 0; y < ref.length(secondDim); y++) {
-		    for (int x = 0; x < ref.length(firstDim); x++) {
-			complex<float>CI = conj( maps(x,y,z,0));
-			CI /= abs(CI);
-			for (int coil = 0; coil < Nc; coil++) {
-			    maps(x,y,z,coil)*=CI;
-			}
-
-		    }}}
-
-	    if(debug==1){
-		FILE *fid = fopen("SpiritCoilPhase.dat","a");
-		for(int coil=0; coil < Nc; coil++){
-		    for(int j= 0; j<maps.extent(1); j++){
-			for(int i=0; i<maps.extent(0);i++){
-			    float b = arg(P(i,j,ref.length(thirdDim)/2)*maps(i,j,ref.length(thirdDim)/2,coil));
-			    fwrite(&b,1,sizeof(float),fid);
-			}}}
-		fclose(fid);
-	    }	
-
-	    for(int iter=0; iter<1000; iter++){
-		// Get Gradient
-		GRAD=(complex<float>(0.0,0));
-		int Nx = ref.length(firstDim);
-		int Ny = ref.length(secondDim);
-		int Nz = ref.length(thirdDim);
-		for(int coil=0; coil < Nc; coil++){
-
-#pragma omp parallel for
-		    for (int z = 0; z < ref.length(thirdDim); z++) {
-			for (int y = 0; y < ref.length(secondDim); y++) {
-			    for (int x = 0; x < ref.length(firstDim); x++) {
-				int xm = (x-1 + Nx) % Nx;
-				int xp = (x+1 + Nx) % Nx;
-				int ym = (y-1 + Ny) % Ny;
-				int yp = (y+1 + Ny) % Ny;
-				int zm = (z-1 + Nz) % Nz;
-				int zp = (z+1 + Nz) % Nz;
-				GRAD(x,y,z) += conj(maps(x,y,z,coil))*( (complex<float>(6.0,0.0))*maps(x,y,z,coil)*P(x,y,z) - maps(xm,y,z,coil)*P(xm,y,z) - maps(xp,y,z,coil)*P(xp,y,z) - maps(x,ym,z,coil)*P(x,ym,z) - maps(x,yp,z,coil)*P(x,yp,z) - maps(x,y,zm,coil)*P(x,y,zm) -maps(x,y,zp,coil)*P(x,y,zp));
-
-			    }}}
-		}
-
-		// Step
-		GRAD *= 0.15;
-		P -=GRAD;
-		float scale = ((float)(Nx*Ny*Nz))/sum(abs(P));
-		P *= scale; 
-
-		cout<< "Iter = " << iter << ": Error " << sum(abs(GRAD)) << endl;
-
-		if(debug==1){					
-		    FILE *fid = fopen("SpiritPhase.dat","a");
-		    for(int j= 0; j<maps.extent(1); j++){
-			for(int i=0; i<maps.extent(0);i++){
-			    float b = arg(P(i,j,Nz/2));
-			    fwrite(&b,1,sizeof(float),fid);
-			}}
-		    fclose(fid);
-
-		    // Export
-		    fid = fopen("SpiritCoilPhase.dat","a");
-		    for(int coil=0; coil < Nc; coil++){
-			for(int j= 0; j<maps.extent(1); j++){
-			    for(int i=0; i<maps.extent(0);i++){
-				float b = arg(P(i,j,ref.length(thirdDim)/2)*maps(i,j,ref.length(thirdDim)/2,coil));
-				fwrite(&b,1,sizeof(float),fid);
-			    }}}
-		    fclose(fid);
-		}
-	    }				
-	    
-		// Apply Phase
-		for (int z = 0; z < ref.length(thirdDim); z++) {
-		    for (int y = 0; y < ref.length(secondDim); y++) {
-			for (int x = 0; x < ref.length(firstDim); x++) {
-			    float mag =0.0;
-				for(int coil=0; coil < Nc; coil++){			
-				    mag+=norm(maps(x,y,z,coil));
-				}
-			    
-				float phase = arg(P(x,y,z));
-				complex<float>temp(cos(phase),sin(phase));
-				temp = temp/sqrtf(mag);
-				for(int coil=0; coil < Nc; coil++){			
-				    maps(x,y,z,coil)*=temp;
-				}
-			}}}
-	    
-	}else if(phase_type == SP_LOW_RES_PHASE){	
-	    
-		#pragma omp parallel for
-		for (int z = 0; z < ref.length(thirdDim); z++) {
-		    for (int y = 0; y < ref.length(secondDim); y++) {
-			for (int x = 0; x < ref.length(firstDim); x++) {
-			    
-				// Solve for scale factor + Normalization
-				   complex<float>CI(0,0);
-					float mag=0.0;
-					for (int coil = 0; coil < ref.length(fourthDim); coil++) {
-					    CI += ref(x,y,z,coil)*conj(maps(x,y,z,coil));
-						mag += norm(maps(x,y,z,coil));
-					}
-				    CI/=abs(CI);
-					CI/=sqrt(mag);
-					
-					// Scale
-					for (int coil = 0; coil < ref.length(fourthDim); coil++) {
-					    maps(x,y,z,coil)*=CI;
-					}
-		}}}
-					
 	}else if(phase_type == SP_COIL_PHASE){	
 	 	cout << "Phase Correct with one coil" << endl;
 	    #pragma omp parallel for
@@ -766,7 +674,7 @@ void SPIRIT::phase_correct(Array< complex<float>,4 > &maps, Array< complex<float
 				    CI /= sqrt(mag);
 					
 					// Apply
-					for (int coil = 0; coil < ref.length(fourthDim); coil++) {
+					for (int coil = 0; coil < maps.length(fourthDim); coil++) {
 					    maps(x,y,z,coil)*=CI;
 					}
 				
