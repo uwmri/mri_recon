@@ -20,7 +20,7 @@ void RECON::set_defaults( void){
 	complex_diff = false;
 	
 	cs_spatial_transform = WAVELET;
-	cs_temporal_transform = DFT;
+	cs_temporal_transform = NONE;
 	cs_encode_transform = NONE;
 	
 	zoom = 1.0;
@@ -62,6 +62,8 @@ RECON::RECON(int numarg, char **pstring){
 			THRESHOLD::help_message();
 			PHANTOM::help_message();
 			GATING::help_message();
+			L2REG::help_message();
+			LOWRANKCOIL::help_message();
 			exit(0);
 		}
 	}
@@ -252,7 +254,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	}
 	
 	
-	/* Turn of parallel processing for 2D due to thread overhead
+	/* Turn of parallel processing for 2D due to thread overhead*
 	if(rczres ==1){
 		omp_set_num_threads(1);
 		cout << "Using a Single Thread " << endl;
@@ -294,7 +296,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 		
 				
 		cout << "Recon Low Resolution Images"  << endl<< flush; 
-		for(int e=0; e< rcencodes;e++){
+		for(int e=0; e< 1;e++){
 			Array< float,3 >kxE = data.kx(all,all,all,e); 
 			Array< float,3 >kyE = data.ky(all,all,all,e); 
 			Array< float,3 >kzE = data.kz(all,all,all,e); 
@@ -700,8 +702,12 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 					  // Temporal differences or FFT
 					  TDIFF tdiff(X);
 
+	
 					  // Setup Soft Thresholding
 					  THRESHOLD softthresh(argc,argv);
+
+					  // Setup L2 Regularization Thresholding
+					  L2REG l2reg(argc,argv);
 
 					  cout << "Iterate" << endl;
 					  double error0=0.0;
@@ -752,15 +758,10 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 									  gridding.forward( Rref,smapC,diff_data,kxE,kyE,kzE,TimeWeight);
 								  }//Coils
 								 
-								  // TV of Image
-								  int Nx = Xref.length(firstDim);
-								  int Ny = Xref.length(secondDim);
-								  int Nz = Xref.length(thirdDim);
-								  for(int k =0; k < Xref.length(thirdDim);k++){
-								  for(int j =0; j < Xref.length(secondDim);j++){
-								  for(int i =0; i < Xref.length(firstDim);i++){
-								  	Rref(i,j,k) += reg_scale*( complex<float>(6.0,0.0)*Xref(i,j,k) - Xref((i+1)%Nx,j,k) - Xref((i+Nx-1)%Nx,j,k) - Xref(i,(j+1)%Ny,k) - Xref(i,(j+Ny-1)%Ny,k)  - Xref(i,j,(k+1)%Nz) - Xref(i,j,(k+Nz-1)%Nz));
-								  }}}
+								  // L2 
+								  if(iteration > 0){
+								  	l2reg.regularize(Rref,Xref);
+								  }
 								    
 								  //Now Get Scale factor (for Cauchy-Step Size)
 								  P=0;
@@ -775,25 +776,24 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 								  }//Coils
 								  
 								  // TV of Image
-								  for(int k =0; k < Xref.length(thirdDim);k++){
-								  for(int j =0; j < Xref.length(secondDim);j++){
-								  for(int i =0; i < Xref.length(firstDim);i++){
-								  	P(i,j,k) += reg_scale*( complex<float>(6.0,0.0)*Rref(i,j,k) - Rref((i+1)%Nx,j,k) - Rref((i+Nx-1)%Nx,j,k) - Rref(i,(j+1)%Ny,k) - Rref(i,(j+Ny-1)%Ny,k)  - Rref(i,j,(k+1)%Nz) - Rref(i,j,(k+Nz-1)%Nz));
-								  }}}
-								  
+								  if(iteration > 0){
+								  	l2reg.regularize(P,Rref);
+								  }
+								 
 								  P*=conj(Rref);
 								  
 								  scale_RhP += sum(P); 
 								  cout << e << "," << t << "took " << T << "s" << endl;
 							  }//Time
 						  }//Encode
-
+						  
 						  // Get Scaling Factor R'P / R'R 
 						  complex<float>scale_RhR = complex<float>(ArrayEnergy(R),0);
 
 						  // Error check
-						  if(iteration==0){
+						  if(iteration==1){
 							  error0 = abs(scale_RhR);
+							  l2reg.set_scale(error0,X);
 						  }
 						  cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
 

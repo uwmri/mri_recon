@@ -34,6 +34,7 @@ using arma::uvec;
 #include "tictoc.cpp"
 #include "gating.h"
 #include "clear.h"
+#include "l2reg.h"
 
 class RECON{
 	public:

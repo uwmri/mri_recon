@@ -10,9 +10,9 @@ SPIRIT::SPIRIT()
 {    
     // Kernel Size Defaults 
     kr_f = 0.0;
-	krx_f = 2.0;  
-	kry_f = 2.0;  
-	krz_f = 2.0;  
+	krx_f = 3.0;  
+	kry_f = 3.0;  
+	krz_f = 3.0;  
 	
 	// Calibration Size Defaults 
 	cr = 0;

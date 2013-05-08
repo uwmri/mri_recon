@@ -152,7 +152,7 @@ void THRESHOLD::get_threshold(Array< complex<float>,5>&Coef){
 
 	// New alogorithm based on compartments
 	threshold = 0.5*(max_wave - min_wave);
-	float max_t = max_wave;
+	float max_t = thresh*max_wave;
 	float min_t = min_wave;
 	int iter = 0;
 	while( abs(points_found - target) > accuracy){
@@ -167,7 +167,7 @@ void THRESHOLD::get_threshold(Array< complex<float>,5>&Coef){
 				min_t = threshold;
 			}
 			threshold = 0.5*(max_t + min_t);
-			//cout << "New threshold = " << threshold << " Min= " << min_t << " Max= " << max_t << endl;
+			if(VERBOSE) cout << "Points = " << points_found << " New threshold = " << threshold << " Min= " << min_t << " Max= " << max_t << endl;
 		}
 		iter++;
 
