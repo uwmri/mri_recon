@@ -366,11 +366,22 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	if(complex_diff){
 		cout << "Doing Complex Diff" << endl;
 		for(int coil=0; coil <data.Num_Coils; coil++){ 
-			Array<complex<float>,3>kdata1 = data.kdata(all,all,all,0,coil); 
-			Array<complex<float>,3>kdata2 = data.kdata(all,all,all,1,coil); 
-			kdata1 -= kdata2;
+			
+			// Subtract off reference
+			for(int e=1; e< rcencodes; e++){
+				Array<complex<float>,3>kdata1 = data.kdata(all,all,all,0,coil); 
+				Array<complex<float>,3>kdata2 = data.kdata(all,all,all,e,coil); 
+				kdata2 -= kdata1;
+			}
+			
+			// Rearrange Positions
+			for(int e=1; e< rcencodes; e++){
+				Array<complex<float>,3>kdata1 = data.kdata(all,all,all,e-1,coil); 
+				Array<complex<float>,3>kdata2 = data.kdata(all,all,all,e,coil); 
+				kdata1 = kdata2;
+			}
 		}
-		rcencodes = 1; 
+		rcencodes -= 1; 
 	}
 	
 
