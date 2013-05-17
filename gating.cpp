@@ -112,8 +112,11 @@ void GATING::help_message() {
 		help_flag("","  ecg = gate by cardiac");
 		help_flag("","  time = bin by acquisition time");
 		help_flag("","  prep = bin by time from prep pulses");
-		help_flag("","  resp_gate = single respiratory frame");
 		
+		help_flag("-resp_gate []","In addition to other gating, perform respiratory gating");
+		help_flag("","  thresh = threshold values");
+		help_flag("","  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
+				
 		cout << "Filter parameters for tornado:" << endl;
         help_flag("-vs_wdth_low []","width in the center of k-space in frames");
         help_flag("-vs_wdth_high []","width in the periphery of k-space in frames");
