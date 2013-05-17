@@ -115,9 +115,10 @@ void RECON::help_message(void){
 	help_flag("-export_smaps","write sensitivity maps");
 }
 
-// --------------------
-//  Read command line and set variables
-// --------------------
+/** --------------------
+ *  Doxygen test: Read command line and set variables
+ * --------------------*/
+
 void RECON::parse_commandline(int numarg, char **pstring){
 
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 

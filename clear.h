@@ -32,7 +32,7 @@ class LOWRANKCOIL {
 	// Functions
     LOWRANKCOIL(int numarg, char **pstring);
 	void update_threshold( Array< complex<float>,4 > &image);
-    void thresh( Array< complex<float>,4 > &image,Array< complex<float>,4 > &image);
+    void thresh( Array< complex<float>,4 > &image,Array< complex<float>,4 > &image2);
     void combine( Array< complex<float>,4 > &image, Array< complex<float>,3> &out);
 };
 
