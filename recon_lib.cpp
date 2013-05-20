@@ -468,7 +468,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 					// Setup 3D Wavelet
 					int dirs[3] = {4, 4, 4};
 					Array< complex<float>,3>Xref=X(all,all,all,0,0);
-					WAVELET3D wave(Xref,dirs,WAVE_DB4);
+					WAVELET3D wave(Xref,dirs,WAVELET3D::WAVE_DB4);
 
 					// Temporal differences or FFT
 					TDIFF tdiff(X);
@@ -709,7 +709,7 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 					  // Setup 3D Wavelet
 					  int dirs[3] = {4, 4, 4};
 					  Array< complex<float>,3>Xref=X(all,all,all,0,0);
-					  WAVELET3D wave(Xref,dirs,WAVE_DB4);
+					  WAVELET3D wave(Xref,dirs,WAVELET3D::WAVE_DB4);
 
 					  // Temporal differences or FFT
 					  TDIFF tdiff(X);

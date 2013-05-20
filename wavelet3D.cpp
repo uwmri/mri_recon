@@ -1,20 +1,12 @@
-/************************************************
-3D Wavlet Libraries for pcvipr.e
-
-Initial Author: Kevin M. Johnson
-Description: This code contains functions for 3D wavelet transform. I tried blitzwave 
-  but ended up not liking the lack of updates for newer gcc compilers and lack of threads.
-
-*************************************************/
-
 #include "wavelet3D.h"
+
 
 WAVELET3D::~WAVELET3D(){
  	// Not here yet
 }
 
 /**
- * Constuctor for 5D Wavelet. Will only do 3D wavelets.
+ * Constructor for 5D Wavelet. Will only do 3D wavelets.
  * @see setup()
  * @param temp Array (or array of same size) to be transformed
  * @param l Array listing what type of transform along each dim
@@ -24,14 +16,38 @@ WAVELET3D::WAVELET3D( Array< complex<float>, 5 >& temp, int *l, int type){
 	Array< complex<float>,3>temp3 = temp(Range::all(),Range::all(),Range::all(),0,0);
 	setup(  temp3, l, type);		
 }
+
+/**
+ * Constructor for 4D Wavelet. Will only do 3D wavelets.
+ * @see setup()
+ * @param temp Array (or array of same size) to be transformed
+ * @param l Array listing what type of transform along each dim
+ * @param type The actual wavelet to be used.
+ */
 WAVELET3D::WAVELET3D( Array< complex<float>, 4 >& temp, int *l, int type){
 	Array< complex<float>,3>temp3 = temp(Range::all(),Range::all(),Range::all(),0);
 	setup(  temp3, l, type);		
 }
+
+/**
+ * Constructor for 3D Wavelet.
+ * @see setup()
+ * @param temp Array (or array of same size) to be transformed
+ * @param l Array listing what type of transform along each dim
+ * @param type The actual wavelet to be used.
+ */
 WAVELET3D::WAVELET3D( Array< complex<float>, 3 >& temp, int *l, int type){
 	setup(  temp, l, type);
 }
 
+/**
+ * Code to setup a wavelet transform based on 3D Array
+ * @see get_filter_banks()
+ * @see setup_wavelet_directions()
+ * @param temp 3D Array to set allowable levels
+ * @param l Array listing what level of transform along each dim
+ * @param type The actual wavelet to be used.
+ */
 void WAVELET3D::setup( Array< complex<float>, 3 >& temp, int *l, int type){
 	
 	/// cout << "Init Wavelet " << endl;
@@ -49,7 +65,11 @@ void WAVELET3D::setup( Array< complex<float>, 3 >& temp, int *l, int type){
 	setup_wavelet_directions();
 }
 
-
+/**
+ * Code to setup a wavelet transform based on 3D Array
+ * @see setup()
+ * This code check to ensure the number of levels is not greater than that allowed by the wavelet basis.
+ */
 void WAVELET3D::setup_wavelet_directions(void){
 	cout << "Setting up dimensions to do wavelet transform" << endl;
 	max_level = 0;
@@ -65,6 +85,12 @@ void WAVELET3D::setup_wavelet_directions(void){
 	cout << "Max Level = " << max_level << endl;
 }
 
+
+/**
+ * Code to setup a wavelet basis
+ * @see setup()
+ * This copies discrete wavelet basis made in matlab to structures in class
+ */
 void WAVELET3D::get_filter_banks( void ){
 	
 	//  Get the filter banks for wavelet (Coef are generated from matlab script)
@@ -367,6 +393,9 @@ void WAVELET3D::get_filter_banks( void ){
 	}
 }
 
+/**
+ * Code to randomize shifts to prevent coherencies in L1
+ */
 void WAVELET3D::random_shift( void){
 	for(int dir=0; dir< 3; dir++){
 		S[dir] = rand() % wN;
@@ -374,6 +403,10 @@ void WAVELET3D::random_shift( void){
 	}
 }
 
+/**
+ * Call for forward transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::forward( Array<complex<float>,5>&Coef){
 	for(int e=0;e<Coef.extent(fifthDim);e++){
 	for(int t=0;t<Coef.extent(fourthDim);t++){
@@ -382,6 +415,10 @@ void WAVELET3D::forward( Array<complex<float>,5>&Coef){
 	}}
 }
 
+/**
+ * Call for backward transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::backward( Array<complex<float>,5>&Coef){
 	for(int e=0;e<Coef.extent(fifthDim);e++){
 	for(int t=0;t<Coef.extent(fourthDim);t++){
@@ -390,6 +427,10 @@ void WAVELET3D::backward( Array<complex<float>,5>&Coef){
 	}}
 }
 
+/**
+ * Call for forward transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::forward( Array<complex<float>,4>&Coef){
 	for(int t=0;t<Coef.extent(fourthDim);t++){
 		Array<complex<float>,3>CoefRef=Coef(Range::all(),Range::all(),Range::all(),t);
@@ -397,6 +438,10 @@ void WAVELET3D::forward( Array<complex<float>,4>&Coef){
 	}
 }
 
+/**
+ * Call for backward transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::backward( Array<complex<float>,4>&Coef){
 	for(int t=0;t<Coef.extent(fourthDim);t++){
 		Array<complex<float>,3>CoefRef=Coef(Range::all(),Range::all(),Range::all(),t);
@@ -404,15 +449,26 @@ void WAVELET3D::backward( Array<complex<float>,4>&Coef){
 	}
 }
 
-
+/**
+ * Call for forward transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::forward( Array<complex<float>,3>&Coef){
 	forward3D(Coef);
 }
 
+/**
+ * Call for backward transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::backward( Array<complex<float>,3>&Coef){
 	backward3D(Coef);
 }
 
+/**
+ * Private function for actually performing forward 3D Wavelet Transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::forward3D( Array<complex<float>,3>&Coef){
 	int sz = N[2];
 	int sy = N[1];
@@ -442,6 +498,10 @@ void WAVELET3D::forward3D( Array<complex<float>,3>&Coef){
 	}
 }
 
+/**
+ * Private function for actually performing backward 3D Wavelet Transform
+ * @param Coef Array to be transformed (in-place)
+ */
 void WAVELET3D::backward3D( Array<complex<float>,3>&Coef){
 	
 	int sz = N[2]/(int)pow(2.0,L[2]);
@@ -475,9 +535,14 @@ void WAVELET3D::backward3D( Array<complex<float>,3>&Coef){
 }
 
 
-/*----------------------------------------------
-     Transform in X - Threaded version
- *----------------------------------------------*/ 
+
+/**
+ * Transform in X
+ * @param Coef Array to be transformed (in-place)
+ * @param Lx  Size of subarray to be transformed
+ * @param Ly  Size of subarray to be transformed
+ * @param Lz  Size of subarray to be transformed
+ */
 void WAVELET3D::wave_x(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int dir){
 	// cout << "Wave X = " << Le << "," << Lt << "," << Lz << "," << Ly << "," << Lx << "  Dir = " << dir << endl;
 		
@@ -514,9 +579,13 @@ void WAVELET3D::wave_x(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int di
 }
 
 
-/*----------------------------------------------
-     Transform in Y - Pthread version
- *----------------------------------------------*/ 
+/**
+ * Transform in Y
+ * @param Coef Array to be transformed (in-place)
+ * @param Lx  Size of subarray to be transformed
+ * @param Ly  Size of subarray to be transformed
+ * @param Lz  Size of subarray to be transformed
+ */
 void WAVELET3D::wave_y(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int dir){
 	// cout << "Wave Y = " << Le << "," << Lt << "," << Lz << "," << Ly << "," << Lx << "  Dir = " << dir << endl;
 	
@@ -550,9 +619,13 @@ void WAVELET3D::wave_y(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int di
 	}
 }
 
-/*----------------------------------------------
-     Transform in Z - Pthread version
- *----------------------------------------------*/ 
+/**
+ * Transform in Z
+ * @param Coef Array to be transformed (in-place)
+ * @param Lx  Size of subarray to be transformed
+ * @param Ly  Size of subarray to be transformed
+ * @param Lz  Size of subarray to be transformed
+ */
 void WAVELET3D::wave_z(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int dir){
 	// cout << "Wave Z = " << Le << "," << Lt << "," << Lz << "," << Ly << "," << Lx << "  Dir = " << dir << endl;
 	
@@ -588,9 +661,13 @@ void WAVELET3D::wave_z(Array<complex<float>,3>&Coef,int Lz,int Ly,int Lx, int di
 }
 
 
-/*----------------------------------------------
-     1D Wavelet transform
-*----------------------------------------------*/ 
+/**
+ * Actual 1D Transform for 1D Arrays
+ * @param in data to transfrom
+ * @param out output location
+ * @param pts  size of in / out
+ * @param dir  direction(x,y,z) for shifts
+ */
 void WAVELET3D::wave1D( complex<float> in[], complex<float> out[],int pts,int dir){
 	
 	/*Scaling Coef*/
@@ -605,9 +682,13 @@ void WAVELET3D::wave1D( complex<float> in[], complex<float> out[],int pts,int di
 	}
 }
 
-/*----------------------------------------------
-     1D Wavelet inverse transform
-*----------------------------------------------*/ 
+/**
+ * Actual 1D Synthesis for 1D Arrays
+ * @param in data to transfrom
+ * @param out output location
+ * @param pts  size of in / out
+ * @param dir  direction(x,y,z) for shifts
+ */
 void WAVELET3D::iwave1D( complex<float> in[],complex<float> out[],int pts,int dir){
 	for(int pos=0;pos<pts; pos++){
 		out[pos]= complex<float>(0,0);
