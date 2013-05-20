@@ -24,7 +24,7 @@ using namespace std;
 #define WAVE_BO33 8
 
 #define THREADS 32
- 
+
 class WAVELET3D{
 	public:
 		int N[5];

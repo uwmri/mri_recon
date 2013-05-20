@@ -11,6 +11,7 @@ using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 #include <fftw3.h>
+#include <sys/unistd.h>
 
 // Kernel Types
 enum {TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL};

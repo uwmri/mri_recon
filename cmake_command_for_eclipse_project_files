@@ -1,0 +1,1 @@
+cmake -GEclipse CDT4 - Unix Makefiles ./

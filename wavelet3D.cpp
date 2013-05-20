@@ -13,6 +13,13 @@ WAVELET3D::~WAVELET3D(){
  	// Not here yet
 }
 
+/**
+ * Constuctor for 5D Wavelet. Will only do 3D wavelets.
+ * @see setup()
+ * @param temp Array (or array of same size) to be transformed
+ * @param l Array listing what type of transform along each dim
+ * @param type The actual wavelet to be used.
+ */
 WAVELET3D::WAVELET3D( Array< complex<float>, 5 >& temp, int *l, int type){
 	Array< complex<float>,3>temp3 = temp(Range::all(),Range::all(),Range::all(),0,0);
 	setup(  temp3, l, type);		
