@@ -61,7 +61,7 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
   	SMAP = 1;
 		
 	// Switch For Phantom
-	switch(EXTERNAL){
+	switch(phantom_type){
 		case(FRACTAL):{
 		
 			
@@ -398,9 +398,9 @@ Array< int,3 > PHANTOM::synthetic_perfusion(int xs, int ys, int zs, PerfType pty
 			
 		case(ASL):{
 			// Input Perfusion Image
-			perf.resize(128,128,128);
+			perf.resize(256,256,256);
   			
-			ArrayRead(perf,"ASL_perf.dat");
+			ArrayRead(perf,"Perf256.dat");
 			int max_perf = max(perf);
 			cout << "Max of Perf = " << max_perf << endl;
 		}break;
@@ -952,10 +952,10 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	
 		
 	cout << "Writing to files " << endl;
-	if(debug==1){
+	//if(debug==1){
 		ArrayWrite(FUZZY,"Phantom.dat"); 
 		ArrayWrite(FUZZYT,"PhantomT.dat"); 
-	}
+	//}
 	
 	// Export Magnitude
 	if(debug==1){
