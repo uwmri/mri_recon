@@ -224,8 +224,6 @@ void LOWRANKCOIL::combine( Array< complex<float>,4 > &image,Array< complex<float
 	
 	temp =complex<float>(0.0,0.0);
 	
-	int Ncoils = image.extent(fourthDim);
-	
 	int shiftx;
 	int shifty;
 	int shiftz;

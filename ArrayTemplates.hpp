@@ -56,7 +56,7 @@ public:
 
 
 template< typename T, int N>
-void ArrayRead( Array< T,N>& temp, char *name){
+void ArrayRead( Array< T,N>& temp, const char *name){
 	 	FILE *fid;
 		if( (fid=fopen(name,"r")) == NULL){
 			cout << "Array:Can't Open " << name << endl;
@@ -74,7 +74,7 @@ void ArrayRead( Array< T,N>& temp, char *name){
 
 
 template< typename T, int N>
-void ArrayWrite( Array< T,N>& temp, char *name){
+void ArrayWrite( Array< T,N>& temp, const char *name){
 	 	FILE *fid;
 		if( (fid=fopen(name,"w")) == NULL){
 			cout << "ArrayWrite:Can't Open " << name << endl;
@@ -87,7 +87,7 @@ void ArrayWrite( Array< T,N>& temp, char *name){
 }
 
 template< typename T, int N>
-void ArrayWrite( Array< T,N>& temp, char *name, char *op){
+void ArrayWrite( Array< T,N>& temp, const char *name, const char *op){
 	 	FILE *fid;
 		if( (fid=fopen(name,op)) == NULL){
 			cout << "ArrayWrite:Can't Open " << name << endl;
@@ -100,7 +100,7 @@ void ArrayWrite( Array< T,N>& temp, char *name, char *op){
 }
  
 template< typename T>
-void ArrayWriteMag( Array<complex<T>,2>& temp, char *name){
+void ArrayWriteMag( Array<complex<T>,2>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
@@ -115,7 +115,7 @@ void ArrayWriteMag( Array<complex<T>,2>& temp, char *name){
 }
 
 template< typename T>
-void ArrayWriteMagAppend( Array<complex<T>,2>& temp, char *name){
+void ArrayWriteMagAppend( Array<complex<T>,2>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 
@@ -133,7 +133,7 @@ void ArrayWriteMagAppend( Array<complex<T>,2>& temp, char *name){
 
 
 template< typename T>
-void ArrayWriteMag( Array<complex<T>,3>& temp, char *name){
+void ArrayWriteMag( Array<complex<T>,3>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
@@ -181,7 +181,7 @@ for(int t=0; t< temp.extent(3);t++){
 
 
 template< typename T>
-void ArrayWriteMag( Array< complex<T>,4>& temp, char *name){
+void ArrayWriteMag( Array< complex<T>,4>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
@@ -199,7 +199,7 @@ void ArrayWriteMag( Array< complex<T>,4>& temp, char *name){
 
 
 template< typename T>
-void ArrayWriteMag( Array< complex<T>,5>& temp, char *name){
+void ArrayWriteMag( Array< complex<T>,5>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
@@ -218,7 +218,7 @@ void ArrayWriteMag( Array< complex<T>,5>& temp, char *name){
 
 
 template< typename T>
-void ArrayWritePhase( Array<complex<T>,2>& temp, char *name){
+void ArrayWritePhase( Array<complex<T>,2>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
@@ -232,7 +232,7 @@ void ArrayWritePhase( Array<complex<T>,2>& temp, char *name){
  delete [] buffer;
 }
 template< typename T>
-void ArrayWritePhase( Array<complex<T>,3>& temp, char *name){
+void ArrayWritePhase( Array<complex<T>,3>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
@@ -248,7 +248,7 @@ void ArrayWritePhase( Array<complex<T>,3>& temp, char *name){
 }
 
 template< typename T>
-void ArrayWritePhase( Array< complex<T>,4>& temp, char *name){
+void ArrayWritePhase( Array< complex<T>,4>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
@@ -266,7 +266,7 @@ void ArrayWritePhase( Array< complex<T>,4>& temp, char *name){
 
 
 template< typename T>
-void ArrayWritePhase( Array< complex<T>,5>& temp, char *name){
+void ArrayWritePhase( Array< complex<T>,5>& temp, const char *name){
 	 
 	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);

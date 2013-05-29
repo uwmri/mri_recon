@@ -14,17 +14,16 @@ Usage: Currently
 	// Which will populate:
 	phantom.IMAGE // Image (density)
 	phantom.SMAP // Sensitivity Map 
-	phantom.TOA  // Time of arrival
-
 */
 
 #include "phantom.h"
 using namespace arma;
 using namespace std;
 
-// Default Constructor
-//	
-//
+/**
+ * Constructor for phantom
+ *
+ */
 PHANTOM::PHANTOM( void){
 	over_res=2;
 	phantom_type = FRACTAL;
@@ -33,10 +32,57 @@ PHANTOM::PHANTOM( void){
 	external_phantom_name = new char[2048];
 }
 
-// Initialization:
-//	-This function sets up a digital phantom of size (Nx,Ny,Nz)
-//
-void PHANTOM::init(int Sx, int Sy, int Sz){
+// ----------------------
+// Help Message
+// ----------------------
+#include "io_templates.cpp"
+void PHANTOM::help_message(void){
+	cout << "----------------------------------------------" << endl;
+	cout << "   Phantom Control " << endl;
+	cout << "----------------------------------------------" << endl;
+
+	cout<<"Control" << endl;
+	help_flag("-phantom_noise []","Noise as fraction of mean of abs(kdata)");
+	help_flag("-fractal_pts []","Terminal Points for Fractal");
+	help_flag("-external_phantom []","Use phantom of name []");
+}
+
+
+//----------------------------------------
+// Phantom Read Command Line
+//----------------------------------------
+void PHANTOM::read_commandline(int numarg, char **pstring){
+
+#define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num;
+#define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]);
+#define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
+#define char_flag(name,val)   }else if(strcmp(name,pstring[pos]) == 0){ pos++; strcpy(val,pstring[pos]);
+
+  for(int pos=0; pos < numarg; pos++){
+
+  	if (strcmp("-h", pstring[pos] ) == 0) {
+		float_flag("-phantom_noise",phantom_noise);
+		int_flag("-fractal_pts",fractal.fractal_pts);
+	}else if(strcmp("-external_phantom",pstring[pos]) == 0) {
+		pos++;
+		phantom_type = EXTERNAL;
+		if( pos==numarg){
+			cout << "Please provide external phantom name" << endl;
+		}else{
+			strcpy(external_phantom_name,pstring[pos]);
+		}
+  	}
+  }
+}
+
+
+/**
+ * Initialization of phantom. This function does all the setup (build fractal tree, read external, etc) before looped calls.
+ * @param Sx size of phantom
+ * @param Sx size of phantom
+ * @param Sx size of phantom
+ */
+void PHANTOM::init(int Sx, int Sy, int Sz,int St){
 	
 	// Don't change resolution
 	if(phantom_type==EXTERNAL){
@@ -47,7 +93,8 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
 	Nx = (int)(over_res*Sx);
 	Ny = (int)(over_res*Sy);
 	Nz = (int)(over_res*Sz);
-	
+	Nt = (int)(St);
+
 	// Phantom Density
 	cout << "Init IMAGE: " << Nx << " by " << Ny << " by " << Nz << endl << flush;
 	IMAGE.setStorage( ColumnMajorArray<3>());
@@ -63,15 +110,8 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
 	// Switch For Phantom
 	switch(phantom_type){
 		case(FRACTAL):{
-		
-			
-			cout << "Init TOA" << endl << flush;
-			TOA.setStorage( ColumnMajorArray<3>());
-  			TOA.resize(Nx,Ny,Nz);
-  			TOA = 0;
-			
 			cout << "Build Tree" << endl << flush;
-			fractal3D_new(Nx,Ny,Nz);
+			fractal.build_tree(Nx,Ny,Nz,Nt,fractal_pts);
 		}break;
 		
 		case(SHEPP):{
@@ -91,9 +131,65 @@ void PHANTOM::init(int Sx, int Sy, int Sz){
 }
 
 
-// Get a sensitivity based on coil geometry
-// with Biot-Savart simulation of field.
-//
+/**
+ * Calculates image at a specific time frame
+ */
+void  PHANTOM::calc_image(int t, int frames){
+	switch(phantom_type){
+
+		case(FRACTAL):{
+			fractal.calc_image(IMAGE,t,frames);
+		}break;
+
+		default:
+		case(EXTERNAL):{
+			cout << "Reading External Phantom" << external_phantom_name << endl;
+			ArrayRead(IMAGE,external_phantom_name);
+		}break;
+	}
+
+	if(debug){
+		char fname[1024];
+		sprintf(fname,"Frame_%d.dat",t);
+		ArrayWriteMag(IMAGE,fname);
+	}
+	// Multiply by Sensitivity
+	IMAGE *= SMAP;
+
+}
+
+/**
+ * Writes matlab script to generate truth images.
+ */
+void PHANTOM::write_matlab_truth_script( const char *folder){
+	// Switch For Phantom
+	switch(phantom_type){
+		case(FRACTAL):{
+			cout << "Build Tree" << endl << flush;
+			fractal.write_matlab_truth_script(folder);
+		}break;
+
+		case(SHEPP):{
+			// Doesn't exist yet (but can be k-space based, Koay et al.)
+		}break;
+
+		case(PSF):{
+			// Just Get PSF
+
+		}break;
+
+		case(EXTERNAL):{
+			// Phantom is already written to disk
+		}break;
+	}
+}
+
+
+/**
+ * Get a sensitivity based on simulated coil geometry with Biot-Savart simulation of field.
+ * @param coil current coil
+ * @param Ncoils number of coils
+ */
 void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 	
 	// Doesn't Make sense for one coil
@@ -304,9 +400,9 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 }
 
 
-// 
-// Add some phase to the phantom this could be better
-//
+/**
+ * Adds linear phase to phanton.IMAGE this is a WIP.
+ */
 void PHANTOM::add_phase( void ){	
 
 	for(int k=0; k<SMAP.length(thirdDim); k++){
@@ -319,9 +415,9 @@ void PHANTOM::add_phase( void ){
 
 }
 
-// 
-//	 Add Noise to the phantom
-//
+/**
+ * Adds noise to k-data structure. Amount controlled by phantom.phantom_noise
+ */
 void PHANTOM::add_noise( Array<complex<float>,5>&kdata){
 	
 	// Estimate 
@@ -343,29 +439,28 @@ void PHANTOM::add_noise( Array<complex<float>,5>&kdata){
 }
 
 
-// 
-//	 Class to keep track of fractal tree
-//
-class TFRACT_RAND{
-  public:
-	fvec start;
-	fvec stop;
-	int root;
-	int children[2];
-	float Q;
-	float l;
-	float cost;
-	float time;
-    
-	void update_cost( float qPower){
-		l = norm( stop - start,2);
-		cost = l*pow(Q,qPower);
-	}
-	
+
+//--------------------FRACTAL CODE------------------------------------
+
+
+class FRACTAL3D::TFRACT_RAND{
+	  public:
+		arma::fvec start;
+		arma::fvec stop;
+		int root;
+		int children[2];
+		float Q;
+		float l;
+		float cost;
+		float time;
+
+		void update_cost( float qPower){
+			l = norm( stop - start,2);
+			cost = l*pow(Q,qPower);
+		}
 };
 
-Array< int,3 > PHANTOM::synthetic_perfusion(int xs, int ys, int zs, PerfType ptype){
-				
+Array< int,3 > FRACTAL3D::synthetic_perfusion(int xs, int ys, int zs, PerfType ptype){
 	
 	// Input Perfusion Image
 	Array< int,3>perf;
@@ -416,7 +511,7 @@ Array< int,3 > PHANTOM::synthetic_perfusion(int xs, int ys, int zs, PerfType pty
 
 }
 
-void update_children(field<TFRACT_RAND>&tree, int pos){
+void FRACTAL3D::update_children(field<TFRACT_RAND>&tree, int pos){
 	if( tree(pos).children[0] != -1){
 		int cpos = tree(pos).children[0];
 		float rsquare = pow( tree(pos).Q,2.0f/3.0f);
@@ -435,7 +530,7 @@ void update_children(field<TFRACT_RAND>&tree, int pos){
 } 
 
 
-field<TFRACT_RAND> create_tree( fmat seeds_start, fmat seeds_stop,fmat X){ 
+field<FRACTAL3D::TFRACT_RAND> FRACTAL3D::create_tree( fmat seeds_start, fmat seeds_stop,fmat X){
 	
 	// Variables						
 	int Nseeds = seeds_start.n_cols;
@@ -594,18 +689,13 @@ field<TFRACT_RAND> create_tree( fmat seeds_start, fmat seeds_stop,fmat X){
 //	 Generate Fractal Based on Random Generation within Volume
 //     Similar to Karch et al. Computers in Biology and Medicine 29(1999)19-38
 //
-void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
-	
-	// Set number of threads 
-	if( omp_get_max_threads() > 8){
-		omp_set_num_threads(omp_get_max_threads()-2);
-	}
-		
+void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt,int fractal_pts){
+
 	// Inputs
 	int terminal_pts = fractal_pts; // Number of Endpoints
 		
 	// Input Perfusion Image
-	Array< int,3>perf = synthetic_perfusion(128,128,128,ASL);
+	Array< int,3>perf = synthetic_perfusion(256,256,256,ASL);
 		
 	// Convert The Perf to Random Ordered Point
 	int perf_max = max(perf);
@@ -662,7 +752,7 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	seeds_stop(2,2) =  -0.28;
 	
 	// Arterial Tree 
-	field<TFRACT_RAND>arterial_tree = create_tree(seeds_start,seeds_stop,X);
+	field<FRACTAL3D::TFRACT_RAND>arterial_tree = FRACTAL3D::create_tree(seeds_start,seeds_stop,X);
 	
 	// ---------------------------------------------
 	//    Venous Tree
@@ -690,13 +780,13 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	}
 	
 	// Venous Tree
-	field<TFRACT_RAND>venous_tree = create_tree(Vseeds_start,Vseeds_stop,X);
+	field<FRACTAL3D::TFRACT_RAND>venous_tree = FRACTAL3D::create_tree(Vseeds_start,Vseeds_stop,X);
 	
 	// ---------------------------------------------
 	//    Tissue Tree
 	// ---------------------------------------------
 	cout << "Tissue Tree" << endl << flush;
-	field<TFRACT_RAND>tissue_tree(terminal_pts+Nseeds);
+	field<FRACTAL3D::TFRACT_RAND>tissue_tree(terminal_pts+Nseeds);
 	int cpos =0;
 	for( int t=0; t< (int)arterial_tree.n_elem; t++){
 		if(arterial_tree(t).Q==1){
@@ -715,12 +805,14 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 	// Phantom Density
 	
 	// Arterial, Perfusion, and Venous Compartments
+	cout << "Allocate Fuzzy Density" << endl << flush;
 	FUZZY.setStorage( ColumnMajorArray<4>());
   	FUZZY.resize(Nx,Ny,Nz,3);
   	FUZZY = 0;
 	
 	// Arterial, Perfusion, and Venous Compartments
-	FUZZYT.setStorage( ColumnMajorArray<4>());
+  	cout << "Allocate Fuzzy Time of Arrival" << endl << flush;
+  	FUZZYT.setStorage( ColumnMajorArray<4>());
   	FUZZYT.resize(Nx,Ny,Nz,3);
   	FUZZYT = 0;
 		
@@ -957,12 +1049,6 @@ void  PHANTOM::fractal3D_new(int Nx, int Ny, int Nz){
 		ArrayWrite(FUZZYT,"PhantomT.dat"); 
 	//}
 	
-	// Export Magnitude
-	if(debug==1){
-		ArrayWriteMag(IMAGE,"Phantom.dat"); 
-		ArrayWrite(TOA,"TOA.dat"); 
-	}
-	
 	}
 
 
@@ -979,8 +1065,8 @@ inline float gamma_variate(float x,float beta,float alpha){
 	}
 }
 
-void PHANTOM::write_matlab_truth_script( char *folder){
-	
+
+void FRACTAL3D::write_matlab_truth_script( const char *folder){
 	char fname[1024];
 	sprintf(fname,"%s%s",folder,"get_pixel_timecourse.m");
 	
@@ -1017,12 +1103,13 @@ void PHANTOM::write_matlab_truth_script( char *folder){
 	script << "st =t*0;" << endl;
 	script << "beta = " << beta << endl;
 	script << "alpha = " << alpha << endl;
-	script << "st = st + dens_a*gamma_variate((t-toa_a),beta*(1+2*toa_a),alpha);" << endl;		
-	script << "st = st + dens_v*gamma_variate((t-toa_v),beta*(1+2*toa_v),alpha);" << endl;		
-	script << "st = st + dens_t*gamma_variate((t-toa_t),beta*(1+2*toa_t),alpha);" << endl;		
+	script << "st = st + dens_a*dual_gamma_variate((t-toa_a),beta*(1+2*toa_a),alpha);" << endl;
+	script << "st = st + dens_v*dual_gamma_variate((t-toa_v),beta*(1+2*toa_v),alpha);" << endl;
+	script << "st = st + dens_t*dual_gamma_variate((t-toa_t),beta*(1+2*toa_t),alpha);" << endl;
 	
-	script << "function s = gamma_variate( x,beta,alpha) " << endl;
+	script << "function s = dual_gamma_variate( x,beta,alpha) " << endl;
 	script << "s = double(x>0).*(  (1.0./factorial(alpha)./(beta.^alpha)).*(x.^alpha).*exp(-x./beta));" << endl;
+	script << "s = s + double(x>0).*(  (1.0./factorial(alpha)./((4*beta).^alpha)).*(x.^alpha).*exp(-x./(4*beta)));" << endl;
 	script.close();
 	
 		
@@ -1047,7 +1134,7 @@ void PHANTOM::write_matlab_truth_script( char *folder){
 	script << "toa = fread(fid,Nx*Ny*Nz,'float'); " << endl;
 	script << "fclose(fid);" << endl;
 	
-	script << "s = dens.*gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
+	script << "s = dens.*dual_gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
 		
 	// Venous
 	script << "fid = fopen('Phantom.dat','r'); " << endl;
@@ -1060,7 +1147,7 @@ void PHANTOM::write_matlab_truth_script( char *folder){
 	script << "toa = fread(fid,Nx*Ny*Nz,'float'); " << endl;
 	script << "fclose(fid);" << endl;
 	
-	script << "s = s + dens.*gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
+	script << "s = s + dens.*dual_gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
 		
 	// Tissue
 	script << "fid = fopen('Phantom.dat','r'); " << endl;
@@ -1073,105 +1160,49 @@ void PHANTOM::write_matlab_truth_script( char *folder){
 	script << "toa = fread(fid,Nx*Ny*Nz,'float'); " << endl;
 	script << "fclose(fid);" << endl;
 	
-	script << "s = s + dens.*gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
+	script << "s = s + dens.*dual_gamma_variate((t-toa),beta*(1+2*toa),alpha);" << endl;
 	script << "s = reshape(s,[" << Nx << " " << Ny << " " << Nz << "]);" << endl;
 	
-	script << "function s = gamma_variate( x,beta,alpha) " << endl;
+	script << "function s = dual_gamma_variate( x,beta,alpha) " << endl;
 	script << "s = double(x>0).*(  (1.0./factorial(alpha)./(beta.^alpha)).*(x.^alpha).*exp(-x./beta));" << endl;
+	script << "s = s + double(x>0).*(  (1.0./factorial(alpha)./((4*beta).^alpha)).*(x.^alpha).*exp(-x./(4*beta)));" << endl;
 	
 	script.close();
-	
-	
-	
+
+	// Needed to generate data
+	ArrayWrite(FUZZY,"PhantomData/Phantom.dat");
+	ArrayWrite(FUZZYT,"PhantomData/PhantomT.dat");
+
+
 }
 
-	
-// ----------------------
-// Create Image (simple for test)
-// ----------------------
-void  PHANTOM::calc_image(int t, int frames){
-	switch(phantom_type){
-	
-	case(FRACTAL):{	
+void FRACTAL3D::calc_image(Array< complex<float>,3>&IMAGE,int t,int frames){
+
 	float current_time = (float)t* 3.0 / (float)frames;
 	IMAGE = complex<float>(0,0);
-	
+
 	beta = 0.25;
 	alpha = 2;
-	
+
 	for(int compartment =0; compartment < FUZZYT.length(fourthDim); compartment++){
-	#pragma omp parallel for
-	for(int k= 0; k< FUZZYT.length(thirdDim); k++){
-	for(int j= 0; j< FUZZYT.length(secondDim); j++){
-	for(int i= 0; i< FUZZYT.length(firstDim); i++){
-		float time = FUZZYT(i,j,k,compartment);
-		float dens = FUZZY(i,j,k,compartment);
-		float beta_t = ( (1+2*time)*beta); // Curve Smooths in time
-		
-		if( current_time > time){
-			float tdiff = (current_time - time);
-			IMAGE(i,j,k) += dens*gamma_variate(tdiff,beta_t,alpha); // Bolus
-			IMAGE(i,j,k) += 0.25*dens*gamma_variate(tdiff,4*beta_t,alpha); // Persistent signal 
-		}			
-	}}}}
-	}break;
-	
-	default:
-	case(EXTERNAL):{
-		cout << "Reading External Phantom" << external_phantom_name << endl;
-		ArrayRead(IMAGE,external_phantom_name);
-	}break;
-	
-	}
-	
-	if(debug){
-		char fname[1024];
-		sprintf(fname,"Frame_%d.dat",t);
-		ArrayWriteMag(IMAGE,fname);
-	}	
-	// Multiply by Sensitivity
-	IMAGE *= SMAP;
+#pragma omp parallel for
+		for(int k= 0; k< FUZZYT.length(thirdDim); k++){
+			for(int j= 0; j< FUZZYT.length(secondDim); j++){
+				for(int i= 0; i< FUZZYT.length(firstDim); i++){
+					float time = FUZZYT(i,j,k,compartment);
+					float dens = FUZZY(i,j,k,compartment);
+					float beta_t = ( (1+2*time)*beta); // Curve Smooths in time
 
-}
-// ----------------------
-// Help Message
-// ----------------------
-#include "io_templates.cpp"
-void PHANTOM::help_message(void){
-	cout << "----------------------------------------------" << endl;
-	cout << "   Phantom Control " << endl;
-	cout << "----------------------------------------------" << endl;
-	
-	cout<<"Control" << endl;
-	help_flag("-phantom_noise []","Noise as fraction of mean of abs(kdata)");
-	help_flag("-fractal_pts []","Terminal Points for Fractal");
-	help_flag("-external_phantom []","Use phantom of name []");
-}
-
-
-//----------------------------------------
-// Phantom Read Command Line
-//----------------------------------------
-void PHANTOM::read_commandline(int numarg, char **pstring){
-
-#define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
-#define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
-#define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
-#define char_flag(name,val)   }else if(strcmp(name,pstring[pos]) == 0){ pos++; strcpy(val,pstring[pos]); 
-  
-  for(int pos=0; pos < numarg; pos++){
-  
-  	if (strcmp("-h", pstring[pos] ) == 0) {
-		float_flag("-phantom_noise",phantom_noise);
-		int_flag("-fractal_pts",fractal_pts);
-	}else if(strcmp("-external_phantom",pstring[pos]) == 0) {
-		pos++;
-		phantom_type = EXTERNAL;
-		if( pos==numarg){
-			cout << "Please provide external phantom name" << endl;
-		}else{
-			strcpy(external_phantom_name,pstring[pos]);
+					if( current_time > time){
+						float tdiff = (current_time - time);
+						IMAGE(i,j,k) += dens*gamma_variate(tdiff,beta_t,alpha); // Bolus
+						IMAGE(i,j,k) += 0.25*dens*gamma_variate(tdiff,4*beta_t,alpha); // Persistent signal
+					}
+				}
+			}
 		}
-  	}
-  }  
-}  
+	}
+}
+
+
+

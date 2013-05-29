@@ -685,8 +685,6 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 					  //  Designed to not use memory
 					  // Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
 					  // ------------------------------------
-					  
-					  float reg_scale = 0.0;	
 						
 					  // Previous Array for FISTA
 					  Array< complex<float>,5>X_old;

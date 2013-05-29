@@ -361,7 +361,9 @@ void THRESHOLD::exec_multibandthreshold(Array< complex<float>,5 >&Coef) {
 	for(int l=0;l<waveL;l++) {
 		if(VERBOSE) cout<<"Decomposition level: "<<l+1<<endl;
 		for(int k=0;k<=7;k++) {
-			if(k==7 && (l!=(waveL-1)) || (k==7 && thapp==false)) { continue; }
+			if( ( (k==7) && (l!=(waveL-1))) || ( (k==7) && (thapp==false)) ) {
+				continue;
+			}
 			Array<complex<float>,5> Cfref = Coef(Range(xx(l,k,0),xx(l,k,1)),Range(yy(l,k,0),yy(l,k,1)),Range(zz(l,k,0),zz(l,k,1)),Range(tt,st-1),Range::all());
 			switch(threshold_type) {
 				case TH_BAYES:{
@@ -400,10 +402,6 @@ void THRESHOLD::exec_visuthreshold(Array< complex<float>,5>&Coef) {
 }
 
 void THRESHOLD::exec_fractionthreshold(Array< complex<float>,5>&Coef) {
-
-	int tt = 0;
-	int st = Coef.extent(fourthDim);
-
 	// This makes no sense ? if(temporal==true) tt=1;
 
 	cout<<"Fractional Thresholding ";

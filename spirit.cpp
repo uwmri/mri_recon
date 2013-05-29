@@ -404,13 +404,13 @@ void SPIRIT::prep() {
 
 void SPIRIT::gs_orthogonalization(cx_fmat &m){
   
-  for(int i=0; i< m.n_rows; i++){
+  for(int i=0; i< (int)m.n_rows; i++){
  	
 	// Actual GS
 	cx_fmat v = m.col(i);
 	for(int j=0; j< i; j++){
 		complex<float>scale(0,0);
-		for(int k=0; k< m.n_cols; k++){
+		for(int k=0; k< (int)m.n_cols; k++){
 			scale+= v(k)*conj(m(k,j));
 		}
 		v = v - scale*m.col(j);	
@@ -418,13 +418,13 @@ void SPIRIT::gs_orthogonalization(cx_fmat &m){
 	
 	// Normalize
 	float vsum =0;
-	for(int k=0; k< m.n_cols; k++){
+	for(int k=0; k< (int)m.n_cols; k++){
 		vsum += norm(v(k));
 	}
 	vsum = sqrt(vsum);
 	
 	// Put back
-	for(int k=0; k< m.n_cols; k++){
+	for(int k=0; k< (int)m.n_cols; k++){
 		m(k,i)=v(k)/vsum;
 	}
   }
@@ -456,8 +456,8 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
     
 	// Kernel Size
     int kNx = im.length(firstDim);
-    int kNy = im.length(secondDim);
-    int kNz = im.length(thirdDim);
+//    int kNy = im.length(secondDim);
+//    int kNz = im.length(thirdDim);
     
 	int cx = (Nx/2);
 	int cy = (Ny/2);
@@ -466,7 +466,7 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
 	T.tic();
     cout << "Starting eig" << endl;
 
-    int count = 0;
+//    int count = 0;
 	
 	// Storage for Hybrid kx-y-coil-vector Kernel
 	Array< complex<float>,4>temp;

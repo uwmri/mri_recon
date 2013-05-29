@@ -19,57 +19,128 @@ using namespace std;
 #define PI 3.14159265359
 #endif
 
-enum PhantomType {FRACTAL, SHEPP, PSF, EXTERNAL};
 
+/**
+ *  @brief
+ *  Class to generate fractal vascular tree phantom
+ */
+class FRACTAL3D{
+	public:
+		enum PerfType {
+			ASL,/*!< Use external perfusion file. */
+			ELLIPSE/*!< Use simple ellipse model of perfusion 2. */
+		};
+		class TFRACT_RAND;
+		int fractal_pts;//!<Number of endpoints for fractal phantom
+		float alpha;//!<Alpha parameter for branch rule
+		float beta;//!<Beta parameter for branch rule
+		int Nx;	//!<Size of Phantom in X
+		int Ny; //!<Size of Phantom in Y
+		int Nz; //!<Size of Phantom in Z
+		int Nt; //!<Size of Phantom in time
+
+		// Need to maintain these functions for publis calls
+		void calc_image(int,int);
+		void write_matlab_truth_script( const char *);
+		void calc_image(Array<complex<float>,3>&,int,int);
+		void build_tree(int Nx, int Ny, int Nz,int Nt,int fractal_pts);
+	private:
+		Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
+		void update_children(arma::field<TFRACT_RAND>&tree, int pos);
+		arma::field<TFRACT_RAND> create_tree( arma::fmat seeds_start, arma::fmat seeds_stop,arma::fmat X);
+
+		bool debug;
+		Array< float,4>FUZZY;//!<Fuzzy model densities (3D+compartments)
+		Array< float,4>FUZZYT;//!<Fuzzy model arrival times (3D+compartments)
+
+};
+
+
+/**
+ *  @brief
+ *  Class to generate simulated data from known k-space
+ *
+ *  Usage Example:
+ *  @code
+ *  	PHANTOM phantom;
+ *		phantom.read_commandline(argc,argv);
+ *		phantom.init(256,256,256);
+ *  	for(int coil =0; coil < data.Num_Coils; coil++){
+ *			phantom.update_smap_biotsavart(coil,data.Num_Coils);
+ *
+ *			for(int t =0; t < recon.rcframes; t++){
+ *				// Get Image
+ *				phantom.calc_image(t,recon.rcframes);
+ *
+ *				your_function( phantom.IMAGE );
+ *				}
+ *			}
+ *
+ *			// Add Noise
+ *			phantom.add_noise( data.kdata );
+ *			phantom.write_matlab_truth_script("PhantomData/");
+ *	@endcode
+ */
 class PHANTOM{
 	public:
 		
-		enum PerfType { ASL,ELLIPSE};
-		
+		enum PhantomType {
+			FRACTAL, /*!< Fractal Vasculature Phantom. */
+			SHEPP, /*!< Simple Shepp-Logg Phantom */
+			PSF, /*!< Set kdata to ones. */
+			EXTERNAL/*!< Use external image domain phantom. */
+		};
+
 		// Size of Phantom
-		int Nx;
-		int Ny;
-		int Nz;
-		int Nt;
-		float over_res; // Create higher resolution
+		int Nx;	//!<Size of Phantom in X
+		int Ny; //!<Size of Phantom in Y
+		int Nz; //!<Size of Phantom in Z
+		int Nt; //!<Size of Phantom in time
+		float over_res; //!<Over-resolution factor for discrete phantoms
 		
+		// Structures for holding types of phantoms
+		FRACTAL3D fractal;
+		int fractal_pts; //?<Input to fractal tree
+
 		// Noise Factor
-		float phantom_noise;
+		float phantom_noise; //!<Amount of noise to add in percent
 		
 		// Type of Phantom
-		PhantomType phantom_type;
+		PhantomType phantom_type; //!<Defines phantom type
 		
 		// Fractal Input
-		int fractal_pts;
-		float alpha;
-		float beta;
 		
-		char *external_phantom_name;
-		
-		// Constructor,I/O, and Init				
-		PHANTOM(void);
-		void init(int,int,int);
-		static void help_message(void);
-		void read_commandline(int numarg, char **pstring);
+		// External Phantom
+		char *external_phantom_name;//!<Name of external phantom
 		
 		// Arrays for holding Images
-		Array< complex<float>,3>IMAGE;
-		Array< float,4>FUZZY;
-		Array< float,4>FUZZYT;
-		Array< complex<float>,3>SMAP;
-		Array< float,3>TOA;
-		
+		Array< complex<float>,3>IMAGE;//!<Final discrete image
+		Array< complex<float>,3>SMAP;//!<Sensitivity map
+
+		// Constructor,I/O, and Init
+		PHANTOM(void);
+		void init(int,int,int,int);
+		static void help_message(void);
+		void read_commandline(int numarg, char **pstring);
+
 		// Functions
 		void add_phase(void);
 		void add_noise( Array<complex<float>,5>&kdata);
-		void fractal3D_new(int Nx, int Ny, int Nz);
 		void update_smap_biotsavart(int,int);
 		void calc_image(int,int);
-		Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
-		void write_matlab_truth_script( char *);
+		void write_matlab_truth_script( const char *);
 		
+
 	private:	
 		bool debug;
 };
+
+
+
+
+
+
+
+
 
 

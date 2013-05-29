@@ -40,7 +40,7 @@ void MRI_DATA::data_stats(void){
 //  Read external header
 //--------------------------------------------------
 
-void MRI_DATA::parse_external_header(char *filename){
+void MRI_DATA::parse_external_header(const char *filename){
 	
 	char parameter[1024];
 	char cvalue[1024];
@@ -169,7 +169,7 @@ MRI_DATA::MRI_DATA( void){
 //    This function allocates and reads all data into memory
 //---------------------------------------------------
 
-void MRI_DATA::read_external_data( char *folder, int read_kdata){
+void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 
 	FILE *fid;
 	char fname[1024];
@@ -309,7 +309,7 @@ void MRI_DATA::read_external_data( char *folder, int read_kdata){
 //  Temporary Function to Write Data ( will be replaced by ismrmd ) 
 //---------------------------------------------------
 
-void MRI_DATA::write_external_data( char *folder){
+void MRI_DATA::write_external_data( const char *folder){
 
 	char fname[1024];
 	mkdir(folder,0777);
@@ -365,25 +365,25 @@ void MRI_DATA::write_external_data( char *folder){
 	}else{
 		sprintf(fname,"%sgating_track",folder);
 		FILE *fid = fopen(fname,"w");
-		for( int i=0; i< ecg.numElements(); i++){
+		for( int i=0; i< (int)ecg.numElements(); i++){
 			int temp = ( (int)(1e3*ecg(i)));
 			endian_swap(temp);
 			fwrite(&temp,1,sizeof(int),fid);
 		}
 		
-		for( int i=0; i< ecg.numElements(); i++){
+		for( int i=0; i< (int)ecg.numElements(); i++){
 			int temp = ( (int)(resp(i)));
 			endian_swap(temp);
 			fwrite(&temp,1,sizeof(int),fid);
 		}
 		
-		for( int i=0; i< ecg.numElements(); i++){
+		for( int i=0; i< (int)ecg.numElements(); i++){
 			int temp = ( (int)(1e6*time(i)));
 			endian_swap(temp);
 			fwrite(&temp,1,sizeof(int),fid);
 		}
 		
-		for( int i=0; i< ecg.numElements(); i++){
+		for( int i=0; i< (int)ecg.numElements(); i++){
 			int temp = ( (int)(1e6*prep(i)));
 			endian_swap(temp);
 			fwrite(&temp,1,sizeof(int),fid);
@@ -525,7 +525,7 @@ void MRI_DATA::coilcompress(float thresh)
 /*----------------------------------------------
      Loads the Gating file into memory (temp)
  *----------------------------------------------*/ 
-void MRI_DATA::load_pcvipr_gating_file(char *full_filename){
+void MRI_DATA::load_pcvipr_gating_file(const char *full_filename){
 
 	// Open the file
 	FILE *fid;

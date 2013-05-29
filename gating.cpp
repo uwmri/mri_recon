@@ -164,7 +164,7 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 		
 		// Copy Resp
 		idx.save("Sorted.dat", arma::raw_ascii);
-		for(int i=0; i<gate_times.numElements(); i++){
+		for(int i=0; i< (int)gate_times.numElements(); i++){
 			time_linear_resp( i )= resp( idx(i));
 		}
 		time_linear_resp.save("RSorted.dat",arma::raw_ascii);
@@ -172,7 +172,7 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 		
 		// Now Filter
 		cout << "Filtering Resp Data by" << fsize << endl;
-		for(int i=0; i<gate_times.numElements(); i++){
+		for(int i=0; i< (int)gate_times.numElements(); i++){
 			int start = i - fsize;
 			int stop  = i + fsize;
 			if(start < 0){
@@ -180,7 +180,7 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 				start = 0; 
 			}
 			
-			if(stop >=  gate_times.numElements()){
+			if(stop >=  (int)gate_times.numElements()){
 				stop  = gate_times.numElements() -1;
 				start = gate_times.numElements() - 1 - 2*fsize;
 			}
@@ -192,7 +192,7 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 		resp.save("RFiltered.dat",arma::raw_ascii);
 		
 		// Copy Resp
-		for(int i=0; i<gate_times.numElements(); i++){
+		for(int i=0; i< (int)gate_times.numElements(); i++){
 			time_linear_resp( i )= resp( idx(i));
 		}
 		time_linear_resp.save("RSorted_Filter.dat",arma::raw_ascii);
@@ -251,7 +251,7 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 		
 	// Copy Resp
 	idx.save("Sorted.dat", arma::raw_ascii);
-	for(int i=0; i<resp_weight.numElements(); i++){
+	for(int i=0; i< (int)resp_weight.numElements(); i++){
 		time_linear_resp( i )= resp( idx(i));
 	}
 	time_linear_resp.save("RSorted.dat",arma::raw_ascii);

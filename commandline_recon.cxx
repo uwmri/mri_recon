@@ -46,7 +46,7 @@ int main(int argc, char **argv){
 			cout << "Phantom " << endl;
 			PHANTOM phantom;
 			phantom.read_commandline(argc,argv);  
-			phantom.init(data.xres,data.yres,data.zres);
+			phantom.init(data.xres,data.yres,data.zres,recon.rcframes);
 			
 			
 			// More accurate gridding for Phantom
@@ -101,13 +101,9 @@ int main(int argc, char **argv){
 			
 			// Add Noise
 			phantom.add_noise( data.kdata );
-			
 			data.write_external_data("PhantomData/");
-			
 			phantom.write_matlab_truth_script("PhantomData/");
-			ArrayWrite(phantom.FUZZY,"PhantomData/Phantom.dat"); 
-			ArrayWrite(phantom.FUZZYT,"PhantomData/PhantomT.dat");	
-			 
+
 			cout << "Only generating data" << endl;
 			exit(1);
 			

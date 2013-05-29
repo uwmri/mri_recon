@@ -62,10 +62,10 @@ class MRI_DATA{
 		
 		// Initialization Filling Operations				
 		void init_memory();
-		void read_external_data(char *folder,int);
-		void write_external_data(char *folder);
-		void parse_external_header(char *filename);
-		void load_pcvipr_gating_file(char *full_filename); //Temp
+		void read_external_data(const char *folder,int);
+		void write_external_data(const char *folder);
+		void parse_external_header(const char *filename);
+		void load_pcvipr_gating_file(const char *full_filename); //Temp
 		void data_stats(void);
 				
 		MRI_DATA( MRI_DATA *);
