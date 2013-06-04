@@ -62,7 +62,6 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
 
   	if (strcmp("-h", pstring[pos] ) == 0) {
 		float_flag("-phantom_noise",phantom_noise);
-		int_flag("-fractal_pts",fractal.fractal_pts);
 	}else if(strcmp("-external_phantom",pstring[pos]) == 0) {
 		pos++;
 		phantom_type = EXTERNAL;
@@ -73,6 +72,15 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
 		}
   	}
   }
+
+  switch(phantom_type){
+  case(FRACTAL):{
+	  fractal.read_commandline(numarg,pstring);
+  }
+
+
+  }
+
 }
 
 
@@ -111,7 +119,7 @@ void PHANTOM::init(int Sx, int Sy, int Sz,int St){
 	switch(phantom_type){
 		case(FRACTAL):{
 			cout << "Build Tree" << endl << flush;
-			fractal.build_tree(Nx,Ny,Nz,Nt,fractal_pts);
+			fractal.build_tree(Nx,Ny,Nz,Nt);
 		}break;
 		
 		case(SHEPP):{
@@ -511,6 +519,25 @@ Array< int,3 > FRACTAL3D::synthetic_perfusion(int xs, int ys, int zs, PerfType p
 
 }
 
+//----------------------------------------
+// FRACTAL Read Command Line
+//----------------------------------------
+void FRACTAL3D::read_commandline(int numarg, char **pstring){
+
+#define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num;
+#define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]);
+#define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
+#define char_flag(name,val)   }else if(strcmp(name,pstring[pos]) == 0){ pos++; strcpy(val,pstring[pos]);
+
+  for(int pos=0; pos < numarg; pos++){
+
+  	if (strcmp("-h", pstring[pos] ) == 0) {
+		int_flag("-fractal_pts",fractal_pts);
+  	}
+  }
+}
+
+
 void FRACTAL3D::update_children(field<TFRACT_RAND>&tree, int pos){
 	if( tree(pos).children[0] != -1){
 		int cpos = tree(pos).children[0];
@@ -689,7 +716,7 @@ field<FRACTAL3D::TFRACT_RAND> FRACTAL3D::create_tree( fmat seeds_start, fmat see
 //	 Generate Fractal Based on Random Generation within Volume
 //     Similar to Karch et al. Computers in Biology and Medicine 29(1999)19-38
 //
-void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt,int fractal_pts){
+void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt){
 
 	// Inputs
 	int terminal_pts = fractal_pts; // Number of Endpoints
@@ -701,7 +728,8 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt,int fractal_pts){
 	int perf_max = max(perf);
 	cout << "Max perf : " << perf_max << endl;
 	
-	// Convert to points	
+	// Convert to points
+	cout << "Building Tree with " << terminal_pts << " points" << endl;
 	fmat X= zeros<fmat>(3,terminal_pts);
 	for(int pos=0; pos < terminal_pts; pos++){
 		int found =0;

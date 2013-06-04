@@ -39,11 +39,12 @@ class FRACTAL3D{
 		int Nz; //!<Size of Phantom in Z
 		int Nt; //!<Size of Phantom in time
 
-		// Need to maintain these functions for publis calls
+		// Need to maintain these functions for public calls
+		void read_commandline(int numarg, char **pstring);
 		void calc_image(int,int);
 		void write_matlab_truth_script( const char *);
 		void calc_image(Array<complex<float>,3>&,int,int);
-		void build_tree(int Nx, int Ny, int Nz,int Nt,int fractal_pts);
+		void build_tree(int Nx, int Ny, int Nz,int Nt);
 	private:
 		Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
 		void update_children(arma::field<TFRACT_RAND>&tree, int pos);
@@ -100,7 +101,6 @@ class PHANTOM{
 		
 		// Structures for holding types of phantoms
 		FRACTAL3D fractal;
-		int fractal_pts; //?<Input to fractal tree
 
 		// Noise Factor
 		float phantom_noise; //!<Amount of noise to add in percent
