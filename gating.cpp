@@ -81,8 +81,8 @@ GATING::GATING( int numarg, char **pstring) {
 				if( pos==numarg){
 					cout << "Using threshold based gating" << endl;
 					resp_gate_type = RESP_THRESH;
-				trig_flag(RESP_THRESH,"thresh",resp_gate_type);
-				trig_flag(RESP_WEIGHT,"weight",resp_gate_type);
+					trig_flag(RESP_THRESH,"thresh",resp_gate_type);
+					trig_flag(RESP_WEIGHT,"weight",resp_gate_type);
 								
 				}else{
 					cout << "Using threshold based gating" << endl;
@@ -231,6 +231,8 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	// Use Aradillo Sort function
 	arma::fvec time(resp_weight.numElements());
 	arma::fvec resp(resp_weight.numElements());
+	arma::fvec arma_resp_weight(resp_weight.numElements());
+	
 	arma::fvec time_linear_resp(resp_weight.numElements());
 	arma::fvec time_sort_resp_weight(resp_weight.numElements());
 			
@@ -243,8 +245,8 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	   resp(count) = data.resp(view,slice,e);
 	   count++;
 	}}}
-	time.save("Resp.txt",arma::raw_ascii);
-	resp.save("Time.txt",arma::raw_ascii);
+	time.save("Time.txt",arma::raw_ascii);
+	resp.save("Resp.txt",arma::raw_ascii);
 	
 	// Sort
 	arma::uvec idx = arma::sort_index(time); 
@@ -254,7 +256,7 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	for(int i=0; i< (int)resp_weight.numElements(); i++){
 		time_linear_resp( i )= resp( idx(i));
 	}
-	time_linear_resp.save("RSorted.dat",arma::raw_ascii);
+	time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
 	
 	
 	// Size of histogram
@@ -281,13 +283,29 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 		arma::fvec temp2= sort(temp);
 		float thresh = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency )));
 	
-		resp_weight(idx(i)) = ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
-		time_sort_resp_weight(i ) =resp_weight(idx(i)); 
+		arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
+		time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
 	}
-	time_sort_resp_weight.save("RespWeight.dat",arma::raw_ascii);
+	time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
+	arma_resp_weight.save("Weight.txt",arma::raw_ascii);
+	
+	
+	// Copy Back
+	count = 0;
+	for(int e=0; e< resp_weight.length(thirdDim); e++){
+	 for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+	  for(int view=0; view< resp_weight.length(firstDim); view++){
+	   resp_weight(view,slice,e)=arma_resp_weight(count);
+	   count++;
+	}}}
+	
+	
+	ArrayWrite(resp_weight,"RespWeight.dat");
 }
 
 void GATING::init_time_resolved( const MRI_DATA& data,int frames){
+	
+	cout << "Initializing Time resolved for" << frames << " frames" << endl;
 	
 	// Don't run 
 	if( frames < 2 ){
@@ -314,6 +332,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		}break;
 		
 		case(TIME):{
+			cout << "Using Time Resolved" << endl;
 			gate_times.resize( data.time.shape());				  
 			gate_times = data.time;
 		}break;

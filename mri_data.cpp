@@ -18,6 +18,7 @@ void MRI_DATA::data_stats(void){
 		cout << "Range Kw = " << min(kw) << " to " << max(kw) << endl;
 	}
 	
+	
 	if( kdata.numElements()==0){
 		cout << "Kdata does not exist yet" << endl;
 	}else{

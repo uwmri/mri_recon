@@ -746,7 +746,7 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt){
 			}
 		}
 	} 	
-	
+		
 	// ---------------------------------------------
 	//    Arterial Tree
 	// ---------------------------------------------
@@ -829,7 +829,7 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt){
 	//    Now Grid The Data
 	// ---------------------------------------------
 
-	float tissue_radius = 0.05;
+	float tissue_radius = 0.02;
 	// Phantom Density
 	
 	// Arterial, Perfusion, and Venous Compartments
@@ -1048,7 +1048,7 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt){
 				float kact = (float)k - dz;
 						
 				float radius = sqrt( iact*iact + jact*jact + kact*kact);
-				float s=(float)(1.0/( 1.0 + exp(8.0*(radius-0.5*(float)R))) );
+				float s=(float)(1.0/( 1.0 + exp(1.0*(radius-0.5*(float)R))) );
 				FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s;
 				FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s*time;
 				
