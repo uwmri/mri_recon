@@ -37,6 +37,7 @@ void MRI_DATA::data_stats(void){
 }
 
 
+
 //--------------------------------------------------
 //  Read external header
 //--------------------------------------------------
@@ -84,6 +85,14 @@ void MRI_DATA::parse_external_header(const char *filename){
 		}
 	}
 	fclose(fid);
+}
+
+
+// Data for Whitening
+void MRI_DATA::init_noise_samples(int total_samples){
+	noise_samples.setStorage( ColumnMajorArray<2>());
+	noise_samples.resize(total_samples,Num_Coils);
+	noise_samples = complex<float>(0,0);
 }
 
 
@@ -521,6 +530,88 @@ void MRI_DATA::coilcompress(float thresh)
 
   cout << "done" << endl;
 }
+
+
+
+//--------------------------------------------------
+//  Whiten Data
+//--------------------------------------------------
+
+void MRI_DATA::whiten(void){
+	
+	if( noise_samples.numElements()==0){
+		cout << "Noise Samples do not exist:: Can't whiten data" << endl;
+		return;
+	}		
+	
+	cout << "Noise Samples : " << noise_samples.length(firstDim) << endl;
+	cout << "Noise Pre-Whitening" << endl << flush;
+  	
+	// Copy into matrix
+	arma::cx_mat NoiseData = arma::randu<arma::cx_mat>(noise_samples.length(secondDim),noise_samples.length(firstDim));
+  	for(int coil=0; coil < Num_Coils; coil++){
+	for(int i=0; i< noise_samples.length(firstDim); i++){
+		NoiseData(coil,i) = noise_samples(i,coil);
+	}}
+	
+	
+	cout << "Calc Cov" << endl << flush;
+	arma::cx_mat CV =  NoiseData*NoiseData.t();
+	CV.save("CovMatrix.dat",arma::raw_binary);
+		
+	cout << "Whiten" << endl;
+	arma::cx_mat V = chol(CV);
+	arma::cx_mat VT = V.t(); 
+	arma::cx_mat Decorr = VT.i();
+			
+	// Test Whitening
+	arma::cx_mat W = NoiseData;
+	arma::cx_mat temp = arma::randu<arma::cx_mat>(Num_Coils);
+	for(int i =0; i< noise_samples.length(firstDim); i++){
+		
+		for(int coil=0; coil < Num_Coils; coil++){
+			temp(coil,0)=W(coil,i);
+		}
+		arma::cx_mat temp2 = Decorr*temp;
+		
+		for(int coil=0; coil < Num_Coils; coil++){
+			W(coil,i)=temp2(coil,0);
+		}
+	}
+			
+	arma::cx_mat CV_POST = W*W.t();
+	CV_POST.save("CovMatrixPost.dat", arma::raw_binary);
+	
+	
+	// Now Whiten Actual Data
+	{
+	cout << "Whiten all data" << endl;
+	arma::cx_mat temp = arma::randu<arma::cx_mat>(Num_Coils);
+	
+	for(int e =0; e< kdata.length(fourthDim); e++){
+	for(int k =0; k< kdata.length(thirdDim); k++){
+	for(int j =0; j< kdata.length(secondDim); j++){
+	for(int i =0; i< kdata.length(firstDim); i++){
+		
+		// Copy Sample
+		for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
+   			temp(coil,0) = kdata(i,j,k,e,coil);
+		}
+		
+		arma::cx_mat temp2 = Decorr*temp;
+		
+		// Copy Back
+		for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
+   			 kdata(i,j,k,e,coil) = temp2(coil,0);
+		}
+	}}}}
+	
+	}/*actual whitening*/
+	
+}
+
+
+
 
 
 /*----------------------------------------------

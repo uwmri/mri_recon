@@ -38,6 +38,9 @@ class MRI_DATA{
 		Array<float,4> kt;	  // TE Time (s)
 		Array< complex<float>,5> kdata;
 		
+		// Data for Noise samples 
+		Array< complex<float>,2> noise_samples; // data for noise samples
+				
 		//Physiologic Data for gating 
 		Array< float,3>ecg;		// Distance from ECG in MS
 		Array< float,3>resp;	// Respiratory signal from bellows or navigator
@@ -59,9 +62,11 @@ class MRI_DATA{
 		// Data Operations (move?)
 		void undersample(int);
 		void coilcompress(float);
+		void whiten();
 		
 		// Initialization Filling Operations				
 		void init_memory();
+		void init_noise_samples(int);
 		void read_external_data(const char *folder,int);
 		void write_external_data(const char *folder);
 		void parse_external_header(const char *filename);
