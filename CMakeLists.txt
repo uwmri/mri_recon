@@ -15,7 +15,7 @@ set(LOCAL_LIBS armadillo acml_mp fftw3f_omp fftw3f blitz m)
 
 include_directories(${INCLUDE_DIRECTORIES} ${CMAKE_INCLUDE_PATH})
 link_directories(${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
-set(BUILD_SHARED_LIBS OFF)
+set(BUILD_SHARED_LIBS ON)
 
 #--------------------------------------
 # Target Library 

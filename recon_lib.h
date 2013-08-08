@@ -79,9 +79,10 @@ class RECON{
     
 	  int acc;
 	  float compress_coils;
+	  bool whiten;
 	  float lp_frac;
 	  float lp_sig;
-      	  float smap_res;
+      float smap_res;
 	  char filename[1024];
 	  
 	  int max_iter;

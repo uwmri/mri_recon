@@ -228,9 +228,9 @@ void LOWRANKCOIL::combine( Array< complex<float>,4 > &image,Array< complex<float
 	int shifty;
 	int shiftz;
 	
-	int rand_shiftx = 0.0;
-	int rand_shifty = 0.0;
-	int rand_shiftz = 0.0;
+	int rand_shiftx = 0;
+	int rand_shifty = 0;
+	int rand_shiftz = 0;
 		
 	int Nx = image.extent(firstDim);
 	int Ny = image.extent(secondDim);

@@ -38,6 +38,7 @@ void RECON::set_defaults( void){
 	
 	acc = 1;
 	compress_coils = 0.0;
+	whiten = 0;
 	export_smaps = 0;
 	max_iter = 50;
 
@@ -206,6 +207,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		// Data modification
 		int_flag("-acc",acc);
 		float_flag("-compress_coils",compress_coils);
+		trig_flag(true,"-whiten",whiten);
 		trig_flag(true,"-complex_diff",complex_diff);
 		
 		// Iterations for IST
@@ -248,13 +250,16 @@ Array< complex<float>,5 > RECON::reconstruction( int argc, char **argv, MRI_DATA
 	rcyres = (rcyres == -1) ? ( data.yres ) : ( rcyres );
 	rczres = (rczres == -1) ? ( data.zres ) : ( rczres );
 		
+	// Whiten
+	if( whiten == 1){
+		data.whiten(); // Requires noise samples inserted
+	}
 	
 	// Option to compress coils
 	if (compress_coils > 0){
 		data.coilcompress(compress_coils);
 	}
-	
-	
+		
 	/* Turn of parallel processing for 2D due to thread overhead*
 	if(rczres ==1){
 		omp_set_num_threads(1);
