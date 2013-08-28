@@ -80,7 +80,7 @@ void THRESHOLD::help_message() {
 }
 
 // Executes a chosen thresholding method
-void THRESHOLD::exec_threshold(Array<complex<float>,5>&Coef) {
+void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef){
 
 	switch(threshold_type){
 
@@ -106,31 +106,36 @@ void THRESHOLD::exec_threshold(Array<complex<float>,5>&Coef) {
   Calc threshold based on percentage removed in one or all bands
   used also to get median of Coef for thresh=0.5
  *------------------------------------------------------------------*/ 
-void THRESHOLD::get_threshold(Array< complex<float>,5>&Coef){
+void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 
+	
+
+	int Nz = Coef(0).length(thirdDim);
+	
 	// Get range
-	float *max_wave_t = new float[Coef.extent(thirdDim)];
-	float *min_wave_t = new float[Coef.extent(thirdDim)];
+	float *max_wave_t = new float[Nz];
+	float *min_wave_t = new float[Nz];
 		
-	for(int e=0; e< Coef.extent(fifthDim);e++){
-		for(int t=0; t< Coef.extent(fourthDim);t++){
+	for(int e=0; e< Coef.extent(firstDim);e++){
+		for(int t=0; t< Coef.extent(secondDim);t++){
+			Array< complex<float>,3> XX = Coef(t,e); 
+
 #pragma omp parallel for 
-			for(int k=0; k< Coef.extent(thirdDim); k++){
-			for(int j=0; j< Coef.extent(secondDim); j++){
-			for(int i=0; i< Coef.extent(firstDim); i++){    
-				float v=abs( Coef(i,j,k,t,e));
+			for(int k=0; k< XX.extent(thirdDim); k++){
+			for(int j=0; j< XX.extent(secondDim); j++){
+			for(int i=0; i< XX.extent(firstDim); i++){    
+				float v=abs( XX(i,j,k));
 				max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
 				min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
 				
 				
-			}}}				
-		}
-	}
+			}}}	// Spatial			
+	}}
 	
 	float max_wave= max_wave_t[0];
 	float min_wave= min_wave_t[0];
 	
-	for(int k=0; k< Coef.extent(thirdDim); k++){
+	for(int k=0; k< Nz; k++){
 		max_wave = ( max_wave_t[k] > max_wave ) ? ( max_wave_t[k] ) : ( max_wave );
 		min_wave = ( min_wave_t[k] < max_wave ) ? ( min_wave_t[k] ) : ( min_wave );	
 	}
@@ -140,9 +145,10 @@ void THRESHOLD::get_threshold(Array< complex<float>,5>&Coef){
 	if(VERBOSE) cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
 
 	// Estimate histogram (sort)
-	int points_found = Coef.numElements();
-	int target = (int)( thresh*(double)Coef.numElements());
-	int accuracy = (int)(0.001*(double)Coef.numElements());
+	int total_points = Coef.numElements()*Coef(0).numElements();
+	int points_found = total_points;
+	int target = (int)( thresh*(double)total_points);
+	int accuracy = (int)(0.001*(double)total_points);
 	if(VERBOSE) cout << "Thresh = " << thresh << " target points " << target << endl;
 
 	if(target < 2){
@@ -173,26 +179,30 @@ void THRESHOLD::get_threshold(Array< complex<float>,5>&Coef){
 
 		// Calculate Threshold
 		points_found= 0;
-		for(int e=0; e< Coef.extent(fifthDim);e++){
-			for(int t=0; t< Coef.extent(fourthDim);t++){
-#pragma omp parallel for reduction(+:points_found)
-				for(int k=0; k< Coef.extent(thirdDim); k++){
-					for(int j=0; j< Coef.extent(secondDim); j++){
-						for(int i=0; i< Coef.extent(firstDim); i++){    
-							float v=abs( Coef(i,j,k,t,e));
-							if( v < threshold){
-								points_found++;
-							}
-						}
-					}}}}
-	}
+		for(int e=0; e< Coef.extent(firstDim);e++){
+		for(int t=0; t< Coef.extent(secondDim);t++){
+			Array< complex<float>,3> XX = Coef(t,e); 
+
+			#pragma omp parallel for reduction(+:points_found)			
+			for(int k=0; k< XX.extent(thirdDim); k++){
+			for(int j=0; j< XX.extent(secondDim); j++){
+			for(int i=0; i< XX.extent(firstDim); i++){
+					float v=abs( XX(i,j,k));
+					if( v < threshold){
+						points_found++;
+					}
+					
+			}}}//Spatial
+		}}
+			
+	}//While
 }
 
 /*---------------------------------------------------------------------------------------
   Calc threshold based on universal threshold method using noise variance (VisuShrink)
  *-------------------------------------------------------------------------------------*/ 
 
-void THRESHOLD::get_visuthreshold(Array< complex<float>,5 >&Coef){
+void THRESHOLD::get_visuthreshold(Array<Array< complex<float>,3>,2>&Coef){
 
 	int sx = Coef.extent(firstDim); 
 	int sy = Coef.extent(secondDim);
@@ -201,11 +211,12 @@ void THRESHOLD::get_visuthreshold(Array< complex<float>,5 >&Coef){
 	int se = Coef.extent(fifthDim);
 
 	// HHH band
-	Array<complex<float>,5> Cf = Coef(Range(sx/2,sx-1),Range(sy/2,sy-1),Range(sz/2,sz-1),Range::all(),Range::all());
+	//
+	// This assumes wavelet...Array<complex<float>,5> Cf = Coef(Range(sx/2,sx-1),Range(sy/2,sy-1),Range(sz/2,sz-1),Range::all(),Range::all());
 
 	// Get median for noise estimation, sigma_noise = median(Coef)/0.6745
 	thresh=0.5;
-	get_threshold(Cf);
+	get_threshold(Coef);
 
 	noise = threshold/0.6745;
 
@@ -222,7 +233,7 @@ void THRESHOLD::get_visuthreshold(Array< complex<float>,5 >&Coef){
   	-Modified to account for complex data. 
  *-------------------------------------------------------------------------------------*/ 
 
-void THRESHOLD::get_bayesthreshold(Array< complex<float>,5 >&Coef){
+void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef){
 	
 	// Get Std 
 	double sumXX = 0.0; 
@@ -231,14 +242,17 @@ void THRESHOLD::get_bayesthreshold(Array< complex<float>,5 >&Coef){
 	// Standard Deviation of Image
 	for(int e=0; e< Coef.extent(fifthDim);e++){
 		for(int t=0; t< Coef.extent(fourthDim);t++){
+			
+			Array< complex<float>,3>XX = Coef(t,e);
+			
 			for(int k=0; k< Coef.extent(thirdDim); k++){
 				for(int j=0; j< Coef.extent(secondDim); j++){
 					for(int i=0; i< Coef.extent(firstDim); i++){    
-						complex<double>val = complex<double>(Coef(i,j,k,t,e));
+						complex<double> val = complex<double>(XX(i,j,k));
 						sumXX += pow(abs(val),2);
 						sumX += val;
-					}
-	}}}}
+			}}}
+	}}
 	
 	double N = (double)Coef.size();
 	float wave_dev = (float)sqrt( sumXX/N - abs(sumX)/(N*N));
@@ -247,7 +261,10 @@ void THRESHOLD::get_bayesthreshold(Array< complex<float>,5 >&Coef){
 	float sigmaS = sqrt( max( wave_dev - powf(noise,2),(float)0.0)); 
 	
 	if(sigmaS<=0.0) { 
-		threshold = max(abs(Coef));
+		threshold =0.0;
+		for( Array< Array<complex<float>,3>,2>::iterator miter=Coef.begin(); miter!=Coef.end(); miter++){
+			threshold = max( max(abs(*miter)), threshold);
+		}
 	} else {
 		sigmaS = sqrt(sigmaS);
 		threshold = pow(noise,2)/sigmaS;
@@ -260,10 +277,10 @@ void THRESHOLD::get_bayesthreshold(Array< complex<float>,5 >&Coef){
   Calc threshold based on SURE threshold method (still doen't work)
  *-------------------------------------------------------------------------------------*/ 
 
-void THRESHOLD::get_surethreshold(Array< complex<float>,5 >&Coef) {
+void THRESHOLD::get_surethreshold(Array<Array< complex<float>,3>,2>&Coef){
 
 	//	Formula: sigmaˆ2+1/n(sum(min(abs(x),thres)ˆ2))-2*sigmaˆ2/n*sum(abs(x) < thres)
-
+#ifdef SURE_FIXED
 	Array<float,1> thr;
 	thr.resize(20);
 	Array<float,1> thc;
@@ -296,11 +313,14 @@ void THRESHOLD::get_surethreshold(Array< complex<float>,5 >&Coef) {
 	}
 
 	threshold = min(thc);
+#endif
 
 }
 
-void THRESHOLD::exec_multibandthreshold(Array< complex<float>,5 >&Coef) {
+void THRESHOLD::exec_multibandthreshold(Array<Array< complex<float>,3>,2>&Coef){
 
+
+#ifdef MULTIBAND_FIXED 
 	int sx = Coef.extent(firstDim); 
 	int sy = Coef.extent(secondDim);
 	int sz = Coef.extent(thirdDim);
@@ -325,13 +345,15 @@ void THRESHOLD::exec_multibandthreshold(Array< complex<float>,5 >&Coef) {
 	Array<int,3>xx;
 	xx.setStorage(ColumnMajorArray<3>());
 	xx.resize(waveL,8,2);
+	
 	Array<int,3>yy;
-	yy.resize(waveL,8,2);
 	yy.setStorage(ColumnMajorArray<3>());
+	yy.resize(waveL,8,2);
+	
 	Array<int,3>zz;
-	zz.resize(waveL,8,2);
 	zz.setStorage(ColumnMajorArray<3>());
-
+	zz.resize(waveL,8,2);
+	
 	// To get noise from HHH band
 	Array<complex<float>,5> HHHref = Coef(Range(sx/2,sx-1),Range(sy/2,sy-1),Range(sz/2,sz-1),Range(tt,st-1),Range::all());
 	thresh = 0.5;
@@ -382,27 +404,21 @@ void THRESHOLD::exec_multibandthreshold(Array< complex<float>,5 >&Coef) {
 	// Array<complex<float>,5> Cf = Coef(Range(sx/2,sx-1),Range(sy/2,sy-1),Range(sz/2,sz-1),Range::all(),Range::all());
 	// get_bayesthreshold(Cf);
 	// thresholding(Coef);
+#endif
 }
 
-void THRESHOLD::exec_visuthreshold(Array< complex<float>,5>&Coef) {
-
-	int tt = 0;
-	int st = Coef.extent(fourthDim);
-
-	if(temporal==true) tt=1;
+void THRESHOLD::exec_visuthreshold(Array<Array< complex<float>,3>,2>&Coef){
 
 	cout<<"Visu Shrink ";
 	if(soft==true)	{ cout<<"(soft)"<<endl; }
 	else { cout<<"(hard)"<<endl; }
 
-	Array<complex<float>,5> Cf = Coef(Range::all(),Range::all(),Range::all(),Range(tt,st-1),Range::all());
-	get_visuthreshold(Cf);
-	thresholding(Cf);
+	get_visuthreshold(Coef);
+	thresholding(Coef);
 
 }
 
-void THRESHOLD::exec_fractionthreshold(Array< complex<float>,5>&Coef) {
-	// This makes no sense ? if(temporal==true) tt=1;
+void THRESHOLD::exec_fractionthreshold(Array<Array< complex<float>,3>,2>&Coef){
 
 	cout<<"Fractional Thresholding ";
 	if(soft==true)	{ cout<<"(soft)"<<endl; }
@@ -414,27 +430,37 @@ void THRESHOLD::exec_fractionthreshold(Array< complex<float>,5>&Coef) {
 }
 
 // Option of thresh of appriximation wavelets or all wavelets, hard vs soft threshold
-void THRESHOLD::thresholding(Array< complex<float>,5 >&Coef){
+void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef){
 
 	if(VERBOSE) cout << "Determined thresh = " << threshold<<endl;
 
 	// Apply theshold       
 	int count = 0;
-
-	for(int e=0; e< Coef.extent(fifthDim);e++){
-		for(int t=0; t< Coef.extent(fourthDim);t++){
-#pragma omp parallel for reduction(+:count)
-			for(int k=0; k< Coef.extent(thirdDim); k++){
-				for(int j=0; j< Coef.extent(secondDim); j++){
-					for(int i=0; i< Coef.extent(firstDim); i++){    
-						if( abs( Coef(i,j,k,t,e)) < threshold){
+	
+	int Nx = Coef(0).length(firstDim);
+	int Ny = Coef(0).length(secondDim);
+	int Nz = Coef(0).length(thirdDim);
+	int Ne = Coef.length(firstDim);
+	int Nt = Coef.length(secondDim);
+	
+	// Get Update
+	for(int e=0; e< Ne;e++){
+		for(int t=0; t< Nt;t++){
+			Array< complex<float>,3>XX = Coef(t,e);
+			#pragma omp parallel for reduction(+:count)
+			for(int k=0; k< Nz; k++){
+				for(int j=0; j< Ny; j++){
+					for(int i=0; i< Nx; i++){
+	
+						if( abs( XX(i,j,k)) < threshold){
 							count++;
-							Coef(i,j,k,t,e) = complex<float>(0.0,0.0);
+							XX(i,j,k) = complex<float>(0.0,0.0);
 						}else if(soft==true){
-							float theta = arg(Coef(i,j,k,t,e));
-							Coef(i,j,k,t,e) = (abs(Coef(i,j,k,t,e))-threshold)*complex<float>(cos(theta),sin(theta));
+							float theta = arg(XX(i,j,k));
+							XX(i,j,k) = (abs(XX(i,j,k))-threshold)*complex<float>(cos(theta),sin(theta));
 						}
-	}}}}} 
+			}}}
+	}} 
 	if(VERBOSE) cout << "Removed " << (float)((float)count/(float)Coef.numElements()) << " of the values" << endl;
 }
 
@@ -454,22 +480,31 @@ bool THRESHOLD::getTemporalThresholding() {
 	return temporal;
 }
 
-void THRESHOLD::fista_update(  Array< complex<float>,5 >&X,Array< complex<float>,5 >&X_old,int iteration){
+void THRESHOLD::fista_update(  Array<Array< complex<float>,3>,2>&X,Array<Array< complex<float>,3>,2>&X_old,int iteration){
 
 	float A = 1.0 + (iteration - 1.0)/(iteration+1.0);
 	float B =     - (iteration - 1.0)/(iteration+1.0);
 
+	int Nx = X(0).length(firstDim);
+	int Ny = X(0).length(secondDim);
+	int Nz = X(0).length(thirdDim);
+	int Ne = X.length(firstDim);
+	int Nt = X.length(secondDim);
+	
 	// Get Update
-	for(int e=0; e< X.extent(fifthDim);e++){
-		for(int t=0; t< X.extent(fourthDim);t++){
-			for(int k=0; k< X.extent(thirdDim); k++){
-				for(int j=0; j< X.extent(secondDim); j++){
-					for(int i=0; i< X.extent(firstDim); i++){
-						complex<float>Xn0 = X_old(i,j,k,t,e);
-						complex<float>Xn1 = X(i,j,k,t,e);
-						X(i,j,k,t,e) = A*Xn1 + B*Xn0;
-						X_old(i,j,k,t,e) = Xn1;
-					}}}}}
+	for(int e=0; e< Ne;e++){
+		for(int t=0; t< Nt;t++){
+			Array< complex<float>,3>XX = X(t,e);
+			Array< complex<float>,3>XX_old = X_old(t,e);
+			for(int k=0; k< Nz; k++){
+				for(int j=0; j< Ny; j++){
+					for(int i=0; i< Nx; i++){
+						complex<float>Xn0 = XX_old(i,j,k);
+						complex<float>Xn1 = XX(i,j,k);
+						XX(i,j,k) = A*Xn1 + B*Xn0;
+						XX_old(i,j,k) = Xn1;
+			}}}// Spatial
+	}}
 
 }
 

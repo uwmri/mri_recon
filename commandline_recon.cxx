@@ -131,7 +131,7 @@ int main(int argc, char **argv){
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
 	// --------------------------------------------------
-	Array< complex<float>,5 >X = recon.reconstruction(argc,argv,data);
+	Array< Array<complex<float>,3>,2 >X = recon.reconstruction(argc,argv,data);
 	
 	// ------------------------------------
 	// Post Processing + Export
@@ -141,10 +141,9 @@ int main(int argc, char **argv){
 		for(int tt=0; tt<recon.rcframes; tt++){
 			char fname[80];
 			sprintf(fname,"X_%d_%d.dat.complex",ee,tt);
-			Array< complex<float>,3>Xref = X(Range::all(),Range::all(),Range::all(),tt,ee);
-			ArrayWrite( Xref,fname);
+			ArrayWrite( X(tt,ee),fname);
 			sprintf(fname,"X_%d_%d.dat",ee,tt);
-			ArrayWriteMag( Xref,fname);
+			ArrayWriteMag( X(tt,ee),fname);
 	}}
 
 

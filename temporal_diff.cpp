@@ -10,10 +10,10 @@ Description: This code contains functions for 3D wavelet transform. I tried blit
 #include "temporal_diff.h"
 
 
-TDIFF::TDIFF( Array< complex<float>,5>&temp){	 
+TDIFF::TDIFF(Array< Array< complex<float>,3>,2>&temp){ 
 	
-	Nt = temp.length(fourthDim);
-	Ne = temp.length(fifthDim);
+	Nt = temp.length(firstDim);
+	Ne = temp.length(secondDim);
 	At.zeros(Nt,Nt);
 	Ae.zeros(Ne,Ne);
 	
@@ -40,52 +40,55 @@ TDIFF::TDIFF( Array< complex<float>,5>&temp){
 }
 
 
-void TDIFF::tdiff( Array< complex<float>,5>&temp){	 
+void TDIFF::tdiff( Array< Array< complex<float>,3>,2>&temp){
 	
-	for(int e=0; e<temp.extent(fifthDim); e++){
-	#pragma omp parallel for 
-	for(int k=0; k<temp.extent(thirdDim); k++){
+	
+	for(int e=0; e<temp.extent(secondDim); e++){
+	#pragma omp parallel for
+	 
+	for(int k=0; k<temp(0).extent(thirdDim); k++){
 		cx_vec s(Nt);
 		cx_vec ss(Nt);
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+		for(int j=0; j<temp(0).extent(secondDim); j++){
+			for(int i=0; i<temp(0).extent(firstDim); i++){	
 				//Copy
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					s(t)=temp(i,j,k,t,e);
+				for(int t=0; t<temp.extent(firstDim); t++){
+					s(t)=temp(t,e)(i,j,k);
 				}
 				
 				// Transform
 				ss=At*s;
 				
 				//Copy Back
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					temp(i,j,k,t,e) =ss(t);
+				for(int t=0; t<temp.extent(firstDim); t++){
+					temp(t,e)(i,j,k) =ss(t);
 				}
 		}
 	}}
 	}
 }
 
-void TDIFF::inv_tdiff( Array< complex<float>,5>&temp){	 
+void TDIFF::inv_tdiff( Array< Array< complex<float>,3>,2>&temp){ 
 	
-	for(int e=0; e<temp.extent(fifthDim); e++){
-	#pragma omp parallel for 
-	for(int k=0; k<temp.extent(thirdDim); k++){
+	for(int e=0; e<temp.extent(secondDim); e++){
+	#pragma omp parallel for
+	 
+	for(int k=0; k<temp(0).extent(thirdDim); k++){
 		cx_vec s(Nt);
 		cx_vec ss(Nt);
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+		for(int j=0; j<temp(0).extent(secondDim); j++){
+			for(int i=0; i<temp(0).extent(firstDim); i++){	
 				//Copy
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					s(t)=temp(i,j,k,t,e);
+				for(int t=0; t<temp.extent(firstDim); t++){
+					s(t)=temp(t,e)(i,j,k);
 				}
 				
 				// Transform
 				ss=AIt*s;
 				
 				//Copy Back
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					temp(i,j,k,t,e) =ss(t);
+				for(int t=0; t<temp.extent(firstDim); t++){
+					temp(t,e)(i,j,k) =ss(t);
 				}
 		}
 	}}
@@ -93,26 +96,26 @@ void TDIFF::inv_tdiff( Array< complex<float>,5>&temp){
 }
 
 
-void TDIFF::ediff( Array< complex<float>,5>&temp){	 
+void TDIFF::ediff( Array< Array< complex<float>,3>,2>&temp){ 
 	
-	for(int t=0; t<temp.extent(fourthDim); t++){
+	for(int t=0; t<temp.extent(firstDim); t++){
 	#pragma omp parallel for 
-	for(int k=0; k<temp.extent(thirdDim); k++){
+	for(int k=0; k<temp(0).extent(thirdDim); k++){
 		cx_vec s(Ne);
 		cx_vec ss(Ne);
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+		for(int j=0; j<temp(0).extent(secondDim); j++){
+			for(int i=0; i<temp(0).extent(firstDim); i++){	
 				//Copy
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					s(e)=temp(i,j,k,t,e);
+				for(int e=0; e<temp.extent(secondDim); e++){
+					s(e)=temp(t,e)(i,j,k);
 				}
 				
 				// Transform
 				ss=Ae*s;
 				
 				//Copy Back
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					temp(i,j,k,t,e) =ss(e);
+				for(int e=0; e<temp.extent(secondDim); e++){
+					temp(t,e)(i,j,k) =ss(e);
 				}
 		}
 	}}
@@ -120,58 +123,65 @@ void TDIFF::ediff( Array< complex<float>,5>&temp){
 }
 
 
-void TDIFF::inv_ediff( Array< complex<float>,5>&temp){	 
+void TDIFF::inv_ediff( Array< Array< complex<float>,3>,2>&temp){ 
 	
-	for(int t=0; t<temp.extent(fourthDim); t++){
+	for(int t=0; t<temp.extent(firstDim); t++){
 	#pragma omp parallel for 
-	for(int k=0; k<temp.extent(thirdDim); k++){
+	for(int k=0; k<temp(0).extent(thirdDim); k++){
 		cx_vec s(Ne);
 		cx_vec ss(Ne);
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+		for(int j=0; j<temp(0).extent(secondDim); j++){
+			for(int i=0; i<temp(0).extent(firstDim); i++){	
 				//Copy
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					s(e)=temp(i,j,k,t,e);
+				for(int e=0; e<temp.extent(secondDim); e++){
+					s(e)=temp(t,e)(i,j,k);
 				}
 				
 				// Transform
 				ss=AIe*s;
 				
 				//Copy Back
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					temp(i,j,k,t,e) =ss(e);
+				for(int e=0; e<temp.extent(secondDim); e++){
+					temp(t,e)(i,j,k) =ss(e);
 				}
 		}
 	}}
 	}
 }
 
+
 	 
-void TDIFF::fft_t(Array< complex<float>,5>&temp){	 
-
+void TDIFF::fft_t(Array< Array< complex<float>,3>,2>&temp){ 
+	
+	Nt = temp.length(firstDim);
+	Ne = temp.length(secondDim);
+	int Nx = temp(0).length(firstDim);
+	int Ny = temp(0).length(secondDim);
+	int Nz = temp(0).length(thirdDim);
+		
 	fftwf_plan p;
     
-	complex<float> *in = new complex<float>[temp.length(fourthDim)];
+	complex<float> *in = new complex<float>[Nt];
     
 	fftwf_init_threads();
     fftwf_plan_with_nthreads(1);
-	p = fftwf_plan_dft_1d(temp.length(fourthDim), (fftwf_complex*)in, (fftwf_complex*)in, FFTW_FORWARD, FFTW_MEASURE);
+	p = fftwf_plan_dft_1d(Nt, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_FORWARD, FFTW_MEASURE);
     
-	float fft_scale = 1/ sqrt(temp.length(fourthDim));
+	float fft_scale = 1/ sqrt(Nt);
 	
-	for(int e=0; e<temp.extent(fifthDim); e++){
-	for(int k=0; k<temp.extent(thirdDim); k++){
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+	for(int e=0; e< Ne; e++){
+	for(int k=0; k< Nz; k++){
+		for(int j=0; j< Ny; j++){
+			for(int i=0; i<Nx; i++){	
 				//Copy
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					in[t]=temp(i,j,k,t,e);
+				for(int t=0; t<Nt; t++){
+					in[t]=temp(t,e)(i,j,k);
 				}
 				fftwf_execute(p);
 								
 				//Copy Back
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					temp(i,j,k,t,e) =( fft_scale*in[t]);
+				for(int t=0; t<Nt; t++){
+					temp(t,e)(i,j,k) =( fft_scale*in[t]);
 				}
 		}
 	}}
@@ -181,31 +191,37 @@ void TDIFF::fft_t(Array< complex<float>,5>&temp){
 	delete [] in;
 } 
 
-void TDIFF::ifft_t(Array< complex<float>,5>&temp){	 
-
+void TDIFF::ifft_t(Array< Array< complex<float>,3>,2>&temp){ 
+	
+	Nt = temp.length(firstDim);
+	Ne = temp.length(secondDim);
+	int Nx = temp(0).length(firstDim);
+	int Ny = temp(0).length(secondDim);
+	int Nz = temp(0).length(thirdDim);
+		
 	fftwf_plan p;
     
-	complex<float> *in = new complex<float>[temp.length(fourthDim)];
+	complex<float> *in = new complex<float>[Nt];
     
 	fftwf_init_threads();
     fftwf_plan_with_nthreads(1);
-	p = fftwf_plan_dft_1d(temp.length(fourthDim), (fftwf_complex*)in, (fftwf_complex*)in, FFTW_BACKWARD, FFTW_MEASURE);
+	p = fftwf_plan_dft_1d(Nt, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_BACKWARD, FFTW_MEASURE);
     
-	float fft_scale = 1/ sqrt(temp.length(fourthDim));
+	float fft_scale = 1/ sqrt(Nt);
 	
-	for(int e=0; e<temp.extent(fifthDim); e++){
-	for(int k=0; k<temp.extent(thirdDim); k++){
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+	for(int e=0; e< Ne; e++){
+	for(int k=0; k< Nz; k++){
+		for(int j=0; j< Ny; j++){
+			for(int i=0; i<Nx; i++){	
 				//Copy
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					in[t]=temp(i,j,k,t,e);
+				for(int t=0; t<Nt; t++){
+					in[t]=temp(t,e)(i,j,k);
 				}
 				fftwf_execute(p);
 								
 				//Copy Back
-				for(int t=0; t<temp.extent(fourthDim); t++){
-					temp(i,j,k,t,e) =( fft_scale*in[t]);
+				for(int t=0; t<Nt; t++){
+					temp(t,e)(i,j,k) =( fft_scale*in[t]);
 				}
 		}
 	}}
@@ -215,31 +231,37 @@ void TDIFF::ifft_t(Array< complex<float>,5>&temp){
 	delete [] in;
 } 
 
-void TDIFF::fft_e(Array< complex<float>,5>&temp){	 
-
+void TDIFF::fft_e(Array< Array< complex<float>,3>,2>&temp){ 
+	
+	Nt = temp.length(firstDim);
+	Ne = temp.length(secondDim);
+	int Nx = temp(0).length(firstDim);
+	int Ny = temp(0).length(secondDim);
+	int Nz = temp(0).length(thirdDim);
+		
 	fftwf_plan p;
     
-	complex<float> *in = new complex<float>[temp.length(fifthDim)];
+	complex<float> *in = new complex<float>[Ne];
     
 	fftwf_init_threads();
     fftwf_plan_with_nthreads(1);
-	p = fftwf_plan_dft_1d(temp.length(fifthDim), (fftwf_complex*)in, (fftwf_complex*)in, FFTW_FORWARD, FFTW_MEASURE);
+	p = fftwf_plan_dft_1d(Ne, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_FORWARD, FFTW_MEASURE);
     
-	float fft_scale = 1/ sqrt(temp.length(fifthDim));
+	float fft_scale = 1/ sqrt(Ne);
 	
-	for(int t=0; t<temp.extent(fourthDim); t++){
-	for(int k=0; k<temp.extent(thirdDim); k++){
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+	for(int t=0; t<Nt; t++){
+	for(int k=0; k< Nz; k++){
+		for(int j=0; j< Ny; j++){
+			for(int i=0; i<Nx; i++){	
 				//Copy
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					in[e]=temp(i,j,k,t,e);
+				for(int e=0; e< Ne; e++){
+					in[e]=temp(t,e)(i,j,k);
 				}
 				fftwf_execute(p);
 								
 				//Copy Back
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					temp(i,j,k,t,e) =( fft_scale*in[e]);
+				for(int e=0; e< Ne; e++){
+					temp(t,e)(i,j,k) =( fft_scale*in[e]);
 				}
 		}
 	}}
@@ -249,31 +271,39 @@ void TDIFF::fft_e(Array< complex<float>,5>&temp){
 	delete [] in;
 } 
 
-void TDIFF::ifft_e(Array< complex<float>,5>&temp){	 
 
+
+void TDIFF::ifft_e(Array< Array< complex<float>,3>,2>&temp){ 
+	
+	Nt = temp.length(firstDim);
+	Ne = temp.length(secondDim);
+	int Nx = temp(0).length(firstDim);
+	int Ny = temp(0).length(secondDim);
+	int Nz = temp(0).length(thirdDim);
+		
 	fftwf_plan p;
     
-	complex<float> *in = new complex<float>[temp.length(fifthDim)];
+	complex<float> *in = new complex<float>[Ne];
     
 	fftwf_init_threads();
     fftwf_plan_with_nthreads(1);
-	p = fftwf_plan_dft_1d(temp.length(fifthDim), (fftwf_complex*)in, (fftwf_complex*)in, FFTW_BACKWARD, FFTW_MEASURE);
+	p = fftwf_plan_dft_1d(Ne, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_BACKWARD, FFTW_MEASURE);
     
-	float fft_scale = 1/ sqrt(temp.length(fifthDim));
+	float fft_scale = 1/ sqrt(Ne);
 	
-	for(int t=0; t<temp.extent(fourthDim); t++){
-	for(int k=0; k<temp.extent(thirdDim); k++){
-		for(int j=0; j<temp.extent(secondDim); j++){
-			for(int i=0; i<temp.extent(firstDim); i++){	
+	for(int t=0; t<Nt; t++){
+	for(int k=0; k< Nz; k++){
+		for(int j=0; j< Ny; j++){
+			for(int i=0; i<Nx; i++){	
 				//Copy
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					in[e]=temp(i,j,k,t,e);
+				for(int e=0; e< Ne; e++){
+					in[e]=temp(t,e)(i,j,k);
 				}
 				fftwf_execute(p);
 								
 				//Copy Back
-				for(int e=0; e<temp.extent(fifthDim); e++){
-					temp(i,j,k,t,e) =( fft_scale*in[e]);
+				for(int e=0; e< Ne; e++){
+					temp(t,e)(i,j,k) =( fft_scale*in[e]);
 				}
 		}
 	}}
@@ -281,5 +311,4 @@ void TDIFF::ifft_e(Array< complex<float>,5>&temp){
 	
 	fftwf_destroy_plan(p);
 	delete [] in;
-} 
-
+}

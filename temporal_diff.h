@@ -23,7 +23,7 @@ using arma::cx_vec;
 class TDIFF{
 	public:
 	 
-	 TDIFF( Array< complex<float>,5 >&temp);
+	 TDIFF( Array< Array< complex<float>,3>,2>&temp);	 
 	 cx_mat At;		// forward in time
 	 cx_mat AIt;	// inverse in time
 	 cx_mat Ae; 	// forward in encode
@@ -32,18 +32,18 @@ class TDIFF{
 	 int Ne;
 	 
 	 
-	 void fft_e(Array< complex<float>,5>&temp);	 
-	 void ifft_e(Array< complex<float>,5>&temp);	 
+	 void fft_e( Array< Array< complex<float>,3>, 2>&temp);	 
+	 void ifft_e(Array< Array< complex<float>,3>, 2>&temp);	 
 	 
-	 void fft_t(Array< complex<float>,5>&temp);	 
-	 void ifft_t(Array< complex<float>,5>&temp);	 
+	 void fft_t(Array< Array< complex<float>,3>,2>&temp);	 
+	 void ifft_t(Array< Array< complex<float>,3>,2>&temp);	 
 	 
 	 
-	 void ediff(Array< complex<float>,5>&temp);	 
-	 void inv_ediff(Array< complex<float>,5>&temp);	 
+	 void ediff(Array< Array< complex<float>,3>,2>&temp);	 
+	 void inv_ediff(Array< Array< complex<float>,3>,2>&temp);	 
 	 
-	 void tdiff(Array< complex<float>,5>&temp);	 
-	 void inv_tdiff(Array< complex<float>,5>&temp);	 
+	 void tdiff(Array< Array< complex<float>,3>,2>&temp);	 	 
+	 void inv_tdiff(Array< Array< complex<float>,3>,2>&temp);	 
 	 
 	private:	
 		

@@ -590,7 +590,7 @@ void MRI_DATA::whiten(void){
 	
 	for(int e =0; e< kdata.length(fourthDim); e++){
 	for(int k =0; k< kdata.length(thirdDim); k++){
-	#pragma omp parralel for
+	#pragma omp parallel for
 	for(int j =0; j< kdata.length(secondDim); j++){
 	for(int i =0; i< kdata.length(firstDim); i++){
 		

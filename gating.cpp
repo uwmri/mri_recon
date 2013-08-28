@@ -24,6 +24,9 @@ Init:
 
 #include "gating.h"
 
+GATING::GATING(){
+}
+
 // Setup of 
 GATING::GATING( int numarg, char **pstring) {
 

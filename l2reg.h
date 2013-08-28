@@ -21,7 +21,7 @@ class L2REG {
 	TransformType l2_type;
 	int verbose;		
 	void regularize( Array<complex<float>,3>&,Array<complex<float>,3>&);
-	void set_scale(float, Array<complex<float>,5>&);
+	void set_scale(float, Array< Array<complex<float>,3>,2>&);
 	
 };
 

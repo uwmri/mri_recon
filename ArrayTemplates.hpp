@@ -30,31 +30,6 @@ inline void endian_swap( int& x){
         ( x>>24 & 0x000000FF);
 }
 
-/*
- * Class RowMajorArray specializes GeneralArrayStorage to provide column
- * major arrays (column major ordering, base of 0).
- */
-
-template<int N_rank>
-class RowMajorArray : public GeneralArrayStorage<N_rank> {
-private:
-    typedef GeneralArrayStorage<N_rank> T_base;
-    typedef _bz_typename T_base::noInitializeFlag noInitializeFlag;
-    using T_base::ordering_;
-    using T_base::ascendingFlag_;
-    using T_base::base_;
-public:
-    RowMajorArray()
-        : GeneralArrayStorage<N_rank>(noInitializeFlag())
-    {
-	for (int i=0; i < N_rank; ++i)
-          ordering_(i) = i;        
-	ascendingFlag_ = true;
-        base_ = 0;
-    }
-};
-
-
 template< typename T, int N>
 void ArrayRead( Array< T,N>& temp, const char *name){
 	 	FILE *fid;
@@ -71,214 +46,51 @@ void ArrayRead( Array< T,N>& temp, const char *name){
 		}
 }
 
-
-
-template< typename T, int N>
-void ArrayWrite( Array< T,N>& temp, const char *name){
-	 	FILE *fid;
-		if( (fid=fopen(name,"w")) == NULL){
-			cout << "ArrayWrite:Can't Open " << name << endl;
-			cout << "Exiting" << endl;
-			exit(1);
-		}else{	
-			fwrite(temp.data(),temp.numElements(),sizeof(T),fid);
-			fclose(fid);
-		}
-}
-
-template< typename T, int N>
-void ArrayWrite( Array< T,N>& temp, const char *name, const char *op){
-	 	FILE *fid;
-		if( (fid=fopen(name,op)) == NULL){
-			cout << "ArrayWrite:Can't Open " << name << endl;
-			cout << "Exiting" << endl;
-			exit(1);
-		}else{	
-			fwrite(temp.data(),temp.numElements(),sizeof(T),fid);
-			fclose(fid);
-		}
-}
- 
-template< typename T>
-void ArrayWriteMag( Array<complex<T>,2>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
-	 ofstream ofs(name, ios_base::binary);
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= abs(temp(i,j));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
-     }	
- delete [] buffer;
-}
-
-template< typename T>
-void ArrayWriteMagAppend( Array<complex<T>,2>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
+template< typename T, const int N_rank>
+void ArrayWriteMagAppend( Array<complex<T>,N_rank>& temp, const char *name){
 	 
 	 fstream filestr;
 	 ofstream ofs(name, ios_base::binary | ios_base::app);
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= abs(temp(i,j));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
+	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+		T val = abs( *miter);
+		ofs.write( (char *)&val,sizeof(T));
      }	
- 	delete [] buffer;
 }
 
-
-template< typename T>
-void ArrayWriteMag( Array<complex<T>,3>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
+template< typename T, const int N_rank>
+void ArrayWrite( Array< T , N_rank>& temp, const char *name){
 	 ofstream ofs(name, ios_base::binary);
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= abs(temp(i,j,k));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
-     }}
-	 delete [] buffer;
+	 for(typename Array<T,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+			T val= *miter;
+			ofs.write( (char *)&val,sizeof(T));
+     }
 }
 
-template< typename T>
-T ArrayEnergy( Array<complex<T>,5>& temp){
-T EE=0;
-for(int e=0; e< temp.extent(4);e++){	 
-for(int t=0; t< temp.extent(3);t++){
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			for(int i=0; i<temp.extent(0);i++){
-				EE += norm(temp(i,j,k,t,e));
-					
-     }}}}}
-	 return(EE);
-}
-
-
-template< typename T>
-T ArrayEnergy( Array<complex<T>,6>& temp){
-T EE=0;
-for(int c=0; c< temp.extent(5);c++){	 
-for(int e=0; e< temp.extent(4);e++){	 
-for(int t=0; t< temp.extent(3);t++){
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			for(int i=0; i<temp.extent(0);i++){
-				EE += norm(temp(i,j,k,t,e,c));
-					
-     }}}}}}
-	 return(EE);
-}
-
-
-
-template< typename T>
-void ArrayWriteMag( Array< complex<T>,4>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
+template< typename T, const int N_rank>
+void ArrayWriteMag( Array<complex<T>, N_rank>& temp, const char *name){
 	 ofstream ofs(name, ios_base::binary);
-	 for(int t=0; t< temp.extent(3);t++){
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= abs(temp(i,j,k,t));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
-     }}}
-	 delete [] buffer;
+	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+			T val=abs( *miter);
+			ofs.write( (char *)&val,sizeof(T));
+     }
+}
+
+template< typename T, const int N_rank >
+T ArrayEnergy( Array< complex< T >, N_rank >& temp){
+	T EE=0;
+	for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+		EE+= norm( *miter );
+	}
+    return(EE);
 }
 
 
-template< typename T>
-void ArrayWriteMag( Array< complex<T>,5>& temp, const char *name){
+template< typename T, const int N_rank>
+void ArrayWritePhase( Array<complex<T>,N_rank>& temp, const char *name){
 	 
-	 T *buffer = new T[temp.length(0)]; 
 	 ofstream ofs(name, ios_base::binary);
-	 for(int e=0; e< temp.extent(4);e++){
-	 for(int t=0; t< temp.extent(3);t++){
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= abs(temp(i,j,k,t,e));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
-     }}}}
-	 delete [] buffer;
-}
-
-
-template< typename T>
-void ArrayWritePhase( Array<complex<T>,2>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
-	 ofstream ofs(name, ios_base::binary);
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= arg(temp(i,j));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
+	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+	 	T val= arg( *miter);
+		ofs.write( (char *)&val,sizeof(T));
      }	
- delete [] buffer;
-}
-template< typename T>
-void ArrayWritePhase( Array<complex<T>,3>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
-	 ofstream ofs(name, ios_base::binary);
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= arg(temp(i,j,k));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
-     }}
-	 delete [] buffer;
-}
-
-template< typename T>
-void ArrayWritePhase( Array< complex<T>,4>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
-	 ofstream ofs(name, ios_base::binary);
-	 for(int t=0; t< temp.extent(3);t++){
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= arg(temp(i,j,k,t));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
-     }}}
-	 delete [] buffer;
-}
-
-
-template< typename T>
-void ArrayWritePhase( Array< complex<T>,5>& temp, const char *name){
-	 
-	 T *buffer = new T[temp.length(0)]; 
-	 ofstream ofs(name, ios_base::binary);
-	 for(int e=0; e< temp.extent(4);e++){
-	 for(int t=0; t< temp.extent(3);t++){
-	 for(int k=0; k< temp.extent(2);k++){
-	 	for(int j= 0; j<temp.extent(1); j++){
-			
-			for(int i=0; i<temp.extent(0);i++){
-				buffer[i]= arg(temp(i,j,k,t,e));
-			}
-			ofs.write( (char *)buffer,temp.length(0)*sizeof(T));
-     }}}}
-	 delete [] buffer;
 }

@@ -35,7 +35,8 @@ class GATING {
 		enum GateType{ GATE_NONE,ECG,RESP,TIME,PREP}; 
 		
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
-								
+		
+		GATING();						
 		GATING(int numarg,char **pstring);
 		void init( const MRI_DATA &data,int);
 		void init_resp_gating(const MRI_DATA &data,int);

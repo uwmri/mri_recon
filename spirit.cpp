@@ -132,21 +132,20 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 //-----------------------------------------------------
 //  E-Spirit Call 
 //-----------------------------------------------------
-void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
+void SPIRIT::generateEigenCoils( Array< Array<complex<float>,3>,1 > &smaps){
 
     if(debug){
-		ArrayWriteMag(smaps,"InputSmaps.dat");
+		//ArrayWriteMag(smaps,"InputSmaps.dat");
     }
 
     // FFT Smaps Back to K-Space
     cout<< "FFT back to K-space" << endl << flush;
-    for(int coil=0; coil< smaps.length(fourthDim); coil++){
-		Array< complex<float>,3>SmapRef = smaps(Range::all(),Range::all(),Range::all(),coil);
-		ifft(SmapRef); // In Place FFT
+    for(int coil=0; coil< smaps.length(firstDim); coil++){
+		ifft(smaps(coil)); // In Place FFT
     }
 
     if(debug){
-		ArrayWriteMag(smaps,"SmapKspace.dat");
+		// ArrayWriteMag(smaps,"SmapKspace.dat");
     }
 
     // Array Reference for Low with Blitz		  
@@ -162,7 +161,7 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 
     // Interpolate back to high resolution size
     if(debug==1){
-		ArrayWriteMag(smaps,"FinalSmaps.dat");
+		// ArrayWriteMag(smaps,"FinalSmaps.dat");
     }
 
 }
@@ -175,15 +174,15 @@ void SPIRIT::generateEigenCoils( Array< complex<float>,4 > &smaps){
 //   Description:
 //		Does 
 //-----------------------------------------------------
-void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
+void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 {
     cout << "Calibrating..." << endl << flush;
     
 	// Centers of k-space
     int cx, cy, cz;
-    cx = kdata.length(firstDim)/2;
-    cy = kdata.length(secondDim)/2;
-    cz = kdata.length(thirdDim)/2;
+    cx = kdata(0).length(firstDim)/2;
+    cy = kdata(0).length(secondDim)/2;
+    cz = kdata(0).length(thirdDim)/2;
 	cout << "Calibration Centered on " << cx << "," << cy << "," << cz << endl;
 	
     // Subtract kernel borders from ACS size
@@ -271,7 +270,7 @@ void SPIRIT::calibrate_ellipsoid(Array< complex<float>,4 > &kdata)
 						int kern_yy = jy+iy+cy;
 						int kern_zz = jz+iz+cz;
 
-						A(Arow,Acol) = (complex<float>)kdata(kern_xx,kern_yy,kern_zz,jc);
+						A(Arow,Acol) = (complex<float>)kdata(jc)(kern_xx,kern_yy,kern_zz);
 						Acol++;
 					
 				    }else{
@@ -402,55 +401,14 @@ void SPIRIT::prep() {
 }
 
 
-void SPIRIT::gs_orthogonalization(cx_fmat &m){
-  
-  for(int i=0; i< (int)m.n_rows; i++){
- 	
-	// Actual GS
-	cx_fmat v = m.col(i);
-	for(int j=0; j< i; j++){
-		complex<float>scale(0,0);
-		for(int k=0; k< (int)m.n_cols; k++){
-			scale+= v(k)*conj(m(k,j));
-		}
-		v = v - scale*m.col(j);	
-	}
-	
-	// Normalize
-	float vsum =0;
-	for(int k=0; k< (int)m.n_cols; k++){
-		vsum += norm(v(k));
-	}
-	vsum = sqrt(vsum);
-	
-	// Put back
-	for(int k=0; k< (int)m.n_cols; k++){
-		m(k,i)=v(k)/vsum;
-	}
-  }
-}
-
-// Inplace orthognal iteration
-void SPIRIT::orthogonal_iteration(cx_fmat &m){
-	cx_fmat Q = arma::eye<cx_fmat>(m.n_rows,m.n_rows);
-	cx_fmat A = Q;
-	for(int iter=0; iter<30; iter++){
-		A = Q;
-		Q = m*A;	
-		gs_orthogonalization(Q);
-	}	
-	m = Q;
-}
-
-
 /**
  * Generate coils from SPIRiT kernel.
  */
-void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
+void SPIRIT::getcoils( Array< Array< complex<float>,3 >,1 > &LR)
 {
-    int Nx = LR.length(firstDim);
-    int Ny = LR.length(secondDim);
-    int Nz = LR.length(thirdDim);
+    int Nx = LR(0).length(firstDim);
+    int Ny = LR(0).length(secondDim);
+    int Nz = LR(0).length(thirdDim);
 	
 	Range all = Range::all();
     
@@ -532,7 +490,7 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
 		   cx_fmat V;
 		   svd_econ(U, s, V, A, 'l');
 		   for(int jj = 0; jj < ncoils; jj++) {
-                  LR(ix,iy,iz,jj)=conj( U(jj,0));
+                  LR(jj)(ix,iy,iz)=conj( U(jj,0));
            }
            //LR(ix,iy,iz,ncoils)=s(0);
 		
@@ -549,7 +507,7 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
 	 cout<< "Done with eig: took " << T << endl;
 	    
 	 if(debug){
-		ArrayWriteMag(LR,"CoilsEig.dat");
+		// ArrayWriteMag(LR,"CoilsEig.dat");
 	 }
 }
 
@@ -559,128 +517,30 @@ void SPIRIT::getcoils(Array< complex<float>,4 > &LR)
  * The rotation is weighted by the norm of the data's magnitude.  This still ends 
  * up leaving some small discontinuities, but not many.
  */
-void SPIRIT::phase_correct(Array< complex<float>,4 > &maps)
+void SPIRIT::phase_correct( Array< Array< complex<float>,3>, 1 > &maps)
 {
     
-	if(phase_type==SP_SMOOTH){
-	    
-		// Try to find a map that provides smooth combination 
-		
-		Array< complex<float>,4> Sblur;
-		Sblur.setStorage( ColumnMajorArray<4>());
-		Sblur.resize(maps.length(firstDim),maps.length(secondDim),maps.length(thirdDim),maps.length(fourthDim));
-		Sblur = complex<float>(1.0f,0.0);
-		
-		int Nc = maps.length(fourthDim)-1;
-		
-		if(debug==1){
-		    FILE *fid = fopen("SpiritCoilPhase.dat","a");
-			for(int coil=0; coil < Nc; coil++){
-			    for(int j= 0; j<maps.extent(1); j++){
-				for(int i=0; i<maps.extent(0);i++){
-				    float b = arg(maps(i,j,maps.length(thirdDim)/2)*maps(i,j,maps.length(thirdDim)/2,coil));
-					fwrite(&b,1,sizeof(float),fid);
-				}}}
-		    fclose(fid);
-		}	
-	    
-		for(int iter=0; iter<1000; iter++){
-		    
-			float cx = maps.length(firstDim)/2;
-			float cy = maps.length(secondDim)/2;
-			float cz = maps.length(thirdDim)/2;
-			float ksx = 2; //0.1.*(krx_f*krx_f);
-		    float ksy = 2; //0.1.*(kry_f*kry_f);
-		    float ksz = 2; //1.*(krz_f*krz_f);
-		    
-			// Get a blurred sensitivity map
-			cout << "Blurring" << endl << flush;
-			Sblur = maps;
-			
-			for( int coil=0; coil<maps.length(fourthDim); coil++){
-			    Array<complex<float>,3> Sblur_ref = Sblur(Range::all(),Range::all(),Range::all(),coil);
-				fft(Sblur_ref);
-			}
-		    
-			for( int coil=0; coil<Sblur.length(fourthDim); coil++){
-			    for (int k = 0; k < Sblur.length(thirdDim); k++) {
-				for (int j = 0; j < Sblur.length(secondDim); j++) {
-				    for (int i = 0; i < Sblur.length(firstDim); i++) {
-					float x = (float)i - cx;
-					    float y = (float)j - cy;
-					    float z = (float)k - cz;
-					    Sblur(i,j,k,coil) *= exp( -( x*x/ksx + y*y/ksy + z*z/ksz));
-				    }}}				
-			}
-		    
-			for( int coil=0; coil<maps.length(fourthDim); coil++){
-			    Array<complex<float>,3> Sblur_ref = Sblur(Range::all(),Range::all(),Range::all(),coil);
-				ifft(Sblur_ref);
-			}		
-		    
-			// Now Phase 
-			cout << "Aligning Iteration = " << iter << endl << flush;
-			for (int k = 0; k < maps.length(thirdDim); k++) {
-			    for (int j = 0; j < maps.length(secondDim); j++) {
-				for (int i = 0; i < maps.length(firstDim); i++) {		
-				    complex<float>p(0,0);
-					for( int coil=0; coil<maps.length(fourthDim); coil++){
-					    p+= maps(i,j,k,coil)*conj(Sblur(i,j,k,coil));
-					}
-				    p = polar(1.0f,arg(p));
-					
-					for( int coil=0; coil<maps.length(fourthDim); coil++){
-					    maps(i,j,k,coil)*= conj(p);
-					}
-				}}}
-		    
-			
-			if(debug==1){					
-			    FILE *fid = fopen("SpiritCoilPhaseBlur.dat","a");
-				for(int coil=0; coil < Nc; coil++){
-				    for(int j= 0; j<maps.extent(1); j++){
-					for(int i=0; i<maps.extent(0);i++){
-					    float b = arg(Sblur(i,j,maps.length(thirdDim)/2,coil));
-						fwrite(&b,1,sizeof(float),fid);
-					}}}
-			    fclose(fid);			// Export
-
-
-			    fid = fopen("SpiritCoilPhase.dat","a");
-			    for(int coil=0; coil < Nc; coil++){
-				for(int j= 0; j<maps.extent(1); j++){
-				    for(int i=0; i<maps.extent(0);i++){
-					float b = arg(maps(i,j,maps.length(thirdDim)/2,coil));
-					fwrite(&b,1,sizeof(float),fid);
-				    }}}
-			    fclose(fid);
-			}
-		}				
-	}else if(phase_type == SP_COIL_PHASE){	
-	 	cout << "Phase Correct with one coil" << endl;
-	    #pragma omp parallel for
-		for (int z = 0; z < maps.length(thirdDim); z++) {
-		    for (int y = 0; y < maps.length(secondDim); y++) {
-			for (int x = 0; x < maps.length(firstDim); x++) {
+	cout << "Phase Correct with one coil" << endl;
+	#pragma omp parallel for
+	for (int z = 0; z < maps(0).length(thirdDim); z++) {
+	  for (int y = 0; y < maps(0).length(secondDim); y++) {
+		for (int x = 0; x < maps(0).length(firstDim); x++) {
 				
 					// Pick one coil
-				    complex<float>CI = polar(1.0f, -arg( maps(x,y,z,0)));
+				    complex<float>CI = polar(1.0f, -arg( maps(0)(x,y,z)));
 					
 					// Get Normalization
 					float mag=0.0;
-					for (int coil = 0; coil < maps.length(fourthDim); coil++) {
-					    mag += norm(maps(x,y,z,coil));
+					for (int coil = 0; coil < maps.length(firstDim); coil++) {
+					    mag += norm(maps(coil)(x,y,z));
 					}
 				    CI /= sqrt(mag);
 					
 					// Apply
-					for (int coil = 0; coil < maps.length(fourthDim); coil++) {
-					    maps(x,y,z,coil)*=CI;
+					for (int coil = 0; coil < maps.length(firstDim); coil++) {
+					    maps(coil)(x,y,z)*=CI;
 					}
 				
-			}}}
-	    
-	}
-    
+	}}}
 }
 

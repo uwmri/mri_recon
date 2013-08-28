@@ -57,15 +57,12 @@ class SPIRIT {
     void read_commandline(int numarg, char **pstring);
     void init(int, int, int, int);
     
-    void generateEigenCoils(Array< complex<float>,4> &);
-    void calibrate_ellipsoid(Array< complex<float>,4>&);
+    void generateEigenCoils(Array< Array<complex<float>,3>, 1> &);
+    void calibrate_ellipsoid(Array< Array<complex<float>,3>, 1>&);
     void prep();
     
-    void getcoils( Array< complex<float>,4>&);
-    void phase_correct(Array< complex<float>,4>&maps);
+    void getcoils( Array< Array<complex<float>,3>, 1>&);
+    void phase_correct(Array< Array<complex<float>,3>, 1>&);
     
-    static void orthogonal_iteration(arma::cx_fmat &m);
-    static void gs_orthogonalization(arma::cx_fmat &m);
-
 };
 

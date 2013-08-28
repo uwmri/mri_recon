@@ -21,8 +21,9 @@ set(BUILD_SHARED_LIBS ON)
 # Target Library 
 #--------------------------------------
 
-add_library(RECONLIB STATIC l2reg.cpp clear.cpp gating.cpp recon_lib.cpp ArrayTemplates.cpp threshold.cpp temporal_diff.cpp mri_data.cpp spirit.cpp gridFFT.cpp wavelet3D.cpp phantom.cpp)
-target_link_libraries(RECONLIB ${LOCAL_LIBS} )
+#Main Recon
+add_library(RECONLIB STATIC ArrayTemplates.cpp l2reg.cpp clear.cpp gating.cpp recon_lib.cpp threshold.cpp temporal_diff.cpp mri_data.cpp spirit.cpp gridFFT.cpp wavelet3D.cpp phantom.cpp)
+target_link_libraries(RECONLIB ${LOCAL_LIBS})
 
 #--------------------------------------
 # Support for Command Line Binary

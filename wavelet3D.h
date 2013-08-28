@@ -58,7 +58,6 @@ class WAVELET3D{
 		WAVELET3D( Array< complex<float> , 3> &,int *,int);
 		WAVELET3D( Array< complex<float> , 4> &,int *,int);
 		WAVELET3D( Array< complex<float> , 5> &,int *,int);
-		
 		~WAVELET3D();
 		
 		void forward( Array< complex<float> , 3> &);		

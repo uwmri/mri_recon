@@ -46,7 +46,7 @@ L2REG::L2REG(int numarg, char **pstring){
   }
 }    
 
-void L2REG::set_scale( float EhE_scale, Array< complex<float>,5 >&X){
+void L2REG::set_scale( float EhE_scale, Array< Array< complex<float>,3>,2>&X){
 	
 	// Input should be energy of EhE X
 	// Scales regularization by EhEx/TVx
@@ -56,44 +56,53 @@ void L2REG::set_scale( float EhE_scale, Array< complex<float>,5 >&X){
 	
 	case(NONE):{
 	  
-	  for(int e =0; e < X.length(fifthDim);e++){
-	  for(int t =0; t < X.length(fourthDim);t++){
-	  for(int k =0; k < X.length(thirdDim);k++){
-	  for(int j =0; j < X.length(secondDim);j++){
-	  for(int i =0; i < X.length(firstDim);i++){
-			transform_energy += norm( X(i,j,k,t,e));
-	  }}}}}
+	  for(int e =0; e < X.length(secondDim);e++){
+	  for(int t =0; t < X.length(firstDim);t++){
+	  
+	  for(int k =0; k < X(0).length(thirdDim);k++){
+	  for(int j =0; j < X(0).length(secondDim);j++){
+	  for(int i =0; i < X(0).length(firstDim);i++){
+			transform_energy += norm( X(e,t)(i,j,k));
+	  }}}
+	  
+	  }}
 	
 	}break;
 	
 	
 	case(TV):{
 	
-	  int Nx = X.length(firstDim);
-	  int Ny = X.length(secondDim);
-	  int Nz = X.length(thirdDim);
+	  int Nx = X(0).length(firstDim);
+	  int Ny = X(0).length(secondDim);
+	  int Nz = X(0).length(thirdDim);
 	  
-	  for(int e =0; e < X.length(fifthDim);e++){
-	  for(int t =0; t < X.length(fourthDim);t++){
-	  Array<complex<float>, 3>Xref = X(Range::all(), Range::all(),Range::all(),t,e);
+	  for(int e =0; e < X.length(secondDim);e++){
+	  for(int t =0; t < X.length(firstDim);t++){
+	  
+	  Array<complex<float>, 3>Xref = X(t,e);
 	  for(int k =0; k < Xref.length(thirdDim);k++){
 	  for(int j =0; j < Xref.length(secondDim);j++){
 	  for(int i =0; i < Xref.length(firstDim);i++){
 			complex<float>val = complex<float>(1.0/6.0,0.0)*( complex<float>(6.0,0.0)*Xref(i,j,k) - Xref((i+1)%Nx,j,k) - Xref((i+Nx-1)%Nx,j,k) - Xref(i,(j+1)%Ny,k) - Xref(i,(j+Ny-1)%Ny,k)  - Xref(i,j,(k+1)%Nz) - Xref(i,j,(k+Nz-1)%Nz));
 			
 			transform_energy += norm( val );
-	  }}}}}
+	  }}}
+	  
+	  }}
 	  
 	}break;
 	
 	case(PHASE):{
-	  for(int e =0; e < X.length(fifthDim);e++){
-	  for(int t =0; t < X.length(fourthDim);t++){
-	  for(int k =0; k < X.length(thirdDim);k++){
-	  for(int j =0; j < X.length(secondDim);j++){
-	  for(int i =0; i < X.length(firstDim);i++){
-			transform_energy += pow( imag(X(i,j,k,t,e)),2);
-	  }}}}}
+	  for(int e =0; e < X.length(secondDim);e++){
+	  for(int t =0; t < X.length(firstDim);t++){
+	  
+	  for(int k =0; k < X(0).length(thirdDim);k++){
+	  for(int j =0; j < X(0).length(secondDim);j++){
+	  for(int i =0; i < X(0).length(firstDim);i++){
+			transform_energy += pow( imag(X(t,e)(i,j,k)),2);
+	  }}}
+	  
+	  }}
 	}break;
 	
 	}

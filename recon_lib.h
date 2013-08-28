@@ -12,20 +12,14 @@
 using namespace std;
 #include <omp.h>
 
-
 // External Libraries
 #include <armadillo>
-using arma::cx_mat;
-using arma::vec;
-using arma::uvec;
-
 
 // Local Libraries
 #include "ArrayTemplates.hpp"
 #include "wavelet3D.h"	
 #include "temporal_diff.h"	
 #include "gridFFT.h"
-// #include "ge_pfile_lib.h"
 #include "mri_data.h"
 #include "threshold.h"
 #include "spirit.h"
@@ -76,7 +70,11 @@ class RECON{
 	  int rcframes;
 	  int rcencodes;
   
-    
+  	  // Store for later
+      gridFFT gridding;
+	  Array< Array< complex<float>,3>,1 >smaps; // Array of arrays
+	  GATING gate;
+	  
 	  int acc;
 	  float compress_coils;
 	  bool whiten;
@@ -86,8 +84,8 @@ class RECON{
 	  char filename[1024];
 	  
 	  int max_iter;
-	  	  
 	  int export_smaps;
+	  bool prep_done;
 	  
 	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 
@@ -95,8 +93,9 @@ class RECON{
 	  void parse_external_header(MRI_DATA &data);
 	  void set_defaults(void);
 	  void parse_commandline(int numarg, char **pstring);
+	  void init_recon(int argc, char **argv, MRI_DATA& data );
 	  
-	  Array< complex<float>, 5 >reconstruction( int argc, char **argv, MRI_DATA& data);
+	  Array< Array< complex<float>,3>, 2 >reconstruction( int argc, char **argv, MRI_DATA& data);
 	private:	
 		
 };
