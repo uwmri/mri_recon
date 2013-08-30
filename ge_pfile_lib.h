@@ -39,7 +39,6 @@
 #include <string.h>
 #include <omp.h>
 #include "ArrayTemplates.hpp"
-using namespace std;
 
 class PFILE{
 	public:
@@ -53,7 +52,7 @@ class PFILE{
 		IMAGE imagehead;
 		
 		void read_data(int coil);
-		array3D< complex<int> >RawData;
+		NDarray::Array< complex<int> >RawData;
 	private:	
 		
 };

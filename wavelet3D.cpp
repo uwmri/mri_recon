@@ -1,5 +1,7 @@
 #include "wavelet3D.h"
 
+using namespace std;
+using namespace NDarray;
 
 WAVELET3D::~WAVELET3D(){
  	// Not here yet

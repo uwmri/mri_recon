@@ -9,7 +9,6 @@
 #include <string>
 #include <cstring>
 #include <complex>
-using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 
@@ -55,31 +54,31 @@ class WAVELET3D{
 		int wType;		//!<Wavelet Basis Type
 		
 		// Public Member Functions Documented in .cpp
-		WAVELET3D( Array< complex<float> , 3> &,int *,int);
-		WAVELET3D( Array< complex<float> , 4> &,int *,int);
-		WAVELET3D( Array< complex<float> , 5> &,int *,int);
+		WAVELET3D( NDarray::Array< complex<float> , 3> &,int *,int);
+		WAVELET3D( NDarray::Array< complex<float> , 4> &,int *,int);
+		WAVELET3D( NDarray::Array< complex<float> , 5> &,int *,int);
 		~WAVELET3D();
 		
-		void forward( Array< complex<float> , 3> &);		
-		void backward( Array< complex<float> , 3> &);
-		void forward( Array< complex<float> , 4> &);		
-		void backward( Array< complex<float> , 4> &);
-		void forward( Array< complex<float> , 5> &);		
-		void backward( Array< complex<float> , 5> &);
+		void forward( NDarray::Array< complex<float> , 3> &);		
+		void backward( NDarray::Array< complex<float> , 3> &);
+		void forward( NDarray::Array< complex<float> , 4> &);		
+		void backward( NDarray::Array< complex<float> , 4> &);
+		void forward( NDarray::Array< complex<float> , 5> &);		
+		void backward( NDarray::Array< complex<float> , 5> &);
 
 		void random_shift(void);		
 
 	private:
-		void forward3D( Array< complex<float> , 3> &);
-		void backward3D( Array< complex<float> , 3> &);
+		void forward3D( NDarray::Array< complex<float> , 3> &);
+		void backward3D( NDarray::Array< complex<float> , 3> &);
 
 		void setup_wavelet_directions( void);
 		void get_filter_banks();
-		void setup( Array< complex<float> , 3> &,int *,int);
+		void setup( NDarray::Array< complex<float> , 3> &,int *,int);
 
-		void wave_x(Array< complex<float> , 3> &,int,int,int,int);
-		void wave_y(Array< complex<float> , 3> &,int,int,int,int);
-		void wave_z(Array< complex<float> , 3> &,int,int,int,int);
+		void wave_x(NDarray::Array< complex<float> , 3> &,int,int,int,int);
+		void wave_y(NDarray::Array< complex<float> , 3> &,int,int,int,int);
+		void wave_z(NDarray::Array< complex<float> , 3> &,int,int,int,int);
 
 		void wave1D( complex<float> [],complex<float> [],int,int);
 		void iwave1D( complex<float> [],complex<float> [],int,int);

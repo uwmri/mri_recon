@@ -17,6 +17,9 @@ SURE thresholding
  *************************************************/
 #include "threshold.h"
 
+using namespace NDarray;
+
+
 /*----------------------------------------------
   Constructor  - read command line
  *----------------------------------------------*/ 

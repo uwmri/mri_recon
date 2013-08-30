@@ -9,7 +9,6 @@
 #include <cstring>
 #include <string>
 #include <complex>
-using namespace std;
 #include <omp.h>
 
 // External Libraries
@@ -72,7 +71,7 @@ class RECON{
   
   	  // Store for later
       gridFFT gridding;
-	  Array< Array< complex<float>,3>,1 >smaps; // Array of arrays
+	  NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps; // Array of arrays
 	  GATING gate;
 	  
 	  int acc;
@@ -95,7 +94,7 @@ class RECON{
 	  void parse_commandline(int numarg, char **pstring);
 	  void init_recon(int argc, char **argv, MRI_DATA& data );
 	  
-	  Array< Array< complex<float>,3>, 2 >reconstruction( int argc, char **argv, MRI_DATA& data);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruction( int argc, char **argv, MRI_DATA& data);
 	private:	
 		
 };

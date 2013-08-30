@@ -12,16 +12,21 @@
 #include <complex>
 #include <omp.h>
 
-using namespace std;
+// It should be ok at populate namespace with complex
+using std::complex;
+
+namespace NDarray {
+
 using namespace blitz;
 
 // FFT Libraries complex Float
-void fftshift( Array< complex<float>,3>& temp);
-void fft( Array< complex<float>,3>& temp);
-void ifft( Array< complex<float>,3>& temp);
-void fft( Array< complex<float>,3>& temp,int);
-void ifft( Array< complex<float>,3>& temp,int);
-void fft3( Array< complex<float>,3>& temp,int,int);
+void fftshift( Array<complex<float>,3>& temp);
+void fft( Array<complex<float>,3>& temp);
+void ifft( Array<complex<float>,3>& temp);
+
+void fft( Array<complex<float>,3>& temp,int);
+void ifft( Array<complex<float>,3>& temp,int);
+void fft3( Array<complex<float>,3>& temp,int,int);
 
 inline void endian_swap( int& x){
     x = ( x<<24 & 0xFF000000) |
@@ -31,7 +36,7 @@ inline void endian_swap( int& x){
 }
 
 template< typename T, int N>
-void ArrayRead( Array< T,N>& temp, const char *name){
+void ArrayRead( blitz::Array< T,N>& temp, const char *name){
 	 	FILE *fid;
 		if( (fid=fopen(name,"r")) == NULL){
 			cout << "Array:Can't Open " << name << endl;
@@ -49,7 +54,6 @@ void ArrayRead( Array< T,N>& temp, const char *name){
 template< typename T, const int N_rank>
 void ArrayWriteMagAppend( Array<complex<T>,N_rank>& temp, const char *name){
 	 
-	 fstream filestr;
 	 ofstream ofs(name, ios_base::binary | ios_base::app);
 	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 		T val = abs( *miter);
@@ -94,3 +98,6 @@ void ArrayWritePhase( Array<complex<T>,N_rank>& temp, const char *name){
 		ofs.write( (char *)&val,sizeof(T));
      }	
 }
+
+}// Namespace
+

@@ -19,6 +19,7 @@ Usage: Currently
 #include "phantom.h"
 using namespace arma;
 using namespace std;
+using namespace NDarray;
 
 /**
  * Constructor for phantom
@@ -77,6 +78,11 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
   case(FRACTAL):{
 	  fractal.read_commandline(numarg,pstring);
   }
+  default:{
+	cout << "Only fractal works for now. Exiting." << endl;
+	exit(1);
+  }
+	
 
 
   }

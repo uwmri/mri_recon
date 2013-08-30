@@ -5,6 +5,7 @@
 
 using arma::cx_fmat;
 using arma::fvec;
+using namespace NDarray;
 
 void MRI_DATA::data_stats(void){
 	

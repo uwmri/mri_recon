@@ -4,6 +4,7 @@
 using arma::cx_mat;
 using arma::vec;
 using arma::uvec;
+using namespace NDarray;
 
 // ----------------------
 //  Basic constructor (no args)
@@ -464,7 +465,7 @@ Array< Array<complex<float>,3 >,2 >RECON::reconstruction( int argc, char **argv,
 						
 							 // Take Square Root for SOS	
 					 		 if(recon_type==SOS){
-							 	X(t,e) = csqrt(X(e,t));
+							 	X(t,e) = csqrt(X(t,e));
 							 }
 							 cout << endl;
 						 }

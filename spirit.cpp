@@ -5,6 +5,7 @@ using arma::cx_fmat;
 using arma::fvec;
 using arma::uvec;
 using namespace std;
+using namespace NDarray;
 
 SPIRIT::SPIRIT() 
 {    

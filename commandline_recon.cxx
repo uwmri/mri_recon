@@ -3,6 +3,9 @@
  */
 #include "recon_lib.h"
 
+using namespace NDarray;
+using namespace std;
+
 int main(int argc, char **argv){
 	
 	// ------------------------------------

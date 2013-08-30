@@ -23,6 +23,7 @@ Init:
 *************************************************/
 
 #include "gating.h"
+using namespace NDarray;
 
 GATING::GATING(){
 }
@@ -70,6 +71,7 @@ GATING::GATING( int numarg, char **pstring) {
 				if( pos==numarg){
 					cout << "Please provide gating type (-h for usage)" << endl;
 					exit(1);
+				trig_flag(RETRO_ECG,"retro_ecg",gate_type);
 				trig_flag(RESP,"resp",gate_type);
 				trig_flag(ECG,"ecg",gate_type);
 				trig_flag(TIME,"time",gate_type);
@@ -113,6 +115,7 @@ void GATING::help_message() {
 		help_flag("-gating_type []","how to gate images");
 		help_flag("","  resp = respiratory phases");
 		help_flag("","  ecg = gate by cardiac");
+		help_flag("","  retro_ecg = retrospective gate by cardiac");
 		help_flag("","  time = bin by acquisition time");
 		help_flag("","  prep = bin by time from prep pulses");
 		
@@ -329,6 +332,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 			}
 		}break;
 		
+		case(RETRO_ECG):
 		case(ECG):{
 			gate_times.resize( data.ecg.shape());				  
 			gate_times = data.ecg;
@@ -356,6 +360,17 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	float max_time =max(gate_times);
 	float min_time =min(gate_times);
 	
+	if(gate_type==RETRO_ECG){
+		// Use Median to set value
+		arma::fvec temp(gate_times.numElements());
+		int count=0;
+		for( Array<float,3>::iterator miter=gate_times.begin(); miter!=gate_times.end(); miter++,count++){
+			temp(count) = *miter;
+		}
+		max_time = 2.0*median(temp);
+		cout << "Retro ECG::RR is estimated to be " << max_time << endl;
+	}
+		
 	// Rescale to Frames
 	scale_time= (frames)/(max_time-min_time)*(1+1e-6); // Extra factor is to map last point to < frames
 	offset_time = min_time;
@@ -398,8 +413,6 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		gate_times = floor(gate_times);
 		cout << "Max gate time = " << min(gate_times) << endl;
 		cout << "Min gate time = " << max(gate_times) << endl;
-					
-	
 	}break;
 			
 	case(HIST_MODE):{

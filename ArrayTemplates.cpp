@@ -1,6 +1,6 @@
 #include "ArrayTemplates.hpp"
 
-void fftshift( Array< complex<float>,3>& temp){
+void NDarray::fftshift( Array< complex<float>,3>& temp){
 	for(int k=0; k<temp.extent(thirdDim);k++){
 		for(int j=0; j<temp.extent(secondDim);j++){
 			for(int i=0; i<temp.extent(firstDim);i++){
@@ -9,7 +9,7 @@ void fftshift( Array< complex<float>,3>& temp){
 			}}}	
 }
 
-void ifft( Array< complex<float>,3>& temp){
+void NDarray::ifft( Array< complex<float>,3>& temp){
 	// Shift to Center of K-space
 	fftshift( temp);
 
@@ -57,7 +57,7 @@ void ifft( Array< complex<float>,3>& temp){
 }
 
 
-void fft( Array< complex<float>,3>& temp){
+void NDarray::fft( Array< complex<float>,3>& temp){
 	// Shift to Center of K-space
 	fftshift( temp);
 
@@ -107,15 +107,15 @@ void fft( Array< complex<float>,3>& temp){
 
 
 // FFT in only one dimension
-void fft( Array< complex<float>,3>& temp, int dim){
+void NDarray::fft( Array< complex<float>,3>& temp, int dim){
 	fft3( temp, dim, FFTW_FORWARD);
 }
 
-void ifft( Array< complex<float>,3>& temp, int dim){
+void NDarray::ifft( Array< complex<float>,3>& temp, int dim){
 	fft3( temp, dim, FFTW_BACKWARD);
 }
 
-void fft3( Array< complex<float>,3>& temp, int dim, int direction){
+void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction){
 
 	fftwf_init_threads();
 	fftwf_plan_with_nthreads(1);

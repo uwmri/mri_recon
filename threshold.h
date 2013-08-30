@@ -11,7 +11,6 @@
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 #include "io_templates.cpp"
-using namespace std;
 
 // Thresholding methods
 enum { TH_NONE,TH_FRACTION,TH_VISU,TH_BAYES,TH_SURE};
@@ -34,19 +33,19 @@ class THRESHOLD{
 		static void help_message(void);
 
         // Get threshold value from coeffitients
-        void get_threshold(Array<Array< complex<float>,3>,2>&Coef);
-        void get_visuthreshold(Array<Array< complex<float>,3>,2>&Coef);
-        void get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef);
-        void get_surethreshold(Array<Array< complex<float>,3>,2>&Coef);
+        void get_threshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
+        void get_visuthreshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
+        void get_bayesthreshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
+        void get_surethreshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
 
 		// Chooses the thresholding method
-		void exec_threshold(Array<Array< complex<float>,3>,2>&Coef);
+		void exec_threshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
 
 		// Execute thresholding method
-		void exec_visuthreshold(Array<Array< complex<float>,3>,2>&Coef);
-        void exec_multibandthreshold(Array<Array< complex<float>,3>,2>&Coef);
-        void exec_fractionthreshold(Array<Array< complex<float>,3>,2>&Coef);
-        void thresholding(Array<Array< complex<float>,3>,2>&Coef);
+		void exec_visuthreshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
+        void exec_multibandthreshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
+        void exec_fractionthreshold(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
+        void thresholding(NDarray::Array<NDarray::Array< complex<float>,3>,2>&Coef);
 
 		void setThresholdMethod(int ith_type);
 		int getThresholdMethod();
@@ -55,7 +54,7 @@ class THRESHOLD{
 		bool getTemporalThresholding();
 
         // Iterative soft thresholding code
-        void fista_update(Array<Array< complex<float>,3>,2>&X,Array< Array< complex<float>,3>,2 >&X_old,int iteration);
+        void fista_update(NDarray::Array<NDarray::Array< complex<float>,3>,2>&X,NDarray::Array< NDarray::Array< complex<float>,3>,2 >&X_old,int iteration);
                 
         private:        
                 

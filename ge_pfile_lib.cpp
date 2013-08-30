@@ -6,6 +6,7 @@ Description: This code contains files to read p-file data
 
 *************************************************/
 #include "ge_pfile_lib.h"
+using namespace NDarray;
 
 void PFILE::read_header(char Ifilename[]){
   

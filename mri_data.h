@@ -8,7 +8,6 @@
 #include <cmath>
 #include <string>
 #include <complex>
-using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 #include <armadillo>
@@ -31,21 +30,21 @@ class MRI_DATA{
 		int Num_Coils;
 		
 		// Non-Cartesian Trajectory
-		Array<float,4> kx;	// Fov = 1 unit, delta k =1
-		Array<float,4> ky;
-		Array<float,4> kz;
-		Array<float,4> kw;
-		Array<float,4> kt;	  // TE Time (s)
-		Array< complex<float>,5> kdata;
+		NDarray::Array<float,4> kx;	// Fov = 1 unit, delta k =1
+		NDarray::Array<float,4> ky;
+		NDarray::Array<float,4> kz;
+		NDarray::Array<float,4> kw;
+		NDarray::Array<float,4> kt;	  // TE Time (s)
+		NDarray::Array< std::complex<float>,5> kdata;
 		
 		// Data for Noise samples 
-		Array< complex<float>,2> noise_samples; // data for noise samples
+		NDarray::Array< std::complex<float>,2> noise_samples; // data for noise samples
 				
 		//Physiologic Data for gating 
-		Array< float,3>ecg;		// Distance from ECG in MS
-		Array< float,3>resp;	// Respiratory signal from bellows or navigator
-		Array< float,3>time;	// Acquisition Time 
-		Array< float,3>prep;	// Time since a prep event (for example inversion)
+		NDarray::Array< float,3>ecg;		// Distance from ECG in MS
+		NDarray::Array< float,3>resp;	// Respiratory signal from bellows or navigator
+		NDarray::Array< float,3>time;	// Acquisition Time 
+		NDarray::Array< float,3>prep;	// Time since a prep event (for example inversion)
 				
 		// Native Resolution
 		int xres;

@@ -6,7 +6,7 @@ using arma::fmat;
 using arma::fvec;
 using arma::uvec;
 using namespace std;
-
+using namespace NDarray;
 
 // ----------------------
 // Help Message

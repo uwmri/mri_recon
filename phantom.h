@@ -8,11 +8,9 @@
 #include <string>
 #include <cstring>
 #include <complex>
-using namespace std;
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 #include <armadillo>
-#include "gridFFT.h"
 #include "tictoc.cpp"
 
 #ifndef PI
@@ -43,16 +41,16 @@ class FRACTAL3D{
 		void read_commandline(int numarg, char **pstring);
 		void calc_image(int,int);
 		void write_matlab_truth_script( const char *);
-		void calc_image(Array<complex<float>,3>&,int,int);
+		void calc_image(NDarray::Array<complex<float>,3>&,int,int);
 		void build_tree(int Nx, int Ny, int Nz,int Nt);
 	private:
-		Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
+		NDarray::Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
 		void update_children(arma::field<TFRACT_RAND>&tree, int pos);
 		arma::field<TFRACT_RAND> create_tree( arma::fmat seeds_start, arma::fmat seeds_stop,arma::fmat X);
 
 		bool debug;
-		Array< float,4>FUZZY;//!<Fuzzy model densities (3D+compartments)
-		Array< float,4>FUZZYT;//!<Fuzzy model arrival times (3D+compartments)
+		NDarray::Array< float,4>FUZZY;//!<Fuzzy model densities (3D+compartments)
+		NDarray::Array< float,4>FUZZYT;//!<Fuzzy model arrival times (3D+compartments)
 
 };
 
@@ -79,7 +77,7 @@ class FRACTAL3D{
  *
  *			// Add Noise
  *			phantom.add_noise( data.kdata );
- *			phantom.write_matlab_truth_script("PhantomData/");
+ *			phantom.write_arma::matlab_truth_script("PhantomData/");
  *	@endcode
  */
 class PHANTOM{
@@ -114,8 +112,8 @@ class PHANTOM{
 		char *external_phantom_name;//!<Name of external phantom
 		
 		// Arrays for holding Images
-		Array< complex<float>,3>IMAGE;//!<Final discrete image
-		Array< complex<float>,3>SMAP;//!<Sensitivity map
+		NDarray::Array< complex<float>,3>IMAGE;//!<Final discrete image
+		NDarray::Array< complex<float>,3>SMAP;//!<Sensitivity map
 
 		// Constructor,I/O, and Init
 		PHANTOM(void);
@@ -125,7 +123,7 @@ class PHANTOM{
 
 		// Functions
 		void add_phase(void);
-		void add_noise( Array<complex<float>,5>&kdata);
+		void add_noise( NDarray::Array<complex<float>,5>&kdata);
 		void update_smap_biotsavart(int,int);
 		void calc_image(int,int);
 		void write_matlab_truth_script( const char *);

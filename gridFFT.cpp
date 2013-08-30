@@ -19,6 +19,7 @@ Usage Example:
 #include "gridFFT.h"
 #include "io_templates.cpp"
 #include "tictoc.cpp"
+using namespace NDarray;
 
 //----------------------------------------
 // Deconstructor - Free's Memory

@@ -9,6 +9,11 @@ Description: This code contains functions for 3D wavelet transform. I tried blit
 
 #include "temporal_diff.h"
 
+using namespace NDarray;
+using arma::cx_mat;
+using arma::mat;
+using arma::cx_vec;
+using arma::fvec;
 
 TDIFF::TDIFF(Array< Array< complex<float>,3>,2>&temp){ 
 	

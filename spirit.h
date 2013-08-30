@@ -2,7 +2,7 @@
 
 #include <iostream>
 #include <armadillo>
-#include <math.h>
+#include <cmath>
 #include <fftw3.h>
 #include <omp.h>
 #include "tictoc.cpp"
@@ -13,13 +13,13 @@ enum {SP_TIK, SP_TSVD};
 enum {SP_COIL_PHASE, SP_SMOOTH};
 
 
-void fftshift3(Array<complex<float>,3>&);
-void ifft3(Array< complex<float>,3>&);
+void fftshift3(NDarray::Array<complex<float>,3>&);
+void ifft3(NDarray::Array< complex<float>,3>&);
 
 class SPIRIT {
   public: 
-    Array< complex<float>,5> k;
-    Array< complex<float>,5> im;
+    NDarray::Array< complex<float>,5> k;
+    NDarray::Array< complex<float>,5> im;
     
     // enum flags
     int shape;
@@ -57,12 +57,12 @@ class SPIRIT {
     void read_commandline(int numarg, char **pstring);
     void init(int, int, int, int);
     
-    void generateEigenCoils(Array< Array<complex<float>,3>, 1> &);
-    void calibrate_ellipsoid(Array< Array<complex<float>,3>, 1>&);
+    void generateEigenCoils(NDarray::Array< NDarray::Array<complex<float>,3>, 1> &);
+    void calibrate_ellipsoid(NDarray::Array< NDarray::Array<complex<float>,3>, 1>&);
     void prep();
     
-    void getcoils( Array< Array<complex<float>,3>, 1>&);
-    void phase_correct(Array< Array<complex<float>,3>, 1>&);
+    void getcoils( NDarray::Array< NDarray::Array<complex<float>,3>, 1>&);
+    void phase_correct(NDarray::Array< NDarray::Array<complex<float>,3>, 1>&);
     
 };
 

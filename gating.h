@@ -9,10 +9,8 @@
 #include <complex>
 #include <omp.h>
 #include <armadillo>
-#include "wavelet3D.h"
 #include "ArrayTemplates.hpp"
 #include "mri_data.h"
-#include "gridFFT.h"
 #include "tictoc.cpp"
 #include "io_templates.cpp"
 
@@ -21,9 +19,6 @@
 #define VS_SLIDING 1
 #define VS_TORNADO 2
 
-/*Don't define namespace in .h 
-using namespace std;
-*/
 
 class GATING {
 
@@ -32,7 +27,7 @@ class GATING {
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
         enum WeightType { ITERATIVE,NON_ITERATIVE};
-		enum GateType{ GATE_NONE,ECG,RESP,TIME,PREP}; 
+		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
 		
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
 		
@@ -56,8 +51,8 @@ class GATING {
 		ViewshareType vs_type;	
 		GateType gate_type;
 		
-		Array< float, 3>gate_times;
-		Array< float, 3>resp_weight;
+		NDarray::Array< float, 3>gate_times;
+		NDarray::Array< float, 3>resp_weight;
 		
 		// Control of Retrospective Respiratory Gating
 		RespGateType resp_gate_type;
@@ -69,10 +64,10 @@ class GATING {
 		
 		// Function Calls		
 		static void help_message(void);
-        void weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType);
+        void weight_data(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);
 
-	   	void hist_weight( Array<float,3>&Tw, int e, int t);
-		void tornado_weight(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType);
+	   	void hist_weight( NDarray::Array<float,3>&Tw, int e, int t);
+		void tornado_weight(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);
 		void filter_resp(  const MRI_DATA &data );
     private:
 

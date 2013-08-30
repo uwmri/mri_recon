@@ -2,8 +2,7 @@
 
 #include <iostream>
 #include <armadillo>
-#include <math.h>
-#include <fftw3.h>
+#include <cmath>
 #include <omp.h>
 #include "tictoc.cpp"
 #include "ArrayTemplates.hpp"
@@ -20,8 +19,8 @@ class L2REG {
 	float reg_scale;
 	TransformType l2_type;
 	int verbose;		
-	void regularize( Array<complex<float>,3>&,Array<complex<float>,3>&);
-	void set_scale(float, Array< Array<complex<float>,3>,2>&);
+	void regularize( NDarray::Array<complex<float>,3>&,NDarray::Array<complex<float>,3>&);
+	void set_scale(float, NDarray::Array< NDarray::Array<complex<float>,3>,2>&);
 	
 };
 
