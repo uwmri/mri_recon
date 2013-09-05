@@ -11,7 +11,7 @@
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 #include <armadillo>
-#include "tictoc.cpp"
+#include "tictoc.hpp"
 
 #ifndef PI
 #define PI 3.14159265359
@@ -123,7 +123,7 @@ class PHANTOM{
 
 		// Functions
 		void add_phase(void);
-		void add_noise( NDarray::Array<complex<float>,5>&kdata);
+		void add_noise( NDarray::Array< NDarray::Array<complex<float>,3>,2>&kdata);
 		void update_smap_biotsavart(int,int);
 		void calc_image(int,int);
 		void write_matlab_truth_script( const char *);

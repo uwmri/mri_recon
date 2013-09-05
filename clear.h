@@ -2,10 +2,9 @@
 
 #include <iostream>
 #include <armadillo>
-#include <math.h>
-#include <fftw3.h>
+#include <cmath>
 #include <omp.h>
-#include "tictoc.cpp"
+#include "tictoc.hpp"
 #include "ArrayTemplates.hpp"
 
 
@@ -30,9 +29,11 @@ class LOWRANKCOIL {
 	static void help_message(void);
 	
 	// Functions
+	LOWRANKCOIL();
     LOWRANKCOIL(int numarg, char **pstring);
-	void update_threshold( NDarray::Array< complex<float>,4 > &image);
-    void thresh( NDarray::Array< complex<float>,4 > &image,NDarray::Array< complex<float>,4 > &image2);
-    void combine( NDarray::Array< complex<float>,4 > &image, NDarray::Array< complex<float>,3> &out);
+	
+	void update_threshold( NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &image);
+    void thresh( NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &image,NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &image2);
+    void combine( NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &image, NDarray::Array< NDarray::Array<complex<float>,3>, 2 > &out);
 };
 

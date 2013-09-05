@@ -1,5 +1,5 @@
 #include "l2reg.h"
-#include "io_templates.cpp"
+#include "io_templates.hpp"
 
 using arma::cx_fmat;
 using arma::fmat;
@@ -21,6 +21,9 @@ void L2REG::help_message(void){
 	help_flag("-l2_image","L2 of image");
 	help_flag("-l2_tv","L2 of total variation");
 	help_flag("-l2_phase","L2 of phase");
+}
+
+L2REG::L2REG(){
 }
 
 L2REG::L2REG(int numarg, char **pstring){

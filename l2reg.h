@@ -4,13 +4,14 @@
 #include <armadillo>
 #include <cmath>
 #include <omp.h>
-#include "tictoc.cpp"
+#include "tictoc.hpp"
 #include "ArrayTemplates.hpp"
 
 
 class L2REG {
   public: 
   
+    L2REG();
     L2REG(int numarg, char **pstring);
 	
   	enum TransformType { NONE, TV, PHASE};

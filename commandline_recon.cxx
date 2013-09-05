@@ -36,14 +36,18 @@ int main(int argc, char **argv){
 			// Use external Kx,Ky,Kz 
 			data.parse_external_header(recon.filename);
 			data.read_external_data("./",0);
-			data.kdata = complex<float>(1.0,0.0);
+			for(Array< Array<complex<float>,3>,2>::iterator miter=data.kdata.begin(); miter!=data.kdata.end(); miter++){
+				*miter = complex<float>(1.0,0.0);
+			}
 		}break;
 		
 		case(RECON::PHANTOM):{
 			// Use external Kx,Ky,Kz 
 			data.parse_external_header(recon.filename);
 			data.read_external_data("./",0);
-			data.kdata = complex<float>(0.0,0.0);
+			for(Array< Array<complex<float>,3>,2>::iterator miter=data.kdata.begin(); miter!=data.kdata.end(); miter++){
+				*miter = complex<float>(0.0,0.0);
+			}
 			
 			// Initialize Phantom
 			cout << "Phantom " << endl;
@@ -65,7 +69,7 @@ int main(int argc, char **argv){
 			
 			GATING gate(argc,argv);
 			// Weighting Array for Time coding
-			Array< float, 3 >TimeWeight(data.kx.length(0),data.kx.length(1),data.kx.length(2),ColumnMajorArray<3>());
+			Array< float, 3 >TimeWeight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
 			gate.init(data,recon.rcframes);
 			
 			
@@ -74,10 +78,10 @@ int main(int argc, char **argv){
 			 ------------------------------*/
 			int e= 0;
 			Range all=Range::all();
-			Array< float,3 >kxE = data.kx(all,all,all,e); 
-			Array< float,3 >kyE = data.ky(all,all,all,e); 
-			Array< float,3 >kzE = data.kz(all,all,all,e); 
-			Array< float,3 >kwE = data.kw(all,all,all,e); 
+			Array< float,3 >kxE = data.kx(e); 
+			Array< float,3 >kyE = data.ky(e); 
+			Array< float,3 >kzE = data.kz(e); 
+			Array< float,3 >kwE = data.kw(e); 
 			
 			cout << "Num coils = " << data.Num_Coils << endl;
 			for(int coil =0; coil < data.Num_Coils; coil++){
@@ -86,7 +90,7 @@ int main(int argc, char **argv){
 				phantom.update_smap_biotsavart(coil,data.Num_Coils);				
 				
 				// Update Image 
-				Array<complex<float>,3>kdataE = data.kdata(all,all,all,e,coil); // Get one encoding, one coil
+				Array<complex<float>,3>kdataE = data.kdata(e,coil); // Get one encoding, one coil
 				kdataE=0;	// Zero data
 				for(int t =0; t < recon.rcframes; t++){
 					// Get Image
@@ -94,7 +98,7 @@ int main(int argc, char **argv){
 					
 					// Weight Image
 					TimeWeight = kwE;
-					gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE);
+					gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE,GATING::TIME_FRAME);
    											
 					// Now Inverse Grid
 					cout << " Inverse Grid :: " << t << endl;
@@ -122,10 +126,13 @@ int main(int argc, char **argv){
 	}
 
 	cout << "----Geometry Modification-----" << endl;	
+	
 	// Geometry Modification by Recon
-	data.kx *= ((float)(1.0/recon.zoom_x));
-	data.ky *= ((float)(1.0/recon.zoom_y));
-	data.kz *= ((float)(1.0/recon.zoom_z));
+	for(int e =0; e< data.Num_Encodings; e++){ 
+		data.kx(e) *= ((float)(1.0/recon.zoom_x));
+		data.ky(e) *= ((float)(1.0/recon.zoom_y));
+		data.kz(e) *= ((float)(1.0/recon.zoom_z));
+	}
 	
 	if (recon.acc > 1){
 		data.undersample(recon.acc);
@@ -134,7 +141,8 @@ int main(int argc, char **argv){
 	// --------------------------------------------------
 	// Code for recon (no PSD specific data/structures)
 	// --------------------------------------------------
-	Array< Array<complex<float>,3>,2 >X = recon.reconstruction(argc,argv,data);
+	recon.init_recon( argc,argv,data);
+	Array< Array<complex<float>,3>,2 >X = recon.reconstruct_all_frames(data);
 	
 	// ------------------------------------
 	// Post Processing + Export

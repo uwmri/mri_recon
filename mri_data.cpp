@@ -9,7 +9,8 @@ using namespace NDarray;
 
 void MRI_DATA::data_stats(void){
 	
-	
+
+/*	
 	if( kx.numElements()==0){
 		cout << "Kspace does not exist" << endl;
 	}else{
@@ -35,6 +36,7 @@ void MRI_DATA::data_stats(void){
 		cout << "Range TIME = " << min(time) << " to " << max(time) << endl;
 		cout << "Range PREP = " << min(prep) << " to " << max(prep) << endl;
 	}
+*/	
 }
 
 
@@ -98,58 +100,45 @@ void MRI_DATA::init_noise_samples(int total_samples){
 
 
 // Constructer for MRI data type
-MRI_DATA::MRI_DATA( MRI_DATA *base_data){
-	
-	// Copy Size
-	Num_Encodings = base_data->Num_Encodings;
-	Num_Readouts = base_data->Num_Readouts;
-	Num_Pts = base_data->Num_Pts;
-	Num_Coils = base_data->Num_Coils;
-	Num_Slices = base_data->Num_Slices;
-	
-	// Allocate Memory and Copy Values
-	kx.setStorage( ColumnMajorArray<4>());
-	kx.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
-	kx = base_data->kx;
-	
-	ky.setStorage( ColumnMajorArray<4>());
-	ky.resize( kx.shape());  
-	ky = base_data->ky;
-	
-	kz.setStorage( ColumnMajorArray<4>());
-	kz.resize( kx.shape());  
-	kz = base_data->kz;
-	
-	kw.setStorage( ColumnMajorArray<4>());
-	kw.resize( kx.shape());  
-	kw = base_data->kw;
-	
-	cout << "5D Copy " << endl;
-	kdata.setStorage( ColumnMajorArray<5>());
-	kdata.resize( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
-	kdata = base_data->kdata;
-}
-
-
-// Constructer for MRI data type
 void MRI_DATA::init_memory(void){
 	
+	
+	cout << "Container Size = " << Num_Encodings << " x " << Num_Coils << endl;
+	cout <<"3D Size " << Num_Pts << " x " << Num_Readouts << " x " << Num_Slices << endl;
+	
 	// Allocate Memory and Copy Values
-	kx.setStorage( ColumnMajorArray<4>());
-	kx.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
+	{
+		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
+		kx.reference(temp);
+	}
 	
-	ky.setStorage( ColumnMajorArray<4>());
-	ky.resize( kx.shape());  
+	{
+		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
+		ky.reference(temp);
+	}
 	
-	kz.setStorage( ColumnMajorArray<4>());
-	kz.resize( kx.shape());  
+	{
+		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
+		kz.reference(temp);
+	}
 	
-	kw.setStorage( ColumnMajorArray<4>());
-	kw.resize( kx.shape());  
+	{
+		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
+		kw.reference(temp);
+	}
 	
-	kdata.setStorage( ColumnMajorArray<5>());
-	kdata.resize( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
-
+	{
+		Array< Array< complex<float>,3>,2> temp = Alloc5DContainer<complex<float> >( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
+		kdata.reference(temp);
+	} 
+	
+	kx.dumpStructureInformation();
+	kx(0).dumpStructureInformation();
+	
+		
+	kdata.dumpStructureInformation();
+	kdata(0,0).dumpStructureInformation();
+	
 	// Timesd
 	time.setStorage( ColumnMajorArray<3>());
 	time.resize(Num_Readouts,Num_Slices,Num_Encodings);
@@ -188,10 +177,8 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 	Range all = Range::all();
 	
 	cout << "Data size= " << Num_Coils << " coils x " << Num_Encodings << " encodings x "<< Num_Slices<< " slices x "<<  Num_Readouts << " readouts x" << Num_Pts << " pts" << endl;
-	
-	cout << "Alloc Kx " << endl;
-	kx.setStorage( ColumnMajorArray<4>());
-	kx.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings); 
+	init_memory();
+		
 	cout << "Read  Kx " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKMAPX_VD_%d.dat",folder,e);
@@ -200,15 +187,11 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 				cout << "Exiting" << endl;
 				exit(1);
 			}else{	
-				Array<float,3>KxRef = kx(all,all,all,e);
-				ArrayRead(KxRef,fname);
+				ArrayRead(kx(e),fname);
 				fclose(fid);
 			}
 	}
 		
-	cout << "Alloc Ky " << endl;
-	ky.setStorage( ColumnMajorArray<4>());
-	ky.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings); 
 	cout << "Read  Ky " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKMAPY_VD_%d.dat",folder,e);
@@ -217,15 +200,11 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 				cout << "Exiting" << endl;
 				exit(1);
 			}else{	
-				Array<float,3>KyRef = ky(all,all,all,e);
-				ArrayRead(KyRef,fname);
+				ArrayRead(ky(e),fname);
 				fclose(fid);
 			}
 	}
 
-	cout << "Alloc Kz " << endl;
-	kz.setStorage( ColumnMajorArray<4>());
-	kz.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings); 
 	cout << "Read  Kz " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKMAPZ_VD_%d.dat",folder,e);
@@ -233,15 +212,11 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 				cout << "Can't Open " << fname << endl;
 				cout << "Assume 2D" << endl;
 			}else{	
-				Array<float,3>KzRef = kz(all,all,all,e);
-				ArrayRead(KzRef,fname);
+				ArrayRead(kz(e),fname);
 				fclose(fid);
 			}
 	}
 	
-	cout << "Alloc Kw " << endl;
-	kw.setStorage( ColumnMajorArray<4>());
-	kw.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings); 
 	cout << "Read  Kw " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKWEIGHT_VD_%d.dat",folder,e);
@@ -257,8 +232,7 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 			
 			if(fid!=NULL){
 				cout << "Read Kw "  << endl;
-				Array<float,3>KwRef = kw(all,all,all,e);
-				ArrayRead(KwRef,fname);
+				ArrayRead(kw(e),fname);
 				fclose(fid);
 			}
 	}
@@ -270,10 +244,6 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 		
 	
 	cout << "Reading Kdata" << endl;
-	kdata.setStorage( ColumnMajorArray<5>());
-	kdata.resize(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils); 
-	
-	
 	if(read_kdata==1){
 	
 	for(int c=0; c<Num_Coils;c++){
@@ -305,7 +275,7 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 			
 			}
 			
-			Array< complex<float>,3>kdataC= kdata(Range::all(),Range::all(),Range::all(),e,c);
+			Array< complex<float>,3>kdataC= kdata(e,c);
 			if(fid!=NULL){	
 				ArrayRead(kdataC,fname);
 			}
@@ -332,28 +302,28 @@ void MRI_DATA::write_external_data( const char *folder){
 	cout << "Write Kx " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKMAPX_VD_%d.dat",folder,e);
-			Array<float,3>KxRef = kx(all,all,all,e);
+			Array<float,3>KxRef = kx(e);
 			ArrayWrite(KxRef,fname);
 	}
 	
 	cout << "Write Ky " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKMAPY_VD_%d.dat",folder,e);
-			Array<float,3>KyRef = ky(all,all,all,e);
+			Array<float,3>KyRef = ky(e);
 			ArrayWrite(KyRef,fname);
 	}
 	
 	cout << "Write Kz " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKMAPZ_VD_%d.dat",folder,e);
-			Array<float,3>KzRef = kz(all,all,all,e);
+			Array<float,3>KzRef = kz(e);
 			ArrayWrite(KzRef,fname);
 	}		
 	
 	cout << "Write Kw " << endl;
 	for(int e=0; e<Num_Encodings; e++){
 			sprintf(fname,"%sKWEIGHT_VD_%d.dat",folder,e);
-			Array<float,3>KwRef = kw(all,all,all,e);
+			Array<float,3>KwRef = kw(e);
 			ArrayWrite(KwRef,fname);
 	}		
 	
@@ -362,10 +332,8 @@ void MRI_DATA::write_external_data( const char *folder){
 	for(int c=0; c<Num_Coils;c++){
 		cout << "Write Coil: " << c << endl;
 		for(int e=0; e<Num_Encodings; e++){
-		
 			sprintf(fname,"%sKDATA_C%02d_VD_%d.dat",folder,c,e);
-			Array< complex<float>,3>kdataC= kdata(Range::all(),Range::all(),Range::all(),e,c);
-			ArrayWrite(kdataC,fname);
+			ArrayWrite(kdata(e,c),fname);
 			
 	}}
 	
@@ -422,7 +390,6 @@ void MRI_DATA::write_external_data( const char *folder){
 }
 
 
-
 /** Undersample the data by deleting argument 'us' readouts
 *
 * TODO:
@@ -436,41 +403,56 @@ void MRI_DATA::undersample(int us){
   	printf("Retrospectively undersampling by: %d (%d -> %d)\n", us, Num_Readouts, Num_Readouts/us); 
     
   	int Num_Readouts_us = Num_Readouts/us;
-  
-  	// Undersampled arrays use resize to ensure contigous memory
+  	Array<float,3>temp_us(Num_Pts, Num_Readouts, Num_Slices);
+  	Array<complex<float>,3>temp_data_us(Num_Pts, Num_Readouts, Num_Slices);
+  	
+	// Undersampled arrays use resize to ensure contigous memory
+	for(int e = 0; e< Num_Encodings; e++){
+		
+		cout<< "\t Kx" << endl;
+		{
+		temp_us = kx(e);
+		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
+		kx(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		kx(e) = temp;
+		}
+		
+		{	
+		cout<< "\t Ky" << endl;
+		temp_us = ky(e);
+		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
+		ky(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		ky(e) = temp;
+		}
+		
+		{
+		cout<< "\t Kz" << endl;
+		temp_us = kz(e);
+		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
+		kz(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		kz(e) = temp;
+		}
+		
+		
+		{
+		cout<< "\t Kw" << endl;
+		temp_us = kw(e);
+		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
+		kw(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		kw(e) = temp;
+		}
+		
+		for( int coil=0; coil < Num_Coils; coil++){
+			{
+			cout<< "\t Kdata" << endl;
+			temp_data_us = kdata(e,coil);
+			Array<complex<float>,3> temp_data = temp_data_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range::all());
+			kdata(e,coil).resize(Num_Pts,Num_Readouts_us,Num_Slices);
+			kdata(e,coil) = temp_data;
+			}
+		}
 	
-	cout<< "\t Kx" << endl;
-	Array<float,4>temp_us(Num_Pts, Num_Readouts, Num_Slices, Num_Encodings);
-	temp_us = kx;
-	Array<float,4> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1),Range(fromStart,toEnd,1));
-	kx.resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
-	kx = temp;
-	
-	cout<< "\t Ky" << endl;
-	temp_us = ky;
-	temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1),Range(fromStart,toEnd,1));
-	ky.resize(kx.shape());
-	ky = temp;
-	
-	cout<< "\t Kz" << endl;
-	temp_us = kz;
-	temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1),Range(fromStart,toEnd,1));
-	kz.resize(kx.shape());
-	kz = temp;
-	
-	cout<< "\t Kw" << endl;
-	temp_us = kw;
-	temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1),Range(fromStart,toEnd,1));
-	kw.resize(kx.shape());
-	kw = temp;
-	
-	cout<< "\t Kdata" << endl;
-	Array<complex<float>,5>temp_data_us(kdata.shape());
-	temp_data_us = kdata;
-	Array<complex<float>,5> temp_data = temp_data_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1),Range(fromStart,toEnd,1),Range(fromStart,toEnd,1));
-	kdata.resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings,Num_Coils);
-	kdata = temp_data;
-	
+	}
 	}
 }
 
@@ -481,54 +463,82 @@ void MRI_DATA::undersample(int us){
 void MRI_DATA::coilcompress(float thresh)
 { 
 
-  cout << "Coil compression . . .(thresh = " << thresh << " )" << flush;
-  cx_fmat A;
-  A.zeros(kdata.length(fourthDim)*kdata.length(thirdDim)*kdata.length(secondDim)*kdata.length(firstDim), kdata.length(fifthDim));
+  int Nthreads = omp_get_max_threads();
+
+  cx_fmat *all = new cx_fmat [Nthreads];
+  for(int j =0; j< Nthreads; j++){
+ 	all[j].zeros(Num_Coils,Num_Coils);
+  }
+
+    
+  for(int e =0; e< Num_Encodings; e++){
+  for(int k =0; k< Num_Slices; k++){
+  #pragma omp parallel for
+  for(int j =0; j< Num_Readouts; j++){
+  	
+	int thr = omp_get_thread_num();
+	
+	// Collect chunk to reduce memory thrashing
+  	cx_fmat Atemp(Num_Pts,Num_Coils);
+  	for(int coil=0; coil< Num_Coils; coil++){
+  	for(int i =0; i< Num_Pts; i++){
+  		Atemp(i,coil) = kdata(e,coil)(i,j,k);
+  	}}
   
-  cout << "Copy to Array" << endl << flush; 
-  for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
-   	for(int e =0; e< kdata.length(fourthDim); e++){
-	for(int k =0; k< kdata.length(thirdDim); k++){
-	for(int j =0; j< kdata.length(secondDim); j++){
-	for(int i =0; i< kdata.length(firstDim); i++){
-		int offset = e*kdata.length(thirdDim)*kdata.length(secondDim)*kdata.length(firstDim)+  k*kdata.length(secondDim)*kdata.length(firstDim) + j*kdata.length(firstDim) + i;
-		A(offset,coil) = kdata(i,j,k,e,coil);
-  	}}}}
+  	// Calc
+  	cx_fmat AtA = Atemp.t()*Atemp;
+  	all[thr] += AtA;
+  
   }
   
-  cout << "Size A " << A.n_rows << " x " << A.n_cols << endl;
+  }}
   
-  cout << "Svd" << endl << flush; 
-  cx_fmat U;
-  fvec s;
-  cx_fmat V;
-  arma::svd_econ(U,s,V,A,'r');
-  s = s/s(0);
   
-  //cout << s << endl << endl;
-  //uvec cc_find = arma::find(s > thresh, 1, "last");
-  //int cc_ncoils = cc_find(0)+1; // New number of coils
-  int cc_ncoils = (int)thresh;
-  
-  cout << "(" << Num_Coils << " coils -> " << cc_ncoils << " coils) . . . " << flush;
-  
-  Num_Coils = cc_ncoils;
-  
-  A = A*V.cols(0,cc_ncoils-1);
-
-
-  cout << "Copy back to Array" << endl; 
-  kdata.resizeAndPreserve(kdata.length(firstDim),kdata.length(1),kdata.length(2),kdata.length(3),Num_Coils);
-  for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
-   	for(int e =0; e< kdata.length(fourthDim); e++){
-	for(int k =0; k< kdata.length(thirdDim); k++){
-	for(int j =0; j< kdata.length(secondDim); j++){
-	for(int i =0; i< kdata.length(firstDim); i++){
-		int offset = e*kdata.length(thirdDim)*kdata.length(secondDim)*kdata.length(firstDim)+  k*kdata.length(secondDim)*kdata.length(firstDim) + j*kdata.length(firstDim) + i;
-		kdata(i,j,k,e,coil) = A(offset,coil); 
-  }}}}}
+  cx_fmat A(Num_Coils,Num_Coils);
+  A.fill(complex<float>(0.0,0.0));
+  for(int j =0; j< Nthreads; j++){
+  	A += all[j];
+  }
+  delete [] all;
+ 
+ 
+  cout << "Eig" << endl << flush;
+  arma::fvec eigval;
+  cx_fmat eigvec;
+  eig_sym(eigval,eigvec,A);  
+  cx_fmat V = eigvec.cols(Num_Coils-(int)thresh-1,Num_Coils-1);
   
 
+  cout << "Multiple by Eigen" << endl; 
+  for(int e =0; e< Num_Encodings; e++){
+  for(int k =0; k< Num_Slices; k++){
+  #pragma omp parallel for
+  for(int j =0; j< Num_Readouts; j++){
+  	
+	cx_fmat AA;
+  	AA.zeros( Num_Pts,Num_Coils); // Working memory
+    	
+	// Copy into memory
+	for(int coil = 0; coil < Num_Coils; coil++) {
+		for(int i =0; i< Num_Pts; i++){
+			AA(i,coil) =  kdata(e,coil)(i,j,k);
+		}
+	}
+	
+	// Transform to matrix
+	cx_fmat temp2 = AA*V; 
+		
+	// Copy Back
+	for(int coil = 0; coil < thresh; coil++) {
+ 	for(int i =0; i< Num_Pts; i++){
+			kdata(e,coil)(i,j,k) = temp2(i,coil);
+	}}
+  }}}
+  
+  cout << "Resize to " << thresh << endl << flush;
+  kdata.resizeAndPreserve(kdata.length(firstDim),(int)thresh);
+  Num_Coils = (int)thresh;
+  
   cout << "done" << endl;
 }
 
@@ -585,32 +595,33 @@ void MRI_DATA::whiten(void){
 	
 	
 	// Now Whiten Actual Data
-	{
 	cout << "Whiten all data" << endl;
+	for(int e =0; e< Num_Encodings; e++){
+  	for(int k =0; k< Num_Slices; k++){
+  		#pragma omp parallel for
+  		for(int j =0; j< Num_Readouts; j++){
+  	
+			arma::cx_mat AA;
+  			AA.zeros( Num_Coils,Num_Pts); // Working memory
+    	
+			// Copy into memory
+			for(int coil = 0; coil < Num_Coils; coil++) {
+			for(int i =0; i< Num_Pts; i++){
+				AA(coil,i) =  kdata(e,coil)(i,j,k);
+			}
+			}
 	
-	
-	for(int e =0; e< kdata.length(fourthDim); e++){
-	for(int k =0; k< kdata.length(thirdDim); k++){
-	#pragma omp parallel for
-	for(int j =0; j< kdata.length(secondDim); j++){
-	for(int i =0; i< kdata.length(firstDim); i++){
+			// Transform to matrix
+			arma::cx_mat temp2 = Decorr*AA; 
 		
-		// Copy Sample
-		arma::cx_mat temp(Num_Coils,1);
-		for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
-   			temp(coil,0) = kdata(i,j,k,e,coil);
-		}
-		
-		arma::cx_mat temp2 = Decorr*temp;
-		
-		// Copy Back
-		for(int coil = 0; coil < kdata.length(fifthDim); coil++) {
-   			 kdata(i,j,k,e,coil) = temp2(coil,0);
-		}
-	}}}}
-	
-	}/*actual whitening*/
-	
+			// Copy Back
+			for(int coil = 0; coil < Num_Coils; coil++) {
+ 			for(int i =0; i< Num_Pts; i++){
+				kdata(e,coil)(i,j,k) = temp2(coil,i);
+			}}
+  		}
+  
+  	}}
 }
 
 

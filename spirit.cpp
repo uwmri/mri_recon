@@ -1,5 +1,5 @@
 #include "spirit.h"
-#include "io_templates.cpp"
+#include "io_templates.hpp"
 
 using arma::cx_fmat;
 using arma::fvec;

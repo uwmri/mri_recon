@@ -16,9 +16,12 @@ SURE thresholding
 
  *************************************************/
 #include "threshold.h"
-
+#include "io_templates.hpp"
 using namespace NDarray;
 
+THRESHOLD::THRESHOLD() {
+
+}
 
 /*----------------------------------------------
   Constructor  - read command line

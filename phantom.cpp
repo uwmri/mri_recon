@@ -36,7 +36,7 @@ PHANTOM::PHANTOM( void){
 // ----------------------
 // Help Message
 // ----------------------
-#include "io_templates.cpp"
+#include "io_templates.hpp"
 void PHANTOM::help_message(void){
 	cout << "----------------------------------------------" << endl;
 	cout << "   Phantom Control " << endl;
@@ -432,24 +432,31 @@ void PHANTOM::add_phase( void ){
 /**
  * Adds noise to k-data structure. Amount controlled by phantom.phantom_noise
  */
-void PHANTOM::add_noise( Array<complex<float>,5>&kdata){
+void PHANTOM::add_noise( Array< Array<complex<float>,3>,2>&kdata){
 	
 	// Estimate 
-	float mean_kdata = sum(abs(kdata)) / kdata.size();
+	float mean_kdata = 0;
+	float num= 0;
+	for( Array< Array<complex<float>,3>,2>::iterator miter=kdata.begin(); miter!=kdata.end(); miter++){
+		 mean_kdata += sum(abs(*miter));
+		 num += (*miter).numElements();
+	}
+	mean_kdata /= num;
+	
 	cout << "Mean kdata = "<< mean_kdata << endl;
 	
 	// Add Complex Noise  
 	float noise_level = phantom_noise/sqrt(2.0)*mean_kdata;
 	cout << "Noise Level = "<< noise_level << endl;
 	
-	for(int c=0; c<kdata.extent(fifthDim); c++){
-		for(int ee=0; ee< kdata.extent(fourthDim); ee++){
-			for(int k=0; k< kdata.extent(thirdDim); k++){
-				for(int j=0; j< kdata.extent(secondDim); j++){
-					for(int i=0; i< kdata.extent(firstDim); i++){
-						arma::vec N = arma::randn<vec>(2);
-						kdata(i,j,k,ee,c)+= complex<float>(N(0)*noise_level,N(1)*noise_level);
-	}}}}}
+	
+	for( Array< Array<complex<float>,3>,2>::iterator miter=kdata.begin(); miter!=kdata.end(); miter++){ 
+		
+		Array< complex<float>,3> temp= (*miter);
+		for( Array<complex<float>,3>::iterator m2iter=temp.begin(); m2iter!=temp.end(); m2iter++){
+			arma::vec N = arma::randn<vec>(2);
+			(*m2iter) += complex<float>(N(0)*noise_level,N(1)*noise_level);
+	}}
 }
 
 

@@ -11,9 +11,9 @@ set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -m64 -O2 -fopenmp")
 set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
 set(CMAKE_C_FLAGS "-g -Wno-deprecated")
 
-set(LOCAL_LIBS armadillo acml_mp fftw3f_omp fftw3f blitz m)
+set(LOCAL_LIBS armadillo acml_mp acml_mv fftw3f_omp fftw3f blitz m)
 
-include_directories(${INCLUDE_DIRECTORIES} ${CMAKE_INCLUDE_PATH})
+
 link_directories(${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 set(BUILD_SHARED_LIBS ON)
 
@@ -30,4 +30,26 @@ target_link_libraries(RECONLIB ${LOCAL_LIBS})
 #--------------------------------------
 add_executable(recon_binary commandline_recon.cxx ${LOCAL_INCS})
 target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB)
+
+#--------------------------------------
+# Install 
+#--------------------------------------
+
+message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
+
+install( TARGETS RECONLIB DESTINATION lib)
+install( DIRECTORY ./ DESTINATION include 
+	FILES_MATCHING PATTERN "*.h" 
+	PATTERN "*.hpp" 
+	PATTERN "html" EXCLUDE 
+	PATTERN ".git" EXCLUDE
+	PATTERN "Cmake*" EXCLUDE
+	PATTERN "build" EXCLUDE
+	PATTERN ".settings" EXCLUDE
+	PATTERN ".extern*" EXCLUDE) 
+
+
+
+
+
 

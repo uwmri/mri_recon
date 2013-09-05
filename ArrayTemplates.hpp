@@ -88,6 +88,15 @@ T ArrayEnergy( Array< complex< T >, N_rank >& temp){
     return(EE);
 }
 
+template< typename T, const int N_rank, const int M_rank >
+T ArrayEnergy( Array< Array< complex< T >,N_rank>, M_rank >& temp){
+	T EE=0;
+	for(typename Array< Array< complex<T>,N_rank>,M_rank >::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+		EE+= ArrayEnergy( *miter );
+	}
+    return(EE);
+}
+
 
 template< typename T, const int N_rank>
 void ArrayWritePhase( Array<complex<T>,N_rank>& temp, const char *name){
@@ -98,6 +107,48 @@ void ArrayWritePhase( Array<complex<T>,N_rank>& temp, const char *name){
 		ofs.write( (char *)&val,sizeof(T));
      }	
 }
+
+template < typename T > 
+Array< Array<T,3>, 1> Alloc4DContainer( int x, int y, int z, int t){
+	Array< Array<T,3>,1> temp;
+	temp.setStorage(ColumnMajorArray<1>());
+	temp.resize( t );
+	for(int i1=0; i1< t; i1++){
+		temp(i1).setStorage(ColumnMajorArray<3>());
+		temp(i1).resize(x,y,z);
+		temp(i1)= (T )0;
+	}
+	return(temp);
+}
+
+template < typename T > 
+Array< Array<T,3>, 3> Alloc6DContainer( int x, int y, int z, int d1, int d2, int d3){
+	Array< Array<T,3>,3> temp;
+	temp.setStorage(ColumnMajorArray<3>());
+	temp.resize( d1,d2,d3);
+	
+	for( typename Array<Array<T,3>,3>::iterator miter=temp.begin();   miter !=temp.end(); miter++){
+		(*miter).setStorage(ColumnMajorArray<3>());
+		(*miter).resize(x,y,z);
+		(*miter)= (T )0;
+	}
+	return(temp);
+}
+
+template < typename T > 
+Array< Array<T,3>, 2> Alloc5DContainer( int x, int y, int z, int d1, int d2){
+	Array< Array<T,3>,2> temp;
+	temp.setStorage(ColumnMajorArray<2>());
+	temp.resize( d1,d2);
+	
+	for( typename Array< Array<T,3>,2>::iterator miter=temp.begin();   miter !=temp.end(); miter++){
+		(*miter).setStorage(ColumnMajorArray<3>());
+		(*miter).resize(x,y,z);
+		(*miter)= (T )0;
+	}
+	return(temp);
+}
+
 
 }// Namespace
 

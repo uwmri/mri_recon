@@ -5,7 +5,7 @@
 #include <cmath>
 #include <fftw3.h>
 #include <omp.h>
-#include "tictoc.cpp"
+#include "tictoc.hpp"
 #include "ArrayTemplates.hpp"
 
 enum {SP_SQUARE, SP_CIRCLE};

@@ -10,7 +10,7 @@
 #include <complex>
 #include <omp.h>
 #include "ArrayTemplates.hpp"
-#include "io_templates.cpp"
+
 
 // Thresholding methods
 enum { TH_NONE,TH_FRACTION,TH_VISU,TH_BAYES,TH_SURE};
@@ -18,6 +18,7 @@ enum { TH_NONE,TH_FRACTION,TH_VISU,TH_BAYES,TH_SURE};
 class THRESHOLD{
         public:
         
+		THRESHOLD();
 		THRESHOLD(int numarg, char **pstring);
         bool soft;				// soft/hard thresholding
         bool thapp;				// threshold approx band

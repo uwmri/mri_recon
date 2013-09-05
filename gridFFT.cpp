@@ -17,8 +17,8 @@ Usage Example:
 *************************************************/
 
 #include "gridFFT.h"
-#include "io_templates.cpp"
-#include "tictoc.cpp"
+#include "io_templates.hpp"
+#include "tictoc.hpp"
 using namespace NDarray;
 
 //----------------------------------------

@@ -54,6 +54,8 @@ class WAVELET3D{
 		int wType;		//!<Wavelet Basis Type
 		
 		// Public Member Functions Documented in .cpp
+		WAVELET3D();
+		WAVELET3D( NDarray::TinyVector<int,3> ,NDarray::TinyVector<int,3> ,int);
 		WAVELET3D( NDarray::Array< complex<float> , 3> &,int *,int);
 		WAVELET3D( NDarray::Array< complex<float> , 4> &,int *,int);
 		WAVELET3D( NDarray::Array< complex<float> , 5> &,int *,int);

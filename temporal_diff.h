@@ -17,7 +17,10 @@
 class TDIFF{
 	public:
 	 
-	 TDIFF( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 TDIFF();
+	 TDIFF( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);
+	 TDIFF( int, int);
+	 	 
 	 arma::cx_mat At;		// forward in time
 	 arma::cx_mat AIt;	// inverse in time
 	 arma::cx_mat Ae; 	// forward in encode

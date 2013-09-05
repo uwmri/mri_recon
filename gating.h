@@ -11,8 +11,7 @@
 #include <armadillo>
 #include "ArrayTemplates.hpp"
 #include "mri_data.h"
-#include "tictoc.cpp"
-#include "io_templates.cpp"
+#include "tictoc.hpp"
 
 // View sharing modes
 #define VS_NONE 0
@@ -27,8 +26,8 @@ class GATING {
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
         enum WeightType { ITERATIVE,NON_ITERATIVE};
+		enum FrameType { COMPOSITE, TIME_FRAME};
 		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
-		
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
 		
 		GATING();						
@@ -64,7 +63,7 @@ class GATING {
 		
 		// Function Calls		
 		static void help_message(void);
-        void weight_data(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);
+        void weight_data(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3>&kz,int t,WeightType, FrameType );
 
 	   	void hist_weight( NDarray::Array<float,3>&Tw, int e, int t);
 		void tornado_weight(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);

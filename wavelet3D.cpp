@@ -3,6 +3,11 @@
 using namespace std;
 using namespace NDarray;
 
+WAVELET3D::WAVELET3D(){
+ 
+}
+
+
 WAVELET3D::~WAVELET3D(){
  	// Not here yet
 }
@@ -41,6 +46,31 @@ WAVELET3D::WAVELET3D( Array< complex<float>, 4 >& temp, int *l, int type){
 WAVELET3D::WAVELET3D( Array< complex<float>, 3 >& temp, int *l, int type){
 	setup(  temp, l, type);
 }
+
+
+/**
+ * Constructor for 3D Wavelet.
+ * @see setup()
+ * @param nn size of array to be transformd
+ * @param ll levels at each dimension
+ * @param type The actual wavelet to be used.
+ */
+WAVELET3D::WAVELET3D( TinyVector<int,3> nn, TinyVector<int,3>  ll, int type){
+	N[2] = nn(2);
+	N[1] = nn(1);
+	N[0] = nn(0);
+	
+	L[2] = ll(2);
+	L[1] = ll(1);
+	L[0] = ll(0);
+
+	wType = type;
+			
+	get_filter_banks();
+	setup_wavelet_directions();
+}
+
+
 
 /**
  * Code to setup a wavelet transform based on 3D Array

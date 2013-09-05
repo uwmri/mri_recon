@@ -15,6 +15,36 @@ using arma::mat;
 using arma::cx_vec;
 using arma::fvec;
 
+TDIFF::TDIFF(){
+}
+
+TDIFF::TDIFF(int Nt, int Ne){
+	
+	At.zeros(Nt,Nt);
+	Ae.zeros(Ne,Ne);
+	
+	// Construct Temporal Differences Matrix
+	for(int i = 0; i < Ne; i++) {
+    	Ae(0,i)=1.0 / sqrt(Ne);
+	}
+	for(int i = 1; i < Ne; i++) {
+    	Ae(i,i-1)=1.0/sqrt(2.0);
+		Ae(i,i)=-1.0/sqrt(2.0);
+	}
+	AIe = Ae.i();
+	
+	
+	// Construct Temporal Differences Matrix
+	for(int i = 0; i < Nt; i++) {
+    	At(0,i)=1.0 / sqrt(Nt);
+	}
+	for(int i = 1; i < Nt; i++) {
+    	At(i,i-1)=1.0/sqrt(2.0);
+		At(i,i)=-1.0/sqrt(2.0);
+	}
+	AIt = At.i();
+}
+
 TDIFF::TDIFF(Array< Array< complex<float>,3>,2>&temp){ 
 	
 	Nt = temp.length(firstDim);

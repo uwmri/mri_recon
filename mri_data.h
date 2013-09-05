@@ -30,12 +30,12 @@ class MRI_DATA{
 		int Num_Coils;
 		
 		// Non-Cartesian Trajectory
-		NDarray::Array<float,4> kx;	// Fov = 1 unit, delta k =1
-		NDarray::Array<float,4> ky;
-		NDarray::Array<float,4> kz;
-		NDarray::Array<float,4> kw;
-		NDarray::Array<float,4> kt;	  // TE Time (s)
-		NDarray::Array< std::complex<float>,5> kdata;
+		NDarray::Array< NDarray::Array<float,3>,1> kx;	// Fov = 1 unit, delta k =1
+		NDarray::Array< NDarray::Array<float,3>,1> ky;
+		NDarray::Array< NDarray::Array<float,3>,1> kz;
+		NDarray::Array< NDarray::Array<float,3>,1> kw;
+		NDarray::Array< NDarray::Array<float,3>,1> kt;	  // TE Time (s)
+		NDarray::Array< NDarray::Array<std::complex<float>,3>,2> kdata;
 		
 		// Data for Noise samples 
 		NDarray::Array< std::complex<float>,2> noise_samples; // data for noise samples

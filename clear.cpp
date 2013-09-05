@@ -1,5 +1,5 @@
 #include "clear.h"
-#include "io_templates.cpp"
+#include "io_templates.hpp"
 
 using arma::cx_fmat;
 using arma::fmat;
@@ -22,6 +22,12 @@ void LOWRANKCOIL::help_message(void){
 	help_flag("-clear_alpha[]","regularization factor");
 	
 }
+
+LOWRANKCOIL::LOWRANKCOIL(){
+
+
+}
+  
 
 LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
   
@@ -55,29 +61,36 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
 //
 //  Just estimate the max singular value over the matrix  
 //-----------------------------------------------------
-void LOWRANKCOIL::update_threshold( Array< complex<float>,4 > &image){
-
-	float *stemp = new float[image.extent(thirdDim)];
+void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image){
+	
+	typedef Array<complex<float>,3> Complex3D;
+	
+	
+	float *stemp = new float[image(0,0,0).extent(thirdDim)];
+	
+	
+	for(int t=0; t< image.length(firstDim); t++){
+	for(int e=0; e< image.length(secondDim); e++){
 		
 	#pragma omp parallel for
-	for( int k=0; k < image.extent(thirdDim); k+=block_size_z){
+	for( int k=0; k < image(0,0,0).extent(thirdDim); k+=block_size_z){
 		stemp[k] = 0.0;
 		
 		cx_fmat A;
-		A.zeros(block_size_x*block_size_y*block_size_z,image.extent(fourthDim)); // Pixels x Coils
+		A.zeros(block_size_x*block_size_y*block_size_z,image.extent(thirdDim)); // Pixels x Coils
 	
 		fmat S;
-		S.zeros(block_size_x*block_size_y*block_size_z,image.extent(fourthDim)); // Pixels x Coils
+		S.zeros(block_size_x*block_size_y*block_size_z,image.extent(thirdDim)); // Pixels x Coils
 		
-		for( int j=0; j < image.extent(secondDim); j+=block_size_y){
-		for( int i=0; i < image.extent(firstDim); i+=block_size_x){
+		for( int j=0; j < image(0,0,0).extent(secondDim); j+=block_size_y){
+		for( int i=0; i < image(0,0,0).extent(firstDim); i+=block_size_x){
 		
 			int count = 0;
 			for(int kk=k; kk < k+block_size_z; kk++){
 			for(int jj=j; jj < j+block_size_y; jj++){
 			for(int ii=i; ii < i+block_size_x; ii++){
-				for(int coil=0; coil < image.extent(fourthDim); coil++){
-					A(count,coil) = image(ii,jj,kk,coil);
+				for(int coil=0; coil < image.extent(thirdDim); coil++){
+					A(count,coil) = image(t,e,coil)(ii,jj,kk);
 				}
 				count++;
 			}}}
@@ -89,8 +102,10 @@ void LOWRANKCOIL::update_threshold( Array< complex<float>,4 > &image){
 			stemp[k]= ( s(0) > stemp[k] ) ? ( s(0) ) : ( stemp[k] );
 	}}}
 	
+	}}
+	
 	smax = stemp[0];
-	for( int k=0; k < image.extent(thirdDim); k+=block_size_z){
+	for( int k=0; k < image(0,0,0).extent(thirdDim); k+=block_size_z){
 		smax = ( smax > stemp[k] ) ? ( smax ) : ( stemp[k] );
 	}
 	
@@ -103,18 +118,19 @@ void LOWRANKCOIL::update_threshold( Array< complex<float>,4 > &image){
 //-----------------------------------------------------
 //  Clear Threshold Call 
 //-----------------------------------------------------
-void LOWRANKCOIL::thresh( Array< complex<float>,4 > &image,Array< complex<float>,4 > &temp){
-	
-	
+void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, Array< Array<complex<float>,3>,3 > &temp){
+		
 	if(clear_alpha==0.0){
 		return;
 	}	
 	
 	// Copy to temp location
-	temp = image;
-	image = complex<float>(0.0,0.0);
+	swap(image, temp);
+	for( Array< Array<complex<float>,3>,3 >::iterator miter=image.begin(); miter != image.end(); miter++){
+		*miter = complex<float>(0.0,0.0);
+	}			
 	
-	int Ncoils = image.extent(fourthDim);
+	int Ncoils = image.extent(thirdDim);
 	
 	int shiftx;
 	int shifty;
@@ -124,9 +140,9 @@ void LOWRANKCOIL::thresh( Array< complex<float>,4 > &image,Array< complex<float>
 	int rand_shifty = rand() % block_size_y - block_size_y/2;
 	int rand_shiftz = rand() % block_size_z - block_size_z/2;
 		
-	int Nx = image.extent(firstDim);
-	int Ny = image.extent(secondDim);
-	int Nz = image.extent(thirdDim);
+	int Nx = image(0,0,0).extent(firstDim);
+	int Ny = image(0,0,0).extent(secondDim);
+	int Nz = image(0,0,0).extent(thirdDim);
 	
 	int step_size_x = (int)ceil((float)block_size_x);
 	int step_size_y = (int)ceil((float)block_size_y);
@@ -148,25 +164,28 @@ void LOWRANKCOIL::thresh( Array< complex<float>,4 > &image,Array< complex<float>
 		}
 		
 		
+	for(int t=0; t < image.length(firstDim); t++){
+	for(int e=0; e < image.length(secondDim); e++){
+			
 			
 	#pragma omp parallel for
-	for( int k=0; k < image.extent(thirdDim); k+=step_size_z){
+	for( int k=0; k < Nz; k+=step_size_z){
 		
 		cx_fmat A;
-		A.zeros(block_size_x*block_size_y*block_size_z,image.extent(fourthDim)); // Pixels x Coils
+		A.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
 	
 		cx_fmat U;
 		U.zeros(block_size_x*block_size_y*block_size_z,block_size_x*block_size_y*block_size_z); // Pixels x Pixels
 	    
 		fmat S;
-		S.zeros(block_size_x*block_size_y*block_size_z,image.extent(fourthDim)); // Pixels x Coils
+		S.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
 	    		
 		cx_fmat V;
-		V.zeros(image.extent(fourthDim),image.extent(fourthDim)); // Coils x Coils
+		V.zeros(Ncoils,Ncoils); // Coils x Coils
 	    
 		 		
-		for( int j=0; j < image.extent(secondDim); j+=step_size_y){ 
-		for( int i=0; i < image.extent(firstDim); i+=step_size_x){
+		for( int j=0; j < Ny; j+=step_size_y){ 
+		for( int i=0; i < Nx; i+=step_size_x){
 		
 			int count = 0;
 			for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
@@ -176,8 +195,8 @@ void LOWRANKCOIL::thresh( Array< complex<float>,4 > &image,Array< complex<float>
 				int px = (ii + Nx)% Nx;
 				int py = (jj + Ny)% Ny;
 				int pz = (kk + Nz)% Nz;
-				for(int coil=0; coil < image.extent(fourthDim); coil++){
-					A(count,coil) = temp(px,py,pz,coil);
+				for(int coil=0; coil < Ncoils; coil++){
+					A(count,coil) = temp(t,e,coil)(px,py,pz);
 				}
 				count++;
 			}}}
@@ -204,15 +223,17 @@ void LOWRANKCOIL::thresh( Array< complex<float>,4 > &image,Array< complex<float>
 				int pz = (kk + Nz)% Nz;
 				
 				complex<float>w(0.5,0.0);
-				for(int coil=0; coil < image.extent(fourthDim); coil++){
-					image(px,py,pz,coil) += X(count,coil)*w;
+				for(int coil=0; coil < Ncoils; coil++){
+					image(t,e,coil)(px,py,pz) += X(count,coil)*w;
 				}
 				count++;
 			}}}
 
-	}}}
+	}}}// spatial
 	
-	}
+	}}// t + e
+	
+	}//Block shifts
 		  
 		 		  
 }
@@ -220,10 +241,14 @@ void LOWRANKCOIL::thresh( Array< complex<float>,4 > &image,Array< complex<float>
 //-----------------------------------------------------
 //  Clear Combine Call 
 //-----------------------------------------------------
-void LOWRANKCOIL::combine( Array< complex<float>,4 > &image,Array< complex<float>,3 > &temp){
+void LOWRANKCOIL::combine( Array< Array<complex<float>,3>,3 > &image,Array< Array<complex<float>,3>,2 > &temp){
 	
-	temp =complex<float>(0.0,0.0);
+	typedef Array< complex<float>,3> Complex3D;
 	
+	for( Array< Complex3D, 2>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+		*miter = complex<float>(0.0,0.0);
+	}
+		
 	int shiftx;
 	int shifty;
 	int shiftz;
@@ -232,9 +257,10 @@ void LOWRANKCOIL::combine( Array< complex<float>,4 > &image,Array< complex<float
 	int rand_shifty = 0;
 	int rand_shiftz = 0;
 		
-	int Nx = image.extent(firstDim);
-	int Ny = image.extent(secondDim);
-	int Nz = image.extent(thirdDim);
+	int Nx = image(0,0,0).extent(firstDim);
+	int Ny = image(0,0,0).extent(secondDim);
+	int Nz = image(0,0,0).extent(thirdDim);
+	int Ncoils=  image.length(thirdDim);
 	
 	int step_size_x = (int)ceil((float)block_size_x);
 	int step_size_y = (int)ceil((float)block_size_y);
@@ -255,26 +281,28 @@ void LOWRANKCOIL::combine( Array< complex<float>,4 > &image,Array< complex<float
 			shiftz = rand_shiftz;
 		}
 		
-		
+	for(int t=0; t< image.length(firstDim); t++){
+	for(int e=0; e< image.length(secondDim); e++){
+	
 			
 	#pragma omp parallel for
-	for( int k=0; k < image.extent(thirdDim); k+=step_size_z){
+	for( int k=0; k < Nz; k+=step_size_z){
 		
 		cx_fmat A;
-		A.zeros(block_size_x*block_size_y*block_size_z,image.extent(fourthDim)); // Pixels x Coils
+		A.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
 	
 		cx_fmat U;
 		U.zeros(block_size_x*block_size_y*block_size_z,block_size_x*block_size_y*block_size_z); // Pixels x Pixels
 	    
 		fmat S;
-		S.zeros(block_size_x*block_size_y*block_size_z,image.extent(fourthDim)); // Pixels x Coils
+		S.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
 	    		
 		cx_fmat V;
-		V.zeros(image.extent(fourthDim),image.extent(fourthDim)); // Coils x Coils
+		V.zeros(Ncoils,Ncoils); // Coils x Coils
 	    
 		 		
-		for( int j=0; j < image.extent(secondDim); j+=step_size_y){ 
-		for( int i=0; i < image.extent(firstDim); i+=step_size_x){
+		for( int j=0; j < Ny; j+=step_size_y){ 
+		for( int i=0; i < Nx; i+=step_size_x){
 		
 			int count = 0;
 			for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
@@ -285,7 +313,7 @@ void LOWRANKCOIL::combine( Array< complex<float>,4 > &image,Array< complex<float
 				int py = (jj + Ny)% Ny;
 				int pz = (kk + Nz)% Nz;
 				for(int coil=0; coil < image.extent(fourthDim); coil++){
-					A(count,coil) = image(px,py,pz,coil);
+					A(count,coil) = image(t,e,coil)(px,py,pz);
 				}
 				count++;
 			}}}
@@ -307,11 +335,13 @@ void LOWRANKCOIL::combine( Array< complex<float>,4 > &image,Array< complex<float
 				int pz = (kk + Nz)% Nz;
 				
 				complex<float>w(1.0,0.0);
-				temp(px,py,pz) += A2(count,0)*w;
+				temp(t,e)(px,py,pz) += A2(count,0)*w;
 				count++;
 			}}}
 
-	}}}
+	}}}//Spatial
+	
+	}}// t+e
 	
 	}
 		  

@@ -23,6 +23,7 @@ Init:
 *************************************************/
 
 #include "gating.h"
+#include "io_templates.hpp"
 using namespace NDarray;
 
 GATING::GATING(){
@@ -393,12 +394,12 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		}
 		switch(tornado_shape){
 			case(VIPR):{
-				kmax = max( data.kx*data.kx + data.ky*data.ky + data.kz*data.kz);
+				kmax = max( data.kx(0)*data.kx(0) + data.ky(0)*data.ky(0) + data.kz(0)*data.kz(0));
 				kmax = sqrt(kmax);
 			}break;
 			
 			case(RADIAL):{
-				kmax = max( data.kx*data.kx + data.ky*data.ky );
+				kmax = max( data.kx(0)*data.kx(0) + data.ky(0)*data.ky(0) );
 				kmax = sqrt(kmax);
 			}break;
 			
@@ -449,7 +450,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 }
 
 
-void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType w_type){
+void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType w_type,FrameType comp_type){
     
 	switch(resp_gate_type){
 		
@@ -470,7 +471,7 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 	
 	
 	
-	if(gate_type!= GATE_NONE){
+	if( (gate_type!= GATE_NONE) && (comp_type !=COMPOSITE) ){
 		
 	switch(vs_type){
 		case(TORNADO):{

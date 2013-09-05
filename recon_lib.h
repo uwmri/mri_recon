@@ -24,7 +24,7 @@
 #include "spirit.h"
 #include "phantom.h"
 #include "gating.h"
-#include "tictoc.cpp"
+#include "tictoc.hpp"
 #include "gating.h"
 #include "clear.h"
 #include "l2reg.h"
@@ -52,9 +52,14 @@ class RECON{
 	  TransformType cs_spatial_transform;
 	  TransformType cs_temporal_transform;
 	  TransformType cs_encode_transform;
+	  
+	  // Reconstruction modules
+	  WAVELET3D wave;
+	  TDIFF tdiff;
+	  THRESHOLD softthresh;
+	  LOWRANKCOIL lrankcoil;
+	  L2REG l2reg;  
 	  	  
-	  int numrecv;
-	  float zero_fill;
 	  bool complex_diff;
 	  
 	  float zoom;
@@ -77,9 +82,7 @@ class RECON{
 	  int acc;
 	  float compress_coils;
 	  bool whiten;
-	  float lp_frac;
-	  float lp_sig;
-      float smap_res;
+	  float smap_res;
 	  char filename[1024];
 	  
 	  int max_iter;
@@ -93,8 +96,12 @@ class RECON{
 	  void set_defaults(void);
 	  void parse_commandline(int numarg, char **pstring);
 	  void init_recon(int argc, char **argv, MRI_DATA& data );
-	  
-	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruction( int argc, char **argv, MRI_DATA& data);
+	  void calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >full_recon( MRI_DATA& data, NDarray::Range, NDarray::Range,bool);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_one_frame( MRI_DATA& data, int);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruct_all_frames( MRI_DATA& data);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_composite( MRI_DATA& data);
+	  	  
 	private:	
 		
 };
