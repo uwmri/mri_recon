@@ -20,11 +20,16 @@ class TDIFF{
 	 TDIFF();
 	 TDIFF( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);
 	 TDIFF( int, int);
-	 	 
-	 arma::cx_mat At;		// forward in time
+	 	
+	 arma::cx_mat AWt;	// forward in time
+	 arma::cx_mat AWIt;	// inverse in time 
+	 
+	 arma::cx_mat At;	// forward in time
 	 arma::cx_mat AIt;	// inverse in time
+	 
 	 arma::cx_mat Ae; 	// forward in encode
-	 arma::cx_mat AIe; 	// inverse in encoee
+	 arma::cx_mat AIe; 	// inverse in encode
+	 
 	 int Nt;
 	 int Ne;
 	 
@@ -41,6 +46,12 @@ class TDIFF{
 	 
 	 void tdiff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 	 
 	 void inv_tdiff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 
+	 void twave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 	 
+	 void inv_twave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 
+	 
+	 void mat_multiply( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp,arma::cx_mat);
 	 
 	private:	
 		

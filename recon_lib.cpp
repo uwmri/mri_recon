@@ -110,7 +110,7 @@ void RECON::help_message(void){
 	
 	cout << "Transforms for Compressed Sensing:" << endl;
 	help_flag("-spatial_transform []","none/wavelet");
-    help_flag("-temporal_transform []","none/diff/pca/dft");
+    help_flag("-temporal_transform []","none/diff/pca/dft/wavelet");
     help_flag("-encode_transform []","none/diff");
     	
 	cout << "Iterative Recon Control:" << endl;
@@ -179,6 +179,9 @@ void RECON::parse_commandline(int numarg, char **pstring){
 				trig_flag(DIFF,"diff",cs_temporal_transform);
 				trig_flag(DFT,"dft",cs_temporal_transform);
 				trig_flag(PCA,"pca",cs_temporal_transform);
+				trig_flag(WAVELET,"wavelet",cs_temporal_transform);
+				trig_flag(COMPOSITE_DIFF,"composite",cs_temporal_transform);
+				
 			}else{
 				cout << "Please provide temporal transform type..none/dft/diff/pca" << endl;
 				exit(1);
@@ -342,7 +345,12 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 			
 			// Setup L2 Regularization Thresholding
 			l2reg=L2REG(argc,argv);
-		
+			
+			if(cs_temporal_transform == COMPOSITE_DIFF){
+				composite_image.setStorage( ColumnMajorArray<3>());
+				composite_image.resize( rcxres,rcyres,rczres);
+				composite_image = complex<float>(0.0,0.0);
+			}
 		}break;
 	}
 		
@@ -365,6 +373,7 @@ Array< Array<complex<float>,3 >,1 >RECON::reconstruct_composite( MRI_DATA& data)
 	Array< Array<complex<float>,3 >,1 >X = XX(0,Range::all());
 	return(X);
 }
+
 
 Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range times, Range times_store, bool composite){
 	
@@ -392,6 +401,11 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 	
 	// Final Image Solution
 	Array< Array<complex<float>,3>,2>X = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+	if( cs_temporal_transform==COMPOSITE_DIFF){
+		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+			(*miter)=composite_image;
+		}
+	}
 	
 	// Weighting Array for Time coding
 	Array< float, 3 >TimeWeight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
@@ -554,6 +568,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  ArrayWriteMag(Xslice,"X_mag.dat");
 						  ArrayWritePhase(Xslice,"X_phase.dat");
 						  
+						 					  
 						  
 						  // ---------------------------------
 						  //   Clear 
@@ -687,7 +702,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  	l2reg.regularize(P,R(store_t,e));
 								  }
 								 
-								  P*=conj(R(t,e));
+								  P*=conj(R(store_t,e));
 								  
 								  scale_RhP += sum(P); 
 								  cout << e << "," << t << "took " << T << "s" << endl;
@@ -695,12 +710,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  }//Encode
 						  
 						  // Get Scaling Factor R'P / R'R 
+						  cout << "Calc residue" << endl << flush;
 						  complex<float>scale_RhR = 0.0;
 						  for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
 						  		scale_RhR += complex<float>( ArrayEnergy( *riter ), 0.0);
 						  }
 						  
 						  // Error check
+						  cout << "L2 set scale " << endl << flush;
 						  if(iteration==1){
 							  error0 = abs(scale_RhR);
 							  l2reg.set_scale(error0,X);
@@ -714,7 +731,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 
 						  // Step in direction
 						  complex<float>scale = (scale_RhR/scale_RhP);
-						  cout << "Scale = " << scale << endl;
+						  cout << "Scale = " << scale << endl << flush;
 						  for(int e=0; e< rcencodes; e++){
 							  for(int t=0; t< Nt; t++){
 						  		R(t,e) *= scale;
@@ -727,55 +744,21 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  Array<complex<float>,2>Xslice=X(0,0)(all,all,X(0,0).length(2)/2);
 						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
 						  
+						  if( Nt > 1){
+						  	ArrayWriteMag(Xslice,"X_frames.dat");
+							ArrayWritePhase(Xslice,"X_frames.dat.phase");
+							for(int t=1; t< Nt; t++){
+								Array<complex<float>,2>Xf=X(t,0)(all,all,X(0,0).length(2)/2);
+								ArrayWriteMagAppend(Xf,"X_frames.dat");
+								ArrayWritePhaseAppend(Xf,"X_frames.dat.phase");
+							}
+						  }
+						  
 						  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
 						  if(softthresh.getThresholdMethod() != TH_NONE){
-							  cout << "Soft thresh" << endl;
-							  switch(cs_temporal_transform){
-							  	case(DFT):{	
-									cout << "DFT in Time" << endl;
-									tdiff.fft_t(X); 
-								}break;
-								default:{
-								
-								}break;
-							  }
-							  
-							  switch(cs_spatial_transform){
-							  	case(WAVELET):{
-							  		cout << "Wavelet in Space" << endl;
-									wave.random_shift();
-							  		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
-										wave.forward(*miter);
-									}
-								}break;
-								default:{
-								
-								}break;
-							  }
-							  
-							  softthresh.exec_threshold(X);
-							  
-							  switch(cs_spatial_transform){
-							  	case(WAVELET):{
-							  		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
-										wave.backward(*miter);
-									}
-								}break;
-								default:{
-								
-								}break;
-							  }
-							  
-							  switch(cs_temporal_transform){
-							  	case(DFT):{ 
-									tdiff.ifft_t(X); 
-								}break;
-								default:{
-								
-								}break;
-							  }
+							  L1_threshold(X);
 						  }
   						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
 						  
@@ -788,6 +771,106 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 
 	cout << "Recon was completed successfully " << endl;	
 	return(X);
+}
+
+
+void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
+	
+	cout << "Soft thresh" << endl;
+	switch(cs_temporal_transform){
+		case(DFT):{	
+			cout << "DFT in Time" << endl;
+			tdiff.fft_t(X); 
+		}break;
+								
+		case(DIFF):{
+			cout << "DIFF in Time" << endl;
+			tdiff.tdiff(X); 
+		}break;
+								
+		case(WAVELET):{
+			cout << "WAVELET in Time" << endl;
+			tdiff.twave(X); 
+		}break;
+		
+		case(COMPOSITE_DIFF):{
+				cout << "Composite Diff" << endl;
+				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+						*miter -= composite_image;
+				}
+		}break;
+								
+		default:{
+		}break;
+	  }
+		
+	  switch(cs_spatial_transform){
+			case(WAVELET):{
+				cout << "Wavelet in Space" << endl;
+				wave.random_shift();
+				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+						wave.forward(*miter);
+									}
+				}break;
+			
+				default:{
+								
+				}break;
+	 }
+							  
+						/*	  
+							  if( Nt > 1){
+						  		ArrayWriteMag(Xslice,"X_frames.dat.td");
+								ArrayWritePhase(Xslice,"X_frames.dat.phase.td");
+								for(int t=1; t< Nt; t++){
+									Array<complex<float>,2>Xf=X(t,0)(all,all,X(0,0).length(2)/2);
+									ArrayWriteMagAppend(Xf,"X_frames.dat.td");
+									ArrayWritePhaseAppend(Xf,"X_frames.dat.phase.td");
+						}*/
+		 
+		ArrayWriteMag(X(0,0),"PostTransform.dat");
+							  
+		softthresh.exec_threshold(X);
+							  
+		switch(cs_spatial_transform){
+							  	case(WAVELET):{
+							  		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+										wave.backward(*miter);
+									}
+								}break;
+								default:{
+								
+								}break;
+		 }
+							  
+		switch(cs_temporal_transform){
+							  	case(DFT):{ 
+									tdiff.ifft_t(X); 
+								}break;
+								
+								case(DIFF):{
+									cout << "DIFF in Time" << endl;
+									tdiff.inv_tdiff(X); 
+								}break;
+								
+								case(WAVELET):{
+									cout << "WAVE in Time" << endl;
+									tdiff.inv_twave(X); 
+								}break;
+								
+								case(COMPOSITE_DIFF):{
+									cout << "Composite Diff" << endl;
+									for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+										*miter += composite_image;
+									}
+								}break;																
+								
+								default:{
+								
+								}break;
+		}
+
+
 }
 
 

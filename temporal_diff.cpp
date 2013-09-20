@@ -18,7 +18,10 @@ using arma::fvec;
 TDIFF::TDIFF(){
 }
 
-TDIFF::TDIFF(int Nt, int Ne){
+TDIFF::TDIFF(int Nt_in, int Ne_in){
+	
+	Nt = Nt_in;
+	Ne = Ne_in;
 	
 	At.zeros(Nt,Nt);
 	Ae.zeros(Ne,Ne);
@@ -36,13 +39,36 @@ TDIFF::TDIFF(int Nt, int Ne){
 	
 	// Construct Temporal Differences Matrix
 	for(int i = 0; i < Nt; i++) {
-    	At(0,i)=1.0 / sqrt(Nt);
+    	At(0,i)=1.0;
 	}
 	for(int i = 1; i < Nt; i++) {
-    	At(i,i-1)=1.0/sqrt(2.0);
-		At(i,i)=-1.0/sqrt(2.0);
+    	At(i,i-1)=1.0;
+		At(i,i)= -1.0;
 	}
+	//Temp test transform orthogonalization
+	cx_mat U;
+	arma::vec s;
+	cx_mat V;
+	svd(U,s,V,At);	
+	At = V.t(); // 
+	At.print("Temporal Diff Operator");
 	AIt = At.i();
+	
+	
+	// Construct wavelet coef
+	AWt.zeros(Nt,Nt);
+	for( int i=0; i< (int)(Nt/2); i++){
+		// Construct Difference Operator
+		AWt(i,i*2)  =1;
+		AWt(i,i*2+1)=-1;
+			
+		//Average Operator
+		AWt(i+Nt/2,i*2)  = 1;
+		AWt(i+Nt/2,i*2+1)= 1;
+	}
+	AWIt = AWt.i();	
+	
+	
 }
 
 TDIFF::TDIFF(Array< Array< complex<float>,3>,2>&temp){ 
@@ -72,63 +98,74 @@ TDIFF::TDIFF(Array< Array< complex<float>,3>,2>&temp){
 		At(i,i)=-1.0/sqrt(2.0);
 	}
 	AIt = At.i();
+	
+	// Construct wavelet coef
+	AWt.zeros(Nt,Nt);
+	for( int i=0; i< (int)(Nt/2); i++){
+		for(int j=0; j< (int)(Nt/2); j++){
+			// Construct Difference Operator
+			AWt(i,j*2)=1;
+			AWt(i,j*2+1)=-1;
+			
+			//Average Operator
+			AWt(i+Nt/2,j*2)  = 1;
+			AWt(i+Nt/2,j*2+1)= 1;
+		}
+	}
+	AWIt = AWt.i();	
+	AWt.print("Wavelet Matrix");
+	AWIt.print("Wavelet Inverse Matrix");
+	
+	
+	
 }
 
+
+
+void TDIFF::mat_multiply( Array< Array< complex<float>,3>,2>&temp, cx_mat A){
+	for(int e=0; e<temp.extent(secondDim); e++){
+	
+	#pragma omp parallel for
+	for(int k=0; k<temp(0).extent(thirdDim); k++){
+		cx_vec s(Nt);
+		cx_vec ss(Nt);
+		for(int j=0; j<temp(0).extent(secondDim); j++){
+			for(int i=0; i<temp(0).extent(firstDim); i++){	
+				
+				//Copy
+				for(int t=0; t<temp.extent(firstDim); t++){
+					s(t)=temp(t,e)(i,j,k);
+				}
+				
+				// Transform
+				ss=A*s;
+				
+				//Copy Back
+				for(int t=0; t<temp.extent(firstDim); t++){
+					temp(t,e)(i,j,k) =ss(t);
+				}
+		}
+	}}
+	}
+}
 
 void TDIFF::tdiff( Array< Array< complex<float>,3>,2>&temp){
-	
-	
-	for(int e=0; e<temp.extent(secondDim); e++){
-	#pragma omp parallel for
-	 
-	for(int k=0; k<temp(0).extent(thirdDim); k++){
-		cx_vec s(Nt);
-		cx_vec ss(Nt);
-		for(int j=0; j<temp(0).extent(secondDim); j++){
-			for(int i=0; i<temp(0).extent(firstDim); i++){	
-				//Copy
-				for(int t=0; t<temp.extent(firstDim); t++){
-					s(t)=temp(t,e)(i,j,k);
-				}
-				
-				// Transform
-				ss=At*s;
-				
-				//Copy Back
-				for(int t=0; t<temp.extent(firstDim); t++){
-					temp(t,e)(i,j,k) =ss(t);
-				}
-		}
-	}}
-	}
+	 mat_multiply(temp,At);
 }
 
-void TDIFF::inv_tdiff( Array< Array< complex<float>,3>,2>&temp){ 
-	
-	for(int e=0; e<temp.extent(secondDim); e++){
-	#pragma omp parallel for
-	 
-	for(int k=0; k<temp(0).extent(thirdDim); k++){
-		cx_vec s(Nt);
-		cx_vec ss(Nt);
-		for(int j=0; j<temp(0).extent(secondDim); j++){
-			for(int i=0; i<temp(0).extent(firstDim); i++){	
-				//Copy
-				for(int t=0; t<temp.extent(firstDim); t++){
-					s(t)=temp(t,e)(i,j,k);
-				}
-				
-				// Transform
-				ss=AIt*s;
-				
-				//Copy Back
-				for(int t=0; t<temp.extent(firstDim); t++){
-					temp(t,e)(i,j,k) =ss(t);
-				}
-		}
-	}}
-	}
+void TDIFF::inv_tdiff( Array< Array< complex<float>,3>,2>&temp){
+	 mat_multiply(temp,AIt);
 }
+
+void TDIFF::twave( Array< Array< complex<float>,3>,2>&temp){
+	 mat_multiply(temp,AWt);
+}
+
+void TDIFF::inv_twave( Array< Array< complex<float>,3>,2>&temp){
+	 mat_multiply(temp,AWIt);
+}
+
+
 
 
 void TDIFF::ediff( Array< Array< complex<float>,3>,2>&temp){ 

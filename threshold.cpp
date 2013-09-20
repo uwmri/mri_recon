@@ -114,27 +114,31 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef){
  *------------------------------------------------------------------*/ 
 void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 
+	VERBOSE =1;
+	cout << "Calc Range" << endl << flush;
 	
-
-	int Nz = Coef(0).length(thirdDim);
+	int Nz = Coef(0,0).length(thirdDim);
 	
 	// Get range
 	float *max_wave_t = new float[Nz];
 	float *min_wave_t = new float[Nz];
+	for(int k=0; k< Nz; k++){
+		max_wave_t[k] = 0.0;
+		min_wave_t[k] = 0.0;
+	}
 		
-	for(int e=0; e< Coef.extent(firstDim);e++){
-		for(int t=0; t< Coef.extent(secondDim);t++){
-			Array< complex<float>,3> XX = Coef(t,e); 
+	for(int e=0; e< Coef.length(secondDim);e++){
+		for(int t=0; t< Coef.length(firstDim);t++){
+			Array< complex<float>,3> XX;
+			XX.reference( Coef(t,e) ); 
 
-#pragma omp parallel for 
+			#pragma omp parallel for 
 			for(int k=0; k< XX.extent(thirdDim); k++){
 			for(int j=0; j< XX.extent(secondDim); j++){
 			for(int i=0; i< XX.extent(firstDim); i++){    
 				float v=abs( XX(i,j,k));
 				max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
 				min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
-				
-				
 			}}}	// Spatial			
 	}}
 	
@@ -151,7 +155,7 @@ void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 	if(VERBOSE) cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
 
 	// Estimate histogram (sort)
-	int total_points = Coef.numElements()*Coef(0).numElements();
+	int total_points = Coef.numElements()*Coef(0,0).numElements();
 	int points_found = total_points;
 	int target = (int)( thresh*(double)total_points);
 	int accuracy = (int)(0.001*(double)total_points);
@@ -185,8 +189,8 @@ void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 
 		// Calculate Threshold
 		points_found= 0;
-		for(int e=0; e< Coef.extent(firstDim);e++){
-		for(int t=0; t< Coef.extent(secondDim);t++){
+		for(int e=0; e< Coef.extent(secondDim);e++){
+		for(int t=0; t< Coef.extent(firstDim);t++){
 			Array< complex<float>,3> XX = Coef(t,e); 
 
 			#pragma omp parallel for reduction(+:points_found)			
@@ -446,8 +450,8 @@ void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef){
 	int Nx = Coef(0).length(firstDim);
 	int Ny = Coef(0).length(secondDim);
 	int Nz = Coef(0).length(thirdDim);
-	int Ne = Coef.length(firstDim);
-	int Nt = Coef.length(secondDim);
+	int Ne = Coef.length(secondDim);
+	int Nt = Coef.length(firstDim);
 	
 	// Get Update
 	for(int e=0; e< Ne;e++){

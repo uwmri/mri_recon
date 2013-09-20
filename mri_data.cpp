@@ -132,13 +132,6 @@ void MRI_DATA::init_memory(void){
 		kdata.reference(temp);
 	} 
 	
-	kx.dumpStructureInformation();
-	kx(0).dumpStructureInformation();
-	
-		
-	kdata.dumpStructureInformation();
-	kdata(0,0).dumpStructureInformation();
-	
 	// Timesd
 	time.setStorage( ColumnMajorArray<3>());
 	time.resize(Num_Readouts,Num_Slices,Num_Encodings);
@@ -508,7 +501,6 @@ void MRI_DATA::coilcompress(float thresh)
   eig_sym(eigval,eigvec,A);  
   cx_fmat V = eigvec.cols(Num_Coils-(int)thresh-1,Num_Coils-1);
   
-
   cout << "Multiple by Eigen" << endl; 
   for(int e =0; e< Num_Encodings; e++){
   for(int k =0; k< Num_Slices; k++){
@@ -536,10 +528,18 @@ void MRI_DATA::coilcompress(float thresh)
   }}}
   
   cout << "Resize to " << thresh << endl << flush;
-  kdata.resizeAndPreserve(kdata.length(firstDim),(int)thresh);
+  Array< Array<complex<float>,3>,2>kdata2(kdata.length(firstDim),(int)thresh,ColumnMajorArray<2>());
+  for(int e =0; e< Num_Encodings; e++){
+  for(int c =0; c< thresh; c++){
+  	kdata2(e,c).reference(kdata(e,c));
+  }}
+  kdata.reference(kdata2); 
   Num_Coils = (int)thresh;
   
   cout << "done" << endl;
+  
+
+
 }
 
 

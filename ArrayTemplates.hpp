@@ -108,6 +108,16 @@ void ArrayWritePhase( Array<complex<T>,N_rank>& temp, const char *name){
      }	
 }
 
+template< typename T, const int N_rank>
+void ArrayWritePhaseAppend( Array<complex<T>,N_rank>& temp, const char *name){
+	 
+	 ofstream ofs(name, ios_base::binary  | ios_base::app);
+	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+	 	T val= arg( *miter);
+		ofs.write( (char *)&val,sizeof(T));
+     }	
+}
+
 template < typename T > 
 Array< Array<T,3>, 1> Alloc4DContainer( int x, int y, int z, int t){
 	Array< Array<T,3>,1> temp;

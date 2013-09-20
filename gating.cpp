@@ -485,6 +485,11 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 	}
 	
 	}
+	
+	// Normalize Weighting
+	//float sum_Tw = sum(Tw);
+	//cout << "Sum Time Weight = " << sum_Tw << endl;
+	//Tw /= sum_Tw;
 }
 
 
@@ -554,5 +559,6 @@ void GATING::tornado_weight(Array<float,3>&Tw, int e, const Array<float,3> &kx, 
 		}
 				
 	}}}
+	ArrayWrite(Tw,"TimeWeight.dat");
 }
 

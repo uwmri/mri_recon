@@ -29,7 +29,7 @@ L2REG::L2REG(){
 L2REG::L2REG(int numarg, char **pstring){
   
 	verbose =0;
-	lambda = 0.01;
+	lambda = 0.00;
 	l2_type = NONE;
 	reg_scale =0.0;
 	
@@ -52,63 +52,54 @@ L2REG::L2REG(int numarg, char **pstring){
 
 void L2REG::set_scale( float EhE_scale, Array< Array< complex<float>,3>,2>&X){
 	
+	if(lambda==0.0){
+		return;
+	}
 	// Input should be energy of EhE X
 	// Scales regularization by EhEx/TVx
 	
 	float transform_energy=0.0;
 	switch(l2_type){
 	
-	case(NONE):{
+		case(NONE):{
 	  
-	  for(int e =0; e < X.length(secondDim);e++){
-	  for(int t =0; t < X.length(firstDim);t++){
-	  
-	  for(int k =0; k < X(0).length(thirdDim);k++){
-	  for(int j =0; j < X(0).length(secondDim);j++){
-	  for(int i =0; i < X(0).length(firstDim);i++){
-			transform_energy += norm( X(e,t)(i,j,k));
-	  }}}
-	  
-	  }}
-	
-	}break;
+	  		#pragma omp parallel for reduction(+:transform_energy)
+			for(int et=0; et < X.numElements(); et++){ 	  
+				int t = et % X.length(firstDim);
+				int e = et / X.length(firstDim);
+								
+				float temp = sum(norm(X(t,e)));
+				transform_energy += temp; 
+			}
+		}break;
 	
 	
-	case(TV):{
-	
-	  int Nx = X(0).length(firstDim);
-	  int Ny = X(0).length(secondDim);
-	  int Nz = X(0).length(thirdDim);
-	  
-	  for(int e =0; e < X.length(secondDim);e++){
-	  for(int t =0; t < X.length(firstDim);t++){
-	  
-	  Array<complex<float>, 3>Xref = X(t,e);
-	  for(int k =0; k < Xref.length(thirdDim);k++){
-	  for(int j =0; j < Xref.length(secondDim);j++){
-	  for(int i =0; i < Xref.length(firstDim);i++){
-			complex<float>val = complex<float>(1.0/6.0,0.0)*( complex<float>(6.0,0.0)*Xref(i,j,k) - Xref((i+1)%Nx,j,k) - Xref((i+Nx-1)%Nx,j,k) - Xref(i,(j+1)%Ny,k) - Xref(i,(j+Ny-1)%Ny,k)  - Xref(i,j,(k+1)%Nz) - Xref(i,j,(k+Nz-1)%Nz));
+		case(TV):{
 			
-			transform_energy += norm( val );
-	  }}}
+			for(Array< Array< complex<float>,3>,2>::iterator miter=X.begin(); miter !=X.end(); miter++){
+			
+	  			int Nx = (*miter).length(firstDim);
+	  			int Ny = (*miter).length(secondDim);
+	  			int Nz = (*miter).length(thirdDim);
+	  			Array< complex<float>,3> Xref;
+				Xref.reference(*miter);
+	    
+	  			for(int k =0; k < Xref.length(thirdDim);k++){
+	  			for(int j =0; j < Xref.length(secondDim);j++){
+	  			for(int i =0; i < Xref.length(firstDim);i++){
+					complex<float>val = complex<float>(1.0/6.0,0.0)*( complex<float>(6.0,0.0)*Xref(i,j,k) - Xref((i+1)%Nx,j,k) - Xref((i+Nx-1)%Nx,j,k) - Xref(i,(j+1)%Ny,k) - Xref(i,(j+Ny-1)%Ny,k)  - Xref(i,j,(k+1)%Nz) - Xref(i,j,(k+Nz-1)%Nz));
+					transform_energy += norm( val );
+	  			}}}
+	  	
+	  		}	
 	  
-	  }}
-	  
-	}break;
+		}break;
 	
-	case(PHASE):{
-	  for(int e =0; e < X.length(secondDim);e++){
-	  for(int t =0; t < X.length(firstDim);t++){
-	  
-	  for(int k =0; k < X(0).length(thirdDim);k++){
-	  for(int j =0; j < X(0).length(secondDim);j++){
-	  for(int i =0; i < X(0).length(firstDim);i++){
-			transform_energy += pow( imag(X(t,e)(i,j,k)),2);
-	  }}}
-	  
-	  }}
-	}break;
-	
+		case(PHASE):{
+	 		for(Array< Array< complex<float>,3>,2>::iterator miter=X.begin(); miter !=X.end(); miter++){
+				transform_energy += sum( pow( imag(*miter),2));
+	  		}
+		}break;
 	}
 	cout << "Transform Energy = " << transform_energy << endl;
 	cout << "EhE Energy = " << EhE_scale << endl;
@@ -122,10 +113,14 @@ void L2REG::set_scale( float EhE_scale, Array< Array< complex<float>,3>,2>&X){
 // Regularize Function
 //-----------------------------------------------------
 void L2REG::regularize( Array< complex<float>,3 > &Rref, Array< complex<float>,3 > &Xref){
+	if(lambda==0.0){
+		return;
+	}
 	
 	switch(l2_type){
 	
 	case(NONE):{
+	  #pragma omp parallel for
 	  for(int k =0; k < Xref.length(thirdDim);k++){
 	  for(int j =0; j < Xref.length(secondDim);j++){
 	  for(int i =0; i < Xref.length(firstDim);i++){
@@ -140,6 +135,7 @@ void L2REG::regularize( Array< complex<float>,3 > &Rref, Array< complex<float>,3
 	  int Nx = Xref.length(firstDim);
 	  int Ny = Xref.length(secondDim);
 	  int Nz = Xref.length(thirdDim);
+	  #pragma omp parallel for
 	  for(int k =0; k < Xref.length(thirdDim);k++){
 	  for(int j =0; j < Xref.length(secondDim);j++){
 	  for(int i =0; i < Xref.length(firstDim);i++){
@@ -148,6 +144,7 @@ void L2REG::regularize( Array< complex<float>,3 > &Rref, Array< complex<float>,3
 	}break;
 	
 	case(PHASE):{
+	  #pragma omp parallel for
 	  for(int k =0; k < Xref.length(thirdDim);k++){
 	  for(int j =0; j < Xref.length(secondDim);j++){
 	  for(int i =0; i < Xref.length(firstDim);i++){

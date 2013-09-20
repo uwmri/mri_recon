@@ -41,7 +41,7 @@ class RECON{
 	  enum CoilCombineType { LOWRES, ESPIRIT };
 	  
 	  // Enum Transform Types
-	  enum TransformType {NONE,WAVELET,DIFF,DFT,PCA};
+	  enum TransformType {NONE,WAVELET,DIFF,DFT,PCA,COMPOSITE_DIFF};
 	  	 
 	  // Recon Flags  
 	  ReconType recon_type;
@@ -77,6 +77,7 @@ class RECON{
   	  // Store for later
       gridFFT gridding;
 	  NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps; // Array of arrays
+	  NDarray::Array< complex<float>,3>composite_image;
 	  GATING gate;
 	  
 	  int acc;
@@ -97,6 +98,7 @@ class RECON{
 	  void parse_commandline(int numarg, char **pstring);
 	  void init_recon(int argc, char **argv, MRI_DATA& data );
 	  void calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data);
+	  void L1_threshold( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >full_recon( MRI_DATA& data, NDarray::Range, NDarray::Range,bool);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_one_frame( MRI_DATA& data, int);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruct_all_frames( MRI_DATA& data);

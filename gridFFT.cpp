@@ -660,7 +660,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	float cz = Sz/2;
 	
 	if( !dataA.isStorageContiguous()){
-		cout << "None contiguous storage doesn't work yet" << endl;
+		cout << "Non-contiguous storage doesn't work yet" << endl;
 		exit(1);
 	}
 	
@@ -800,7 +800,7 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	float cz = Sz/2;
 	
 	if( !dataA.isStorageContiguous()){
-		cout << "None contiguous storage doesn't work yet" << endl;
+		cout << "Non-contiguous storage doesn't work yet" << endl;
 		exit(1);
 	}
 	
