@@ -106,6 +106,7 @@ void RECON::help_message(void){
 	help_flag("-clear","clear (low rank coil aproximation)");
 	help_flag("-ist","iterative soft thresholding");
 	help_flag("-fista","fast iterative soft thresholding");
+	help_flag("-cg","conjugate gradients");
 	help_flag("-complex_diff","Subtract first encode");
 	
 	cout << "Transforms for Compressed Sensing:" << endl;
@@ -155,6 +156,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(IST,"-ist",recon_type);
 		trig_flag(FISTA,"-fista",recon_type);
 		trig_flag(CLEAR,"-clear",recon_type);
+		trig_flag(CG,"-cg",recon_type);
 		
 		// Spatial Transforms
 		}else if(strcmp("-spatial_transform",pstring[pos]) == 0) {
@@ -593,13 +595,146 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 		}break;
 		
 		case(CG):{
-				       // ------------------------------------
-				       // Conjugate Gradient Recon not yet
-				       // ------------------------------------
+				 // ------------------------------------
+				 // Conjugate Gradient Recon 
+				 //   -Uses much more memory than gradient descent but is faster (both convergence + per iteration)
+				 // ------------------------------------
+				
+				 // Structures  	
+				 Array< Array< complex<float>,3>, 2>R = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 for( Array< Array<complex<float>,3>,2>::iterator miter =R.begin(); miter != R.end(); miter++){
+				 	(*miter)= complex<float>(0.0,0.0);
+				 }
+				 
+				 Array< Array< complex<float>,3>, 2>P = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 for( Array< Array<complex<float>,3>,2>::iterator miter =P.begin(); miter != P.end(); miter++){
+				 	(*miter)= complex<float>(0.0,0.0);
+				 }
+				 
+				 Array< Array< complex<float>,3>, 2>LHS = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 				 
+				 // Storage for (Ex-d)
+				 Array< complex<float>,3 >diff_data(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+
+				 			 
+				 // First Calculate E'd
+				 cout << "LHS Calculation" << endl;
+				 for(int e=0; e< rcencodes; e++){
+					for(int t=0; t< Nt; t++){
+						int act_t = times(t);
+						int store_t = times_store(t);
+						
+						// Temporal weighting
+						TimeWeight = -data.kw(e); // Note negative --> Residue
+						gate.weight_data( TimeWeight,e,data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE, frame_type);
+   						
+						// E'd
+						for(int coil=0; coil< data.Num_Coils; coil++){
+							gridding.forward( R(store_t,e),smaps(coil),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+						} 
+						 
+				 }}
+				 
+				 // Initiialize P
+				 P  = R;	
+														 
+				 // Now Iterate
+				 cout << "Iterate" << endl;
+				 double error0=0.0;
+				 for(int iteration =0; iteration< max_iter; iteration++){
+
+					  tictoc iteration_timer;
+					  iteration_timer.tic();
+					  
+					  for(int e=0; e< rcencodes; e++){
+						  for(int t=0; t< Nt; t++){
+							  int act_t = times(t);
+							  int store_t = times_store(t);
+							  
+							  LHS(t,e ) = complex<float>(0.0,0.0);
+							  T.tic();
+ 
+							  // Temporal weighting
+							  TimeWeight = data.kw(e);
+							  gate.weight_data( TimeWeight,e,data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE, frame_type);
+   							  	  
+							  for(int coil=0; coil< data.Num_Coils; coil++){
+								  // E'Ex
+								  diff_data=0;
+								  gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+								  gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+							  }//Coils
+						}// t
+					}// e
+						  
+					//----------------------------------------------------
+					//  Now perform gradient update
+					// ---------------------------------------------------
+					
+					complex< float> sum_R0_R0(0.0,0.0);
+					complex< float> sum_R_R(0.0,0.0);
+					complex< float> sum_P_LHS(0.0,0.0);
+					
+					// Calc R'R and P'*LHS
+					for(int e=0; e< rcencodes; e++){
+					 for(int t=0; t< Nt; t++){
+						for(int k=0; k < rczres; k++){
+						for(int j=0; j < rcyres; j++){
+						for(int i=0; i < rcxres; i++){
+							sum_R0_R0 += norm( R(t,e)(i,j,k) );
+							sum_P_LHS += conj( P(t,e)(i,j,k) )*LHS(t,e)(i,j,k);
+						}}}
+					}}	
+					complex< float> scale = sum_R0_R0 / sum_P_LHS; 
+					
+										
+					// Take step size
+					for(int e=0; e< rcencodes; e++){
+					 for(int t=0; t< Nt; t++){
+						for(int k=0; k < rczres; k++){
+						for(int j=0; j < rcyres; j++){
+						for(int i=0; i < rcxres; i++){
+							X(t,e)(i,j,k) += ( scale* (  P(t,e)(i,j,k)) );
+							R(t,e)(i,j,k) -= ( scale* (LHS(t,e)(i,j,k)) );
+							sum_R_R += norm( R(t,e)(i,j,k) );
+						}}}
+					}}
+										
+					cout << "Sum R'R = " << sum_R_R << endl;
+					complex< float> scale2 = sum_R_R / sum_R0_R0; 
+					
+					// Take step size
+					for(int e=0; e< rcencodes; e++){
+					 for(int t=0; t< Nt; t++){
+						for(int k=0; k < rczres; k++){
+						for(int j=0; j < rcyres; j++){
+						for(int i=0; i < rcxres; i++){
+							P(t,e)(i,j,k) = R(t,e)(i,j,k) + ( scale2*P(t,e)(i,j,k) );
+						}}}
+					}}
+					
+					// Export X slice
+					{
+						  Array<complex<float>,2>Xslice=X(0,0)(all,all,X(0,0).length(2)/2);
+						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  
+						  Array<complex<float>,2>LHSslice=LHS(0,0)(all,all,LHS(0,0).length(2)/2);
+						  ArrayWriteMagAppend(LHSslice,"LHS_mag.dat");
+						  
+						  Array<complex<float>,2>Pslice=X(0,0)(all,all,P(0,0).length(2)/2);
+						  ArrayWriteMagAppend(Pslice,"P_mag.dat");
+						  
+						  Array<complex<float>,2>Rslice=R(0,0)(all,all,R(0,0).length(2)/2);
+						  ArrayWriteMagAppend(Rslice,"R_mag.dat");
+					}
+					
+				}//iteration	
+					
+										
 
 
 
-			      }break;
+			   }break;
 
 
 		case(IST):
@@ -616,7 +751,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					  
 					  Array< Array< complex<float>,3>, 2>X_old;
 					  if( recon_type == FISTA){
-						  	X_old=Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+						  	cout << "Alloc Fista Matrix" << endl;
+							Array< Array< complex<float>,3>, 2>Temp =Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+							X_old.reference(Temp);
 					  }
 
 					  // Residue 	
@@ -639,7 +776,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 
 						  // Update X based on FISTA 
 						  if(recon_type==FISTA){
-							  softthresh.fista_update(X,X_old,iteration);
+							  cout << "Fista update" << endl << flush;
+							  softthresh.fista_update(X, X_old, iteration);
 						  }
 
 						  // Zero this for Cauchy set size
@@ -667,7 +805,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  // Temporal weighting
 								  TimeWeight = kwE;
 								  gate.weight_data( TimeWeight,e, kxE, kyE,kzE,act_t,GATING::ITERATIVE, frame_type);
-   							 	  
+   							 	  TimeWeight /= sum(TimeWeight);
+								  
 								  for(int coil=0; coil< data.Num_Coils; coil++){
 									  // Ex
 									  diff_data=0;
@@ -717,9 +856,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  }
 						  
 						  // Error check
-						  cout << "L2 set scale " << endl << flush;
 						  if(iteration==1){
-							  error0 = abs(scale_RhR);
+							  cout << "L2 set scale " << endl << flush;
+						  	  error0 = abs(scale_RhR);
 							  l2reg.set_scale(error0,X);
 						  }
 						  cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
