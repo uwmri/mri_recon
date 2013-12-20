@@ -51,11 +51,11 @@ TDIFF::TDIFF(int Nt_in, int Ne_in){
 	cx_mat V;
 	svd(U,s,V,At);	
 	At = V.t(); // 
-	At.print("Temporal Diff Operator");
+	//At.print("Temporal Diff Operator");
 	AIt = At.i();
 	
 	
-	// Construct wavelet coef
+	/* Construct wavelet coef
 	AWt.zeros(Nt,Nt);
 	for( int i=0; i< (int)(Nt/2); i++){
 		// Construct Difference Operator
@@ -66,7 +66,7 @@ TDIFF::TDIFF(int Nt_in, int Ne_in){
 		AWt(i+Nt/2,i*2)  = 1;
 		AWt(i+Nt/2,i*2+1)= 1;
 	}
-	AWIt = AWt.i();	
+	AWIt = AWt.i();	*/
 	
 	
 }

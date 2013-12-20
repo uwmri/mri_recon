@@ -114,8 +114,10 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef){
  *------------------------------------------------------------------*/ 
 void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 
-	VERBOSE =1;
-	cout << "Calc Range" << endl << flush;
+	VERBOSE =0;
+	if(VERBOSE==1){
+		 cout << "Calc Range" << endl << flush;
+	}
 	
 	int Nz = Coef(0,0).length(thirdDim);
 	
@@ -431,8 +433,6 @@ void THRESHOLD::exec_visuthreshold(Array<Array< complex<float>,3>,2>&Coef){
 void THRESHOLD::exec_fractionthreshold(Array<Array< complex<float>,3>,2>&Coef){
 
 	cout<<"Fractional Thresholding ";
-	if(soft==true)	{ cout<<"(soft)"<<endl; }
-	else { cout<<"(hard)"<<endl; }
 
 	get_threshold(Coef);
 	thresholding(Coef);

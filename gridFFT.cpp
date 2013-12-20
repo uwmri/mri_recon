@@ -816,7 +816,7 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
       	
 		
 		// Do not grid zeros
-     	if( kw[i]==0.0) continue;
+     		if( kw[i]==0.0) continue;
 		
 		// Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)

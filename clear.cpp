@@ -13,19 +13,31 @@ using namespace NDarray;
 // ----------------------
 void LOWRANKCOIL::help_message(void){
 	cout << "----------------------------------------------" << endl;
-	cout << "  Control for CLEAR " << endl;
+	cout << "  Control for Low Rank Operators " << endl;
 	cout << "----------------------------------------------" << endl;
 	
 	help_flag("-clear_nx []","kernel size in x");
 	help_flag("-clear_ny []","kernel size in y");
 	help_flag("-clear_ns []","kernel size in z");
-	help_flag("-clear_alpha[]","regularization factor");
+	help_flag("-clear_alpha_coil []","regularization factor");
+	help_flag("-clear_alpha_time []","regularization factor time");
+	help_flag("-clear_alpha_encode []","regularization factor space");
 	
 }
 
 LOWRANKCOIL::LOWRANKCOIL(){
 
+  // Kernel Size Defaults 
+  block_size_x = 4;
+  block_size_y = 4;
+  block_size_z = 4;
+  block_iter = 4;
 
+  clear_alpha_coil = 0.01;
+  clear_alpha_time = 0.0;
+  clear_alpha_encode = 0.0;
+  debug =0;
+  smax = 1.0;
 }
   
 
@@ -35,8 +47,11 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
   block_size_x = 4;
   block_size_y = 4;
   block_size_z = 4;
-
-  clear_alpha = 0.01;
+  block_iter = 4;
+  
+  clear_alpha_coil = 0.01;
+  clear_alpha_time = 0.0;
+  clear_alpha_encode = 0.0;
   debug =0;
   smax = 1.0;
 
@@ -51,7 +66,12 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
 		int_flag("-clear_nx",block_size_x);
 		int_flag("-clear_ny",block_size_y);
 		int_flag("-clear_nz",block_size_z);
-		float_flag("-clear_alpha",clear_alpha);
+		int_flag("-clear_block_iter",block_iter);
+		float_flag("-clear_alpha_coil",clear_alpha_coil);
+		float_flag("-clear_alpha_time",clear_alpha_time);
+		float_flag("-clear_alpha_encode",clear_alpha_encode);
+	
+		
 	}
   }
 }    
@@ -61,291 +81,726 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
 //
 //  Just estimate the max singular value over the matrix  
 //-----------------------------------------------------
-void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image){
+
+
+void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, int dim){
+	
 	
 	typedef Array<complex<float>,3> Complex3D;
 	
+	// Shorthand
+	int Nt =image.extent(firstDim);
+	int Ne =image.extent(secondDim);
+	int Ncoils = image.extent(thirdDim);
+	int Nx =image(0,0,0).extent(firstDim);
+	int Ny =image(0,0,0).extent(secondDim);
+	int Nz =image(0,0,0).extent(thirdDim);
 	
-	float *stemp = new float[image(0,0,0).extent(thirdDim)];
+	// Blocks shouldn't be larger than the dimension
+	block_size_x = ( block_size_x > Nx) ? ( Nx ) : ( block_size_x );
+	block_size_y = ( block_size_y > Ny) ? ( Ny ) : ( block_size_y );
+	block_size_z = ( block_size_z > Nz) ? ( Nz ) : ( block_size_z );
 	
+	int N = image.extent(dim);
+	int Np = image.numElements()*block_size_x*block_size_y*block_size_z / N;
 	
-	for(int t=0; t< image.length(firstDim); t++){
-	for(int e=0; e< image.length(secondDim); e++){
+	cout << "Actual Block Size = " << block_size_x << " x " << block_size_y << " x " << block_size_z << endl;	
+	cout << "Getting Low Rank threshold (N=" << N << ")(Np = " << Np << ")" << endl;
+	smax = 0.0;
+	
+	int block_Nx= (int)( Nx / block_size_x );
+	int block_Ny= (int)( Ny / block_size_y );
+	int block_Nz= (int)( Nz / block_size_z );
+	
+	int total_blocks = block_Nx * block_Ny * block_Nz;
+	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
+	
 		
 	#pragma omp parallel for
-	for( int k=0; k < image(0,0,0).extent(thirdDim); k+=block_size_z){
-		stemp[k] = 0.0;
+	for( int block = 0; block < total_blocks; block++){
 		
+		// Nested parallelism workaround
+		int i = (int)( block % block_Nx);
+		
+		int temp = (int)( (float)block / (float)block_Nx);
+		int j = (int)(        temp % block_Ny );
+		int k = (int)( (float)temp / (float)(block_Ny) );
+		
+		k*= block_size_z;
+		j*= block_size_y;
+		i*= block_size_x;
+				
 		cx_fmat A;
-		A.zeros(block_size_x*block_size_y*block_size_z,image.extent(thirdDim)); // Pixels x Coils
+		A.zeros(Np,N); // Pixels x N
 	
 		fmat S;
-		S.zeros(block_size_x*block_size_y*block_size_z,image.extent(thirdDim)); // Pixels x Coils
+		S.zeros(Np,N); // Pixels x N
 		
-		for( int j=0; j < image(0,0,0).extent(secondDim); j+=block_size_y){
-		for( int i=0; i < image(0,0,0).extent(firstDim); i+=block_size_x){
 		
-			int count = 0;
-			for(int kk=k; kk < k+block_size_z; kk++){
-			for(int jj=j; jj < j+block_size_y; jj++){
-			for(int ii=i; ii < i+block_size_x; ii++){
-				for(int coil=0; coil < image.extent(thirdDim); coil++){
-					A(count,coil) = image(t,e,coil)(ii,jj,kk);
-				}
-				count++;
-			}}}
-			
+		
+			//-----------------------------------------------------
+			//   Block section
+			//-----------------------------------------------------
+			switch(dim){
+				case(0):{
+					for(int t=0; t < Nt; t++){
+					
+					int count=0;
+					for(int c=0; c< Ncoils; c++){
+					for(int e=0; e < Ne; e++){
+					for(int kk=k; kk < k+block_size_z; kk++){
+					for(int jj=j; jj < j+block_size_y; jj++){
+					for(int ii=i; ii < i+block_size_x; ii++){
+						A(count,t) = image(t,e,c)(ii,jj,kk);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+				
+				case(1):{
+					for(int e=0; e < Ne; e++){
+					
+					int count=0;
+					for(int c=0; c< Ncoils; c++){
+					for(int t=0; t < Nt; t++){
+					for(int kk=k; kk < k+block_size_z; kk++){
+					for(int jj=j; jj < j+block_size_y; jj++){
+					for(int ii=i; ii < i+block_size_x; ii++){
+						A(count,t) = image(t,e,c)(ii,jj,kk);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+				
+				case(2):{
+					for(int c=0; c< Ncoils; c++){
+					
+					int count=0;
+					for(int e=0; e < Ne; e++){
+					for(int t=0; t < Nt; t++){
+					for(int kk=k; kk < k+block_size_z; kk++){
+					for(int jj=j; jj < j+block_size_y; jj++){
+					for(int ii=i; ii < i+block_size_x; ii++){
+						A(count,t) = image(t,e,c)(ii,jj,kk);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+			}// Switch Dim	
+				
 			// SVD
 			fvec s;
   			arma::svd(s,A);
 			
-			stemp[k]= ( s(0) > stemp[k] ) ? ( s(0) ) : ( stemp[k] );
-	}}}
-	
-	}}
-	
-	smax = stemp[0];
-	for( int k=0; k < image(0,0,0).extent(thirdDim); k+=block_size_z){
-		smax = ( smax > stemp[k] ) ? ( smax ) : ( stemp[k] );
-	}
-	
-	delete [] stemp;
-
+			#pragma omp critical
+			{
+				smax = max(  s(0),smax);
+			}
+			
+	}// Block (threaded)
 	cout << "Max singular value is " << smax << endl;
-
 }
+
+
+//-----------------------------------------------------
+//Clear Threshold Estimate
+//
+//  Just estimate the max singular value over the matrix  
+//-----------------------------------------------------
+void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, int dim){
+	
+	
+	typedef Array<complex<float>,3> Complex3D;
+	
+	// Shorthand
+	int Nt =image.extent(firstDim);
+	int Ne =image.extent(secondDim);
+	int Nx =image(0,0).extent(firstDim);
+	int Ny =image(0,0).extent(secondDim);
+	int Nz =image(0,0).extent(thirdDim);
+	
+	// Blocks shouldn't be larger than the dimension
+	block_size_x = ( block_size_x > Nx) ? ( Nx ) : ( block_size_x );
+	block_size_y = ( block_size_y > Ny) ? ( Ny ) : ( block_size_y );
+	block_size_z = ( block_size_z > Nz) ? ( Nz ) : ( block_size_z );
+	
+	int N = image.extent(dim);
+	int Np = image.extent( (dim+1)%2)*block_size_x*block_size_y*block_size_z; 
+	
+	cout << "Actual Block Size = " << block_size_x << " x " << block_size_y << " x " << block_size_z << endl;	
+	cout << "Getting Low Rank threshold (N=" << N << ")(Np = " << Np << ")" << endl;
+	smax = 0.0;
+	
+	int block_Nx= (int)( Nx / block_size_x );
+	int block_Ny= (int)( Ny / block_size_y );
+	int block_Nz= (int)( Nz / block_size_z );
+	
+	int total_blocks = block_Nx * block_Ny * block_Nz;
+	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
+	
+	#pragma omp parallel for
+	for( int block = 0; block < total_blocks; block++){
+		
+		// Nested parallelism workaround
+		int i = (int)( block % block_Nx);
+		
+		int temp = (int)( (float)block / (float)block_Nx);
+		int j = (int)(        temp % block_Ny );
+		int k = (int)( (float)temp / (float)(block_Ny) );
+		
+		k*= block_size_z;
+		j*= block_size_y;
+		i*= block_size_x;
+				
+		cx_fmat A;
+		A.zeros(Np,N); // Pixels x N
+	
+		fmat S;
+		S.zeros(Np,N); // Pixels x N
+		
+		
+		
+			//-----------------------------------------------------
+			//   Block section
+			//-----------------------------------------------------
+			switch(dim){
+				case(0):{
+					for(int t=0; t < Nt; t++){
+					int count=0;
+					for(int e=0; e < Ne; e++){
+					for(int kk=k; kk < k+block_size_z; kk++){
+					for(int jj=j; jj < j+block_size_y; jj++){
+					for(int ii=i; ii < i+block_size_x; ii++){
+						A(count,t) = image(t,e)(ii,jj,kk);
+						count++;
+					}}}}}
+				}break;
+				
+				case(1):{
+					for(int e=0; e < Ne; e++){
+					int count=0;
+					for(int t=0; t < Nt; t++){
+					for(int kk=k; kk < k+block_size_z; kk++){
+					for(int jj=j; jj < j+block_size_y; jj++){
+					for(int ii=i; ii < i+block_size_x; ii++){
+						A(count,e) = image(t,e)(ii,jj,kk);
+						count++;
+					}}}}}
+				}break;
+			}// Switch Dim	
+				
+			// SVD
+			fvec s;
+  			arma::svd(s,A);
+			
+			#pragma omp critical
+			{
+				smax = max(  s(0),smax);
+			}
+			
+	}// Block (threaded)
+	cout << "Max singular value is " << smax << endl;
+}
+
+
+
 
 //-----------------------------------------------------
 //  Clear Threshold Call 
 //-----------------------------------------------------
-void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, Array< Array<complex<float>,3>,3 > &temp){
+void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 		
+	
+	
+	// Shorthand
+	int Nt =image.extent(firstDim);
+	int Ne =image.extent(secondDim);
+	int Nx =image(0,0).extent(firstDim);
+	int Ny =image(0,0).extent(secondDim);
+	int Nz =image(0,0).extent(thirdDim);
+	
+	int block_Nx= (int)( Nx / block_size_x );
+	int block_Ny= (int)( Ny / block_size_y );
+	int block_Nz= (int)( Nz / block_size_z );
+	int total_blocks = block_Nx*block_Ny*block_Nz;
+	
+	int N = image.extent(dim);
+	int Np = image.extent( (dim+1)%2)*block_size_x*block_size_y*block_size_z; 
+	
+	cout << " Low Rank threshold (N=" << N << ")(Np = " << Np << ")" << endl;
+	
+	float clear_alpha=0.0;
+	switch(dim){
+		case(0):{ clear_alpha = clear_alpha_time; }break;
+		case(1):{ clear_alpha = clear_alpha_encode; }break;
+	}
+	
 	if(clear_alpha==0.0){
 		return;
-	}	
+	}
+	clear_alpha*=smax;
 	
-	// Copy to temp location
-	swap(image, temp);
-	for( Array< Array<complex<float>,3>,3 >::iterator miter=image.begin(); miter != image.end(); miter++){
-		*miter = complex<float>(0.0,0.0);
-	}			
-	
-	int Ncoils = image.extent(thirdDim);
-	
-	int shiftx;
-	int shifty;
-	int shiftz;
-	
-	int rand_shiftx = rand() % block_size_x - block_size_x/2;
-	int rand_shifty = rand() % block_size_y - block_size_y/2;
-	int rand_shiftz = rand() % block_size_z - block_size_z/2;
 		
-	int Nx = image(0,0,0).extent(firstDim);
-	int Ny = image(0,0,0).extent(secondDim);
-	int Nz = image(0,0,0).extent(thirdDim);
+	for(int iteration= 0; iteration < block_iter; iteration++){	
+		
+	int shiftx = rand() % block_size_x - block_size_x/2;
+	int shifty = rand() % block_size_y - block_size_y/2;
+	int shiftz = rand() % block_size_z - block_size_z/2;
 	
-	int step_size_x = (int)ceil((float)block_size_x);
-	int step_size_y = (int)ceil((float)block_size_y);
-	int step_size_z = (int)ceil((float)block_size_z);
-		
-	//cout << "Block size = " << block_size_x << " x " << block_size_y << " x " << block_size_z << endl;
-	//cout << "Shifts = " << shiftx << " x " << shifty << " x " << shiftz << endl;
-	//cout << "Steps = " << step_size_x << " x " << step_size_y << " x " << step_size_z << endl;
-	
-	for(int offset=0; offset <2; offset++){
-		if(offset ==0){
-			shiftx = -(int)floor(block_size_x/2)+rand_shiftx;
-			shifty = -(int)floor(block_size_y/2)+rand_shifty;
-			shiftz = -(int)floor(block_size_z/2)+rand_shiftz;
-		}else{
-			shiftx = rand_shiftx;
-			shifty = rand_shifty;
-			shiftz = rand_shiftz;
-		}
-		
-		
-	for(int t=0; t < image.length(firstDim); t++){
-	for(int e=0; e < image.length(secondDim); e++){
-			
-			
 	#pragma omp parallel for
-	for( int k=0; k < Nz; k+=step_size_z){
+	for( int block = 0; block < total_blocks; block++){
+		
+		
+		// Nested parallelism workaround
+		int i = (int)( block % block_Nx);
+		int temp = (int)( (float)block / (float)block_Nx);
+		int j = (int)(        temp % block_Ny );
+		int k = (int)( (float)temp / (float)(block_Ny) );
+		
+		k*= block_size_z;
+		j*= block_size_y;
+		i*= block_size_x;
 		
 		cx_fmat A;
-		A.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
+		A.zeros(Np,N); // Pixels x Coils
 	
 		cx_fmat U;
-		U.zeros(block_size_x*block_size_y*block_size_z,block_size_x*block_size_y*block_size_z); // Pixels x Pixels
+		U.zeros(Np,Np); // Pixels x Pixels
 	    
 		fmat S;
-		S.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
+		S.zeros(Np,N); // Pixels x Coils
 	    		
 		cx_fmat V;
-		V.zeros(Ncoils,Ncoils); // Coils x Coils
+		V.zeros(N,N); // Coils x Coils
 	    
-		 		
-		for( int j=0; j < Ny; j+=step_size_y){ 
-		for( int i=0; i < Nx; i+=step_size_x){
-		
-			int count = 0;
-			for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
-			for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
-			for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+	    
+	    	
+			//-----------------------------------------------------
+			//   Block Gather
+			//-----------------------------------------------------
+			switch(dim){
+				case(0):{
+					for(int t=0; t < Nt; t++){
+					int count=0;
+					for(int e=0; e < Ne; e++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						A(count,t) = image(t,e)(px,py,pz);
+						count++;
+					}}}}}
+				}break;
 				
-				int px = (ii + Nx)% Nx;
-				int py = (jj + Ny)% Ny;
-				int pz = (kk + Nz)% Nz;
-				for(int coil=0; coil < Ncoils; coil++){
-					A(count,coil) = temp(t,e,coil)(px,py,pz);
-				}
-				count++;
-			}}}
+				case(1):{
+					for(int e=0; e < Ne; e++){
+					int count=0;
+					for(int t=0; t < Nt; t++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						A(count,e) = image(t,e)(px,py,pz);
+						count++;
+					}}}}}
+				}break;
+			}// Switch Dim	
 			
-			// SVD
+			
+			// --------------------------------------------------------
+			// SVD Threshold
+			// -------------------------------------------------------- 
 			fvec s;
   			arma::svd(U,s,V,A);
 								
 			S.zeros();
-			for(int pos =0; pos< Ncoils; pos++){
-				S(pos,pos)=   max( s(pos) - smax*clear_alpha, 0.0f );
+			for(int pos =0; pos< min(N,Np); pos++){
+				S(pos,pos)=   max( s(pos) - clear_alpha/block_iter, 0.0f );
 			}
 												
 			// Reconstruct 
 			cx_fmat X = U*S*trans(V);
 			
-			// Copy Back in weighted Fashion
-			count = 0;
-			for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
-			for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
-			for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
-				int px = (ii + Nx)% Nx;
-				int py = (jj + Ny)% Ny;
-				int pz = (kk + Nz)% Nz;
+						
+			// --------------------------------------------------------
+			//  Block Scatter
+			// -------------------------------------------------------- 
+			
+			switch(dim){
+				case(0):{
+					for(int t=0; t < Nt; t++){
+					int count=0;
+					for(int e=0; e < Ne; e++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						image(t,e)(px,py,pz) = X(count,t);
+						count++;
+					}}}}}
+				}break;
 				
-				complex<float>w(0.5,0.0);
-				for(int coil=0; coil < Ncoils; coil++){
-					image(t,e,coil)(px,py,pz) += X(count,coil)*w;
-				}
-				count++;
-			}}}
+				case(1):{
+					for(int e=0; e < Ne; e++){
+					int count=0;
+					for(int t=0; t < Nt; t++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						image(t,e)(px,py,pz) = X(count,e);
+						count++;
+					}}}}}
+				}break;
+			}// Switch Dim	
 
-	}}}// spatial
+			
+			
+			
+		}// Block Loop
 	
-	}}// t + e
+	}//iteration
+}
+
+//-----------------------------------------------------
+//  Clear Threshold Call 
+//-----------------------------------------------------
+void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, int dim){
+		
 	
-	}//Block shifts
-		  
-		 		  
+	// Shorthand
+	int Nt =image.extent(firstDim);
+	int Ne =image.extent(secondDim);
+	int Ncoils = image.extent(thirdDim);
+	int Nx =image(0,0).extent(firstDim);
+	int Ny =image(0,0).extent(secondDim);
+	int Nz =image(0,0).extent(thirdDim);
+	
+	int block_Nx= (int)( Nx / block_size_x );
+	int block_Ny= (int)( Ny / block_size_y );
+	int block_Nz= (int)( Nz / block_size_z );
+	int total_blocks = block_Nx*block_Ny*block_Nz;
+	
+	int N = image.extent(dim);
+	int Np = image.numElements()*block_size_x*block_size_y*block_size_z / N;
+	
+	cout << " Low Rank threshold (N=" << N << ")(Np = " << Np << ")" << endl;
+	
+	float clear_alpha=0.0;
+	switch(dim){
+		case(0):{ clear_alpha = clear_alpha_time; }break;
+		case(1):{ clear_alpha = clear_alpha_encode; }break;
+		case(2):{ clear_alpha = clear_alpha_coil; }break;
+	}
+	
+	if(clear_alpha==0.0){
+		return;
+	}
+	clear_alpha*=smax;
+	
+	
+	/*Pre allocate Matrices*/
+	int Nthreads = omp_get_max_threads( );
+	cx_fmat *AA = new cx_fmat[Nthreads];	
+	cx_fmat *UU = new cx_fmat[Nthreads];	
+	cx_fmat *SS = new cx_fmat[Nthreads];   
+	cx_fmat *VV = new cx_fmat[Nthreads];   
+	
+	for(int t = 0; t < Nthreads; t++){
+		AA[t].zeros(Np,N); // Pixels x Coils
+		UU[t].zeros(Np,Np); // Pixels x Pixels
+		SS[t].zeros(Np,N); // Pixels x coils
+		VV[t].zeros(N,N); // Coils x Coils
+	}
+	
+		
+	for(int iteration= 0; iteration < block_iter; iteration++){	
+		
+	int shiftx = rand() % block_size_x - block_size_x/2;
+	int shifty = rand() % block_size_y - block_size_y/2;
+	int shiftz = rand() % block_size_z - block_size_z/2;
+	
+	#pragma omp parallel for
+	for( int block = 0; block < total_blocks; block++){
+		
+		int thread = omp_get_thread_num();
+		
+		// Nested parallelism workaround
+		int i = (int)( block % block_Nx);
+		int temp = (int)( (float)block / (float)block_Nx);
+		int j = (int)(        temp % block_Ny );
+		int k = (int)( (float)temp / (float)(block_Ny) );
+		
+		k*= block_size_z;
+		j*= block_size_y;
+		i*= block_size_x;
+	    
+	
+			//-----------------------------------------------------
+			//   Block Gather
+			//-----------------------------------------------------
+			switch(dim){
+				case(0):{
+					for(int t=0; t < Nt; t++){
+					
+					int count=0;
+					for(int c=0; c< Ncoils; c++){
+					for(int e=0; e < Ne; e++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						AA[thread](count,t) = image(t,e,c)(px,py,pz);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+				
+				case(1):{
+					for(int e=0; e < Ne; e++){
+					
+					int count=0;
+					for(int c=0; c< Ncoils; c++){
+					for(int t=0; t < Nt; t++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						AA[thread](count,e) = image(t,e,c)(px,py,pz);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+				
+				case(2):{
+					for(int c=0; c< Ncoils; c++){
+					
+					int count=0;
+					for(int e=0; e < Ne; e++){
+					for(int t=0; t < Nt; t++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						AA[thread](count,c) = image(t,e,c)(px,py,pz);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+			}// Switch Dim	
+			
+			
+			// --------------------------------------------------------
+			// SVD Threshold
+			// -------------------------------------------------------- 
+			fvec s;
+  			arma::svd(UU[thread],s,VV[thread],AA[thread]);
+								
+			for(int pos =0; pos< min(N,Np); pos++){
+				SS[thread](pos,pos)=   max( s(pos) - clear_alpha/block_iter, 0.0f );
+			}
+												
+			// Reconstruct 
+			AA[thread] = UU[thread]*SS[thread]*trans(VV[thread]);
+						
+			// --------------------------------------------------------
+			//  Block Scatter
+			// -------------------------------------------------------- 
+			switch(dim){
+				case(0):{
+					for(int t=0; t < Nt; t++){
+					
+					int count=0;
+					for(int c=0; c< Ncoils; c++){
+					for(int e=0; e < Ne; e++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						image(t,e,c)(px,py,pz) = AA[thread](count,t);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+				
+				case(1):{
+					for(int e=0; e < Ne; e++){
+					
+					int count=0;
+					for(int c=0; c< Ncoils; c++){
+					for(int t=0; t < Nt; t++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						image(t,e,c)(px,py,pz) = AA[thread](count,e);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+				
+				case(2):{
+					for(int c=0; c< Ncoils; c++){
+					
+					int count=0;
+					for(int e=0; e < Ne; e++){
+					for(int t=0; t < Nt; t++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						image(t,e,c)(px,py,pz) = AA[thread](count,c);
+						count++;
+					}}}}}
+					
+					}
+				}break;
+			}// Switch Dim
+			
+			
+	}// Block Loop
+	
+	}//iteration
+	
+	delete [] AA;
+	delete [] UU;
+	delete [] SS;
+	delete [] VV;
+	
+	
 }
 
 //-----------------------------------------------------
 //  Clear Combine Call 
 //-----------------------------------------------------
-void LOWRANKCOIL::combine( Array< Array<complex<float>,3>,3 > &image,Array< Array<complex<float>,3>,2 > &temp){
-	
-	typedef Array< complex<float>,3> Complex3D;
-	
-	for( Array< Complex3D, 2>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
-		*miter = complex<float>(0.0,0.0);
-	}
+void LOWRANKCOIL::combine( Array< Array<complex<float>,3>,3 > &image, Array< Array<complex<float>,3>,2 > &im){
 		
-	int shiftx;
-	int shifty;
-	int shiftz;
 	
-	int rand_shiftx = 0;
-	int rand_shifty = 0;
-	int rand_shiftz = 0;
-		
-	int Nx = image(0,0,0).extent(firstDim);
-	int Ny = image(0,0,0).extent(secondDim);
-	int Nz = image(0,0,0).extent(thirdDim);
-	int Ncoils=  image.length(thirdDim);
+	// Shorthand
+	int Nt =image.extent(firstDim);
+	int Ne =image.extent(secondDim);
+	int Ncoils = image.extent(thirdDim);
+	int Nx =image(0,0).extent(firstDim);
+	int Ny =image(0,0).extent(secondDim);
+	int Nz =image(0,0).extent(thirdDim);
 	
-	int step_size_x = (int)ceil((float)block_size_x);
-	int step_size_y = (int)ceil((float)block_size_y);
-	int step_size_z = (int)ceil((float)block_size_z);
-		
-	//cout << "Block size = " << block_size_x << " x " << block_size_y << " x " << block_size_z << endl;
-	//cout << "Shifts = " << shiftx << " x " << shifty << " x " << shiftz << endl;
-	//cout << "Steps = " << step_size_x << " x " << step_size_y << " x " << step_size_z << endl;
+	int block_Nx= (int)( Nx / block_size_x );
+	int block_Ny= (int)( Ny / block_size_y );
+	int block_Nz= (int)( Nz / block_size_z );
+	int total_blocks = block_Nx*block_Ny*block_Nz;
 	
-	for(int offset=0; offset <1; offset++){
-		if(offset ==0){
-			shiftx = -(int)floor(block_size_x/2)+rand_shiftx;
-			shifty = -(int)floor(block_size_y/2)+rand_shifty;
-			shiftz = -(int)floor(block_size_z/2)+rand_shiftz;
-		}else{
-			shiftx = rand_shiftx;
-			shifty = rand_shifty;
-			shiftz = rand_shiftz;
-		}
-		
-	for(int t=0; t< image.length(firstDim); t++){
-	for(int e=0; e< image.length(secondDim); e++){
+	int N = image.extent(thirdDim);
+	int Np = image.numElements()*block_size_x*block_size_y*block_size_z / N;
 	
-			
+	int shiftx = 0;
+	int shifty = 0;
+	int shiftz = 0;
+	
 	#pragma omp parallel for
-	for( int k=0; k < Nz; k+=step_size_z){
+	for( int block = 0; block < total_blocks; block++){
+		
+		
+		// Nested parallelism workaround
+		int i = (int)( block % block_Nx);
+		int temp = (int)( (float)block / (float)block_Nx);
+		int j = (int)(        temp % block_Ny );
+		int k = (int)( (float)temp / (float)(block_Ny) );
+		
+		k*= block_size_z;
+		j*= block_size_y;
+		i*= block_size_x;
 		
 		cx_fmat A;
-		A.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
+		A.zeros(Np,N); // Pixels x Coils
 	
 		cx_fmat U;
-		U.zeros(block_size_x*block_size_y*block_size_z,block_size_x*block_size_y*block_size_z); // Pixels x Pixels
+		U.zeros(Np,Np); // Pixels x Pixels
 	    
 		fmat S;
-		S.zeros(block_size_x*block_size_y*block_size_z,Ncoils); // Pixels x Coils
+		S.zeros(Np,N); // Pixels x Coils
 	    		
 		cx_fmat V;
-		V.zeros(Ncoils,Ncoils); // Coils x Coils
+		V.zeros(N,N); // Coils x Coils
 	    
-		 		
-		for( int j=0; j < Ny; j+=step_size_y){ 
-		for( int i=0; i < Nx; i+=step_size_x){
+	
+			//-----------------------------------------------------
+			//   Block Gather
+			//-----------------------------------------------------
+			for(int c=0; c< Ncoils; c++){
+					int count=0;
+					for(int e=0; e < Ne; e++){
+					for(int t=0; t < Nt; t++){
+					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						A(count,c) = image(t,e,c)(px,py,pz);
+						count++;
+					}}}}}
+			}
 		
-			int count = 0;
-			for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
-			for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
-			for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
-				
-				int px = (ii + Nx)% Nx;
-				int py = (jj + Ny)% Ny;
-				int pz = (kk + Nz)% Nz;
-				for(int coil=0; coil < image.extent(fourthDim); coil++){
-					A(count,coil) = image(t,e,coil)(px,py,pz);
-				}
-				count++;
-			}}}
-			
-			// SVD
+			// --------------------------------------------------------
+			// SVD Threshold
+			// -------------------------------------------------------- 
 			fvec s;
   			arma::svd(U,s,V,A);
 								
 			// Grab Largest Value
 			cx_fmat A2 = A*V.cols(0,0);
 						
-			// Copy Back in weighted Fashion
-			count = 0;
+						
+			// --------------------------------------------------------
+			//  Block Scatter
+			// -------------------------------------------------------- 
+			
+			
+			int count=0;
+			for(int e=0; e < Ne; e++){
+			for(int t=0; t < Nt; t++){
 			for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
 			for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
 			for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
-				int px = (ii + Nx)% Nx;
-				int py = (jj + Ny)% Ny;
-				int pz = (kk + Nz)% Nz;
-				
-				complex<float>w(1.0,0.0);
-				temp(t,e)(px,py,pz) += A2(count,0)*w;
-				count++;
-			}}}
-
-	}}}//Spatial
-	
-	}}// t+e
-	
-	}
-		  
-		 		  
+						int px = (ii + Nx)% Nx;
+						int py = (jj + Ny)% Ny;
+						int pz = (kk + Nz)% Nz;
+						im(t,e)(px,py,pz) = A2(count,0);
+						count++;
+			}}}}}
+					
+	}/*block*/
 }
+
+
+
 
 

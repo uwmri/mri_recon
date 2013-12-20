@@ -30,6 +30,7 @@ PHANTOM::PHANTOM( void){
 	phantom_type = FRACTAL;
 	phantom_noise= 0.0;	
 	debug = 0;
+	phantom_export_smaps =false;
 	external_phantom_name = new char[2048];
 }
 
@@ -46,6 +47,7 @@ void PHANTOM::help_message(void){
 	help_flag("-phantom_noise []","Noise as fraction of mean of abs(kdata)");
 	help_flag("-fractal_pts []","Terminal Points for Fractal");
 	help_flag("-external_phantom []","Use phantom of name []");
+	help_flag("-phantom_export_smap ","Write True sensitivity maps");
 }
 
 
@@ -63,6 +65,8 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
 
   	if (strcmp("-h", pstring[pos] ) == 0) {
 		float_flag("-phantom_noise",phantom_noise);
+		trig_flag(true,"-phantom_export_smaps",phantom_export_smaps);
+	
 	}else if(strcmp("-external_phantom",pstring[pos]) == 0) {
 		pos++;
 		phantom_type = EXTERNAL;
@@ -78,8 +82,13 @@ void PHANTOM::read_commandline(int numarg, char **pstring){
   case(FRACTAL):{
 	  fractal.read_commandline(numarg,pstring);
   }
+  
+  case(EXTERNAL):{
+  
+  }break;
+  
   default:{
-	cout << "Only fractal works for now. Exiting." << endl;
+	cout << "Only fractal+external works for now. Exiting." << endl;
 	exit(1);
   }
 	
@@ -411,6 +420,13 @@ void  PHANTOM::update_smap_biotsavart(int coil, int Ncoils){
 		cout << "Write";
 		ArrayWriteMag(SMAP,"Smap_Resolution.dat");
 	}
+	
+	if(phantom_export_smaps){
+		char fname[1024];
+		sprintf(fname,"Smap_%d.dat",coil);
+		ArrayWriteMag(SMAP,fname);
+	}
+		
 }
 
 

@@ -458,28 +458,28 @@ void MRI_DATA::coilcompress(float thresh)
 
   int Nthreads = omp_get_max_threads();
 
-  cx_fmat *all = new cx_fmat [Nthreads];
+  arma::cx_mat *all = new arma::cx_mat [Nthreads];
   for(int j =0; j< Nthreads; j++){
  	all[j].zeros(Num_Coils,Num_Coils);
   }
 
     
   for(int e =0; e< Num_Encodings; e++){
-  for(int k =0; k< Num_Slices; k++){
+  for(int slice =0; slice< Num_Slices; slice++){
   #pragma omp parallel for
-  for(int j =0; j< Num_Readouts; j++){
+  for(int readout =0; readout< Num_Readouts; readout++){
   	
 	int thr = omp_get_thread_num();
 	
 	// Collect chunk to reduce memory thrashing
-  	cx_fmat Atemp(Num_Pts,Num_Coils);
+  	arma::cx_mat Atemp(Num_Pts,Num_Coils);
   	for(int coil=0; coil< Num_Coils; coil++){
   	for(int i =0; i< Num_Pts; i++){
-  		Atemp(i,coil) = kdata(e,coil)(i,j,k);
+  		Atemp(i,coil) = kdata(e,coil)(i,readout,slice);
   	}}
   
   	// Calc
-  	cx_fmat AtA = Atemp.t()*Atemp;
+  	arma::cx_mat AtA = Atemp.t()*Atemp;
   	all[thr] += AtA;
   
   }
@@ -487,7 +487,7 @@ void MRI_DATA::coilcompress(float thresh)
   }}
   
   
-  cx_fmat A(Num_Coils,Num_Coils);
+  arma::cx_mat A(Num_Coils,Num_Coils);
   A.fill(complex<float>(0.0,0.0));
   for(int j =0; j< Nthreads; j++){
   	A += all[j];
@@ -495,11 +495,25 @@ void MRI_DATA::coilcompress(float thresh)
   delete [] all;
  
  
-  cout << "Eig" << endl << flush;
-  arma::fvec eigval;
-  cx_fmat eigvec;
+  // cout << "A is " << A.n_rows << " by " << A.n_cols << " total = " << A.n_elem << endl;
+  
+ // ofstream ofs("CorrMat.dat", ios_base::binary);
+ // for(int i=0; i< 32; i++){
+ //	for(int j=0; j< 32; j++){
+ // 		complex<double> val=A(i,j);
+ //	ofs.write( (char *)&val,sizeof(complex<double>));
+ // 	}
+ // }
+  
+  
+  // cout << "Eig" << endl << flush;
+  arma::vec eigval;
+  arma::cx_mat eigvec;
   eig_sym(eigval,eigvec,A);  
-  cx_fmat V = eigvec.cols(Num_Coils-(int)thresh-1,Num_Coils-1);
+  arma::cx_mat V = eigvec.cols(Num_Coils-(int)thresh-1,Num_Coils-1);
+  
+  //V.print("V");
+  // eigval.print("Eig-Val");
   
   cout << "Multiple by Eigen" << endl; 
   for(int e =0; e< Num_Encodings; e++){
@@ -507,7 +521,7 @@ void MRI_DATA::coilcompress(float thresh)
   #pragma omp parallel for
   for(int j =0; j< Num_Readouts; j++){
   	
-	cx_fmat AA;
+	arma::cx_mat AA;
   	AA.zeros( Num_Pts,Num_Coils); // Working memory
     	
 	// Copy into memory
@@ -516,9 +530,9 @@ void MRI_DATA::coilcompress(float thresh)
 			AA(i,coil) =  kdata(e,coil)(i,j,k);
 		}
 	}
-	
+		
 	// Transform to matrix
-	cx_fmat temp2 = AA*V; 
+	arma::cx_mat temp2 = AA*V; 
 		
 	// Copy Back
 	for(int coil = 0; coil < thresh; coil++) {
@@ -538,8 +552,6 @@ void MRI_DATA::coilcompress(float thresh)
   
   cout << "done" << endl;
   
-
-
 }
 
 

@@ -80,17 +80,17 @@ void ArrayWriteMag( Array<complex<T>, N_rank>& temp, const char *name){
 }
 
 template< typename T, const int N_rank >
-T ArrayEnergy( Array< complex< T >, N_rank >& temp){
-	T EE=0;
+double ArrayEnergy( Array< complex< T >, N_rank >& temp){
+	double EE=0;
 	for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
-		EE+= norm( *miter );
+		EE+= (double)( norm( *miter ) );
 	}
     return(EE);
 }
 
 template< typename T, const int N_rank, const int M_rank >
-T ArrayEnergy( Array< Array< complex< T >,N_rank>, M_rank >& temp){
-	T EE=0;
+double ArrayEnergy( Array< Array< complex< T >,N_rank>, M_rank >& temp){
+	double EE=0;
 	for(typename Array< Array< complex<T>,N_rank>,M_rank >::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 		EE+= ArrayEnergy( *miter );
 	}

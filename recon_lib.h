@@ -58,6 +58,7 @@ class RECON{
 	  TDIFF tdiff;
 	  THRESHOLD softthresh;
 	  LOWRANKCOIL lrankcoil;
+	  LOWRANKCOIL lranktime;
 	  L2REG l2reg;  
 	  	  
 	  bool complex_diff;
@@ -85,6 +86,7 @@ class RECON{
 	  bool whiten;
 	  float smap_res;
 	  char filename[1024];
+	  int cycle_spins;
 	  
 	  int max_iter;
 	  int export_smaps;

@@ -43,6 +43,7 @@ class FRACTAL3D{
 		void write_matlab_truth_script( const char *);
 		void calc_image(NDarray::Array<complex<float>,3>&,int,int);
 		void build_tree(int Nx, int Ny, int Nz,int Nt);
+				
 	private:
 		NDarray::Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
 		void update_children(arma::field<TFRACT_RAND>&tree, int pos);
@@ -120,7 +121,8 @@ class PHANTOM{
 		void init(int,int,int,int);
 		static void help_message(void);
 		void read_commandline(int numarg, char **pstring);
-
+		bool phantom_export_smaps;
+		
 		// Functions
 		void add_phase(void);
 		void add_noise( NDarray::Array< NDarray::Array<complex<float>,3>,2>&kdata);

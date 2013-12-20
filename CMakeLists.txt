@@ -37,6 +37,7 @@ target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB)
 
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
+install( TARGETS recon_binary DESTINATION bin)
 install( TARGETS RECONLIB DESTINATION lib)
 install( DIRECTORY ./ DESTINATION include 
 	FILES_MATCHING PATTERN "*.h" 
@@ -47,6 +48,8 @@ install( DIRECTORY ./ DESTINATION include
 	PATTERN "build" EXCLUDE
 	PATTERN ".settings" EXCLUDE
 	PATTERN ".extern*" EXCLUDE) 
+
+
 
 
 

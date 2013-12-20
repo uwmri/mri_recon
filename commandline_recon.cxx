@@ -97,7 +97,7 @@ int main(int argc, char **argv){
 					phantom.calc_image(t,recon.rcframes);
 					
 					// Weight Image
-					TimeWeight = kwE;
+					TimeWeight = 1;
 					gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE,GATING::TIME_FRAME);
    											
 					// Now Inverse Grid

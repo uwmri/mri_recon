@@ -46,6 +46,8 @@ void RECON::set_defaults( void){
 	whiten = false;
 	export_smaps = 0;
 	max_iter = 50;
+	
+	cycle_spins = 4;
 
 	prep_done = false;
 }
@@ -223,7 +225,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		
 		// Iterations for IST
 		int_flag("-max_iter",max_iter);
-		
+		int_flag("-cycle_spins",cycle_spins);
 	}
   }
 } 
@@ -355,7 +357,10 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 			}
 		}break;
 	}
-		
+	
+	// TEMPX
+	lranktime=LOWRANKCOIL(argc,argv);
+			
 	// Signal that the recon is ready to perform the requested reconstruction
 	prep_done = true;
 }
@@ -487,7 +492,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  //----------------------------------------------------
 						  						  
 						  // Zero this for Cauchy set size
-						  complex<float>scale_RhP(0,0);						  
+						  complex<double>scale_RhP(0,0);						  
 						  
 						  cout << "\tGradient Calculation" << endl;
 						  for(int e=0; e< rcencodes; e++){
@@ -542,7 +547,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  }//Encode
 
 						  // Get Scaling Factor R'P / R'R 
-						  complex<float>scale_RhR = complex<float>(ArrayEnergy(RR),0);
+						  complex<double>scale_RhR = complex<double>(ArrayEnergy(RR),0);
 
 						  // Error check
 						  if(iteration==0){
@@ -553,39 +558,58 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  // Export R (across coils)	
 						  Array<complex<float>,2>Rslice=RR(0,0,0)(all,all,RR(0,0,0).length(2)/2);
 						  ArrayWriteMag(Rslice,"R.dat");						  
-
+						  
+						  
 						  // Step in direction
-						  complex<float>scale = (scale_RhR/scale_RhP);
+						  complex<double>scale = (scale_RhR/scale_RhP);
 						  cout << "Scale = " << scale << endl;
 						  
-						  for(int e=0; e< rcencodes; e++){
+						  for(int coil=0; coil< data.Num_Coils; coil++){
+						     for(int e=0; e< rcencodes; e++){
 							  for(int t=0; t< Nt; t++){
-						  		RR(t,e) *= scale;
-						  		XX(t,e) -= RR(t,e);
-						  }}
+						  		RR(t,e,coil) *= scale;
+						  		XX(t,e,coil) -= RR(t,e,coil);
+						  }}}
 						  cout << "Took " << iteration_timer << " s " << endl;
 												  
 						  // Export X slice
 						  Array<complex<float>,2>Xslice=XX(0,0,0)(all,all,RR(0,0,0).length(2)/2);
-						  ArrayWriteMag(Xslice,"X_mag.dat");
 						  ArrayWritePhase(Xslice,"X_phase.dat");
+						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
 						  
+						  // Export all coils
+						  ArrayWriteMag(Xslice,"X_mag_coils.dat");
+						  for(int coil=1; coil< data.Num_Coils; coil++){
+						  	Array<complex<float>,2>Xcoil=XX(0,0,coil)(all,all,RR(0,0,0).length(2)/2);
+							ArrayWriteMagAppend(Xcoil,"X_mag_coils.dat");
+						  }
 						 					  
+						  // ----------------------------------
+						  //   Soft Thresh
+						  // ----------------------------------
+						  {
+						  	cout << "Soft thresh" << endl;
+							Array< Complex3D, 2 >X2 = XX(0,all,all);
+						  	if(softthresh.getThresholdMethod() != TH_NONE){
+							  L1_threshold(X2);
+						  	}
+						  	ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  }
 						  
 						  // ---------------------------------
 						  //   Clear 
 						  // ---------------------------------
 						 
 						  iteration_timer.tic();
-						  lrankcoil.update_threshold( XX);
+						  lrankcoil.update_threshold( XX,2);
 						  cout << "Get thresh took " << iteration_timer << " s" << endl;
 						  
 						  iteration_timer.tic();
-						  lrankcoil.thresh(XX ,RR );
+						  lrankcoil.thresh(XX,2);
 						  cout << "Thresh took " << iteration_timer << " s" << endl;
 						  
-						  // -- Note missing thresholding ---
-						  // ToDo
+						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  
 							
 					  }// Iteration	
 				      
@@ -781,7 +805,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  }
 
 						  // Zero this for Cauchy set size
-						  complex<float>scale_RhP(0,0);						  
+						  complex<double>scale_RhP(0,0);						  
 
 						  // Get Residue
 						  for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
@@ -843,16 +867,18 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								 
 								  P*=conj(R(store_t,e));
 								  
-								  scale_RhP += sum(P); 
+								  for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
+								    	scale_RhP += complex< double>( real(*riter),imag(*riter)); 
+								  }
 								  cout << e << "," << t << "took " << T << "s" << endl;
 							  }//Time
 						  }//Encode
 						  
 						  // Get Scaling Factor R'P / R'R 
 						  cout << "Calc residue" << endl << flush;
-						  complex<float>scale_RhR = 0.0;
+						  complex<double>scale_RhR = 0.0;
 						  for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
-						  		scale_RhR += complex<float>( ArrayEnergy( *riter ), 0.0);
+						  		scale_RhR += complex<double>( ArrayEnergy( *riter ), 0.0);
 						  }
 						  
 						  // Error check
@@ -866,10 +892,10 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  // Export R
 						  		
 						  Array<complex<float>,2>Rslice=R(0,0)(all,all,R(0,0).length(2)/2);
-						  ArrayWriteMag(Rslice,"R.dat");						  
+						  ArrayWriteMagAppend(Rslice,"R.dat");						  
 
 						  // Step in direction
-						  complex<float>scale = (scale_RhR/scale_RhP);
+						  complex<double>scale = (scale_RhR/scale_RhP);
 						  cout << "Scale = " << scale << endl << flush;
 						  for(int e=0; e< rcencodes; e++){
 							  for(int t=0; t< Nt; t++){
@@ -882,6 +908,12 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  // Export X slice
 						  Array<complex<float>,2>Xslice=X(0,0)(all,all,X(0,0).length(2)/2);
 						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  
+						  /* TEMP
+						  lranktime.update_threshold(X,0);
+						  lranktime.thresh(X,0);
+						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  */
 						  
 						  if( Nt > 1){
 						  	ArrayWriteMag(Xslice,"X_frames.dat");
@@ -915,7 +947,13 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 
 void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 	
-	cout << "Soft thresh" << endl;
+	
+	int actual_cycle_spins=cycle_spins;
+	if(cs_spatial_transform != WAVELET){
+		actual_cycle_spins = 1;
+	}
+	
+	
 	switch(cs_temporal_transform){
 		case(DFT):{	
 			cout << "DFT in Time" << endl;
@@ -941,73 +979,55 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 								
 		default:{
 		}break;
-	  }
-		
-	  switch(cs_spatial_transform){
-			case(WAVELET):{
-				cout << "Wavelet in Space" << endl;
-				wave.random_shift();
+	}
+	
+	
+	if(cs_spatial_transform==WAVELET){
+		cout << "WAVLET in Space" << endl;
+		for( int cycle_spin = 0; cycle_spin < actual_cycle_spins; cycle_spin++){
+	  			wave.random_shift();
 				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
 						wave.forward(*miter);
-									}
-				}break;
-			
-				default:{
-								
-				}break;
-	 }
+				}
 							  
-						/*	  
-							  if( Nt > 1){
-						  		ArrayWriteMag(Xslice,"X_frames.dat.td");
-								ArrayWritePhase(Xslice,"X_frames.dat.phase.td");
-								for(int t=1; t< Nt; t++){
-									Array<complex<float>,2>Xf=X(t,0)(all,all,X(0,0).length(2)/2);
-									ArrayWriteMagAppend(Xf,"X_frames.dat.td");
-									ArrayWritePhaseAppend(Xf,"X_frames.dat.phase.td");
-						}*/
-		 
-		ArrayWriteMag(X(0,0),"PostTransform.dat");
-							  
-		softthresh.exec_threshold(X);
-							  
-		switch(cs_spatial_transform){
-							  	case(WAVELET):{
-							  		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
-										wave.backward(*miter);
-									}
-								}break;
-								default:{
+				// Only update thresh once (note not working for SURE/Bayes Shrink)
+				if( cycle_spin==0){
+					softthresh.get_threshold(X);
+				}
+				softthresh.thresholding(X);
+				
+				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+					wave.backward(*miter);
+				}
+		}// Cycle Spinning
+	}// Wavelet
+						  
+	switch(cs_temporal_transform){
+		case(DFT):{ 
+			tdiff.ifft_t(X); 
+		}break;
+							
+		case(DIFF):{
+			cout << "DIFF in Time" << endl;
+			tdiff.inv_tdiff(X); 
+		}break;
+							
+		case(WAVELET):{
+			cout << "WAVE in Time" << endl;
+			tdiff.inv_twave(X); 
+		}break;
 								
-								}break;
-		 }
-							  
-		switch(cs_temporal_transform){
-							  	case(DFT):{ 
-									tdiff.ifft_t(X); 
-								}break;
-								
-								case(DIFF):{
-									cout << "DIFF in Time" << endl;
-									tdiff.inv_tdiff(X); 
-								}break;
-								
-								case(WAVELET):{
-									cout << "WAVE in Time" << endl;
-									tdiff.inv_twave(X); 
-								}break;
-								
-								case(COMPOSITE_DIFF):{
-									cout << "Composite Diff" << endl;
-									for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
-										*miter += composite_image;
-									}
-								}break;																
-								
-								default:{
-								
-								}break;
-		}
+		case(COMPOSITE_DIFF):{
+			cout << "Composite Diff" << endl;
+			for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+				*miter += composite_image;
+			}
+		}break;																
+					
+		default:{
+							
+		}break;
+	}
 
 
 }
@@ -1020,7 +1040,17 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
 	Range all = Range::all();	
-	if( (recon_type != SOS) && (recon_type != CLEAR) && (data.Num_Coils>1) ){ 
+	if( (recon_type != SOS) && (recon_type != CLEAR) && (data.Num_Coils==1) ){
+		// Allocate Storage for Map	and zero	
+		cout << "Allocate Sense Maps"  << endl << flush;
+		smaps.setStorage( ColumnMajorArray<1>());
+		smaps.resize( data.Num_Coils );
+		for(int coil=0; coil< smaps.length(firstDim); coil++){
+			smaps(coil).setStorage( ColumnMajorArray<3>());
+			smaps(coil).resize(rcxres,rcyres,rczres,data.Num_Coils);
+			smaps(coil)=complex<float>(1,0);
+		}	
+	}else if( (recon_type != SOS) && (recon_type != CLEAR) ){ 
 		cout << "Getting Coil Sensitivities " << endl<< flush; 
 
 		// Low Pass filtering for Sensitivity Map

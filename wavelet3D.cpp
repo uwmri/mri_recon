@@ -431,7 +431,7 @@ void WAVELET3D::get_filter_banks( void ){
 void WAVELET3D::random_shift( void){
 	for(int dir=0; dir< 3; dir++){
 		S[dir] = rand() % wN;
-		cout << "Dir = " << dir << "Shifting by " << S[dir] << endl;	
+		// cout << "Dir = " << dir << "Shifting by " << S[dir] << endl;	
 	}
 }
 
