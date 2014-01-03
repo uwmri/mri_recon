@@ -597,7 +597,7 @@ void gridFFT::forward_image_copy(Array<complex<float>,3>&X){
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy[j+og_sy];
 		for(int i=0; i<Nx; i++) {
-			X(i,j,k) += ( image(i,j,k)*wty*winx[i+og_sx]);
+			X(i,j,k) = ( image(i,j,k)*wty*winx[i+og_sx]); /* Don't just sum coils when no sense map is given*/
 	}}}
 }
 
