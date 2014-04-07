@@ -13,9 +13,11 @@ set(CMAKE_C_FLAGS "-g -Wno-deprecated")
 
 set(LOCAL_LIBS armadillo acml_mp acml_mv fftw3f_omp fftw3f blitz m)
 
+set(CMAKE_FIND_STATIC FIRST) 
+set(BUILD_SHARED_LIBS ON)
+set(STATIC_LIBS ON)
 
 link_directories(${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
-set(BUILD_SHARED_LIBS ON)
 
 #--------------------------------------
 # Target Library 

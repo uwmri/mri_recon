@@ -62,6 +62,7 @@ class MRI_DATA{
 		void undersample(int);
 		void coilcompress(float);
 		void whiten();
+		void demod_kdata( float);
 		
 		// Initialization Filling Operations				
 		void init_memory();

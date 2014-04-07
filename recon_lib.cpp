@@ -1000,6 +1000,10 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 					wave.backward(*miter);
 				}
 		}// Cycle Spinning
+	}else{
+		softthresh.get_threshold(X);
+		softthresh.thresholding(X);
+
 	}// Wavelet
 						  
 	switch(cs_temporal_transform){

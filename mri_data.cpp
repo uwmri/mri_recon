@@ -128,6 +128,11 @@ void MRI_DATA::init_memory(void){
 	}
 	
 	{
+		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
+		kt.reference(temp);
+	}
+		
+	{
 		Array< Array< complex<float>,3>,2> temp = Alloc5DContainer<complex<float> >( Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
 		kdata.reference(temp);
 	} 
@@ -275,6 +280,18 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 	}}
 	
 	}// Read Kdata 
+}
+
+
+void MRI_DATA::demod_kdata( float demod){
+	for(int c=0; c<Num_Coils;c++){
+	for(int e=0; e<Num_Encodings; e++){
+	 	for(int slice =0; slice< Num_Slices; slice++){
+  		#pragma omp parallel for
+  			for(int readout =0; readout< Num_Readouts; readout++){
+  			for(int i =0; i< Num_Pts; i++){
+  				kdata(e,c)(i,readout,slice) *= polar<float>(1.0,demod*2.0*arma::datum::pi*kt(e)(i,readout,slice));
+	}}}}}
 }
 
 
@@ -450,6 +467,10 @@ void MRI_DATA::undersample(int us){
 }
 
 
+
+
+
+#ifdef FAST_COMPRESS
 /** Coil compress data with a cutoff of thresh*max(SV)
 *
 */
@@ -553,7 +574,76 @@ void MRI_DATA::coilcompress(float thresh)
   cout << "done" << endl;
   
 }
+#else
+/** Coil compress data with a cutoff of thresh*max(SV)
+*
+*/
+void MRI_DATA::coilcompress(float thresh)
+{ 
 
+  int Nthreads = omp_get_max_threads();
+  int Num_Pixels = Num_Encodings*kdata(0,0).numElements();
+      
+  arma::cx_mat all_data;
+  all_data.zeros(Num_Pixels,Num_Coils);
+  cout << "Num_pixels = " << Num_Pixels << endl;
+  
+  cout << "Collect Data" << endl;
+  for(int coil=0; coil< Num_Coils; coil++){
+  
+  	int pos = 0;
+  	for(int e =0; e< Num_Encodings; e++){
+  	for(int slice =0; slice< Num_Slices; slice++){
+  	for(int readout =0; readout< Num_Readouts; readout++){
+  	for(int i =0; i< Num_Pts; i++){
+  		all_data(pos,coil) = kdata(e,coil)(i,readout,slice);
+		pos++;
+  	}}}}
+	cout << "Copied pixels = " << pos << endl;
+  }
+  
+  cout << "SVD " << endl << flush;
+  arma::vec s;
+  arma::cx_mat U;
+  arma::cx_mat V;
+  arma::svd_econ(U,s,V,all_data); 
+  s = s/s(0);
+  
+  s.print("S");
+  
+  arma::cx_mat VV = V.cols(0,(int)thresh-1);
+  VV.print("V");    
+  cout << "Rotate " << endl << flush;  
+  all_data = all_data*VV;
+  
+  cout << "Resize to " << thresh << endl << flush;
+  Array< Array<complex<float>,3>,2>kdata2(kdata.length(firstDim),(int)thresh,ColumnMajorArray<2>());
+  for(int e =0; e< Num_Encodings; e++){
+  for(int c =0; c< thresh; c++){
+  	kdata2(e,c).reference(kdata(e,c));
+  }}
+  kdata.reference(kdata2); 
+  Num_Coils = (int)thresh;
+  
+  cout << "Copy Back" << endl << flush; 
+  for(int coil=0; coil< Num_Coils; coil++){
+  	int pos = 0;
+  	for(int e =0; e< Num_Encodings; e++){
+  	for(int slice =0; slice< Num_Slices; slice++){
+  	for(int readout =0; readout< Num_Readouts; readout++){
+  	for(int i =0; i< Num_Pts; i++){
+  		kdata(e,coil)(i,readout,slice) = all_data(pos,coil);
+		pos++;
+  	}}}}
+	cout << "Copied pixels = " << pos << endl;
+  }
+  
+  cout << "done" << endl;
+  
+}
+
+
+#endif
 
 
 //--------------------------------------------------
@@ -635,6 +725,7 @@ void MRI_DATA::whiten(void){
   
   	}}
 }
+
 
 
 /*----------------------------------------------
