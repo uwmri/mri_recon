@@ -36,7 +36,7 @@ class SPIRIT {
     float krx_f;
     float kry_f;
     float krz_f;
-    
+    float svd_thresh;
     int cr;
     int crx;
     int cry;

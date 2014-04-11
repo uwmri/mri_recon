@@ -1,6 +1,5 @@
-#include <recon_lib.h>
 #include <H5Cpp.h>
-
+#include "ArrayTemplates.hpp"
 
 class HDF5{
 	

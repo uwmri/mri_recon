@@ -20,14 +20,14 @@ SPIRIT::SPIRIT()
 	crx = 12;
 	cry = 12;
 	crz = 12;
+	svd_thresh = 0.001;
 	
 	// Shape of Calibration Region
 	shape = SP_CIRCLE;
 	
 	// Shrinkage operations for memory saving
 	mapshrink = 2;
-	mapthresh = 0.0;
-	
+		
 	// Phase type
 	phase_type = SP_COIL_PHASE;
 
@@ -50,7 +50,7 @@ void SPIRIT::init(int xres, int yres, int zres, int nc){
 		kry_f = kr_f;  
 		krz_f = kr_f;  
 	}
-    krx = (int)ceil(krx_f);
+    	krx = (int)ceil(krx_f);
 	kry = (int)ceil(kry_f);
 	krz = (int)ceil(krz_f);
 	krz = (zres ==1) ? ( 0 ) : ( krz); // for 2D Kernel
@@ -79,6 +79,7 @@ void SPIRIT::help_message(void){
 	help_flag("-sp_krz_f []","kernel size in z");
 	help_flag("-sp_kr_f []","kernel size in r");
 	
+	help_flag("-sp_svd_thresh","singular value threshold");
 	help_flag("-sp_crx []","auto cal size in x");
 	help_flag("-sp_cry []","auto cal size in y");
 	help_flag("-sp_crz []","auto cal size in z");
@@ -124,7 +125,7 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 			trig_flag(SP_COIL_PHASE,"-sp_coil_phase",phase_type);
 		
 		    int_flag("-sp_mapshrink",mapshrink);
-		    float_flag("-sp_mapthresh",mapthresh);
+		    float_flag("-sp_svd_thresh",svd_thresh);
 
 		}
 	}
@@ -305,7 +306,7 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 	s.save("S.txt",arma::raw_binary);
 		
 	cout << "Finding Number of Singular Values "  << endl << flush;
-	float thresh = s(0)*sqrt(0.001);
+	float thresh = s(0)*sqrt(svd_thresh);
 	nV=1; 
 	while( s(nV) > thresh ){
 		nV++;	

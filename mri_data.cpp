@@ -581,7 +581,6 @@ void MRI_DATA::coilcompress(float thresh)
 void MRI_DATA::coilcompress(float thresh)
 { 
 
-  int Nthreads = omp_get_max_threads();
   int Num_Pixels = Num_Encodings*kdata(0,0).numElements();
       
   arma::cx_mat all_data;

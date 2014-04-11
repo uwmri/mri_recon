@@ -206,6 +206,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 				
 		// Coil Combination		
 		trig_flag(ESPIRIT,"-espirit",coil_combine_type);
+		trig_flag(WALSH,"-walsh",coil_combine_type);
 		trig_flag(LOWRES,"-coil_lowres",coil_combine_type);
 		float_flag("-smap_res",smap_res);
 		trig_flag(1,"-export_smaps",export_smaps);
@@ -664,7 +665,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 														 
 				 // Now Iterate
 				 cout << "Iterate" << endl;
-				 double error0=0.0;
+				 // double error0=0.0;
 				 for(int iteration =0; iteration< max_iter; iteration++){
 
 					  tictoc iteration_timer;
@@ -1093,13 +1094,23 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		
 
 		// Spirit Code
-		if (coil_combine_type==ESPIRIT){
- 			cout << "eSPIRIT Based Maps"  << endl; 
+		switch(coil_combine_type){
+		
+		case(ESPIRIT):{
+ 			// Espirit (k-space kernal Eigen method)
+			cout << "eSPIRIT Based Maps"  << endl; 
 			SPIRIT S;
-      	 	S.read_commandline(argc,argv);
-      		S.init(rcxres,rcyres,rczres,data.Num_Coils);
-		    S.generateEigenCoils(smaps);		  
-		}else{ // E-spirit Code 
+      	 		S.read_commandline(argc,argv);
+      			S.init(rcxres,rcyres,rczres,data.Num_Coils);
+		    	S.generateEigenCoils(smaps);		  
+		}break;
+		
+		case(WALSH):{
+			// Image space eigen Method
+			eigen_coils(smaps);
+		}break;
+		
+		case(LOWRES):{ // E-spirit Code 
 		
 			// Sos Normalization 
 			cout << "Normalize Coils" << endl;
@@ -1116,8 +1127,12 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 							smaps(coil)(i,j,k) *= sos;
 						}
 			}}}
-
+		}break;
+		
+		
 		} // Normalization
+
+		
 
 		// Export 
 		if(export_smaps==1){
@@ -1139,6 +1154,103 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 
 } 
 
+
+/**
+ * Generate coils from SPIRiT kernel.
+ */
+void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
+{
+    	
+	typedef Array<complex<float>,3> Complex3D;
+	
+	// Shorthand
+	int Ncoils = image.extent(firstDim);
+	int Nx =image(0).extent(firstDim);
+	int Ny =image(0).extent(secondDim);
+	int Nz =image(0).extent(thirdDim);
+	
+	int block_size_x = 8;
+	int block_size_y = 8;
+	int block_size_z = 8;
+		
+	// Blocks shouldn't be larger than the dimension
+	block_size_x = ( block_size_x > Nx) ? ( Nx ) : ( block_size_x );
+	block_size_y = ( block_size_y > Ny) ? ( Ny ) : ( block_size_y );
+	block_size_z = ( block_size_z > Nz) ? ( Nz ) : ( block_size_z );
+	
+	int Np = block_size_x*block_size_y*block_size_z;
+	
+	cout << "Actual Block Size = " << block_size_x << " x " << block_size_y << " x " << block_size_z << endl;	
+	cout << "Getting Low Rank threshold (N=" << Ncoils << ")(Np = " << Np << ")" << endl;
+	
+	int block_Nx= (int)( Nx / block_size_x );
+	int block_Ny= (int)( Ny / block_size_y );
+	int block_Nz= (int)( Nz / block_size_z );
+	
+	int total_blocks = block_Nx * block_Ny * block_Nz;
+	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
+	
+		
+	#pragma omp parallel for
+	for( int block = 0; block < total_blocks; block++){
+		
+		// Nested parallelism workaround
+		int i = (int)( block % block_Nx);
+		
+		int temp = (int)( (float)block / (float)block_Nx);
+		int j = (int)(        temp % block_Ny );
+		int k = (int)( (float)temp / (float)(block_Ny) );
+		
+		k*= block_size_z;
+		j*= block_size_y;
+		i*= block_size_x;
+				
+		arma::cx_fmat A;
+		A.zeros(Np,Ncoils); // Pixels x Coils
+	
+		arma::cx_fmat U;
+		U.zeros(Np,Np); // Pixels x Pixels
+	    
+		arma::fmat S;
+		S.zeros(Np,Ncoils); // Pixels x Coils
+	    		
+		arma::cx_fmat V;
+		V.zeros(Ncoils,Ncoils); // Coils x Coils
+		
+		//-----------------------------------------------------
+		//   Block section
+		//-----------------------------------------------------
+		
+		for(int c=0; c< Ncoils; c++){
+			int count=0;
+			for(int kk=k; kk < k+block_size_z; kk++){
+			for(int jj=j; jj < j+block_size_y; jj++){
+			for(int ii=i; ii < i+block_size_x; ii++){
+				A(count,c) = image(c)(ii,jj,kk);
+				count++;
+			}}}
+		}
+		
+				
+		// SVD
+		arma::fvec s;
+  		arma::svd(U,s,V,A);
+		
+		//  V.print("V");
+		arma::cx_fvec sens = V.col(0);
+		
+		for(int c=0; c< Ncoils; c++){
+			int count=0;
+			for(int kk=k; kk < k+block_size_z; kk++){
+			for(int jj=j; jj < j+block_size_y; jj++){
+			for(int ii=i; ii < i+block_size_x; ii++){
+				image(c)(ii,jj,kk) = conj( sens(c,0));
+				count++;
+			}}}
+		}
+		
+	}// Block (threaded)
+}
 
 
 

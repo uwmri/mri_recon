@@ -28,6 +28,7 @@
 #include "gating.h"
 #include "clear.h"
 #include "l2reg.h"
+#include "hdf5_interface.h"
 
 class RECON{
 	public:
@@ -38,7 +39,7 @@ class RECON{
 	  enum DataType { PFILE, EXTERNAL, SIMULATE, PSF, PHANTOM };
 
 	  // Coil Combine Type
-	  enum CoilCombineType { LOWRES, ESPIRIT };
+	  enum CoilCombineType { LOWRES, ESPIRIT, WALSH };
 	  
 	  // Enum Transform Types
 	  enum TransformType {NONE,WAVELET,DIFF,DFT,PCA,COMPOSITE_DIFF};
@@ -105,7 +106,7 @@ class RECON{
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_one_frame( MRI_DATA& data, int);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruct_all_frames( MRI_DATA& data);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_composite( MRI_DATA& data);
-	  	  
+	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);	  
 	private:	
 		
 };
