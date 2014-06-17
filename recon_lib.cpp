@@ -39,8 +39,12 @@ void RECON::set_defaults( void){
 	rcframes=1;
 	rcencodes=1;
 	
-	smap_res=8;
+	recalc_dcf =false;
+	dcf_iter = 20;
 	
+	smap_res=8;
+	smap_intensity_correction = false;
+		
 	acc = 1;
 	compress_coils = 0.0;
 	whiten = false;
@@ -50,6 +54,8 @@ void RECON::set_defaults( void){
 	cycle_spins = 4;
 
 	prep_done = false;
+	
+
 }
 
 // ----------------------
@@ -113,8 +119,8 @@ void RECON::help_message(void){
 	
 	cout << "Transforms for Compressed Sensing:" << endl;
 	help_flag("-spatial_transform []","none/wavelet");
-    help_flag("-temporal_transform []","none/diff/pca/dft/wavelet");
-    help_flag("-encode_transform []","none/diff");
+    	help_flag("-temporal_transform []","none/diff/pca/dft/wavelet");
+    	help_flag("-encode_transform []","none/diff");
     	
 	cout << "Iterative Recon Control:" << endl;
 	help_flag("-max_iter []","max iterations for iterative recons");
@@ -123,6 +129,12 @@ void RECON::help_message(void){
 	help_flag("-espirit","use ESPIRIT to get coil sensitivies");
 	help_flag("-coil_lowres","default,use low resolution images to get coil sensitivies");
 	help_flag("-export_smaps","write sensitivity maps");
+	help_flag("-smap_intensity_correction","polynomial fit for intensity correction");
+	
+	cout << "Options  Before Recon" << endl;
+	help_flag("-recalc_dcf","Use iterative calc for density");
+	help_flag("-dcf_iter","Iterations for DCF");
+	
 }
 
 /** --------------------
@@ -159,6 +171,9 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(FISTA,"-fista",recon_type);
 		trig_flag(CLEAR,"-clear",recon_type);
 		trig_flag(CG,"-cg",recon_type);
+		
+		trig_flag(true,"-recalc_dcf",recalc_dcf);
+		int_flag("-dcf_iter",dcf_iter);
 		
 		// Spatial Transforms
 		}else if(strcmp("-spatial_transform",pstring[pos]) == 0) {
@@ -210,6 +225,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(LOWRES,"-coil_lowres",coil_combine_type);
 		float_flag("-smap_res",smap_res);
 		trig_flag(1,"-export_smaps",export_smaps);
+		trig_flag(true,"-smap_intensity_correction",smap_intensity_correction);
 		
 		// Source of data
 		trig_flag(EXTERNAL,"-external_data",data_type);
@@ -280,10 +296,14 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	gridding.read_commandline(argc,argv);
 	gridding.precalc_gridding(rczres,rcyres,rcxres,3);
 	
+	//
+	if(recalc_dcf){
+		dcf_calc(data);
+	}
+	
 	// Calculate Sensitivity maps (using gridding struct)	
 	calc_sensitivity_maps(  argc,argv, data);
-	
-	
+		
 	// Complex Difference
 	if(complex_diff){
 		cout << "Doing Complex Diff" << endl;
@@ -380,6 +400,55 @@ Array< Array<complex<float>,3 >,1 >RECON::reconstruct_composite( MRI_DATA& data)
 	Array< Array<complex<float>,3 >,2 >XX = full_recon( data, Range(0,0),Range(0,0),true);
 	Array< Array<complex<float>,3 >,1 >X = XX(0,Range::all());
 	return(X);
+}
+
+
+void RECON::dcf_calc( MRI_DATA& data){
+	
+	// Setup Gridding + FFT Structure
+	gridFFT dcf_gridding;
+	dcf_gridding.kernel_type = KAISER_KERNEL;
+	dcf_gridding.dwinX = 5.5;
+	dcf_gridding.dwinY = 5.5;
+	dcf_gridding.dwinZ = 5.5;
+	dcf_gridding.precalc_kernel(2*rczres,2*rcyres,2*rcxres,3);
+			
+	 // Weighting Array for Time coding
+	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Array< float, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	
+	// Array to grid to
+	Array< float, 3 >Xtemp(2*rcxres,2*rcyres,2*rczres,ColumnMajorArray<3>());
+	
+	for(int e=0; e< rcencodes; e++){
+		
+		/*
+		data.kx(e)*= 0.1;
+		data.ky(e)*= 0.1;
+		data.kz(e)*= 0.1;
+		*/
+		
+		Kweight = 1;
+		for(int iter=0; iter < dcf_iter; iter++){
+			cout << "Iteration = " << iter << endl;			 
+						
+			Xtemp=0;
+			dcf_gridding.grid_forward(Xtemp,Kweight,data.kx(e),data.ky(e),data.kz(e));
+			dcf_gridding.grid_backward(Xtemp,Kweight2,data.kx(e),data.ky(e),data.kz(e));
+						
+			Kweight = Kweight / Kweight2;
+		}
+		data.kw(e) = Kweight;
+		
+		/*
+		data.kx(e)*= 10;
+		data.ky(e)*= 10;
+		data.kz(e)*= 10;
+		*/
+		
+	}
+	ArrayWrite(data.kw(0),"Kweight_DCF.dat");
+	
 }
 
 
@@ -574,17 +643,20 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  cout << "Took " << iteration_timer << " s " << endl;
 												  
 						  // Export X slice
-						  Array<complex<float>,2>Xslice=XX(0,0,0)(all,all,RR(0,0,0).length(2)/2);
-						  ArrayWritePhase(Xslice,"X_phase.dat");
-						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
-						  
-						  // Export all coils
-						  ArrayWriteMag(Xslice,"X_mag_coils.dat");
-						  for(int coil=1; coil< data.Num_Coils; coil++){
-						  	Array<complex<float>,2>Xcoil=XX(0,0,coil)(all,all,RR(0,0,0).length(2)/2);
-							ArrayWriteMagAppend(Xcoil,"X_mag_coils.dat");
+						  {
+						  	Array< float,2>Xslice;
+							Xslice.setStorage(ColumnMajorArray<2>());
+							Xslice.resize( rcxres,rcyres);
+							Xslice =0;
+							for(int coil=0; coil< data.Num_Coils; coil++){
+																
+								Xslice += norm( XX(0,0,coil)(all,all,RR(0,0,0).length(2)/2) );
+						  	}
+							Xslice = sqrt( Xslice );
+							ArrayWriteAppend(Xslice,"X_mag.dat");
 						  }
-						 					  
+						  
+						  				  
 						  // ----------------------------------
 						  //   Soft Thresh
 						  // ----------------------------------
@@ -594,8 +666,21 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  	if(softthresh.getThresholdMethod() != TH_NONE){
 							  L1_threshold(X2);
 						  	}
-						  	ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  
+						  	 // Export X slice
+						  	{	
+						  	Array< float,2>Xslice;
+							Xslice.setStorage(ColumnMajorArray<2>());
+							Xslice.resize( rcxres,rcyres);
+							Xslice =0;
+							for(int coil=0; coil< data.Num_Coils; coil++){
+								Xslice += norm( XX(0,0,coil)(all,all,RR(0,0,0).length(2)/2) );
+						  	}
+							Xslice = sqrt( Xslice );
+							ArrayWriteAppend(Xslice,"X_mag.dat");
+						  	}
 						  }
+						  
 						  
 						  // ---------------------------------
 						  //   Clear 
@@ -609,7 +694,19 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  lrankcoil.thresh(XX,2);
 						  cout << "Thresh took " << iteration_timer << " s" << endl;
 						  
-						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  // Export X slice
+						  {
+						  	Array< float,2>Xslice;
+							Xslice.setStorage(ColumnMajorArray<2>());
+							Xslice.resize( rcxres,rcyres);
+							Xslice =0;
+							for(int coil=0; coil< data.Num_Coils; coil++){
+								Xslice +=   norm( XX(0,0,coil)(all,all,RR(0,0,0).length(2)/2) );
+						  	}
+							Xslice = sqrt( Xslice );
+							ArrayWriteAppend(Xslice,"X_mag.dat");
+						  }
+						  
 						  
 							
 					  }// Iteration	
@@ -1092,6 +1189,37 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		}
 		gridding.k_rad = 999;
 		
+		
+		Array< float , 3 > IC;
+		if( smap_intensity_correction ){
+			IC.setStorage( ColumnMajorArray<3>() );
+			IC.resize(rcxres,rcyres,rczres,data.Num_Coils);
+			
+			// Collect a Sum of Squares image
+			IC = 0.0;
+			for(int coil=0; coil< smaps.length(firstDim); coil++){
+				IC += norm( smaps(coil ));
+			}
+			for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
+				(*miter) = sqrtf( *miter );
+			}
+			
+			// Threshold that image
+			float max_sos = max(IC);
+			float ic_threshold = 0.1 * max_sos;
+			for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
+				if(  (*miter) < ic_threshold){
+				 	(*miter) = 0.0;
+				}
+			}	
+			
+			// Fit a Polynomial to it
+			POLYFIT polyfit_ic;
+			polyfit_ic.poly_fitting3d(IC,IC,3);
+			IC = 0;
+			polyfit_ic.poly_subtract3d(IC);
+			IC *= -1.0;
+		}
 
 		// Spirit Code
 		switch(coil_combine_type){
@@ -1112,6 +1240,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		
 		case(LOWRES):{ // E-spirit Code 
 		
+		
 			// Sos Normalization 
 			cout << "Normalize Coils" << endl;
 			#pragma omp parallel for 
@@ -1131,9 +1260,14 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		
 		
 		} // Normalization
-
 		
-
+		if( smap_intensity_correction ){
+			for(int coil=0; coil< data.Num_Coils; coil++){
+				smaps(coil) *= IC;
+			}
+			ArrayWrite(IC,"Intensity.dat");
+		}
+		
 		// Export 
 		if(export_smaps==1){
 			cout << "Exporting Smaps" << endl;

@@ -38,6 +38,7 @@ LOWRANKCOIL::LOWRANKCOIL(){
   clear_alpha_encode = 0.0;
   debug =0;
   smax = 1.0;
+  clear_normalized =false;
 }
   
 
@@ -54,7 +55,8 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
   clear_alpha_encode = 0.0;
   debug =0;
   smax = 1.0;
-
+  clear_normalized =true;
+  
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);

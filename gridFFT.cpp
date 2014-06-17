@@ -194,7 +194,7 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 				
 		trig_flag(KAISER_KERNEL,"-kaiser",kernel_type);
 		trig_flag(TRIANGLE_KERNEL,"-triangle",kernel_type);
-		trig_flag(SINC_KERNEL,"-triangle",kernel_type);
+		trig_flag(SINC_KERNEL,"-sinc",kernel_type);
 		trig_flag(1,"-time_grid",time_grid);
 		trig_flag(1,"-double_grid",double_grid);
 	// Special Copies
@@ -213,18 +213,18 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 //    Setup for Gridding 
 //----------------------------------------
 
-void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
+void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
+  
+    // Copy to Class
+   Nx = NxT;
+   Ny = NyT;
+   Nz = NzT;
   
   // How many pts in kernel per delta k for kernel lookup table
   grid_modX = 600;
   grid_modY = 600;
   grid_modZ = 600;
-  
-  // Copy to Class
-  Nx = NxT;
-  Ny = NyT;
-  Nz = NzT;
-    
+ 
   // Get rounded Gridding ratio*
   if(grid_in_x ==1){
   	grid_x =  16.0*ceil( ( overgrid * (float)Nx )/16.0	) / (float)Nx;
@@ -395,6 +395,13 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 	}break;
 	
   }
+  
+}
+ 
+void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
+  
+    
+  precalc_kernel(NzT,NyT,NxT,directions);
   
   // ------------------------------------------------
   //    Image Domain Calcs (crop + deapp)
@@ -792,6 +799,186 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	
 	return;
 }
+
+
+// -------------------------------------------------------
+//  This is the main function for Gridding.  Assumes data
+//  is already density compensated, etc.
+// -------------------------------------------------------
+
+void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA){
+
+	float cx = imX.length(firstDim)/2;
+	float cy = imX.length(secondDim)/2;
+	float cz = imX.length(thirdDim)/2;
+		
+	if( !dataA.isStorageContiguous()){
+		cout << "Non-contiguous storage doesn't work yet" << endl;
+		exit(1);
+	}
+	
+	int Npts = dataA.numElements();
+	float *data = dataA.data();
+	const float *kx = kxA.data();
+	const float *ky = kyA.data();
+	const float *kz = kzA.data();
+	
+	#pragma omp parallel for 
+	for (int i=0; i < Npts; i++) {
+      	
+		float temp =0.0;
+					
+	    	// Calculate the exact kspace sample point in 
+	    	// dimension flag->grid* kspace that this point (i,j)
+	    	// is contributing too.
+	   		
+		// Compute Coordinates + Check
+		float dkx = kx[i]*grid_x + cx;
+		int sx = (int)ceil( dkx - dwinX);
+		if(sx <0)   continue;
+		int ex = (int)floor(dkx + dwinX);
+		if(ex >= Sx) continue;  
+	    
+		// Compute Coordinates + Check
+		float dky = ky[i]*grid_y + cy;
+		int sy = (int)ceil( dky - dwinY);
+		if(sy <0)   continue;
+		int ey = (int)floor(dky + dwinY);
+		if(ey >= Sy) continue;  
+	    
+		// Compute Coordinates + Check
+		float dkz = kz[i]*grid_z + cz;
+		int sz,ez;
+		if(grid_in_z==1){
+			sz = (int)ceil( dkz - dwinZ);
+			ez = (int)floor(dkz + dwinZ);
+		}else{
+			sz = (int)( dkz);
+			ez = sz;
+		}
+		if(sz <0)   continue;
+		if(ez >= Sz) continue;  
+		
+		
+		/*This is the main loop - most time is spent here*/
+		for(int lz =sz; lz<=ez; lz++){
+    		float delz = fabs(grid_modZ*(dkz -(float)lz));
+			float dz = delz - (float)((int)delz);
+			float wtz = grid_filterZ[(int)delz]*( 1.0-dz) + grid_filterZ[(int)delz +1]*dz;
+			
+			for(int ly =sy; ly<=ey; ly++){
+        		
+				float dely = fabs(grid_modY*(dky -(float)ly));
+				float dy = dely - (float)((int)dely);
+				float wty =wtz*(  grid_filterY[(int)dely]*( 1.0-dy) + grid_filterY[(int)dely +1]*dy );
+			 	 
+				for(int lx =sx; lx<=ex; lx++){
+			 		float delx = fabs(grid_modX*(dkx -(float)lx));
+			 		float dx = delx - (float)((int)delx);
+					float wtx =wty*(  grid_filterX[(int)delx]*( 1.0-dx) + grid_filterX[(int)delx +1]*dx );
+			 		
+					temp+= wtx*imX(lx,ly,lz);
+					
+					
+			}/* end lz loop */
+	  	  }/* end ly */
+		 }/* end lx */
+		 data[i] = temp;
+		 	 
+		 
+	}/* end data loop */
+	
+	return;
+}
+
+void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA){
+
+	float cx = imX.length(firstDim)/2;
+	float cy = imX.length(secondDim)/2;
+	float cz = imX.length(thirdDim)/2;
+	
+	if( !dataA.isStorageContiguous()){
+		cout << "Non-contiguous storage doesn't work yet" << endl;
+		exit(1);
+	}
+	
+	int Npts = dataA.numElements();
+	const float *data = dataA.data();
+	const float *kx = kxA.data();
+	const float *ky = kyA.data();
+	const float *kz = kzA.data();
+	
+	#pragma omp parallel for 
+	for (int i=0; i < Npts; i++) {
+      	
+		float temp =data[i];
+					
+	    	// Calculate the exact kspace sample point in 
+	    	// dimension flag->grid* kspace that this point (i,j)
+	    	// is contributing too.
+	   		
+		// Compute Coordinates + Check
+		float dkx = kx[i]*grid_x + cx;
+		int sx = (int)ceil( dkx - dwinX);
+		if(sx <0)   continue;
+		int ex = (int)floor(dkx + dwinX);
+		if(ex >= Sx) continue;  
+	    
+		// Compute Coordinates + Check
+		float dky = ky[i]*grid_y + cy;
+		int sy = (int)ceil( dky - dwinY);
+		if(sy <0)   continue;
+		int ey = (int)floor(dky + dwinY);
+		if(ey >= Sy) continue;  
+	    
+		// Compute Coordinates + Check
+		float dkz = kz[i]*grid_z + cz;
+		int sz,ez;
+		if(grid_in_z==1){
+			sz = (int)ceil( dkz - dwinZ);
+			ez = (int)floor(dkz + dwinZ);
+		}else{
+			sz = (int)( dkz);
+			ez = sz;
+		}
+		if(sz <0)   continue;
+		if(ez >= Sz) continue;  
+		
+		
+		/*This is the main loop - most time is spent here*/
+		for(int lz =sz; lz<=ez; lz++){
+    		float delz = fabs(grid_modZ*(dkz -(float)lz));
+			float dz = delz - (float)((int)delz);
+			float wtz = grid_filterZ[(int)delz]*( 1.0-dz) + grid_filterZ[(int)delz +1]*dz;
+			
+			for(int ly =sy; ly<=ey; ly++){
+        		
+				float dely = fabs(grid_modY*(dky -(float)ly));
+				float dy = dely - (float)((int)dely);
+				float wty =wtz*(  grid_filterY[(int)dely]*( 1.0-dy) + grid_filterY[(int)dely +1]*dy );
+			 	 
+				for(int lx =sx; lx<=ex; lx++){
+			 		float delx = fabs(grid_modX*(dkx -(float)lx));
+			 		float dx = delx - (float)((int)delx);
+					float wtx =wty*(  grid_filterX[(int)delx]*( 1.0-dx) + grid_filterX[(int)delx +1]*dx );
+			 		
+					float *image_temp = &imX(lx,ly,lz);					
+					float temp2 = wtx*temp;
+					#pragma omp atomic 
+					*image_temp+= temp2;
+					
+					
+			}/* end lz loop */
+	  	  }/* end ly */
+		 }/* end lx */
+	}/* end data loop */
+	
+	return;
+}
+
+
+
+
 	
 void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA){
 

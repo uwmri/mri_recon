@@ -29,6 +29,7 @@
 #include "clear.h"
 #include "l2reg.h"
 #include "hdf5_interface.h"
+#include "polynomial_fitting.h"
 
 class RECON{
 	public:
@@ -77,17 +78,23 @@ class RECON{
 	  int rcencodes;
   
   	  // Store for later
-      gridFFT gridding;
+      	  gridFFT gridding;
 	  NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps; // Array of arrays
 	  NDarray::Array< complex<float>,3>composite_image;
 	  GATING gate;
+	  
+	  // Density calcs
+	  bool recalc_dcf;
+	  int dcf_iter;
 	  
 	  int acc;
 	  float compress_coils;
 	  bool whiten;
 	  float smap_res;
+	  bool smap_intensity_correction;
 	  char filename[1024];
 	  int cycle_spins;
+	  
 	  
 	  int max_iter;
 	  int export_smaps;
@@ -106,7 +113,9 @@ class RECON{
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_one_frame( MRI_DATA& data, int);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruct_all_frames( MRI_DATA& data);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_composite( MRI_DATA& data);
-	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);	  
+	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);
+	  void dcf_calc( MRI_DATA& data);
+	  	  
 	private:	
 		
 };

@@ -26,6 +26,8 @@ class LOWRANKCOIL {
 	float clear_alpha_coil;
 	float clear_alpha_time;
 	float clear_alpha_encode;
+	
+	bool clear_normalized;
 		
 	// Control 
 	int debug;

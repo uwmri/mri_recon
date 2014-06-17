@@ -94,6 +94,7 @@ class gridFFT{
 		void alloc_grid();
 		void read_commandline(int numarg, char **pstring);
 		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
+		void precalc_kernel(int Nz,int Ny,int Nx,int directions);
 		void deapp_chop();
 		
 		// Main Calls with and without Sensitivity maps
@@ -108,6 +109,10 @@ class gridFFT{
 		float bessi0(float);
 		void plan_fft( void );
 		
+		// grid for dcf 
+		void grid_forward( NDarray::Array< float, 3 >&X, const NDarray::Array< float,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz); 
+		void grid_backward( const NDarray::Array< float, 3 >&X, NDarray::Array< float,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz); 
+
 		// Copy Gridding to Image 
 		void forward_image_copy(NDarray::Array< complex<float>,3 >&X);
 		void forward_image_copy(NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap);

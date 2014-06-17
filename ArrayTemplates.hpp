@@ -59,7 +59,19 @@ void ArrayWriteMagAppend( Array<complex<T>,N_rank>& temp, const char *name){
 		T val = abs( *miter);
 		ofs.write( (char *)&val,sizeof(T));
      }	
+
 }
+
+template< typename T, const int N_rank>
+void ArrayWriteAppend( Array< T ,N_rank>& temp, const char *name){
+	 
+	 ofstream ofs(name, ios_base::binary | ios_base::app);
+	 for(typename Array< T ,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+		T val =  *miter;
+		ofs.write( (char *)&val,sizeof(T));
+     }	
+}
+
 
 template< typename T, const int N_rank>
 void ArrayWrite( Array< T , N_rank>& temp, const char *name){
