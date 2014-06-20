@@ -115,6 +115,7 @@ class RECON{
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_composite( MRI_DATA& data);
 	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);
 	  void dcf_calc( MRI_DATA& data);
+	  void normalized_gaussian_blur( const  NDarray::Array< float, 3> & In,  NDarray::Array< float, 3> & out, float sigma);
 	  	  
 	private:	
 		

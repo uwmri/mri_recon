@@ -26,12 +26,9 @@ using namespace NDarray;
 //----------------------------------------
 
 gridFFT::~gridFFT(){
-  delete [] winx;
-  delete [] winy;
-  delete [] winz;
-  delete [] grid_filterX;
-  delete [] grid_filterY;
-  delete [] grid_filterZ;
+
+
+
 }
 
 //----------------------------------------
@@ -49,12 +46,6 @@ gridFFT::gridFFT(){
 	dwinX=-1;
 	dwinY=-1;
 	dwinZ=-1;
-	winx=NULL;
-	winy=NULL;
-	winz=NULL;
-	grid_filterX=NULL;
-	grid_filterY=NULL;
-	grid_filterZ=NULL;
 	fft_plan=NULL;
 	ifft_plan=NULL;
 	fft_in_z=1;
@@ -266,27 +257,28 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
 		
 		// Alloc Lookup Table Structs for Gridding
-		grid_filterX= new float[ grid_lengthX+10];
-		grid_filterY= new float[ grid_lengthY+10];
-		grid_filterZ= new float[ grid_lengthZ+10];
-		memset(grid_filterX, 0, (size_t)( (int)(grid_lengthX+10)*sizeof(float)));
-  		memset(grid_filterY, 0, (size_t)( (int)(grid_lengthY+10)*sizeof(float)));
-  		memset(grid_filterZ, 0, (size_t)( (int)(grid_lengthZ+10)*sizeof(float)));
+		grid_filterX.resize( grid_lengthX+10);
+		grid_filterY.resize( grid_lengthY+10);
+		grid_filterZ.resize( grid_lengthZ+10);
+    		grid_filterX = 0.0;
+		grid_filterY = 0.0;
+		grid_filterZ = 0.0;
+		
     
 		// Compute Seperable Kernel
 		for(int i=0; i<(grid_lengthX+1); i++){
 			float grid_pos = (float)i / (float)grid_lengthX;
-			grid_filterX[i]  = 1.0 - grid_pos;
+			grid_filterX(i)  = 1.0 - grid_pos;
 	 	}
 	
 		for(int i=0; i<(grid_lengthY+1); i++){
 			float grid_pos = (float)i / (float)grid_lengthY;
-			grid_filterY[i]  = 1.0 - grid_pos;
+			grid_filterY(i)  = 1.0 - grid_pos;
 	 	}
 	
 		for(int i=0; i<(grid_lengthZ+1); i++){
 			float grid_pos = (float)i / (float)grid_lengthZ;
-			grid_filterZ[i]  = 1.0 - grid_pos;
+			grid_filterZ(i)  = 1.0 - grid_pos;
 	 	}
 	}break;
 	
@@ -302,14 +294,14 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 		int grid_lengthY = (int)( (float)dwinY*(float)grid_modY);
 		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
 		
-		// Alloc Structs for Gridding
-		grid_filterX= new float[ grid_lengthX+10];
-		grid_filterY= new float[ grid_lengthY+10];
-		grid_filterZ= new float[ grid_lengthZ+10];
-		memset(grid_filterX, 0, (size_t)( (int)(grid_lengthX+10)*sizeof(float)));
-  		memset(grid_filterY, 0, (size_t)( (int)(grid_lengthY+10)*sizeof(float)));
-  		memset(grid_filterZ, 0, (size_t)( (int)(grid_lengthZ+10)*sizeof(float)));
-    
+		// Alloc Lookup Table Structs for Gridding
+		grid_filterX.resize( grid_lengthX+10);
+		grid_filterY.resize( grid_lengthY+10);
+		grid_filterZ.resize( grid_lengthZ+10);
+    		grid_filterX = 0.0;
+		grid_filterY = 0.0;
+		grid_filterZ = 0.0;
+
 		// Get optimal Beta per Beatty et al
 	 	betaX = PI*sqrtf(  (dwinX*dwinX)/(grid_x*grid_x)*(grid_x -0.5)*(grid_x-0.5) - 0.8);
 	 	betaY = PI*sqrtf(  (dwinY*dwinY)/(grid_y*grid_y)*(grid_y -0.5)*(grid_y-0.5) - 0.8);
@@ -326,19 +318,19 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 		for(int i=0; i<(grid_lengthX+1); i++){
 			float grid_pos=  ( (float)i )/( (float)grid_lengthX);
 			float grid_arg = sqrtf( 1.0 - grid_pos*grid_pos );
-			grid_filterX[i] = bessi0(betaX*grid_arg)/bessi0(betaX);
+			grid_filterX(i) = bessi0(betaX*grid_arg)/bessi0(betaX);
 		}
 	
 		for(int i=0; i<(grid_lengthY+1); i++){
 			float grid_pos=  ( (float)i )/( (float)grid_lengthY);
 			float grid_arg = sqrtf( 1.0 - grid_pos*grid_pos );
-			grid_filterY[i] = bessi0(betaY*grid_arg)/bessi0(betaY);
+			grid_filterY(i) = bessi0(betaY*grid_arg)/bessi0(betaY);
 		}
 		
 		for(int i=0; i<(grid_lengthZ+1); i++){
 			float grid_pos=  ( (float)i )/( (float)grid_lengthZ);
 			float grid_arg = sqrtf( 1.0 - grid_pos*grid_pos );
-			grid_filterZ[i] = bessi0(betaZ*grid_arg)/bessi0(betaZ);
+			grid_filterZ(i) = bessi0(betaZ*grid_arg)/bessi0(betaZ);
 		}
 		
 	}break;
@@ -355,40 +347,39 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 		int grid_lengthY = (int)( (float)dwinY*(float)grid_modY);
 		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
 		
-		// Alloc Structs for Gridding
-		grid_filterX= new float[ grid_lengthX+10];
-		grid_filterY= new float[ grid_lengthY+10];
-		grid_filterZ= new float[ grid_lengthZ+10];
-		memset(grid_filterX, 0, (size_t)( (int)(grid_lengthX+10)*sizeof(float)));
-  		memset(grid_filterY, 0, (size_t)( (int)(grid_lengthY+10)*sizeof(float)));
-  		memset(grid_filterZ, 0, (size_t)( (int)(grid_lengthZ+10)*sizeof(float)));
-    		
-		
+		// Alloc Lookup Table Structs for Gridding
+		grid_filterX.resize( grid_lengthX+10);
+		grid_filterY.resize( grid_lengthY+10);
+		grid_filterZ.resize( grid_lengthZ+10);
+    		grid_filterX = 0.0;
+		grid_filterY = 0.0;
+		grid_filterZ = 0.0;
+				
 		// Compute Seperable Kernels
 		for(int i=0; i<(grid_lengthX+1); i++){
 			double grid_pos=  ( (double)i )/( (double)grid_lengthX);
 			if(grid_pos < 0.01){
-				grid_filterX[i] = 1.0;
+				grid_filterX(i) = 1.0;
 			}else{
-				grid_filterX[i]=(float)( sin(grid_pos*PI)/(grid_pos*PI));
+				grid_filterX(i)=(float)( sin(grid_pos*PI)/(grid_pos*PI));
 			}
 		}
 		
 		for(int i=0; i<(grid_lengthY+1); i++){
 			double grid_pos=  ( (double)i )/( (double)grid_lengthY);
 			if(grid_pos < 0.01){
-				grid_filterY[i] = 1.0;
+				grid_filterY(i) = 1.0;
 			}else{
-				grid_filterY[i]=(float)( sin(grid_pos*PI)/(grid_pos*PI));
+				grid_filterY(i)=(float)( sin(grid_pos*PI)/(grid_pos*PI));
 			}
 		}
 	
 		for(int i=0; i<(grid_lengthZ+1); i++){
 			double grid_pos=  ( (double)i )/( (double)grid_lengthZ);
 			if(grid_pos < 0.01){
-				grid_filterZ[i] = 1.0;
+				grid_filterZ(i) = 1.0;
 			}else{
-				grid_filterZ[i]=(float)( sin(grid_pos*PI)/(grid_pos*PI));
+				grid_filterZ(i)=(float)( sin(grid_pos*PI)/(grid_pos*PI));
 			}
 		}
 		
@@ -396,6 +387,10 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 	
   }
   
+  // Normalize
+  grid_filterX *= grid_modX /  sum(grid_filterX);
+  grid_filterY *= grid_modY /  sum(grid_filterY);
+  grid_filterZ *= grid_modZ /  sum(grid_filterZ);
 }
  
 void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
@@ -422,62 +417,68 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
   printf("Og %d-%d x %d-%d x %d-%d\n",og_sx,og_ex,og_sy,og_ey,og_sz,og_ez);  
   
   // Deapp Windows
-  winx = new float[Sx];
+  winx.resize(Sx);
+  winx = 0.0;
   for( int i = 0; i < Sx;i++){
-  	winx[i] = 0.0;
   	float ipos = i - (float)Sx/2.0;
 	for(int grid_pos = 0; grid_pos < dwinX*grid_modX; grid_pos++){ 
 		// Fourier Transform of Kernel
-		winx[i] += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modX / (float)Sx)*grid_filterX[grid_pos];
+		winx(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modX / (float)Sx)*grid_filterX(grid_pos);
 	}
-	winx[i] = (float)grid_modX/winx[i];
+	winx(i) = (float)grid_modX/winx(i);
 	
 	// Put chopping + zeroing in window to save time
 	float fact =  ((float)( 2*(( i  )%2) - 1));
-	winx[i]*=fact / Sx;
-	winx[i]*=( i < og_sx) ? ( 0.0 ) : ( 1.0);
-	winx[i]*=( i > og_ex-1) ? ( 0.0 ) : ( 1.0);
+	winx(i)*=fact / Sx;
+	winx(i)*=( i < og_sx) ? ( 0.0 ) : ( 1.0);
+	winx(i)*=( i > og_ex-1) ? ( 0.0 ) : ( 1.0);
 	
 	if(grid_in_x==0){
-		winx[i]=1.0;
+		winx(i)=1.0;
 	}
   }
+  winx /= max(winx);
 
-  winy = new float[Sy];
+  
+  winy.resize(Sy);
+  winy = 0.0;
   for( int i = 0; i < Sy;i++){
-  	winy[i] = 0.0;
   	float ipos = i - (float)Sy/2.0;
 	for(int grid_pos = 0; grid_pos < dwinY*grid_modY; grid_pos++){ 
-		winy[i] += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modY / (float)Sy)*grid_filterY[grid_pos];
+		winy(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modY / (float)Sy)*grid_filterY(grid_pos);
 	}
-	winy[i] = (float)grid_modY/winy[i];
+	
+	winy(i) = (float)grid_modY/winy(i);
 	float fact =  ((float)( 2*(( i  )%2) - 1));
-	winy[i]*=fact / Sy;
-  	winy[i]*=( i < og_sy) ? ( 0.0 ) : ( 1.0);
-	winy[i]*=( i > og_ey-1) ? ( 0.0 ) : ( 1.0);
+	winy(i)*=fact / Sy;
+  	winy(i)*=( i < og_sy) ? ( 0.0 ) : ( 1.0);
+	winy(i)*=( i > og_ey-1) ? ( 0.0 ) : ( 1.0);
 	
 	if(grid_in_y==0){
-		winy[i]=1.0;
+		winy(i)=1.0;
 	}
   }
+  winy /= max(winy);
+  
    
-  winz = new float[Sz];
+  winz.resize(Sz);
+  winz = 0.0;
   for( int i = 0; i < Sz;i++){
-  	winz[i] = 0.0;
   	float ipos = i - (float)Sz/2.0;
 	for(int grid_pos = 0; grid_pos < dwinZ*grid_modZ; grid_pos++){ 
-		winz[i] += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modZ / (float)Sz)*grid_filterZ[grid_pos];
+		winz(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modZ / (float)Sz)*grid_filterZ(grid_pos);
 	}
-	winz[i]  = (float)grid_modZ/winz[i];
+	winz(i)  = (float)grid_modZ/winz(i);
 	float fact =  ((float)( 2*(( i  )%2) - 1));
-	winz[i]*=fact / Sz;
-	winz[i]*=( i < og_sz) ? ( 0.0 ) : ( 1.0);
-	winz[i]*=( i > og_ez-1) ? ( 0.0 ) : ( 1.0);
+	winz(i)*=fact / Sz;
+	winz(i)*=( i < og_sz) ? ( 0.0 ) : ( 1.0);
+	winz(i)*=( i > og_ez-1) ? ( 0.0 ) : ( 1.0);
 	
 	if(grid_in_z==0){
-		winz[i]=1.0;
+		winz(i)=1.0;
 	}
   }
+  winz /= max(winz);  
   
   // Allocate Memory
   cout << "Alloc Grid" << endl;
@@ -600,22 +601,22 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 void gridFFT::forward_image_copy(Array<complex<float>,3>&X){
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz[k+og_sz];
+	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy[j+og_sy];
+	    float wty = wtz*winy(j+og_sy);
 		for(int i=0; i<Nx; i++) {
-			X(i,j,k) = ( image(i,j,k)*wty*winx[i+og_sx]); /* Don't just sum coils when no sense map is given*/
+			X(i,j,k) = ( image(i,j,k)*wty*winx(i+og_sx)); /* Don't just sum coils when no sense map is given*/
 	}}}
 }
 
 void gridFFT::forward_image_copy(Array<complex<float>,3>&X,const Array<complex<float>,3>&smap){
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz[k+og_sz];
+	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy[j+og_sy];
+	    float wty = wtz*winy(j+og_sy);
 		for(int i=0; i<Nx; i++) {
-			X(i,j,k) += ( image(i,j,k)*wty*winx[i+og_sx]*conj(smap(i,j,k)));
+			X(i,j,k) += ( image(i,j,k)*wty*winx(i+og_sx)*conj(smap(i,j,k)));
 	}}}
 }
 
@@ -631,11 +632,11 @@ void gridFFT::backward_image_copy(const Array<complex<float>,3>&X){
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz[k+og_sz];
+	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy[j+og_sy];
+	    float wty = wtz*winy(j+og_sy);
 		for(int i=0; i<Nx; i++) {
-			image(i,j,k) = X(i,j,k)*wty*winx[i+og_sx];
+			image(i,j,k) = X(i,j,k)*wty*winx(i+og_sx);
 	}}}
 }
 
@@ -647,11 +648,11 @@ void gridFFT::backward_image_copy(const Array<complex<float>,3>&X,const Array<co
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz[k+og_sz];
+	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy[j+og_sy];
+	    float wty = wtz*winy(j+og_sy);
 		for(int i=0; i<Nx; i++) {
-			image(i,j,k) =  X(i,j,k)*wty*winx[i+og_sx]*smap(i,j,k);
+			image(i,j,k) =  X(i,j,k)*wty*winx(i+og_sx)*smap(i,j,k);
 	}}}
 }
 
@@ -737,18 +738,18 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
-			float wtz = grid_filterZ[(int)delz]*( 1.0-dz) + grid_filterZ[(int)delz +1]*dz;
+			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
 			
 			for(int ly =sy; ly<=ey; ly++){
         		
 				float dely = fabs(grid_modY*(dky -(float)ly));
 				float dy = dely - (float)((int)dely);
-				float wty =wtz*(  grid_filterY[(int)dely]*( 1.0-dy) + grid_filterY[(int)dely +1]*dy );
+				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
 			 	 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx));
 			 		float dx = delx - (float)((int)delx);
-					float wtx =wty*(  grid_filterX[(int)delx]*( 1.0-dx) + grid_filterX[(int)delx +1]*dx );
+					float wtx =wty*(  grid_filterX( (int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
 			 		
 					wtx *=  ((float)( 2*(( lx + ly + lz )%2) - 1)); // Chop in  gridding now
 					
@@ -864,18 +865,18 @@ void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, con
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
-			float wtz = grid_filterZ[(int)delz]*( 1.0-dz) + grid_filterZ[(int)delz +1]*dz;
+			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
 			
 			for(int ly =sy; ly<=ey; ly++){
         		
 				float dely = fabs(grid_modY*(dky -(float)ly));
 				float dy = dely - (float)((int)dely);
-				float wty =wtz*(  grid_filterY[(int)dely]*( 1.0-dy) + grid_filterY[(int)dely +1]*dy );
+				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
 			 	 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx));
 			 		float dx = delx - (float)((int)delx);
-					float wtx =wty*(  grid_filterX[(int)delx]*( 1.0-dx) + grid_filterX[(int)delx +1]*dx );
+					float wtx =wty*(  grid_filterX((int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
 			 		
 					temp+= wtx*imX(lx,ly,lz);
 					
@@ -949,18 +950,18 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
-			float wtz = grid_filterZ[(int)delz]*( 1.0-dz) + grid_filterZ[(int)delz +1]*dz;
+			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
 			
 			for(int ly =sy; ly<=ey; ly++){
         		
 				float dely = fabs(grid_modY*(dky -(float)ly));
 				float dy = dely - (float)((int)dely);
-				float wty =wtz*(  grid_filterY[(int)dely]*( 1.0-dy) + grid_filterY[(int)dely +1]*dy );
+				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
 			 	 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx));
 			 		float dx = delx - (float)((int)delx);
-					float wtx =wty*(  grid_filterX[(int)delx]*( 1.0-dx) + grid_filterX[(int)delx +1]*dx );
+					float wtx =wty*(  grid_filterX((int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
 			 		
 					float *image_temp = &imX(lx,ly,lz);					
 					float temp2 = wtx*temp;
@@ -1042,18 +1043,18 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
-			float wtz = grid_filterZ[(int)delz]*( 1.0-dz) + grid_filterZ[(int)delz +1]*dz;
+			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
 			
 			for(int ly =sy; ly<=ey; ly++){
         		
 				float dely = fabs(grid_modY*(dky -(float)ly));
 				float dy = dely - (float)((int)dely);
-				float wty =wtz*(  grid_filterY[(int)dely]*( 1.0-dy) + grid_filterY[(int)dely +1]*dy );
+				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
 			 	 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx));
 			 		float dx = delx - (float)((int)delx);
-					float wtx =wty*(  grid_filterX[(int)delx]*( 1.0-dx) + grid_filterX[(int)delx +1]*dx );
+					float wtx =wty*(  grid_filterX((int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
 			 											
 					/*This Memory Access is the Bottleneck*/	 			 
 			 		wtx *=  ((float)( 2*(( lx + ly + lz )%2) - 1)); // Chop in inverse gridding now

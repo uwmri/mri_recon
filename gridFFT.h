@@ -68,18 +68,18 @@ class gridFFT{
   		float betaZ;
   
   		// Discrete Gridding Kernel Variables
-  		float *winx;
-  		float *winy;
-  		float *winz;
+  		NDarray::Array<float,1> winx;
+  		NDarray::Array<float,1> winy;
+  		NDarray::Array<float,1> winz;
   		float dwinX;
   		float dwinY;
   		float dwinZ;
   		float grid_modX;
   		float grid_modY;
   		float grid_modZ;
-  		float *grid_filterX;
-  		float *grid_filterY;
-  		float *grid_filterZ;
+  		NDarray::Array<float,1> grid_filterX;
+  		NDarray::Array<float,1> grid_filterY;
+  		NDarray::Array<float,1> grid_filterZ;
   		
 		// FFT
   		fftwf_plan fft_plan;

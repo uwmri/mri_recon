@@ -224,6 +224,8 @@ void GATING::init( const MRI_DATA& data,int frames){
 
 void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	
+	cout << "Initializing Respiratory Gating with " << frames << " frames " << endl;
+	
 	if(resp_gate_type == RESP_NONE){
 		return;
 	}

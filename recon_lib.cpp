@@ -737,7 +737,11 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 				 				 
 				 // Storage for (Ex-d)
 				 Array< complex<float>,3 >diff_data(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-
+				 
+				 // Initial Guess
+				 
+				 
+				 
 				 			 
 				 // First Calculate E'd
 				 cout << "LHS Calculation" << endl;
@@ -980,15 +984,15 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  }
 						  
 						  // Error check
-						  if(iteration==1){
+						  if(iteration==0){
 							  cout << "L2 set scale " << endl << flush;
 						  	  error0 = abs(scale_RhR);
 							  l2reg.set_scale(error0,X);
 						  }
 						  cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
-
+						  cout << "RhP = " << scale_RhP << endl;
+						  
 						  // Export R
-						  		
 						  Array<complex<float>,2>Rslice=R(0,0)(all,all,R(0,0).length(2)/2);
 						  ArrayWriteMagAppend(Rslice,"R.dat");						  
 
@@ -1134,7 +1138,7 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 
 }
 
-
+inline float sqr ( float x){ return(x*x);}
 
 void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 
@@ -1189,11 +1193,11 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		}
 		gridding.k_rad = 999;
 		
-		
 		Array< float , 3 > IC;
 		if( smap_intensity_correction ){
+			cout << "Correcting Intensity" << endl;
 			IC.setStorage( ColumnMajorArray<3>() );
-			IC.resize(rcxres,rcyres,rczres,data.Num_Coils);
+			IC.resize(rcxres,rcyres,rczres);
 			
 			// Collect a Sum of Squares image
 			IC = 0.0;
@@ -1203,22 +1207,45 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
 				(*miter) = sqrtf( *miter );
 			}
+			IC /= max(IC);
+			ArrayWrite(IC,"SOS_Intensity.dat");
 			
-			// Threshold that image
+			// Threshold that image - to reduce error with air
 			float max_sos = max(IC);
-			float ic_threshold = 0.1 * max_sos;
+			float ic_threshold = 0.05 * max_sos;
 			for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
 				if(  (*miter) < ic_threshold){
 				 	(*miter) = 0.0;
 				}
-			}	
+			}
+			ArrayWrite(IC,"SOS_Thresh.dat");	
 			
-			// Fit a Polynomial to it
-			POLYFIT polyfit_ic;
-			polyfit_ic.poly_fitting3d(IC,IC,3);
-			IC = 0;
-			polyfit_ic.poly_subtract3d(IC);
-			IC *= -1.0;
+			
+			// Gaussian blur
+			Array< float , 3 > Blur;
+			Blur.setStorage( ColumnMajorArray<3>() );
+			Blur.resize(rcxres,rcyres,rczres);
+			normalized_gaussian_blur( IC, Blur, 15.0);
+			ArrayWrite(Blur,"Blur.dat");
+							
+			// Calc intensity correction
+			float max_blur = max(Blur);
+			for(int k=0; k < rczres; k++){
+				for(int j=0; j < rcyres; j++){
+					for(int i=0; i < rcxres; i++){
+						switch(recon_type){
+							case(SOS):
+							case(PILS):{
+								IC(i,j,k) = Blur(i,j,k) / ( Blur(i,j,k)*Blur(i,j,k) + 0.01*max_blur*max_blur);
+							}break;
+							default:{
+								IC(i,j,k) = Blur(i,j,k);
+							}break;
+						}
+							
+			}}}
+			ArrayWrite(IC,"EndIC.dat");
+			
 		}
 
 		// Spirit Code
@@ -1287,6 +1314,126 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 	}
 
 } 
+
+
+void RECON::normalized_gaussian_blur( const Array< float, 3> & In, Array< float, 3> & Out, float sigma){
+
+	int dwinX = 3*(int)sigma;
+	int dwinY = 3*(int)sigma;
+	int dwinZ = 3*(int)sigma;
+	
+	Array< float,3> Normalization;
+	Normalization.setStorage( ColumnMajorArray<3>() );
+	Normalization.resize(rcxres,rcyres,rczres);
+	Normalization = 0.0;
+	
+	// Set to zero
+	Out = 0.0;
+	
+	// Kernel to reduce calls to exp
+	float *kern = new float [2*dwinX+1];	
+	for(int t=0; t< (2*dwinX +1); t++){
+		kern[t] = exp( -sqr( (float)t - dwinX ) / (2.0*sqr(sigma))); 
+		cout << "Kern (" << t << ") = " << kern[t] << endl;
+	}				
+	
+		
+	// Gaussian Blur in X
+	cout << "Blur in X" << endl;
+	#pragma omp parallel for
+	for(int k=0; k < rczres; k++){
+	for(int j=0; j < rcyres; j++){
+	for(int i=0; i < rcxres; i++){
+		int ks = 0;
+		int sx =  i - dwinX;	
+		if(sx < 0){
+			ks = -sx;
+			sx = 0;
+		}		
+		int ex = min( i + dwinX, rcxres);
+		
+		for(int ii=sx; ii<ex; ii++){
+			Out(i,j,k) += kern[ks]*In(ii,j,k);
+			Normalization(i,j,k) += kern[ks]*(float)( In(ii,j,k) > 0 );
+			ks++;
+		}
+	}}}			
+	
+	// Gaussian Blur in Y
+	cout << "Blur in Y" << endl;
+	#pragma omp parallel for
+	for(int k=0; k < rczres; k++){
+	for(int i=0; i < rcxres; i++){
+		// Copy
+		float *Line = new float[rcyres];
+		float *NLine = new float[rcyres];
+		for(int j=0; j < rcyres; j++){
+			Line[j]= Out(i,j,k);
+			NLine[j] = Normalization(i,j,k);
+		}
+	
+		// Convolve
+		for(int j=0; j < rcyres; j++){
+		int ks=0;
+		int sy = j - dwinY;
+		if(sy<0){
+		 	ks = -sy; // Offset;
+		 	sy = 0;
+		}			
+		int ey = min( j + dwinY+1, rcyres);
+		
+		for(int jj=sy; jj<ey; jj++){
+			Out(i,j,k) += kern[ks]*Line[jj];
+			Normalization(i,j,k) += kern[ks]*NLine[jj];  // Already a count
+			ks++;
+		}
+		}
+		
+		delete [] Line;
+		delete [] NLine;
+		
+	}}			
+	
+	// Gaussian Blur in Z
+	cout << "Blur in Z" << endl;
+	#pragma omp parallel for
+	for(int j=0; j < rcyres; j++){
+	for(int i=0; i < rcxres; i++){
+		// Copy
+		float *Line = new float[rczres];
+		float *NLine = new float[rczres];
+		for(int k=0; k < rczres; k++){
+			Line[k]= Out(i,j,k);
+			NLine[k] = Normalization(i,j,k);
+		}
+	
+		// Convolve
+		for(int k=0; k < rczres; k++){
+			int ks=0;
+			int sz = k - dwinZ;
+			if(sz<0){
+		 		ks = -sz; // Offset;
+		 		sz = 0;
+			}			
+			int ez = min( k + dwinZ+1, rczres);
+		
+			for(int kk=sz; kk<ez; kk++){
+				Out(i,j,k) += kern[ks]*Line[kk];
+				Normalization(i,j,k) += kern[ks]*NLine[kk];
+				ks++;
+			}
+			
+			if( Normalization(i,j,k) > 0){
+				Out(i,j,k)/= Normalization(i,j,k);
+			}
+			
+		}
+		
+		delete [] Line;
+		delete [] NLine;
+	}}
+	
+}
 
 
 /**
