@@ -6,7 +6,7 @@
 #include <omp.h>
 
 // For Wrapper (this is the actual recon + NDarray)
-#include <ArrayTemplates.hpp>
+#include "ArrayTemplates.hpp"
  
 class POLYFIT {
 	public:
