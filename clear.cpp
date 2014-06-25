@@ -620,11 +620,11 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, int dim){
 			// -------------------------------------------------------- 
 			fvec s;
   			arma::svd(UU[thread],s,VV[thread],AA[thread]);
-								
+			
 			for(int pos =0; pos< min(N,Np); pos++){
 				SS[thread](pos,pos)=   max( s(pos) - clear_alpha/block_iter, 0.0f );
 			}
-												
+															
 			// Reconstruct 
 			AA[thread] = UU[thread]*SS[thread]*trans(VV[thread]);
 						

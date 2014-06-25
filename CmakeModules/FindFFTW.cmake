@@ -1,0 +1,73 @@
+# Try to find FFTW3  library  
+# (see www.fftw.org)
+# Once run this will define: 
+# 
+# FFTW3_FOUND
+# FFTW3_INCLUDE_DIR 
+# FFTW3_LIBRARIES
+# FFTW3_LINK_DIRECTORIES
+# --------------------------------
+
+ FIND_PATH(FFTW3_INCLUDE_DIR fftw3.h
+   ${FFTW3_DIR}/include
+   ${FFTW3_HOME}/include
+   ${FFTW3_DIR}
+   ${FFTW3_HOME}
+   $ENV{FFTW3_DIR}/include
+   $ENV{FFTW3_HOME}/include
+   $ENV{FFTW3_DIR}
+   $ENV{FFTW3_HOME}
+   /usr/include
+   /usr/local/include
+   $ENV{SOURCE_DIR}/fftw3
+   $ENV{SOURCE_DIR}/fftw3/include
+   $ENV{SOURCE_DIR}/fftw
+   $ENV{SOURCE_DIR}/fftw/include
+)
+
+
+SET(FFTW3_POSSIBLE_LIBRARY_PATH
+  ${FFTW3_DIR}/lib
+  ${FFTW3_HOME}/lib
+  ${FFTW3_DIR}
+  ${FFTW3_HOME}  
+  $ENV{FFTW3_DIR}/lib
+  $ENV{FFTW3_HOME}/lib
+  $ENV{FFTW3_DIR}
+  $ENV{FFTW3_HOME}  
+  /usr/lib
+  /usr/local/lib
+  $ENV{SOURCE_DIR}/fftw3
+  $ENV{SOURCE_DIR}/fftw3/lib
+  $ENV{SOURCE_DIR}/fftw
+  $ENV{SOURCE_DIR}/fftw/lib
+)
+
+FIND_LIBRARY(FFTW3_FFTWF_LIBRARY
+  NAMES fftw3f libfftw3f 
+  PATHS 
+  ${FFTW3_POSSIBLE_LIBRARY_PATH}
+)
+
+FIND_LIBRARY(FFTW3_FFTWF_OPENMP_LIBRARY
+  NAMES fftw3f_omp libfftw3f_omp
+  PATHS 
+  ${FFTW3_POSSIBLE_LIBRARY_PATH}
+)
+
+IF(FFTW3_FFTWF_OPENMP_LIBRARY AND FFTW3_FFTWF_LIBRARY)
+  SET( FFTW3_LIBRARIES ${FFTW3_FFTWF_OPENMP_LIBRARY} ${FFTW3_FFTWF_LIBRARY} )
+  SET( FFTW3_FOUND "yes")
+  MESSAGE(STATUS "   Found the FFTW library: ${FFTW3_LIBRARIES}")
+ENDIF( FFTW3_FFTWF_OPENMP_LIBRARY AND FFTW3_FFTWF_LIBRARY)
+
+IF(FFTW3_INCLUDE_DIR)
+  SET( FFTW3_HEADER_FOUND "yes")
+  MESSAGE( STATUS "   Found the FFTW3 Headers: ${FFTW3_INCLUDE_DIR}")
+ENDIF(FFTW3_INCLUDE_DIR)
+
+
+MARK_AS_ADVANCED(
+  FFTW3_INCLUDE_DIR
+  FFTW3_LIBRARIES
+)

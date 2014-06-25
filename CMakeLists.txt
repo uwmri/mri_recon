@@ -4,17 +4,23 @@ cmake_minimum_required(VERSION 2.8)
 project(MRI_RECON)
 set(PROGNAME recon_binary)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
 file(GLOB LOCAL_INCS ${CMAKE_SOURCE_DIR}/*.h)
 
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -J16 -O2 -fopenmp")
 set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} )
-set(CMAKE_C_FLAGS "-g -Wno-deprecated")
 
-#Temp for HD5 
-include_directories( BEFORE "/export/home/kmjohnso/local/include/")
+# Find Required Libraries
+message( STATUS "Check for required libraries ")
+include(FindBlitz)
+include(FindFFTW)
+include(FindHDF5)
+include(FindARMADILLO)
 
-set(LOCAL_LIBS armadillo acml_mp acml_mv fftw3f_omp fftw3f blitz m hdf5_cpp)
+#Set include directories
+include_directories( BEFORE ${ARMADILLO_INCLUDE_DIR}  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR} )
+set(LOCAL_LIBS ${FFTW3_LIBRARIES} ${ARMADILLO_LIBRARIES} ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} m )
 
 set(CMAKE_FIND_STATIC FIRST) 
 set(BUILD_SHARED_LIBS ON)
