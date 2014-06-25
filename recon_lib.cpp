@@ -646,7 +646,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  
 						  
 						  // Step in direction
-						  complex<double>scale = (scale_RhR/scale_RhP);
+						  complex<double>scale_double = (scale_RhR/scale_RhP);
+						  complex<float>scale( real(scale_double),imag(scale_double) );
 						  cout << "Scale = " << scale << endl;
 						  
 						  for(int coil=0; coil< data.Num_Coils; coil++){
@@ -1012,7 +1013,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  ArrayWriteMagAppend(Rslice,"R.dat");						  
 
 						  // Step in direction
-						  complex<double>scale = (scale_RhR/scale_RhP);
+						  complex<double>scale_double = (scale_RhR/scale_RhP);
+						  complex<float>scale( real(scale_double),imag(scale_double) );
+						  
 						  cout << "Scale = " << scale << endl << flush;
 						  for(int e=0; e< rcencodes; e++){
 							  for(int t=0; t< Nt; t++){
