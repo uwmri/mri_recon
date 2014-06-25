@@ -117,6 +117,7 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 	int total_blocks = block_Nx * block_Ny * block_Nz;
 	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
 	
+	fvec sblocks(total_blocks);
 		
 	#pragma omp parallel for
 	for( int block = 0; block < total_blocks; block++){
@@ -197,13 +198,13 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 			fvec s;
   			arma::svd(s,A);
 			
-			#pragma omp critical
-			{
-				smax = max(  s(0),smax);
-			}
+			sblocks(block)= s(0);
 			
 	}// Block (threaded)
-	cout << "Max singular value is " << smax << endl;
+	
+	smax = max(sblocks);
+	cout << "Max singular value is " << max(sblocks) << endl;
+	cout << "Median singular value is" << smax << endl;
 }
 
 
@@ -242,6 +243,8 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, i
 	
 	int total_blocks = block_Nx * block_Ny * block_Nz;
 	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
+	
+	fvec sblocks(total_blocks);
 	
 	#pragma omp parallel for
 	for( int block = 0; block < total_blocks; block++){
@@ -298,13 +301,13 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, i
 			fvec s;
   			arma::svd(s,A);
 			
-			#pragma omp critical
-			{
-				smax = max(  s(0),smax);
-			}
-			
+			sblocks(block) = s(0);
+		
 	}// Block (threaded)
-	cout << "Max singular value is " << smax << endl;
+	
+	smax = max(sblocks);
+	cout << "Max singular value is " << max(sblocks) << endl;
+	cout << "Median singular value is" << smax << endl;
 }
 
 

@@ -43,7 +43,7 @@ void RECON::set_defaults( void){
 	dcf_iter = 20;
 	
 	smap_res=8;
-	smap_intensity_correction = false;
+	intensity_correction = false;
 		
 	acc = 1;
 	compress_coils = 0.0;
@@ -129,7 +129,7 @@ void RECON::help_message(void){
 	help_flag("-espirit","use ESPIRIT to get coil sensitivies");
 	help_flag("-coil_lowres","default,use low resolution images to get coil sensitivies");
 	help_flag("-export_smaps","write sensitivity maps");
-	help_flag("-smap_intensity_correction","polynomial fit for intensity correction");
+	help_flag("-intensity_correction","polynomial fit for intensity correction");
 	
 	cout << "Options  Before Recon" << endl;
 	help_flag("-recalc_dcf","Use iterative calc for density");
@@ -225,7 +225,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(LOWRES,"-coil_lowres",coil_combine_type);
 		float_flag("-smap_res",smap_res);
 		trig_flag(1,"-export_smaps",export_smaps);
-		trig_flag(true,"-smap_intensity_correction",smap_intensity_correction);
+		trig_flag(true,"-intensity_correction",intensity_correction);
 		
 		// Source of data
 		trig_flag(EXTERNAL,"-external_data",data_type);
@@ -587,26 +587,41 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 									  
 									  // Ex
 									  diff_data=0;
-									  gridding.backward(XX(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
-									  									  
+									  if(intensity_correction){
+									  	gridding.backward(XX(store_t,e,coil),IntensityCorrection,diff_data,kxE,kyE,kzE,TimeWeight);
+									  }else{
+									  	gridding.backward(XX(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  }
+									  									  									  									  
 									  //Ex-d
 									  Array< complex<float>,3>kdataC = data.kdata(e,coil); 
 									  diff_data -= kdataC;
 									  
 									  //E'(Ex-d)
 									  RR(t,e,coil)=complex<float>(0.0,0.0);
-									  gridding.forward( RR(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  if(intensity_correction){
+									  	gridding.forward( RR(store_t,e,coil),IntensityCorrection,diff_data,kxE,kyE,kzE,TimeWeight);
+									  }else{
+									  	gridding.forward( RR(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  }
 									  
 									  // Now Get Scale
 									  P=0;
 									   							  
 									  // EE'(Ex-d)
 									  diff_data=0;
-									  gridding.backward(RR(store_t,e,coil), diff_data,kxE,kyE,kzE,TimeWeight);
+									  if(intensity_correction){
+									  	gridding.backward(RR(store_t,e,coil),IntensityCorrection, diff_data,kxE,kyE,kzE,TimeWeight);
+									  }else{
+									  	gridding.backward(RR(store_t,e,coil), diff_data,kxE,kyE,kzE,TimeWeight);
+									  }
 									  
 									  //E'EE'(Ex-d)
-									  gridding.forward(P,diff_data,kxE,kyE,kzE,TimeWeight);
-								  	  
+									  if(intensity_correction){
+									  	gridding.forward(P,IntensityCorrection,diff_data,kxE,kyE,kzE,TimeWeight);
+								  	  }else{
+									  	gridding.forward(P,diff_data,kxE,kyE,kzE,TimeWeight);
+								  	  }
 									  scale_RhP += conj_sum(P,RR(t,e,coil)); 
 									  
 									  cout << "Coil " << coil << " took " << T << endl;
@@ -1146,132 +1161,105 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
 	Range all = Range::all();	
-	if( (recon_type != SOS) && (recon_type != CLEAR) && (data.Num_Coils==1) ){
-		// Allocate Storage for Map	and zero	
-		cout << "Allocate Sense Maps"  << endl << flush;
-		smaps.setStorage( ColumnMajorArray<1>());
-		smaps.resize( data.Num_Coils );
-		for(int coil=0; coil< smaps.length(firstDim); coil++){
-			smaps(coil).setStorage( ColumnMajorArray<3>());
-			smaps(coil).resize(rcxres,rcyres,rczres,data.Num_Coils);
-			smaps(coil)=complex<float>(1,0);
-		}	
-	}else if( (recon_type != SOS) && (recon_type != CLEAR) ){ 
-		cout << "Getting Coil Sensitivities " << endl<< flush; 
-
-		// Low Pass filtering for Sensitivity Map
-		if(coil_combine_type!=ESPIRIT){
-			gridding.k_rad = smap_res;
-		}
-		
-		// Allocate Storage for Map	and zero	
-		cout << "Allocate Sense Maps"  << endl << flush;
-		smaps.setStorage( ColumnMajorArray<1>());
-		smaps.resize( data.Num_Coils );
-		for(int coil=0; coil< smaps.length(firstDim); coil++){
-			smaps(coil).setStorage( ColumnMajorArray<3>());
-			smaps(coil).resize(rcxres,rcyres,rczres,data.Num_Coils);
-			smaps(coil)=0;
-		}	
-						
-		cout << "Recon Low Resolution Images"  << endl<< flush; 
-		for(int e=0; e< 1;e++){
-			Array< float,3 >kxE = data.kx(e); 
-			Array< float,3 >kyE = data.ky(e); 
-			Array< float,3 >kzE = data.kz(e); 
-			Array< float,3 >kwE = data.kw(e); 
 	
-			for(int coil=0; coil< data.Num_Coils; coil++){
-				cout << "Coil = " << coil  << " encode = " << e << endl;
-				// Arrays 
-				Array<complex<float>,3>kdataE = data.kdata(e,coil); 
-				
-				//Do Gridding
-				Array< complex<float>,3>smapC =smaps(coil);			
-				gridding.forward(smapC,kdataE,kxE,kyE,kzE,kwE);
-			}
-		}
-		gridding.k_rad = 999;
-		
-		Array< float , 3 > IC;
-		if( smap_intensity_correction ){
-			cout << "Correcting Intensity" << endl;
-			IC.setStorage( ColumnMajorArray<3>() );
-			IC.resize(rcxres,rcyres,rczres);
+	switch( recon_type){
+	
+		case(CLEAR):{
 			
-			// Collect a Sum of Squares image
-			IC = 0.0;
-			for(int coil=0; coil< smaps.length(firstDim); coil++){
-				IC += norm( smaps(coil ));
-			}
-			for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
-				(*miter) = sqrtf( *miter );
-			}
-			IC /= max(IC);
-			ArrayWrite(IC,"SOS_Intensity.dat");
+			if(intensity_correction){
 			
-			// Threshold that image - to reduce error with air
-			float max_sos = max(IC);
-			float ic_threshold = 0.05 * max_sos;
-			for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
-				if(  (*miter) < ic_threshold){
-				 	(*miter) = 0.0;
+			
+			// Clear doesn't need anything, but might need to handle sensitivity correction
+			IntensityCorrection.setStorage( ColumnMajorArray<3>());
+			IntensityCorrection.resize(rcxres,rcyres,rczres);
+			IntensityCorrection = 0.0;
+									
+			for(int e=0; e< 1;e++){
+				for(int coil=0; coil< data.Num_Coils; coil++){
+					cout << "Coil = " << coil  << " encode = " << e << endl;
+					
+					gridding.image = 0;
+					gridding.forward(gridding.image,data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),data.kw(e));
+					IntensityCorrection += norm( gridding.image);
 				}
 			}
-			ArrayWrite(IC,"SOS_Thresh.dat");	
-			
+			IntensityCorrection = sqrt(IntensityCorrection);
 			
 			// Gaussian blur
 			Array< float , 3 > Blur;
 			Blur.setStorage( ColumnMajorArray<3>() );
 			Blur.resize(rcxres,rcyres,rczres);
-			normalized_gaussian_blur( IC, Blur, 15.0);
-			ArrayWrite(Blur,"Blur.dat");
-							
-			// Calc intensity correction
-			float max_blur = max(Blur);
-			for(int k=0; k < rczres; k++){
-				for(int j=0; j < rcyres; j++){
-					for(int i=0; i < rcxres; i++){
-						switch(recon_type){
-							case(SOS):
-							case(PILS):{
-								IC(i,j,k) = Blur(i,j,k) / ( Blur(i,j,k)*Blur(i,j,k) + 0.01*max_blur*max_blur);
-							}break;
-							default:{
-								IC(i,j,k) = Blur(i,j,k);
-							}break;
-						}
-							
-			}}}
-			ArrayWrite(IC,"EndIC.dat");
+			normalized_gaussian_blur( IntensityCorrection, Blur, 20.0);
 			
-		}
+			IntensityCorrection = Blur;
+			
+			}
+				
+		}break;
+		
+		case(PILS):
+		case(IST):
+		case(FISTA):
+		case(CG):{
+			// Allocate Storage for Map	and zero	
+			cout << "Allocate Sense Maps"  << endl << flush;
+			smaps.setStorage( ColumnMajorArray<1>());
+			smaps.resize( data.Num_Coils );
+			for(int coil=0; coil< smaps.length(firstDim); coil++){
+				smaps(coil).setStorage( ColumnMajorArray<3>());
+				smaps(coil).resize(rcxres,rcyres,rczres,data.Num_Coils);
+				smaps(coil)=0;
+			} 
+			
+			if(data.Num_Coils ==1){
+				smaps(0)=complex<float>(0.0,0.0);
+				break;
+			}
+						
+			cout << "Recon Low Resolution Images"  << endl<< flush; 
+			
+			// Low Pass filtering for Sensitivity Map
+			if(coil_combine_type!=ESPIRIT){
+				gridding.k_rad = smap_res;
+			}
+		
+			for(int e=0; e< 1;e++){
+				for(int coil=0; coil< data.Num_Coils; coil++){
+					cout << "Coil = " << coil  << " encode = " << e << endl;
+					gridding.forward( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+				}
+			}
+			gridding.k_rad = 9999;
+			
+			Array< float , 3 > IC;
+			if( intensity_correction ){
+				IC = intensity_correct( smaps);
+			}
 
-		// Spirit Code
-		switch(coil_combine_type){
+			// Spirit Code
+			switch(coil_combine_type){
 		
-		case(ESPIRIT):{
- 			// Espirit (k-space kernal Eigen method)
-			cout << "eSPIRIT Based Maps"  << endl; 
-			SPIRIT S;
-      	 		S.read_commandline(argc,argv);
-      			S.init(rcxres,rcyres,rczres,data.Num_Coils);
-		    	S.generateEigenCoils(smaps);		  
-		}break;
+			case(ESPIRIT):{
+ 				// Espirit (k-space kernal Eigen method)
+				cout << "eSPIRIT Based Maps"  << endl; 
+				SPIRIT S;
+      	 			S.read_commandline(argc,argv);
+      				S.init(rcxres,rcyres,rczres,data.Num_Coils);
+		    		S.generateEigenCoils(smaps);		  
+			}break;
 		
-		case(WALSH):{
-			// Image space eigen Method
-			eigen_coils(smaps);
-		}break;
+			case(WALSH):{
+				// Image space eigen Method
+				eigen_coils(smaps);
+			}break;
 		
-		case(LOWRES):{ // E-spirit Code 
+			case(LOWRES):{ // E-spirit Code 
 		
 		
-			// Sos Normalization 
-			cout << "Normalize Coils" << endl;
-			#pragma omp parallel for 
-			for(int k=0; k<smaps(0).length(thirdDim); k++){
+				// Sos Normalization 
+				cout << "Normalize Coils" << endl;
+				#pragma omp parallel for 
+				for(int k=0; k<smaps(0).length(thirdDim); k++){
 				for(int j=0; j<smaps(0).length(secondDim); j++){
 					for(int i=0; i<smaps(0).length(firstDim); i++){
 						float sos=0.0;
@@ -1282,38 +1270,97 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 						for(int coil=0; coil< data.Num_Coils; coil++){
 							smaps(coil)(i,j,k) *= sos;
 						}
-			}}}
+				}}}
+			}break;
+			} // Normalization
+		
+			if( intensity_correction ){
+				for(int coil=0; coil< data.Num_Coils; coil++){
+					smaps(coil) *= IC;
+				}
+				ArrayWrite(IC,"Intensity.dat");
+			}
+		
+		
+			// Export 
+			if(export_smaps==1){
+				cout << "Exporting Smaps" << endl;
+				for(int coil=0; coil< smaps.length(firstDim); coil++){
+					char name[256];
+					sprintf(name,"SenseMaps_%2d.dat",coil);
+					ArrayWrite(smaps(coil),name);
+				}
+			}
+		
 		}break;
 		
 		
-		} // Normalization
-		
-		if( smap_intensity_correction ){
-			for(int coil=0; coil< data.Num_Coils; coil++){
-				smaps(coil) *= IC;
-			}
-			ArrayWrite(IC,"Intensity.dat");
-		}
-		
-		// Export 
-		if(export_smaps==1){
-			cout << "Exporting Smaps" << endl;
+		case(SOS):{
+			// Allocate Storage for Map	and zero	
+			cout << "Allocate Sense Maps"  << endl << flush;
+			smaps = Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,data.Num_Coils);
 			for(int coil=0; coil< smaps.length(firstDim); coil++){
-				char name[256];
-				sprintf(name,"SenseMaps_%2d.dat",coil);
-				ArrayWrite(smaps(coil),name);
-			}
-		}
-	}else if(recon_type != CLEAR){
-		// Allocate Storage for Map	and zero	
-		cout << "Allocate Sense Maps"  << endl << flush;
-		smaps = Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,data.Num_Coils);
-		for(int coil=0; coil< smaps.length(firstDim); coil++){
-			smaps(coil)=complex<float>(1.0,0.0);
-		}	
+				smaps(coil)=complex<float>(1.0,0.0);
+			}	
+		
+		}break;
 	}
-
 } 
+
+Array< float, 3>  RECON::intensity_correct( Array< Array< complex<float>,3>,1 >smaps ){
+
+	cout << "Correcting Intensity" << endl;
+	Array< float, 3>IC;
+	IC.setStorage( ColumnMajorArray<3>() );
+	IC.resize(rcxres,rcyres,rczres);
+			
+	// Collect a Sum of Squares image
+	IC = 0.0;
+	for(int coil=0; coil< smaps.length(firstDim); coil++){
+		IC += norm( smaps(coil ));
+	}
+	for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
+		(*miter) = sqrtf( *miter );
+	}
+	IC /= max(IC);
+			
+	// Threshold that image - to reduce error with air
+	float max_sos = max(IC);
+	float ic_threshold = 0.05 * max_sos;
+	for( Array< float,3>::iterator miter=IC.begin(); miter!=IC.end(); miter++){
+		if(  (*miter) < ic_threshold){
+		 	(*miter) = 0.0;
+		}
+	}
+			
+	// Gaussian blur
+	Array< float , 3 > Blur;
+	Blur.setStorage( ColumnMajorArray<3>() );
+	Blur.resize(rcxres,rcyres,rczres);
+	normalized_gaussian_blur( IC, Blur, 20.0);
+									
+	// Calc intensity correction
+	float max_blur = max(Blur);
+	for(int k=0; k < rczres; k++){
+		for(int j=0; j < rcyres; j++){
+			for(int i=0; i < rcxres; i++){
+				switch(recon_type){
+					case(SOS):
+					case(PILS):{
+						IC(i,j,k) = Blur(i,j,k) / ( Blur(i,j,k)*Blur(i,j,k) + 0.01*max_blur*max_blur);
+					}break;
+					
+					default:{
+						IC(i,j,k) = Blur(i,j,k);
+					}break;
+				}
+	}}}
+	
+	return(IC);
+}
+	
+	
+
 
 
 void RECON::normalized_gaussian_blur( const Array< float, 3> & In, Array< float, 3> & Out, float sigma){

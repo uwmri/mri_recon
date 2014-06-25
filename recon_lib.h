@@ -81,8 +81,9 @@ class RECON{
       	  gridFFT gridding;
 	  NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps; // Array of arrays
 	  NDarray::Array< complex<float>,3>composite_image;
+	  NDarray::Array< float, 3 >IntensityCorrection;
 	  GATING gate;
-	  
+	  	  
 	  // Density calcs
 	  bool recalc_dcf;
 	  int dcf_iter;
@@ -91,7 +92,7 @@ class RECON{
 	  float compress_coils;
 	  bool whiten;
 	  float smap_res;
-	  bool smap_intensity_correction;
+	  bool intensity_correction;
 	  char filename[1024];
 	  int cycle_spins;
 	  
@@ -116,7 +117,7 @@ class RECON{
 	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);
 	  void dcf_calc( MRI_DATA& data);
 	  void normalized_gaussian_blur( const  NDarray::Array< float, 3> & In,  NDarray::Array< float, 3> & out, float sigma);
-	  	  
+	  NDarray::Array< float,3> intensity_correct( NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps );	  
 	private:	
 		
 };

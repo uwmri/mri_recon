@@ -525,6 +525,33 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",copy:"<< T << endl<< flush;
 }
 
+
+// Float Sensitivty Map (intensity correction)
+void gridFFT::forward( Array<complex<float>,3>&X,\
+					   const Array<float,3>&smap,\
+					   const Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw){
+	tictoc T;
+	if(time_grid) T.tic(); 
+	k3d_grid=0; // Zero K-Space
+	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
+	
+	if(time_grid) T.tic(); 
+	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
+	if(time_grid)cout << ",grid:"<< T << endl << flush;
+	
+	if(time_grid) T.tic(); 
+	fftwf_execute(fft_plan); //FFT 
+	if(time_grid)cout << ",fft:"<< T << endl << flush;
+	
+	if(time_grid) T.tic(); 
+	forward_image_copy(X,smap); // Copy result to X
+	if(time_grid)cout << ",copy:"<< T << endl<< flush;
+}
+
 // No Sensitivity map
 void gridFFT::forward( Array<complex<float>,3>&X,\
 					   const Array<complex<float>,3>&data,\
@@ -550,8 +577,36 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",copy:"<< T << endl<< flush;
 }
 
+
+
+
+
 void gridFFT::backward(const Array<complex<float>,3>&X,\
 					   const Array<complex<float>,3>&smap,\
+					   Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw){
+	
+	tictoc T;
+	if(time_grid) T.tic(); 
+	backward_image_copy(X,smap); // Copy image to gridding 
+	if(time_grid) cout << "Backward::copy:"<< T;
+	
+	if(time_grid) T.tic(); 
+	fftwf_execute(ifft_plan); // Do FFT 
+	if(time_grid)cout << ",ifft:"<< T;
+	
+	if(time_grid) T.tic(); 
+	chop_grid_backward(data,kx,ky,kz,kw); // Inverse gridding
+	if(time_grid)cout << ",igrid:"<< T << endl;
+	
+}
+
+// Float sensitivty map (intensity correction)
+void gridFFT::backward(const Array<complex<float>,3>&X,\
+					   const Array<float,3>&smap,\
 					   Array<complex<float>,3>&data,\
 					   const Array<float,3>&kx,\
 					   const Array<float,3>&ky,\
@@ -620,6 +675,19 @@ void gridFFT::forward_image_copy(Array<complex<float>,3>&X,const Array<complex<f
 	}}}
 }
 
+
+void gridFFT::forward_image_copy(Array<complex<float>,3>&X,const Array< float,3>&smap){
+	#pragma omp parallel for
+	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz(k+og_sz);
+	  for(int j=0; j<Ny; j++){ 
+	    float wty = wtz*winy(j+og_sy);
+		for(int i=0; i<Nx; i++) {
+			X(i,j,k) += ( image(i,j,k)*wty*winx(i+og_sx)*smap(i,j,k));
+	}}}
+}
+
+
 //----------------------------------------
 //    Copy Image to gridding Matrix, Multiply by Smaps, and Zero 
 //----------------------------------------
@@ -655,6 +723,24 @@ void gridFFT::backward_image_copy(const Array<complex<float>,3>&X,const Array<co
 			image(i,j,k) =  X(i,j,k)*wty*winx(i+og_sx)*smap(i,j,k);
 	}}}
 }
+
+
+void gridFFT::backward_image_copy(const Array<complex<float>,3>&X,const Array<float,3>&smap){
+	
+	if(overgrid > 1.0){
+		k3d_grid = 0;
+	}
+	
+	#pragma omp parallel for
+	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz(k+og_sz);
+	  for(int j=0; j<Ny; j++){ 
+	    float wty = wtz*winy(j+og_sy);
+		for(int i=0; i<Nx; i++) {
+			image(i,j,k) =  X(i,j,k)*wty*winx(i+og_sx)*smap(i,j,k);
+	}}}
+}
+
 
 // -------------------------------------------------------
 //  This is the main function for Gridding.  Assumes data

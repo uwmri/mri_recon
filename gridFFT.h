@@ -99,9 +99,11 @@ class gridFFT{
 		
 		// Main Calls with and without Sensitivity maps
 		void forward( NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap,const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
+		void forward( NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap,const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 		void forward( NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 		
 		void backward( const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap,NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
+		void backward( const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap,NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 		void backward( const NDarray::Array< complex<float>,3 >&X,NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 						
 		void chop_grid_forward( const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
@@ -116,11 +118,13 @@ class gridFFT{
 		// Copy Gridding to Image 
 		void forward_image_copy(NDarray::Array< complex<float>,3 >&X);
 		void forward_image_copy(NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap);
+		void forward_image_copy(NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap);
+		
 		
 		// Copy Image to Gridding
 		void backward_image_copy(const NDarray::Array< complex<float>,3 >&X);
 		void backward_image_copy(const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap);
-		
+		void backward_image_copy(const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap);
 		
 		static void help_message(void);
 		
