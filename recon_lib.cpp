@@ -41,6 +41,8 @@ void RECON::set_defaults( void){
 	
 	recalc_dcf =false;
 	dcf_iter = 20;
+	dcf_dwin = 5.5;
+	dcf_scale = 1.0;
 	
 	smap_res=8;
 	intensity_correction = false;
@@ -134,6 +136,8 @@ void RECON::help_message(void){
 	cout << "Options  Before Recon" << endl;
 	help_flag("-recalc_dcf","Use iterative calc for density");
 	help_flag("-dcf_iter","Iterations for DCF");
+	help_flag("-dcf_dwin []","Size of kernel (default 5.5 -radius)");
+	help_flag("-dcf_scale []","Scaling of matrix");
 	
 }
 
@@ -174,6 +178,8 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		
 		trig_flag(true,"-recalc_dcf",recalc_dcf);
 		int_flag("-dcf_iter",dcf_iter);
+		float_flag("-dcf_dwin",dcf_dwin);
+		float_flag("-dcf_scale",dcf_scale);
 		
 		// Spatial Transforms
 		}else if(strcmp("-spatial_transform",pstring[pos]) == 0) {
@@ -408,9 +414,9 @@ void RECON::dcf_calc( MRI_DATA& data){
 	// Setup Gridding + FFT Structure
 	gridFFT dcf_gridding;
 	dcf_gridding.kernel_type = KAISER_KERNEL;
-	dcf_gridding.dwinX = 5.5;
-	dcf_gridding.dwinY = 5.5;
-	dcf_gridding.dwinZ = 5.5;
+	dcf_gridding.dwinX = dcf_dwin;
+	dcf_gridding.dwinY = dcf_dwin;
+	dcf_gridding.dwinZ = dcf_dwin;
 	dcf_gridding.precalc_kernel(2*rczres,2*rcyres,2*rcxres,3);
 			
 	 // Weighting Array for Time coding
@@ -422,11 +428,10 @@ void RECON::dcf_calc( MRI_DATA& data){
 	
 	for(int e=0; e< rcencodes; e++){
 		
-		/*
-		data.kx(e)*= 0.1;
-		data.ky(e)*= 0.1;
-		data.kz(e)*= 0.1;
-		*/
+		
+		data.kx(e)*= dcf_scale;
+		data.ky(e)*= dcf_scale;
+		data.kz(e)*= dcf_scale;
 		
 		Kweight = 1;
 		for(int iter=0; iter < dcf_iter; iter++){
@@ -440,11 +445,10 @@ void RECON::dcf_calc( MRI_DATA& data){
 		}
 		data.kw(e) = Kweight;
 		
-		/*
-		data.kx(e)*= 10;
-		data.ky(e)*= 10;
-		data.kz(e)*= 10;
-		*/
+		data.kx(e)/= dcf_scale;
+		data.ky(e)/= dcf_scale;
+		data.kz(e)/= dcf_scale;
+		
 		
 	}
 	ArrayWrite(data.kw(0),"Kweight_DCF.dat");
@@ -1110,19 +1114,19 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 						wave.forward(*miter);
 				}
 							  
-				// Only update thresh once (note not working for SURE/Bayes Shrink)
+				// Only update thresh once (note not working for SURE Shrink)
 				if( cycle_spin==0){
-					softthresh.get_threshold(X);
+					softthresh.update_threshold(X,wave, 1./(float)actual_cycle_spins );
 				}
-				softthresh.thresholding(X);
+				softthresh.exec_threshold(X,wave);
 				
 				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
 					wave.backward(*miter);
 				}
 		}// Cycle Spinning
 	}else{
-		softthresh.get_threshold(X);
-		softthresh.thresholding(X);
+		softthresh.update_threshold(X,wave,1.0);
+		softthresh.exec_threshold(X,wave);
 
 	}// Wavelet
 						  
@@ -1236,34 +1240,32 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			
 			Array< float , 3 > IC;
 			if( intensity_correction ){
-				IC = intensity_correct( smaps);
+				intensity_correct( IC, smaps);
 			}
-
+			
 			// Spirit Code
 			switch(coil_combine_type){
 		
-			case(ESPIRIT):{
- 				// Espirit (k-space kernal Eigen method)
-				cout << "eSPIRIT Based Maps"  << endl; 
-				SPIRIT S;
-      	 			S.read_commandline(argc,argv);
-      				S.init(rcxres,rcyres,rczres,data.Num_Coils);
-		    		S.generateEigenCoils(smaps);		  
-			}break;
+				case(ESPIRIT):{
+ 					// Espirit (k-space kernal Eigen method)
+					cout << "eSPIRIT Based Maps"  << endl; 
+					SPIRIT S;
+      	 				S.read_commandline(argc,argv);
+      					S.init(rcxres,rcyres,rczres,data.Num_Coils);
+		    			S.generateEigenCoils(smaps);		  
+				}break;
 		
-			case(WALSH):{
-				// Image space eigen Method
-				eigen_coils(smaps);
-			}break;
+				case(WALSH):{
+					// Image space eigen Method
+					eigen_coils(smaps);
+				}break;
 		
-			case(LOWRES):{ // E-spirit Code 
-		
-		
-				// Sos Normalization 
-				cout << "Normalize Coils" << endl;
-				#pragma omp parallel for 
-				for(int k=0; k<smaps(0).length(thirdDim); k++){
-				for(int j=0; j<smaps(0).length(secondDim); j++){
+				case(LOWRES):{ // E-spirit Code 
+					// Sos Normalization 
+					cout << "Normalize Coils" << endl;
+					#pragma omp parallel for 
+					for(int k=0; k<smaps(0).length(thirdDim); k++){
+					for(int j=0; j<smaps(0).length(secondDim); j++){
 					for(int i=0; i<smaps(0).length(firstDim); i++){
 						float sos=0.0;
 						for(int coil=0; coil< data.Num_Coils; coil++){
@@ -1273,13 +1275,19 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 						for(int coil=0; coil< data.Num_Coils; coil++){
 							smaps(coil)(i,j,k) *= sos;
 						}
-				}}}
-			}break;
+					}}}
+				}break;
 			} // Normalization
 		
 			if( intensity_correction ){
+				cout << "Intensity correcting maps" << endl << flush;
 				for(int coil=0; coil< data.Num_Coils; coil++){
-					smaps(coil) *= IC;
+					#pragma omp parallel for 
+					for(int k=0; k<smaps(0).length(thirdDim); k++){
+					for(int j=0; j<smaps(0).length(secondDim); j++){
+					for(int i=0; i<smaps(0).length(firstDim); i++){
+						smaps(coil)(i,j,k) *= IC(i,j,k);
+					}}}
 				}
 				ArrayWrite(IC,"Intensity.dat");
 			}
@@ -1310,10 +1318,10 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 	}
 } 
 
-Array< float, 3>  RECON::intensity_correct( Array< Array< complex<float>,3>,1 >smaps ){
+void  RECON::intensity_correct( Array< float, 3> & IC, Array< Array< complex<float>,3>,1 > &smaps ){
 
 	cout << "Correcting Intensity" << endl;
-	Array< float, 3>IC;
+	
 	IC.setStorage( ColumnMajorArray<3>() );
 	IC.resize(rcxres,rcyres,rczres);
 			
@@ -1358,8 +1366,7 @@ Array< float, 3>  RECON::intensity_correct( Array< Array< complex<float>,3>,1 >s
 					}break;
 				}
 	}}}
-	
-	return(IC);
+	return;
 }
 	
 	
@@ -1384,7 +1391,7 @@ void RECON::normalized_gaussian_blur( const Array< float, 3> & In, Array< float,
 	float *kern = new float [2*dwinX+1];	
 	for(int t=0; t< (2*dwinX +1); t++){
 		kern[t] = exp( -sqr( (float)t - dwinX ) / (2.0*sqr(sigma))); 
-		cout << "Kern (" << t << ") = " << kern[t] << endl;
+		// cout << "Kern (" << t << ") = " << kern[t] << endl;
 	}				
 	
 		

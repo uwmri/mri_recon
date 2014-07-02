@@ -32,11 +32,12 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 	soft = true;
 	thapp = false;
 	thresh = 0.0;   // Default 
-	threshold =0.0;
+	global_threshold =0.0;
 	waveL = 4; // Wavelet Levels need better code to handle
-	VERBOSE = 0;
+	VERBOSE = false;
 	temporal = false;
 	threshold_type = TH_NONE;
+	noise_scale = 1.0;
 	
 #define trig_flag(num,name,val) }else if(strcmp(name,pstring[pos]) == 0){ val=num;
 #define bool_flag(name,val) }else if(strcmp(name,pstring[pos]) == 0){ val=true;
@@ -53,12 +54,13 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 			char_flag("-th",th_type);
 			char_flag("-thmode",th_mode);
 			bool_flag("-thlow",thapp);
-			trig_flag(1,"-verbose",VERBOSE);
-		
+			trig_flag(true,"-verbose",VERBOSE);
+			float_flag("-noise_scale",noise_scale);
+			
 		}else if(strcmp("-thmode",pstring[pos]) == 0) {
 			pos++;
 			if( pos==numarg){
-				cout << "Please provide threshold type..fraction/bayes/visu/sure" << endl;
+				cout << "Please provide threshold type..hard/soft" << endl;
 				trig_flag(false,"soft",soft);
 				trig_flag(true,"hard",soft);
 			}
@@ -79,27 +81,63 @@ void THRESHOLD::help_message() {
 	cout << "----------------------------------------------" << endl;
 	cout << "   Thresholding Control " << endl;
 	cout << "----------------------------------------------" << endl;
-	help_flag("-thresh_type []","thresholding method fraction/visu/bayes/sure");
+	help_flag("-threshold_type []","thresholding method fraction/visu/bayes/sure");
 	help_flag("-thresh []","fraction of coefficient to be removed for fractional method (default=0.0)");
 	help_flag("-thmode []","soft/hard (default=soft)");
 	help_flag("-thlow","thresholding of the lowest resolusion band");
 }
 
 // Executes a chosen thresholding method
-void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef){
+void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVELET3D &wave){
+
+	switch(threshold_type){
+
+		case TH_FRACTION:
+		case TH_VISU: {
+				     thresholding(Coef,  global_threshold);
+		}break;
+		
+		case TH_BAYES:
+		case TH_SURE: {
+				     exec_multibandthreshold(Coef, wave);
+		}break;
+		
+		case TH_NONE:
+		default:{
+				return;
+			}
+	}
+
+}
+
+
+/*--------------------------------------------------------------------
+  Upodate threshold. Seperated for cycle spin
+ *------------------------------------------------------------------*/ 
+ void THRESHOLD::update_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVELET3D &wave, float scale){
 
 	switch(threshold_type){
 
 		case TH_FRACTION:{
-					 exec_fractionthreshold(Coef);
-				 }break;
+			global_threshold = get_threshold( Coef, thresh); 
+			global_threshold *= scale; 
+		}break;
+		
 		case TH_VISU: {
-				      exec_visuthreshold(Coef);
-			      }break;
-		case TH_BAYES:
+			get_visuthreshold( Coef, wave);  
+			global_threshold *= scale;
+		}break;
+		
+		case TH_BAYES:{
+			get_bayesthreshold( Coef, wave);
+			subband_threshold *= scale; // Cycle spin correction  
+		}break;
+		
 		case TH_SURE: {
-				      exec_multibandthreshold(Coef);
-			      }break;
+			get_surethreshold( Coef, wave);
+			subband_threshold *= scale; // Cycle spin correction  
+		}break;
+		
 		case TH_NONE:
 		default:{
 				return;
@@ -112,10 +150,11 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef){
   Calc threshold based on percentage removed in one or all bands
   used also to get median of Coef for thresh=0.5
  *------------------------------------------------------------------*/ 
-void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
+float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fraction){
+	
+	float value;
 
-	VERBOSE =0;
-	if(VERBOSE==1){
+	if(VERBOSE){
 		 cout << "Calc Range" << endl << flush;
 	}
 	
@@ -159,17 +198,16 @@ void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 	// Estimate histogram (sort)
 	int total_points = Coef.numElements()*Coef(0,0).numElements();
 	int points_found = total_points;
-	int target = (int)( thresh*(double)total_points);
+	int target = (int)( fraction*(double)total_points);
 	int accuracy = (int)(0.001*(double)total_points);
-	if(VERBOSE) cout << "Thresh = " << thresh << " target points " << target << endl;
+	if(VERBOSE) cout << "Thresh = " << fraction << " target points " << target << endl;
 
 	if(target < 2){
-		threshold=0.0;
-		return;
+		return(0.0);
 	}
 
 	// New alogorithm based on compartments
-	threshold = 0.5*(max_wave - min_wave);
+	value  = 0.5*(max_wave - min_wave);
 	float max_t = thresh*max_wave;
 	float min_t = min_wave;
 	int iter = 0;
@@ -179,13 +217,13 @@ void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 		if(iter > 0){
 			if( points_found > target){
 				// Too many points found - make smaller
-				max_t = threshold;
+				max_t = value;
 			}else{
 				// Too few points found - make larger
-				min_t = threshold;
+				min_t = value;
 			}
-			threshold = 0.5*(max_t + min_t);
-			if(VERBOSE) cout << "Points = " << points_found << " New threshold = " << threshold << " Min= " << min_t << " Max= " << max_t << endl;
+			value = 0.5*(max_t + min_t);
+			if(VERBOSE) cout << "Points = " << points_found << " New threshold = " << value << " Min= " << min_t << " Max= " << max_t << endl;
 		}
 		iter++;
 
@@ -200,7 +238,7 @@ void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 			for(int j=0; j< XX.extent(secondDim); j++){
 			for(int i=0; i< XX.extent(firstDim); i++){
 					float v=abs( XX(i,j,k));
-					if( v < threshold){
+					if( v < value){
 						points_found++;
 					}
 					
@@ -208,79 +246,149 @@ void THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef){
 		}}
 			
 	}//While
+	
+	return(value);
 }
 
 /*---------------------------------------------------------------------------------------
   Calc threshold based on universal threshold method using noise variance (VisuShrink)
  *-------------------------------------------------------------------------------------*/ 
 
-void THRESHOLD::get_visuthreshold(Array<Array< complex<float>,3>,2>&Coef){
+void THRESHOLD::get_visuthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELET3D &wave){
 
-	int sx = Coef.extent(firstDim); 
-	int sy = Coef.extent(secondDim);
-	int sz = Coef.extent(thirdDim);
-	int st = Coef.extent(fourthDim);
-	int se = Coef.extent(fifthDim);
-
-	// HHH band
-	//
-	// This assumes wavelet...Array<complex<float>,5> Cf = Coef(Range(sx/2,sx-1),Range(sy/2,sy-1),Range(sz/2,sz-1),Range::all(),Range::all());
-
-	// Get median for noise estimation, sigma_noise = median(Coef)/0.6745
-	thresh=0.5;
-	get_threshold(Coef);
-
-	noise = threshold/0.6745;
+	// Populated noise variable
+	robust_noise_estimate(Coef,wave);
 
 	// VisuShrink tends to overestimate the threshold especially for large number of samples
 	// Reduce it with an empirical factor
 	// The original formula is: sigma_noise * sqrt(2*N_samples)
 	// May need a better scaling factor
-
-	threshold = 1.0/8.0*noise*sqrt(2*log((float)sx*(float)sy*(float)sz*(float)st*(float)se/8.0));
+	global_threshold = 1.0/8.0*noise*sqrt(2*log(Coef(0,0).numElements()*Coef.numElements() / 8.0 ) );
 }
+
 
 /*---------------------------------------------------------------------------------------
   Calc threshold based on Bayesian threshold method
   	-Modified to account for complex data. 
  *-------------------------------------------------------------------------------------*/ 
 
-void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef){
+void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELET3D &wave){
+	
+	subband_threshold.setStorage(ColumnMajorArray<5>());
+	subband_threshold.resize( wave.L[0]+1, wave.L[1]+1, wave.L[2]+1, Coef.length(firstDim), Coef.length(secondDim)); 
+	subband_threshold = 0.0;		
+	
+	// Get Noise
+	robust_noise_estimate( Coef, wave);
+	if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+	
+	// Threshold each level
+	Range rx,ry,rz;
+	for( int lz=0; lz < wave.L[2]+1; lz++){
+	for( int ly=0; ly < wave.L[1]+1; ly++){
+	for( int lx=0; lx < wave.L[0]+1; lx++){
+	
+		wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
+
+		// Get the reference volume
+		Array<complex<float>,3> Subband;
+		Subband.reference( Coef(0,0)(rx,ry,rz));
+		
+		// Get and store subband threshold	(	
+		subband_threshold(lx,ly,lz,0,0) = get_bayesthreshold_subband(Subband);
+		cout << "Level(" <<lx<<","<<ly<<","<<lz<<") - thresh = " << subband_threshold(lx,ly,lz,0,0) << endl;
+	}}}
+
+}
+
+void THRESHOLD::get_surethreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELET3D &wave){
+	
+	subband_threshold.setStorage(ColumnMajorArray<5>());
+	subband_threshold.resize( wave.L[0]+1, wave.L[1]+1, wave.L[2]+1, Coef.length(firstDim), Coef.length(secondDim)); 
+	subband_threshold = 0.0;		
+	
+	// Get Noise
+	robust_noise_estimate( Coef, wave);
+	if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+	
+	// Threshold each level
+	Range rx,ry,rz;
+	#pragma omp parallel for
+	for( int lz=0; lz < wave.L[2]+1; lz++){
+	for( int ly=0; ly < wave.L[1]+1; ly++){
+	for( int lx=0; lx < wave.L[0]+1; lx++){
+	
+		wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
+
+		// Get the reference volume
+		Array<complex<float>,3> Subband;
+		Subband.reference( Coef(0,0)(rx,ry,rz));
+		
+		// Get and store subband threshold	(	
+		subband_threshold(lx,ly,lz,0,0) = get_surethreshold_subband(Subband);
+		cout << "Level(" <<lx<<","<<ly<<","<<lz<<") - thresh = " << subband_threshold(lx,ly,lz,0,0) << endl;
+	}}}
+}
+
+void THRESHOLD::exec_multibandthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELET3D &wave){
+	
+	// Threshold each level
+	Range rx,ry,rz;
+	#pragma omp parallel for
+	for( int lz=0; lz < wave.L[2]+1; lz++){
+	for( int ly=0; ly < wave.L[1]+1; ly++){
+	for( int lx=0; lx < wave.L[0]+1; lx++){
+	
+		wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
+
+		// Get the reference volume
+		Array<complex<float>,3> Subband;
+		Subband.reference( Coef(0,0)(rx,ry,rz));
+		
+		// Get and store subband threshold	(	
+		thresholding( Subband , subband_threshold(lx,ly,lz,0,0) );
+		
+	}}}
+
+}
+
+
+float THRESHOLD::get_bayesthreshold_subband( Array< complex<float>,3> &XX){
+	
+	float threshold;
 	
 	// Get Std 
 	double sumXX = 0.0; 
-	complex<double> sumX = 0.0;
 		
 	// Standard Deviation of Image
-	for(int e=0; e< Coef.extent(fifthDim);e++){
-		for(int t=0; t< Coef.extent(fourthDim);t++){
 			
-			Array< complex<float>,3>XX = Coef(t,e);
-			
-			for(int k=0; k< Coef.extent(thirdDim); k++){
-				for(int j=0; j< Coef.extent(secondDim); j++){
-					for(int i=0; i< Coef.extent(firstDim); i++){    
-						complex<double> val = complex<double>(XX(i,j,k));
-						sumXX += pow(abs(val),2);
-						sumX += val;
-			}}}
-	}}
+	for(int k=0; k< XX.extent(thirdDim); k++){
+		for(int j=0; j< XX.extent(secondDim); j++){
+			for(int i=0; i< XX.extent(firstDim); i++){    
+					complex<double> val = complex<double>(XX(i,j,k));
+					sumXX += pow(abs(val),2);
+	}}}
+		
+	double N = (double)XX.numElements();
+	float wave_dev = (float)( sumXX/N );
 	
-	double N = (double)Coef.size();
-	float wave_dev = (float)sqrt( sumXX/N - abs(sumX)/(N*N));
+	// if(VERBOSE) cout << "N  = " << N << endl;
+	// if(VERBOSE) cout << "Wave Deviation = " << wave_dev << endl;
 		
 	// Now Estimate Threshold	
 	float sigmaS = sqrt( max( wave_dev - powf(noise,2),(float)0.0)); 
 	
 	if(sigmaS<=0.0) { 
 		threshold =0.0;
-		for( Array< Array<complex<float>,3>,2>::iterator miter=Coef.begin(); miter!=Coef.end(); miter++){
-			threshold = max( max(abs(*miter)), threshold);
+		for( Array<complex<float>,3>::iterator miter=XX.begin(); miter!=XX.end(); miter++){
+			threshold = max( max(abs(*miter),0.0f), threshold);
 		}
 	} else {
 		sigmaS = sqrt(sigmaS);
 		threshold = pow(noise,2)/sigmaS;
 	}
+	
+	return(threshold);
 
 }
 
@@ -289,167 +397,82 @@ void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef){
   Calc threshold based on SURE threshold method (still doen't work)
  *-------------------------------------------------------------------------------------*/ 
 
-void THRESHOLD::get_surethreshold(Array<Array< complex<float>,3>,2>&Coef){
 
-	//	Formula: sigmaˆ2+1/n(sum(min(abs(x),thres)ˆ2))-2*sigmaˆ2/n*sum(abs(x) < thres)
-#ifdef SURE_FIXED
-	Array<float,1> thr;
-	thr.resize(20);
-	Array<float,1> thc;
-	thc.resize(20);
-	float tmp1, tmp2;
+float THRESHOLD::sure_cost( Array< complex<float>,3>&Coef, float thresh){
 
-	thr[0]=0.0;
-	for(int i=1;i<20;i++) {
-		thr(i) = noise*sqrt(2.0*log((float)Coef.numElements()))*(((float)i)/19.0);			// that seems to be the problem, the values are too small
+	float count = 0.0;
+	float energy = 0.0;
+	for( Array<complex<float>,3>::iterator miter=Coef.begin(); miter!=Coef.end(); miter++){
+		count += (float)( abs(*miter) < thresh );
+		energy += pow( min( abs(*miter), thresh), 2.0f);	
 	}
-
-	for(int i=0;i<20;i++) {
-		tmp1 = 0.0;
-		tmp2 = 0.0;
-
-		for(int e=0; e<Coef.extent(fifthDim);e++){
-			for(int t=0; t<Coef.extent(fourthDim);t++){
-				for(int k=0; k<Coef.extent(thirdDim); k++){
-					for(int j=0; j<Coef.extent(secondDim); j++){
-						for(int m=0; m<Coef.extent(firstDim); m++){    
-							if(abs(Coef(m,j,k,t,e))<thr(i)){					// this must be fixed, since it is never true
-								tmp1+=(float)abs(Coef(m,j,k,t,e))/(float)Coef.numElements();	
-								tmp2+=(float)pow(abs(Coef(m,j,k,t,e)),2)/(float)Coef.numElements();
-							}
-							if(abs(Coef(m,j,k,t,e))>=thr(i)) {
-								tmp2+=(float)pow(thr(i),2)/(float)Coef.numElements();
-							}
-						}}}}}
-		thc(i) = pow(noise,2) - 2.0*pow(noise,2)*tmp1 + tmp2;
-	}
-
-	threshold = min(thc);
-#endif
+	
+	float N = Coef.numElements();
+	// cout << "Noise = " << noise << ", N = " << N << ", Energy " << energy << " ,count=" << count << endl;
+	return( N*noise*noise - 2.0*noise*noise*count + energy );
 
 }
 
-void THRESHOLD::exec_multibandthreshold(Array<Array< complex<float>,3>,2>&Coef){
 
+float THRESHOLD::get_surethreshold_subband( Array< complex<float>,3>&Coef){
 
-#ifdef MULTIBAND_FIXED 
-	int sx = Coef.extent(firstDim); 
-	int sy = Coef.extent(secondDim);
-	int sz = Coef.extent(thirdDim);
-	int st = Coef.extent(fourthDim);
-	int tt = 0;
-
-	if(temporal==true) tt=1;
-
-	if(threshold_type==TH_BAYES) {
-		cout<<"Bayes Shrink ";
-		if(soft==true)	{ cout<<"(soft)"<<endl; }
-		else { cout<<"(hard)"<<endl; }
-	} else if(threshold_type==TH_SURE) {
-		cout<<"SURE Shrink ";
-		if(soft==true)	{ cout<<"(soft)"<<endl; }
-		else { cout<<"(hard)"<<endl; }
-	} else {
-		return;
+	// Search for best 
+	float min_risk = 0.0;
+	float min_thresh;
+	
+	int sureres=40;
+	
+	for(int pos=0; pos < sureres; pos++){
+		float thresh =  1.0/8.0*noise*sqrt(2*log((float)Coef.numElements()))*((float)pos)/(((float)sureres)-1.0);		
+		
+		float risk = sure_cost(Coef, thresh);
+		if( (risk < min_risk) || (pos==0) ){
+			min_risk =risk;
+			min_thresh = thresh;
+		}else{
+			// Should be convex
+			break;		
+		}
+				
 	}
+	
+	return(min_thresh);
+		
+}
 
-	// Calculation of subbands borders
-	Array<int,3>xx;
-	xx.setStorage(ColumnMajorArray<3>());
-	xx.resize(waveL,8,2);
-	
-	Array<int,3>yy;
-	yy.setStorage(ColumnMajorArray<3>());
-	yy.resize(waveL,8,2);
-	
-	Array<int,3>zz;
-	zz.setStorage(ColumnMajorArray<3>());
-	zz.resize(waveL,8,2);
+
+void THRESHOLD::robust_noise_estimate(Array<Array< complex<float>,3>,2>&Coef, WAVELET3D &wave){
 	
 	// To get noise from HHH band
-	Array<complex<float>,5> HHHref = Coef(Range(sx/2,sx-1),Range(sy/2,sy-1),Range(sz/2,sz-1),Range(tt,st-1),Range::all());
-	thresh = 0.5;
-	get_threshold(HHHref);
-	noise = threshold/0.6745;
+	Range rx,ry,rz;
+	wave.get_subband_range(rx,ry,rz,0,0,0);
+	
+	// Get 3D volume
+	Array<complex<float>,3> HHHref;
+	HHHref.reference( Coef(0,0)(rx,ry,rz));
+	
+	// Convert to 5D for get_threshold
+	Array< Array<complex<float>,3>,2> DH;
+	DH.setStorage(ColumnMajorArray<2>());
+	DH.resize(1,1);
+	DH(0,0).reference( HHHref);
+	
+	// Noise Estimate = median/ 0.6745	 - noise scale is needed for zero filled data
+	noise = get_threshold(DH,0.5)/0.6745*noise_scale;
 
-	if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
-
-	// Wavelet band borders (assumes 3D-5D data)
-	int dx = sx, dy = sy, dz = sz;
-	for(int l=0;l<waveL;l++) {
-		dx=dx/2; dy=dy/2; dz=dz/2;
-		xx(l,0,0)=dx; xx(l,0,1)=dx*2-1; yy(l,0,0)=0;  yy(l,0,1)=dy-1;   zz(l,0,0)=0;   zz(l,0,1)=dz-1;
-		xx(l,1,0)=dx; xx(l,1,1)=dx*2-1; yy(l,1,0)=dy; yy(l,1,1)=dy*2-1; zz(l,1,0)=0;   zz(l,1,1)=dz-1;
-		xx(l,2,0)=0;  xx(l,2,1)=dx-1;   yy(l,2,0)=dy; yy(l,2,1)=dy*2-1; zz(l,2,0)=0;   zz(l,2,1)=dz-1;
-		xx(l,3,0)=dx; xx(l,3,1)=dx*2-1; yy(l,3,0)=0;  yy(l,3,1)=dy-1;   zz(l,3,0)=dz;  zz(l,3,1)=dz*2-1;
-		xx(l,4,0)=dx; xx(l,4,1)=dx*2-1; yy(l,4,0)=dy; yy(l,4,1)=dy*2-1; zz(l,4,0)=dz;  zz(l,4,1)=dz*2-1;
-		xx(l,5,0)=0;  xx(l,5,1)=dx-1;   yy(l,5,0)=dy; yy(l,5,1)=dy*2-1; zz(l,5,0)=dz;  zz(l,5,1)=dz*2-1;
-		xx(l,6,0)=0;  xx(l,6,1)=dx-1;   yy(l,6,0)=0;  yy(l,6,1)=dy-1;   zz(l,6,0)=dz;  zz(l,6,1)=dz*2-1;
-		// LLL
-		if(l==(waveL-1)) {
-			xx(l,7,0)=0; xx(l,7,1)=dx-1; yy(l,7,0)=0; yy(l,7,1)=dy-1; zz(l,7,0)=0; zz(l,7,1)=dz-1;
-		}
-	}
-
-	// Get and execute thresholding
-	for(int l=0;l<waveL;l++) {
-		if(VERBOSE) cout<<"Decomposition level: "<<l+1<<endl;
-		for(int k=0;k<=7;k++) {
-			if( ( (k==7) && (l!=(waveL-1))) || ( (k==7) && (thapp==false)) ) {
-				continue;
-			}
-			Array<complex<float>,5> Cfref = Coef(Range(xx(l,k,0),xx(l,k,1)),Range(yy(l,k,0),yy(l,k,1)),Range(zz(l,k,0),zz(l,k,1)),Range(tt,st-1),Range::all());
-			switch(threshold_type) {
-				case TH_BAYES:{
-						      get_bayesthreshold(Cfref);
-					      }break;
-				case TH_SURE:{
-						     get_surethreshold(Cfref);
-					     }break;
-			}
-			thresholding(Cfref);
-		}
-	}
-
-	// Do thresholding for all branches at once (for testing only)
-	// Based on HHH1 branch only
-	// Array<complex<float>,5> Cf = Coef(Range(sx/2,sx-1),Range(sy/2,sy-1),Range(sz/2,sz-1),Range::all(),Range::all());
-	// get_bayesthreshold(Cf);
-	// thresholding(Coef);
-#endif
-}
-
-void THRESHOLD::exec_visuthreshold(Array<Array< complex<float>,3>,2>&Coef){
-
-	cout<<"Visu Shrink ";
-	if(soft==true)	{ cout<<"(soft)"<<endl; }
-	else { cout<<"(hard)"<<endl; }
-
-	get_visuthreshold(Coef);
-	thresholding(Coef);
-
-}
-
-void THRESHOLD::exec_fractionthreshold(Array<Array< complex<float>,3>,2>&Coef){
-
-	cout<<"Fractional Thresholding ";
-
-	get_threshold(Coef);
-	thresholding(Coef);
-
-}
+}	 
 
 // Option of thresh of appriximation wavelets or all wavelets, hard vs soft threshold
-void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef){
+void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef, float value){
 
-	if(VERBOSE) cout << "Determined thresh = " << threshold<<endl;
+	// if(VERBOSE) cout << "Determined thresh = " << value <<endl;
 
 	// Apply theshold       
 	int count = 0;
 	
-	int Nx = Coef(0).length(firstDim);
-	int Ny = Coef(0).length(secondDim);
-	int Nz = Coef(0).length(thirdDim);
+	int Nx = Coef(0,0).length(firstDim);
+	int Ny = Coef(0,0).length(secondDim);
+	int Nz = Coef(0,0).length(thirdDim);
 	int Ne = Coef.length(secondDim);
 	int Nt = Coef.length(firstDim);
 		
@@ -462,17 +485,50 @@ void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef){
 				for(int j=0; j< Ny; j++){
 					for(int i=0; i< Nx; i++){
 	
-						if( abs( XX(i,j,k)) < threshold){
+						if( abs( XX(i,j,k)) < value){
 							count++;
 							XX(i,j,k) = complex<float>(0.0,0.0);
 						}else if(soft==true){
 							float theta = arg(XX(i,j,k));
-							XX(i,j,k) = (abs(XX(i,j,k))-threshold)*complex<float>(cos(theta),sin(theta));
+							XX(i,j,k) = (abs(XX(i,j,k))-value)*complex<float>(cos(theta),sin(theta));
 						}
 			}}}
 	}} 
-	if(VERBOSE) cout << "Removed " << (float)((float)count/(float)Coef.numElements()) << " of the values" << endl;
+	// if(VERBOSE) cout << "Removed " << (float)((float)count/(float)Coef.numElements()) << " of the values" << endl;
 }
+
+
+// Option of thresh of appriximation wavelets or all wavelets, hard vs soft threshold
+void THRESHOLD::thresholding( Array< complex<float>,3> &XX, float value){
+
+	//if(VERBOSE) cout << "Determined thresh = " << value <<endl;
+
+	// Apply theshold       
+	int count = 0;
+	
+	int Nx = XX.length(firstDim);
+	int Ny = XX.length(secondDim);
+	int Nz = XX.length(thirdDim);
+		
+	// Get Update
+	#pragma omp parallel for reduction(+:count)
+	for(int k=0; k< Nz; k++){
+		for(int j=0; j< Ny; j++){
+			for(int i=0; i< Nx; i++){
+	
+				if( abs( XX(i,j,k)) < value){
+					count++;
+					XX(i,j,k) = complex<float>(0.0,0.0);
+				}else if(soft==true){
+					float theta = arg(XX(i,j,k));
+					XX(i,j,k) = (abs(XX(i,j,k))-value)*complex<float>(cos(theta),sin(theta));
+				}
+	}}}
+	//if(VERBOSE) cout << "Removed " << (float)((float)count/(float)XX.numElements()) << " of the values" << endl;
+}
+
+
+
 
 void THRESHOLD::setThresholdMethod(int type) {
 	threshold_type = type;

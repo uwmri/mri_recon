@@ -67,9 +67,10 @@ class WAVELET3D{
 		void backward( NDarray::Array< complex<float> , 4> &);
 		void forward( NDarray::Array< complex<float> , 5> &);		
 		void backward( NDarray::Array< complex<float> , 5> &);
-
+		
 		void random_shift(void);		
-
+		void get_subband_range( NDarray::Range &,NDarray::Range &,NDarray::Range &, int,int,int); 
+				
 	private:
 		void forward3D( NDarray::Array< complex<float> , 3> &);
 		void backward3D( NDarray::Array< complex<float> , 3> &);

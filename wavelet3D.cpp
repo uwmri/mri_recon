@@ -497,6 +497,54 @@ void WAVELET3D::backward( Array<complex<float>,3>&Coef){
 	backward3D(Coef);
 }
 
+
+/**
+ * Call to get the range of subbands
+ * @param rx range in x (output)
+ * @param ry range in y (output)
+ * @param rz range in z (output)
+ * @param level 
+ */
+void WAVELET3D::get_subband_range( NDarray::Range &rx,NDarray::Range &ry,NDarray::Range &rz, int lx, int ly, int lz){
+
+	int sz = 0;
+	int sy = 0;
+	int sx = 0;
+	int ex = N[0];
+	int ey = N[1];
+	int ez = N[2];
+		
+	if( lz < L[2] ){
+		sz = N[2]/(int)pow(2.0,lz+1);
+		ez = N[2]/(int)pow(2.0,lz  );
+	}else{
+		sz = 0;
+		ez = N[2]/(int)pow(2.0,lz  );
+	}
+		
+	if( ly < L[1] ){
+		sy = N[1]/(int)pow(2.0,ly+1);
+		ey = N[1]/(int)pow(2.0,ly);
+	}else{
+		sy = 0;
+		ey = N[1]/(int)pow(2.0,ly  );
+	}
+		
+	if( lx < L[0] ){
+		sx = N[0]/(int)pow(2.0,lx+1);
+		ex = N[0]/(int)pow(2.0,lx);
+	}else{
+		sx = 0;
+		ex = N[0]/(int)pow(2.0,lx  );
+	}
+		
+	rx = Range(sx,ex-1);
+	ry = Range(sy,ey-1);
+	rz = Range(sz,ez-1);
+} 
+
+
+
 /**
  * Private function for actually performing forward 3D Wavelet Transform
  * @param Coef Array to be transformed (in-place)
