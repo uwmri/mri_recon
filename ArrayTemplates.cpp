@@ -108,14 +108,14 @@ void NDarray::fft( Array< complex<float>,3>& temp){
 
 // FFT in only one dimension
 void NDarray::fft( Array< complex<float>,3>& temp, int dim){
-	fft3( temp, dim, FFTW_FORWARD);
+	fft3( temp, dim, FFTW_FORWARD,1);
 }
 
 void NDarray::ifft( Array< complex<float>,3>& temp, int dim){
-	fft3( temp, dim, FFTW_BACKWARD);
+	fft3( temp, dim, FFTW_BACKWARD,1);
 }
 
-void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction){
+void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool chop){
 
 	fftwf_init_threads();
 	fftwf_plan_with_nthreads(1);
@@ -150,16 +150,28 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction){
 			
 			for(int j=0;j<temp.extent(secondDim);j++){
 				// Copy
-				for(int i=0;i<temp.extent(firstDim);i++){
-					data[i] = temp(i,j,k)*((float)( 2*(i%2)-1));
-				}
-				
+				if(chop==1){
+					for(int i=0;i<temp.extent(firstDim);i++){
+						data[i] = temp(i,j,k)*((float)( 2*(i%2)-1));
+					}
+				}else{
+					for(int i=0;i<temp.extent(firstDim);i++){
+						data[i] = temp(i,j,k);
+					}
+				}	
+							
 				// FFT
 				fftwf_execute_dft(plan,data_ptr,data_ptr);
 				
 				// Copy Back
-				for(int i=0;i<temp.extent(firstDim);i++){
-					temp(i,j,k)=data[i]*((float)( 2*(i%2)-1))*scale;
+				if(chop){
+					for(int i=0;i<temp.extent(firstDim);i++){
+						temp(i,j,k)=data[i]*((float)( 2*(i%2)-1))*scale;
+					}
+				}else{
+					for(int i=0;i<temp.extent(firstDim);i++){
+						temp(i,j,k)=data[i];
+					}
 				}
 			}
 			delete [] data;
@@ -176,16 +188,27 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction){
 			for(int i=0;i<temp.extent(firstDim);i++){
 				
 				// Copy
-				for(int j=0;j<temp.extent(secondDim);j++){
-					data[j] = temp(i,j,k)*((float)( 2*(j%2)-1));
+				if(chop==1){
+					for(int j=0;j<temp.extent(secondDim);j++){
+						data[j] = temp(i,j,k)*((float)( 2*(j%2)-1));
+					}
+				}else{
+					for(int j=0;j<temp.extent(secondDim);j++){
+						data[j] = temp(i,j,k);
+					}
 				}
-				
 				// FFT
 				fftwf_execute_dft(plan,data_ptr,data_ptr);
 				
 				// Copy Back
-				for(int j=0;j<temp.extent(secondDim);j++){
-					temp(i,j,k) = data[j]*((float)( 2*(j%2)-1))*scale;
+				if(chop){
+					for(int j=0;j<temp.extent(secondDim);j++){
+						temp(i,j,k) = data[j]*((float)( 2*(j%2)-1))*scale;
+					}
+				}else{
+					for(int j=0;j<temp.extent(secondDim);j++){
+						temp(i,j,k) = data[j];
+					}
 				}
 			}
 			delete [] data;
@@ -203,17 +226,30 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction){
 			for(int i=0;i<temp.extent(firstDim);i++){
 				
 				// Copy
-				for(int k=0;k<temp.extent(thirdDim);k++){
-					data[k] = temp(i,j,k)*((float)( 2*(k%2)-1));
+				if(chop){
+					for(int k=0;k<temp.extent(thirdDim);k++){
+						data[k] = temp(i,j,k)*((float)( 2*(k%2)-1));
+					}
+				}else{
+					for(int k=0;k<temp.extent(thirdDim);k++){
+						data[k] = temp(i,j,k);
+					}
 				}
 				
 				// FFT
 				fftwf_execute_dft(plan,data_ptr,data_ptr);
 				
 				// Copy Back
-				for(int k=0;k<temp.extent(thirdDim);k++){
-					temp(i,j,k)= data[k]*((float)( 2*(k%2)-1))*scale;
+				if(chop){
+					for(int k=0;k<temp.extent(thirdDim);k++){
+						temp(i,j,k)= data[k]*((float)( 2*(k%2)-1))*scale;
+					}
+				}else{
+					for(int k=0;k<temp.extent(thirdDim);k++){
+						temp(i,j,k)= data[k];
+					}
 				}
+				
 			}
 			
 			delete [] data;

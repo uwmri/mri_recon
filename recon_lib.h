@@ -97,7 +97,8 @@ class RECON{
 	  bool intensity_correction;
 	  char filename[1024];
 	  int cycle_spins;
-	  
+	  bool iterative_smaps;
+	  int walsh_block_size;
 	  
 	  int max_iter;
 	  int export_smaps;
@@ -119,7 +120,11 @@ class RECON{
 	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);
 	  void dcf_calc( MRI_DATA& data);
 	  void normalized_gaussian_blur( const  NDarray::Array< float, 3> & In,  NDarray::Array< float, 3> & out, float sigma);
-	  void intensity_correct( NDarray::Array<float,3> &IC, NDarray::Array< NDarray::Array< complex<float>,3>,1 >&smaps );	  
+	  void intensity_correct( NDarray::Array<float,3> &IC, NDarray::Array< NDarray::Array< complex<float>,3>,1 >&smaps );
+	  
+	  void single_coil_cg( NDarray::Array< complex<float>,3> & X, NDarray::Array< complex<float>,3> &kdata, NDarray::Array<float,3> &kx, NDarray::Array<float,3> &ky, NDarray::Array<float,3> &kz, NDarray::Array<float,3> &kw);
+
+	  	  
 	private:	
 		
 };

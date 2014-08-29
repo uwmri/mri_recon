@@ -45,6 +45,7 @@ class GATING {
 		// Scaling for Waveform
 		float scale_time;
 		float offset_time;
+		float actual_temporal_resolution;
 		
 		//Control Gating Method		
 		ViewshareType vs_type;	
@@ -64,7 +65,7 @@ class GATING {
 		// Function Calls		
 		static void help_message(void);
         void weight_data(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3>&kz,int t,WeightType, FrameType );
-
+		float temporal_resolution(void);
 	   	void hist_weight( NDarray::Array<float,3>&Tw, int e, int t);
 		void tornado_weight(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);
 		void filter_resp(  const MRI_DATA &data );

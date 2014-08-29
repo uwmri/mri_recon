@@ -48,7 +48,7 @@ gridFFT::gridFFT(){
 	dwinZ=-1;
 	fft_plan=NULL;
 	ifft_plan=NULL;
-	fft_in_z=1;
+	fft_in_x=1;
   	fft_in_y=1;
   	fft_in_z=1;
   	grid_in_x=1;
@@ -418,6 +418,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
   
   // Deapp Windows
   winx.resize(Sx);
+  if(fft_in_x){
   winx = 0.0;
   for( int i = 0; i < Sx;i++){
   	float ipos = i - (float)Sx/2.0;
@@ -438,9 +439,13 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 	}
   }
   winx /= max(winx);
-
+  }else{
+  	winx = 1.0;
+  }
   
   winy.resize(Sy);
+  if(fft_in_y){
+  
   winy = 0.0;
   for( int i = 0; i < Sy;i++){
   	float ipos = i - (float)Sy/2.0;
@@ -459,33 +464,41 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
 	}
   }
   winy /= max(winy);
-  
+  }else{
+  	winy=1.0;
+  }
    
   winz.resize(Sz);
-  winz = 0.0;
-  for( int i = 0; i < Sz;i++){
-  	float ipos = i - (float)Sz/2.0;
-	for(int grid_pos = 0; grid_pos < dwinZ*grid_modZ; grid_pos++){ 
-		winz(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modZ / (float)Sz)*grid_filterZ(grid_pos);
-	}
-	winz(i)  = (float)grid_modZ/winz(i);
-	float fact =  ((float)( 2*(( i  )%2) - 1));
-	winz(i)*=fact / Sz;
-	winz(i)*=( i < og_sz) ? ( 0.0 ) : ( 1.0);
-	winz(i)*=( i > og_ez-1) ? ( 0.0 ) : ( 1.0);
+  if(fft_in_z ){
+  	winz = 0.0;
+  	for( int i = 0; i < Sz;i++){
+  		float ipos = i - (float)Sz/2.0;
+		for(int grid_pos = 0; grid_pos < dwinZ*grid_modZ; grid_pos++){ 
+			winz(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modZ / (float)Sz)*grid_filterZ(grid_pos);
+		}
+		winz(i)  = (float)grid_modZ/winz(i);
+		float fact =  ((float)( 2*(( i  )%2) - 1));
+		winz(i)*=fact / Sz;
+		winz(i)*=( i < og_sz) ? ( 0.0 ) : ( 1.0);
+		winz(i)*=( i > og_ez-1) ? ( 0.0 ) : ( 1.0);
 	
-	if(grid_in_z==0){
+		if(grid_in_z==0){
 		winz(i)=1.0;
-	}
+		}	
+  	}
+  	winz /= max(winz);  
+  }else{
+  	winz = 1.0;
   }
-  winz /= max(winz);  
   
   // Allocate Memory
   cout << "Alloc Grid" << endl;
   alloc_grid();
   
-  // Setup FFT	
-  plan_fft();
+  // Setup 3D FFT
+  if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) ){	
+  	plan_fft();
+  }
   
 }
 
@@ -517,12 +530,50 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",grid:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
-	fftwf_execute(fft_plan); //FFT 
+	do_fft();
 	if(time_grid)cout << ",fft:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
 	forward_image_copy(X,smap); // Copy result to X
 	if(time_grid)cout << ",copy:"<< T << endl<< flush;
+}
+
+void gridFFT::do_fft( void ){
+
+	if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) ){
+		fftwf_execute(fft_plan); //FFT 
+	}else{
+		if(fft_in_x){
+			fft3( k3d_grid,0,FFTW_FORWARD,0);
+		}
+		
+		if(fft_in_y){
+			fft3( k3d_grid,1,FFTW_FORWARD,0);
+		}
+		
+		if(fft_in_z){
+			fft3( k3d_grid,2,FFTW_FORWARD,0);
+		}
+	}
+}
+
+void gridFFT::do_ifft( void ){
+
+	if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) ){
+		fftwf_execute(ifft_plan); //FFT 
+	}else{
+		if(fft_in_x){
+			fft3( k3d_grid, 0,FFTW_BACKWARD,0);
+		}
+		
+		if(fft_in_y){
+			fft3( k3d_grid, 1,FFTW_BACKWARD,0);
+		}
+		
+		if(fft_in_z){
+			fft3( k3d_grid, 2,FFTW_BACKWARD,0);
+		}
+	}
 }
 
 
@@ -544,7 +595,7 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",grid:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
-	fftwf_execute(fft_plan); //FFT 
+	do_fft();
 	if(time_grid)cout << ",fft:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
@@ -569,7 +620,7 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",grid:"<< T<< flush;
 	
 	if(time_grid) T.tic(); 
-	fftwf_execute(fft_plan); //FFT 
+	do_fft();
 	if(time_grid)cout << ",fft:"<< T<< flush;
 	
 	if(time_grid) T.tic(); 
@@ -595,7 +646,7 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	if(time_grid) cout << "Backward::copy:"<< T;
 	
 	if(time_grid) T.tic(); 
-	fftwf_execute(ifft_plan); // Do FFT 
+	do_ifft();
 	if(time_grid)cout << ",ifft:"<< T;
 	
 	if(time_grid) T.tic(); 
@@ -619,7 +670,7 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	if(time_grid) cout << "Backward::copy:"<< T;
 	
 	if(time_grid) T.tic(); 
-	fftwf_execute(ifft_plan); // Do FFT 
+	do_ifft();
 	if(time_grid)cout << ",ifft:"<< T;
 	
 	if(time_grid) T.tic(); 
@@ -642,7 +693,7 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	if(time_grid) cout << "Backward::copy:"<< T;
 	
 	if(time_grid) T.tic(); 
-	fftwf_execute(ifft_plan); // Do FFT 
+	do_ifft();
 	if(time_grid)cout << ",ifft:"<< T;
 	
 	if(time_grid) T.tic();
@@ -654,6 +705,7 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 //    Crop from Gridding Matrix to Image
 //----------------------------------------
 void gridFFT::forward_image_copy(Array<complex<float>,3>&X){
+	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
 	  float wtz = winz(k+og_sz);
@@ -818,6 +870,9 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		if(ez >= Sz) continue;  
 		
 		float kr = kx[i]*kx[i] + ky[i]*ky[i] + kz[i]*kz[i];
+		if(~fft_in_z){
+			kr = kx[i]*kx[i] + ky[i]*ky[i];
+		}
 		temp *= exp( -kr / (2.0*k_rad*k_rad) );
 
 		/*This is the main loop - most time is spent here*/
@@ -825,19 +880,27 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
 			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
-			
+			if(fft_in_z){
+				wtz *=( (float)(2*(lz%2) -1 ));
+			}
+				
 			for(int ly =sy; ly<=ey; ly++){
         		
 				float dely = fabs(grid_modY*(dky -(float)ly));
 				float dy = dely - (float)((int)dely);
 				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
-			 	 
+			 	if(fft_in_y){
+					wty *=( (float)(2*(ly%2) -1 ));
+				}
+				 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx));
 			 		float dx = delx - (float)((int)delx);
 					float wtx =wty*(  grid_filterX( (int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
 			 		
-					wtx *=  ((float)( 2*(( lx + ly + lz )%2) - 1)); // Chop in  gridding now
+					if(fft_in_x){
+						wtx *=( (float)(2*(lx%2) -1 ));
+					}
 					
 					if(double_grid){
 						complex<float>temp2 = wtx*temp;
@@ -1131,20 +1194,30 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 			float dz = delz - (float)((int)delz);
 			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
 			
+			if(fft_in_z){
+				wtz *=( (float)(2*(lz%2) -1 ));
+			}
+			
 			for(int ly =sy; ly<=ey; ly++){
         		
 				float dely = fabs(grid_modY*(dky -(float)ly));
 				float dy = dely - (float)((int)dely);
 				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
-			 	 
+			 	if(fft_in_y){
+					wty *=( (float)(2*(ly%2) -1 ));
+				}
+								 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx));
 			 		float dx = delx - (float)((int)delx);
 					float wtx =wty*(  grid_filterX((int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
-			 											
+			 		
+					if(fft_in_x){
+						wtx *=( (float)(2*(lx%2) -1 ));
+					}
+														
 					/*This Memory Access is the Bottleneck*/	 			 
-			 		wtx *=  ((float)( 2*(( lx + ly + lz )%2) - 1)); // Chop in inverse gridding now
-					temp += wtx*k3d_grid(lx,ly,lz);
+			 		temp += wtx*k3d_grid(lx,ly,lz);
 			  	 
 	    	}/* end lz loop */
 	  	  }/* end ly */

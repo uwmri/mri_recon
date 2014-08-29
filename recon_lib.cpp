@@ -46,6 +46,7 @@ void RECON::set_defaults( void){
 	
 	smap_res=8;
 	intensity_correction = false;
+	iterative_smaps = false;
 		
 	acc = 1;
 	compress_coils = 0.0;
@@ -55,6 +56,8 @@ void RECON::set_defaults( void){
 	
 	cycle_spins = 4;
 
+	walsh_block_size = 8;
+	
 	prep_done = false;
 	
 
@@ -129,6 +132,7 @@ void RECON::help_message(void){
     
 	cout << "Coil Control:" << endl;
 	help_flag("-espirit","use ESPIRIT to get coil sensitivies");
+	help_flag("-walsh","Use eigen vector aproach to estimate coil sensitivities");
 	help_flag("-coil_lowres","default,use low resolution images to get coil sensitivies");
 	help_flag("-export_smaps","write sensitivity maps");
 	help_flag("-intensity_correction","polynomial fit for intensity correction");
@@ -232,6 +236,8 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-smap_res",smap_res);
 		trig_flag(1,"-export_smaps",export_smaps);
 		trig_flag(true,"-intensity_correction",intensity_correction);
+		trig_flag(true,"-iterative_smaps",iterative_smaps);
+		int_flag("-walsh_block_size",walsh_block_size);
 		
 		// Source of data
 		trig_flag(EXTERNAL,"-external_data",data_type);
@@ -361,7 +367,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		case(CLEAR):{
 			
 			// Setup 3D Wavelet
-			wave = WAVELET3D( TinyVector<int,3>(rcxres,rcyres,rczres),TinyVector<int,3>(4,4,4),WAVELET3D::WAVE_DB4);
+			wave = WAVELET3D( TinyVector<int,3>(rcxres,rcyres,rczres),TinyVector<int,3>(4,4,4),WAVELET3D::WAVE_DB6);
 
 			// Temporal differences or FFT
 			tdiff=TDIFF( rcframes,rcencodes );
@@ -760,8 +766,6 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 				 
 				 // Initial Guess
 				 
-				 
-				 
 				 			 
 				 // First Calculate E'd
 				 cout << "LHS Calculation" << endl;
@@ -1109,12 +1113,13 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 	if(cs_spatial_transform==WAVELET){
 		cout << "WAVLET in Space" << endl;
 		for( int cycle_spin = 0; cycle_spin < actual_cycle_spins; cycle_spin++){
-	  			wave.random_shift();
+	  			cout << "    Spin " << cycle_spin << endl;
+				wave.random_shift();
 				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
 						wave.forward(*miter);
 				}
 							  
-				// Only update thresh once (note not working for SURE Shrink)
+				// Only update thresh once 
 				if( cycle_spin==0){
 					softthresh.update_threshold(X,wave, 1./(float)actual_cycle_spins );
 				}
@@ -1176,29 +1181,29 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			if(intensity_correction){
 			
 			
-			// Clear doesn't need anything, but might need to handle sensitivity correction
-			IntensityCorrection.setStorage( ColumnMajorArray<3>());
-			IntensityCorrection.resize(rcxres,rcyres,rczres);
-			IntensityCorrection = 0.0;
+				// Clear doesn't need anything, but might need to handle sensitivity correction
+				IntensityCorrection.setStorage( ColumnMajorArray<3>());
+				IntensityCorrection.resize(rcxres,rcyres,rczres);
+				IntensityCorrection = 0.0;
 									
-			for(int e=0; e< 1;e++){
-				for(int coil=0; coil< data.Num_Coils; coil++){
-					cout << "Coil = " << coil  << " encode = " << e << endl;
+				for(int e=0; e< 1;e++){
+					for(int coil=0; coil< data.Num_Coils; coil++){
+						cout << "Coil = " << coil  << " encode = " << e << endl;
 					
-					gridding.image = 0;
-					gridding.forward(gridding.image,data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),data.kw(e));
-					IntensityCorrection += norm( gridding.image);
+						gridding.image = 0;
+						gridding.forward(gridding.image,data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),data.kw(e));
+						IntensityCorrection += norm( gridding.image);
+					}
 				}
-			}
-			IntensityCorrection = sqrt(IntensityCorrection);
+				IntensityCorrection = sqrt(IntensityCorrection);
 			
-			// Gaussian blur
-			Array< float , 3 > Blur;
-			Blur.setStorage( ColumnMajorArray<3>() );
-			Blur.resize(rcxres,rcyres,rczres);
-			normalized_gaussian_blur( IntensityCorrection, Blur, 20.0);
+				// Gaussian blur
+				Array< float , 3 > Blur;
+				Blur.setStorage( ColumnMajorArray<3>() );
+				Blur.resize(rcxres,rcyres,rczres);
+				normalized_gaussian_blur( IntensityCorrection, Blur, 20.0);
 			
-			IntensityCorrection = Blur;
+				IntensityCorrection = Blur;
 			
 			}
 				
@@ -1219,21 +1224,31 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			} 
 			
 			if(data.Num_Coils ==1){
-				smaps(0)=complex<float>(0.0,0.0);
+				smaps(0)=complex<float>(1.0,0.0);
 				break;
 			}
 						
 			cout << "Recon Low Resolution Images"  << endl<< flush; 
 			
-			// Low Pass filtering for Sensitivity Map
-			if(coil_combine_type!=ESPIRIT){
-				gridding.k_rad = smap_res;
-			}
-		
+			
+			// Recon the maps
 			for(int e=0; e< 1;e++){
 				for(int coil=0; coil< data.Num_Coils; coil++){
+					
 					cout << "Coil = " << coil  << " encode = " << e << endl;
-					gridding.forward( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+					if( !iterative_smaps){
+						
+						// Low Pass filtering for Sensitivity Map
+						if(coil_combine_type!=ESPIRIT){
+							gridding.k_rad = smap_res;
+						}
+						
+						// Simple gridding
+						gridding.forward( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+					}else{
+						// Regularized 
+						single_coil_cg( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+					}
 				}
 			}
 			gridding.k_rad = 9999;
@@ -1242,7 +1257,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			if( intensity_correction ){
 				intensity_correct( IC, smaps);
 			}
-			
+		
 			// Spirit Code
 			switch(coil_combine_type){
 		
@@ -1278,7 +1293,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 					}}}
 				}break;
 			} // Normalization
-		
+	
 			if( intensity_correction ){
 				cout << "Intensity correcting maps" << endl << flush;
 				for(int coil=0; coil< data.Num_Coils; coil++){
@@ -1317,6 +1332,103 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		}break;
 	}
 } 
+
+
+void RECON::single_coil_cg( Array< complex<float>,3> & X, Array< complex<float>,3> &kdata, Array<float,3> &kx, Array<float,3> &ky, Array<float,3> &kz, Array<float,3> &kw){
+
+	// ------------------------------------
+	// Conjugate Gradient Recon 
+    //   -Uses much more memory than gradient descent but is faster (both convergence + per iteration)
+	// ------------------------------------
+	
+	L2REG l2reg_coil;
+	l2reg_coil.lambda  = 1.0;
+	l2reg_coil.l2_type = L2REG::LOWRES;
+				
+	 // Structures  	
+	Array< complex<float>,3> R( rcxres, rcyres, rczres,ColumnMajorArray<3>() );
+	
+	Array< complex<float>,3> P( rcxres, rcyres, rczres,ColumnMajorArray<3>() );
+	P = complex<float>(0.0,0.0);
+
+	Array< complex<float>,3> LHS( rcxres, rcyres, rczres,ColumnMajorArray<3>() );
+	LHS = complex<float>(0.0,0.0);
+				
+	// Zeropadded bluring
+	Array< complex<float>,3> ZeroPad( rcxres+64, rcyres+64, rczres+64,ColumnMajorArray<3>() );
+	
+	// Storage for (Ex-d)
+	Array< complex<float>,3 >diff_data;
+	diff_data.setStorage( ColumnMajorArray<3>() );
+	diff_data.resize( kdata.shape());
+	
+	// Get LHS
+	R = complex<float>(0.0,0.0);
+	gridding.forward( R,kdata,kx,ky,kz,kw);	
+	R = -R;
+	P = R;	
+		
+			 
+	// Now Iterate
+	cout << "Iterate" << endl;
+	for(int iteration =0; iteration< 40; iteration++){
+
+			// E'Ex
+			diff_data= complex<float>(0.0,0.0);
+			LHS = complex<float>(0.0,0.0);
+			gridding.backward( P ,diff_data,kx,ky,kz,kw);
+			gridding.forward( LHS ,diff_data,kx,ky,kz,kw);
+			
+			// Get scale
+			if(iteration==0){
+				float sum_P_P = sum(norm(P));
+				float sum_L_L = sum(norm(LHS));
+				l2reg_coil.reg_scale = l2reg_coil.lambda*sqrt(sum_L_L/sum_P_P);
+				cout << "L2 Scale = " << l2reg_coil.reg_scale << endl;
+			}
+			l2reg_coil.regularize(LHS,P);
+								
+			complex< float> sum_R0_R0(0.0,0.0);
+			complex< float> sum_R_R(0.0,0.0);
+			complex< float> sum_P_LHS(0.0,0.0);
+			
+			// Get scale
+			for(int k=0; k < rczres; k++){
+				for(int j=0; j < rcyres; j++){
+						for(int i=0; i < rcxres; i++){
+							sum_R0_R0 += norm( R(i,j,k) );
+							sum_P_LHS += conj( P(i,j,k) )*LHS(i,j,k);
+			}}}
+			complex< float> scale = sum_R0_R0 / sum_P_LHS; 
+			
+			// Step
+			for(int k=0; k < rczres; k++){
+			for(int j=0; j < rcyres; j++){
+			for(int i=0; i < rcxres; i++){
+					X(i,j,k) += ( scale* (  P(i,j,k)) );
+					R(i,j,k) -= ( scale* (LHS(i,j,k)) );
+					sum_R_R += norm( R(i,j,k) );
+			}}}
+			
+			cout << "Sum R'R = " << sum_R_R << endl;
+			complex< float> scale2 = sum_R_R / sum_R0_R0;
+			
+			
+			for(int k=0; k < rczres; k++){
+			for(int j=0; j < rcyres; j++){
+			for(int i=0; i < rcxres; i++){
+					P(i,j,k) = R(i,j,k) + ( scale2*P(i,j,k) );
+			}}}
+			
+			// Export X slice
+			Array<complex<float>,2>Xslice=X(Range::all(),Range::all(),X.length(2)/2);
+			ArrayWriteMagAppend(Xslice,"CG_mag.dat");
+		
+		}//iteration	
+		
+
+					
+}
 
 void  RECON::intensity_correct( Array< float, 3> & IC, Array< Array< complex<float>,3>,1 > &smaps ){
 
@@ -1362,7 +1474,7 @@ void  RECON::intensity_correct( Array< float, 3> & IC, Array< Array< complex<flo
 					}break;
 					
 					default:{
-						IC(i,j,k) = Blur(i,j,k);
+						IC(i,j,k) = ( Blur(i,j,k) > 0.05*max_blur) ? ( Blur(i,j,k) ) : ( 0.0);
 					}break;
 				}
 	}}}
@@ -1393,8 +1505,7 @@ void RECON::normalized_gaussian_blur( const Array< float, 3> & In, Array< float,
 		kern[t] = exp( -sqr( (float)t - dwinX ) / (2.0*sqr(sigma))); 
 		// cout << "Kern (" << t << ") = " << kern[t] << endl;
 	}				
-	
-		
+			
 	// Gaussian Blur in X
 	cout << "Blur in X" << endl;
 	#pragma omp parallel for
@@ -1507,9 +1618,9 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
 	int Ny =image(0).extent(secondDim);
 	int Nz =image(0).extent(thirdDim);
 	
-	int block_size_x = 8;
-	int block_size_y = 8;
-	int block_size_z = 8;
+	int block_size_x = walsh_block_size;
+	int block_size_y = walsh_block_size;
+	int block_size_z = walsh_block_size;
 		
 	// Blocks shouldn't be larger than the dimension
 	block_size_x = ( block_size_x > Nx) ? ( Nx ) : ( block_size_x );

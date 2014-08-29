@@ -96,6 +96,8 @@ class gridFFT{
 		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
 		void precalc_kernel(int Nz,int Ny,int Nx,int directions);
 		void deapp_chop();
+		void do_fft( void);
+		void do_ifft( void );
 		
 		// Main Calls with and without Sensitivity maps
 		void forward( NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap,const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);

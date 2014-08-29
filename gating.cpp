@@ -221,6 +221,9 @@ void GATING::init( const MRI_DATA& data,int frames){
 	init_time_resolved(data,frames);
 }
 
+float GATING::temporal_resolution(void){
+	return( actual_temporal_resolution );
+}
 
 void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	
@@ -378,6 +381,10 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	scale_time= (frames)/(max_time-min_time)*(1+1e-6); // Extra factor is to map last point to < frames
 	offset_time = min_time;
 	
+	// Temporal resolution
+	actual_temporal_resolution = ( max_time -min_time ) / frames;
+	
+	cout << "Actual temporal resolution = " << actual_temporal_resolution << endl;
 	cout << " Gate offset = " << offset_time << endl;
 	cout << " Gate scale = " << scale_time << endl;
 	
@@ -493,7 +500,6 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 	//cout << "Sum Time Weight = " << sum_Tw << endl;
 	//Tw /= sum_Tw;
 }
-
 
 
 /*

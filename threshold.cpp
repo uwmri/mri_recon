@@ -283,21 +283,31 @@ void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVEL
 	if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
 	
 	// Threshold each level
-	Range rx,ry,rz;
-	for( int lz=0; lz < wave.L[2]+1; lz++){
-	for( int ly=0; ly < wave.L[1]+1; ly++){
-	for( int lx=0; lx < wave.L[0]+1; lx++){
 	
-		wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
-
-		// Get the reference volume
-		Array<complex<float>,3> Subband;
-		Subband.reference( Coef(0,0)(rx,ry,rz));
+	int Ne = Coef.length(secondDim);
+	int Nt = Coef.length(firstDim);
 		
-		// Get and store subband threshold	(	
-		subband_threshold(lx,ly,lz,0,0) = get_bayesthreshold_subband(Subband);
-		cout << "Level(" <<lx<<","<<ly<<","<<lz<<") - thresh = " << subband_threshold(lx,ly,lz,0,0) << endl;
+	// Get Update
+	for(int e=0; e< Ne;e++){
+		for(int t=0; t< Nt;t++){
+			
+			#pragma omp parallel for
+			for( int lz=0; lz < wave.L[2]+1; lz++){
+			for( int ly=0; ly < wave.L[1]+1; ly++){
+			for( int lx=0; lx < wave.L[0]+1; lx++){
+			Range rx,ry,rz;
+			wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
+
+			// Get the reference volume
+			Array<complex<float>,3> Subband;
+			Subband.reference( Coef(t,e)(rx,ry,rz));
+		
+			// Get and store subband threshold	(	
+			subband_threshold(lx,ly,lz,t,e) = get_bayesthreshold_subband(Subband);
+			// cout << "Level(" <<lx<<","<<ly<<","<<lz<<") - thresh = " << subband_threshold(lx,ly,lz,0,0) << endl;
 	}}}
+	
+	}}
 
 }
 
@@ -312,43 +322,59 @@ void THRESHOLD::get_surethreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELE
 	if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
 	
 	// Threshold each level
-	Range rx,ry,rz;
-	#pragma omp parallel for
-	for( int lz=0; lz < wave.L[2]+1; lz++){
-	for( int ly=0; ly < wave.L[1]+1; ly++){
-	for( int lx=0; lx < wave.L[0]+1; lx++){
-	
-		wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
-
-		// Get the reference volume
-		Array<complex<float>,3> Subband;
-		Subband.reference( Coef(0,0)(rx,ry,rz));
+	int Ne = Coef.length(secondDim);
+	int Nt = Coef.length(firstDim);
 		
-		// Get and store subband threshold	(	
-		subband_threshold(lx,ly,lz,0,0) = get_surethreshold_subband(Subband);
-		cout << "Level(" <<lx<<","<<ly<<","<<lz<<") - thresh = " << subband_threshold(lx,ly,lz,0,0) << endl;
-	}}}
+	// Get Update
+	for(int e=0; e< Ne;e++){
+		for(int t=0; t< Nt;t++){
+		
+	
+			#pragma omp parallel for
+			for( int lz=0; lz < wave.L[2]+1; lz++){
+			for( int ly=0; ly < wave.L[1]+1; ly++){
+			for( int lx=0; lx < wave.L[0]+1; lx++){
+				Range rx,ry,rz;
+				wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
+
+				// Get the reference volume
+				Array<complex<float>,3> Subband;
+				Subband.reference( Coef(t,e)(rx,ry,rz));
+		
+				// Get and store subband threshold	(	
+				subband_threshold(lx,ly,lz,t,e) = get_surethreshold_subband(Subband);
+				// cout << "Level(" <<lx<<","<<ly<<","<<lz<<") - thresh = " << subband_threshold(lx,ly,lz,0,0) << endl;
+			}}}
+		}
+	}
 }
 
 void THRESHOLD::exec_multibandthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELET3D &wave){
 	
-	// Threshold each level
-	Range rx,ry,rz;
-	#pragma omp parallel for
-	for( int lz=0; lz < wave.L[2]+1; lz++){
-	for( int ly=0; ly < wave.L[1]+1; ly++){
-	for( int lx=0; lx < wave.L[0]+1; lx++){
-	
-		wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
+	int Ne = Coef.length(secondDim);
+	int Nt = Coef.length(firstDim);
+		
+	// Get Update
+	for(int e=0; e< Ne;e++){
+		for(int t=0; t< Nt;t++){
+		
+		#pragma omp parallel for
+		for( int lz=0; lz < wave.L[2]+1; lz++){
+		for( int ly=0; ly < wave.L[1]+1; ly++){
+		for( int lx=0; lx < wave.L[0]+1; lx++){
+			Range rx,ry,rz;
+			wave.get_subband_range(rx,ry,rz,lx,ly,lz);	// Get Range
 
-		// Get the reference volume
-		Array<complex<float>,3> Subband;
-		Subband.reference( Coef(0,0)(rx,ry,rz));
+			// Get the reference volume
+			Array<complex<float>,3> Subband;
+			Subband.reference( Coef(t,e)(rx,ry,rz));
 		
-		// Get and store subband threshold	(	
-		thresholding( Subband , subband_threshold(lx,ly,lz,0,0) );
+			// Get and store subband threshold	(	
+			thresholding( Subband , subband_threshold(lx,ly,lz,t,e) );
 		
-	}}}
+		}}}
+	
+	}}
 
 }
 
@@ -449,7 +475,7 @@ void THRESHOLD::robust_noise_estimate(Array<Array< complex<float>,3>,2>&Coef, WA
 	
 	// Get 3D volume
 	Array<complex<float>,3> HHHref;
-	HHHref.reference( Coef(0,0)(rx,ry,rz));
+	HHHref.reference( Coef(Coef.length(firstDim)-1,Coef.length(secondDim)-1)(rx,ry,rz));
 	
 	// Convert to 5D for get_threshold
 	Array< Array<complex<float>,3>,2> DH;

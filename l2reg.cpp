@@ -103,10 +103,64 @@ void L2REG::set_scale( float EhE_scale, Array< Array< complex<float>,3>,2>&X){
 	}
 	cout << "Transform Energy = " << transform_energy << endl;
 	cout << "EhE Energy = " << EhE_scale << endl;
-	
-	
+		
 	reg_scale = lambda*EhE_scale/transform_energy;
+	
 }
+
+
+
+void L2REG::set_scale( float EhE_scale, Array< complex<float>,3> &X){
+	
+	if(lambda==0.0){
+		return;
+	}
+	// Input should be energy of EhE X
+	// Scales regularization by EhEx/TVx
+	
+	float transform_energy=0.0;
+	switch(l2_type){
+	
+		case(NONE):{
+	  		transform_energy = sum(norm(X)); 
+			
+		}break;
+	
+	
+		case(TV):{
+			
+			int Nx = X.length(firstDim);
+	  		int Ny = X.length(secondDim);
+	  		int Nz = X.length(thirdDim);
+	  		
+				for(int k =0; k < X.length(thirdDim);k++){
+	  			for(int j =0; j < X.length(secondDim);j++){
+	  			for(int i =0; i < X.length(firstDim);i++){
+					complex<float>val = complex<float>(1.0/6.0,0.0)*( complex<float>(6.0,0.0)*X(i,j,k) - X((i+1)%Nx,j,k) - X((i+Nx-1)%Nx,j,k) - X(i,(j+1)%Ny,k) - X(i,(j+Ny-1)%Ny,k)  - X(i,j,(k+1)%Nz) - X(i,j,(k+Nz-1)%Nz));
+					transform_energy += norm( val );
+	  			}}}
+	  
+		}break;
+	
+		case(PHASE):{
+	 		transform_energy += sum( pow( imag(X),2));
+	  	}break;
+		
+		case(LOWRES):{
+			
+		
+			
+		}break;
+		
+	}
+	cout << "Transform Energy = " << transform_energy << endl;
+	cout << "EhE Energy = " << EhE_scale << endl;
+	
+	
+	reg_scale = lambda*sqrt( EhE_scale/transform_energy);
+	cout << "Reg scale = " << reg_scale << endl;
+}
+
 
 
 //-----------------------------------------------------
@@ -151,6 +205,66 @@ void L2REG::regularize( Array< complex<float>,3 > &Rref, Array< complex<float>,3
 		  	Rref(i,j,k) += reg_scale*complex<float>( 0.0, imag(Xref(i,j,k)));
 	  }}}
 	}break;
+	
+	
+	
+	
+	case(LOWRES):{
+			
+			
+			int rcxres = Xref.length(firstDim);
+			int rcyres = Xref.length(secondDim);
+			int rczres = Xref.length(thirdDim);
+				  
+			// Zeropadded bluring
+			if( ZeroPad.numElements() !=  ( (rcxres+64)*(rcyres+64)*(rczres+64) ) ){
+				ZeroPad.setStorage( ColumnMajorArray<3>() );
+				ZeroPad.resize( rcxres+64, rcyres+64, rczres+64 );
+			}
+			
+			// Enforce Smoothness padded
+			ZeroPad = complex<float>(0.0,0.0);  // Zero 
+			for(int k=0; k < rczres; k++){
+			for(int j=0; j < rcyres; j++){
+			for(int i=0; i < rcxres; i++){
+				ZeroPad(i+32,j+32,k+32)=Xref(i,j,k);
+			}}}
+						
+			fft(ZeroPad);
+			float cx = (float)ZeroPad.length(firstDim)/2.0;
+			float cy = (float)ZeroPad.length(secondDim)/2.0;
+			float cz = (float)ZeroPad.length(thirdDim)/2.0;
+			
+			#pragma omp parallel for
+			for(int k=0; k < ZeroPad.length(thirdDim); k++){
+			for(int j=0; j < ZeroPad.length(secondDim); j++){
+			for(int i=0; i < ZeroPad.length(firstDim); i++){
+				float rad = sqrt(   ((float)k-cz)*((float)k-cz)  + ((float)j-cy)*((float)j-cy) + ((float)i-cx)*((float)i-cx)  );
+				rad /= 64.0;
+				if(rad < 1){
+					ZeroPad(i,j,k) *=  ( 0.355768 - 0.487396*cos( 3.14159265359*rad) + 0.144232*cos(2*3.14159265359*rad) - 0.012604*cos( 3*3.14159265359*rad) )  ;
+				}
+			}}}	
+					
+			ifft(ZeroPad);
+			
+			// Copy back
+			for(int k=0; k < rczres; k++){
+			for(int j=0; j < rcyres; j++){
+			for(int i=0; i < rcxres; i++){
+				Rref(i,j,k)+=reg_scale*ZeroPad(i+32,j+32,k+32);
+			}}}
+			
+	}break;
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	}
 	
