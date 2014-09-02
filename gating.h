@@ -59,6 +59,11 @@ class GATING {
 		int correct_resp_drift;
 		float resp_gate_efficiency;
 				
+		int external_weights;
+		char external_weights_filename[1024];
+
+
+
 		// Frame Centers	
 		float *gate_frames;
 		

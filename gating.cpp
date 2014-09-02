@@ -37,15 +37,18 @@ GATING::GATING( int numarg, char **pstring) {
         wdth_high = 4;
         
 		vs_type = NONE;
-        tornado_shape = VIPR; // Kr^2 shape
+        	tornado_shape = VIPR; // Kr^2 shape
 		kmax = 128; // TEMP
 		gate_type = GATE_NONE;;
 		
 		// Respiratory Efficiency
 		correct_resp_drift = 0;
 		resp_gate_efficiency = 0.5;
-        resp_gate_type = RESP_NONE;
+        	resp_gate_type = RESP_NONE;
 		
+		external_weights = 0;
+		strcpy(external_weights_filename,"");
+
 		// Catch command line switches
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
@@ -57,20 +60,20 @@ GATING::GATING( int numarg, char **pstring) {
 			if(strcmp("-viewshare_type",pstring[pos]) == 0) {
 				pos++;
 				if( pos==numarg){
-					cout << "Please provide vieshare type (-h for usage)" << endl;
+					cout << "Please provide vieshare type..none/hist/tornado (-h for usage)" << endl;
 					exit(1);
 				trig_flag(TORNADO,"tornado",vs_type);
 				trig_flag(HIST_MODE,"hist",vs_type);
 				trig_flag(NONE,"none",vs_type);
 				
 				}else{
-					cout << "Please provide vieshare type (-h for usage)" << endl;
+					cout << "Please provide vieshare type..none/hist/tornado (-h for usage)" << endl;
 					exit(1);
 				}
 			}else if(strcmp("-gating_type",pstring[pos]) == 0) {
 				pos++;
 				if( pos==numarg){
-					cout << "Please provide gating type (-h for usage)" << endl;
+					cout << "Please provide gating type..ecg/retro_ecg/resp/time/prep (-h for usage)" << endl;
 					exit(1);
 				trig_flag(RETRO_ECG,"retro_ecg",gate_type);
 				trig_flag(RESP,"resp",gate_type);
@@ -79,29 +82,44 @@ GATING::GATING( int numarg, char **pstring) {
 				trig_flag(PREP,"prep",gate_type);
 								
 				}else{
-					cout << "Please provide gating type..none/dft/diff/pca" << endl;
+					cout << "Please provide gating type..ecg/retro_ecg/resp/time/prep (-h for usage)" << endl;
 					exit(1);
 				}
 			}else if(strcmp("-resp_gate",pstring[pos]) == 0) {
 				pos++;
 				if( pos==numarg){
-					cout << "Using threshold based gating" << endl;
-					resp_gate_type = RESP_THRESH;
-					trig_flag(RESP_THRESH,"thresh",resp_gate_type);
-					trig_flag(RESP_WEIGHT,"weight",resp_gate_type);
+					cout << "Please provide respiratory gating type..thresh/weight (-h for usage)" << endl;
+					exit(1);
+				trig_flag(RESP_THRESH,"thresh",resp_gate_type);
+				trig_flag(RESP_WEIGHT,"weight",resp_gate_type);
 								
 				}else{
-					cout << "Using threshold based gating" << endl;
-					resp_gate_type = RESP_THRESH;
-				}
-							
+					cout << "Please provide respiratory gating type..thresh/weight (-h for usage)" << endl;
+					exit(1);
+				}			
 			int_flag("-vs_wdth_low",wdth_low);
-            int_flag("-vs_wdth_high",wdth_high);
-     		trig_flag(1,"-correct_resp_drift",correct_resp_drift);
+            		int_flag("-vs_wdth_high",wdth_high);
+     			trig_flag(1,"-correct_resp_drift",correct_resp_drift);
 			float_flag("-resp_gate_efficiency",resp_gate_efficiency);
+			trig_flag(1,"-external_weights",external_weights);
+			char_flag("-external_weights_file",external_weights_filename);
 			}
-		}
+	}
+
+	if (resp_gate_type == RESP_THRESH) {
+		cout << "Using threshold based respiratory gating" << endl;
+	} else if (resp_gate_type == RESP_WEIGHT) {
+		cout << "Using (fuzzy) weight based respiratory gating" << endl;
+	}
+
+	if ((external_weights == 1) && (strcmp("",external_weights_filename) == 0)) {
+		cout << "No external fuzzy weight file specified.  Specify with '-external_weights_file []' option (-h for usage)" << endl;
+		exit(1);
+	}
+
+
 }
+
 
 void GATING::help_message() {
         cout << "----------------------------------------------" << endl;
@@ -137,6 +155,9 @@ void GATING::help_message() {
 		cout << "Control for ECG Data" << endl;
 		help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
 		
+		cout << "Control for external fuzzy weighting file (more generic functionality similar to '-resp_gate weight' option above)" << endl;
+		help_flag("-external_weights","Read fuzzy weights from external file");
+		help_flag("-external_weights_file []","Specify path to file with fuzzy weights (see Johnson et. al MRM 67(6):1600");
 		
 }
 
@@ -229,89 +250,110 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	
 	cout << "Initializing Respiratory Gating with " << frames << " frames " << endl;
 	
-	if(resp_gate_type == RESP_NONE){
-		return;
-	}
-	
-	cout << "Copying Resp Waveform" << endl;
-	resp_weight.resize( data.resp.shape());				  
-	resp_weight = data.resp;
+	switch (resp_gate_type){
 
-	
-	cout << "Time Sorting Data" << endl;
-	
-	// Use Aradillo Sort function
-	arma::fvec time(resp_weight.numElements());
-	arma::fvec resp(resp_weight.numElements());
-	arma::fvec arma_resp_weight(resp_weight.numElements());
-	
-	arma::fvec time_linear_resp(resp_weight.numElements());
-	arma::fvec time_sort_resp_weight(resp_weight.numElements());
-			
-	// Put into Matrix for Armadillo
-	int count = 0;
-	for(int e=0; e< resp_weight.length(thirdDim); e++){
-	 for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-	  for(int view=0; view< resp_weight.length(firstDim); view++){
-	   time(count) = data.time(view,slice,e);
-	   resp(count) = data.resp(view,slice,e);
-	   count++;
-	}}}
-	time.save("Time.txt",arma::raw_ascii);
-	resp.save("Resp.txt",arma::raw_ascii);
-	
-	// Sort
-	arma::uvec idx = arma::sort_index(time); 
-		
-	// Copy Resp
-	idx.save("Sorted.dat", arma::raw_ascii);
-	for(int i=0; i< (int)resp_weight.numElements(); i++){
-		time_linear_resp( i )= resp( idx(i));
+		case(RESP_THRESH):{
+
+					  cout << "Copying Resp Waveform" << endl;
+					  resp_weight.resize( data.resp.shape());				  
+					  resp_weight = data.resp;
+
+
+					  cout << "Time Sorting Data" << endl;
+
+					  // Use Aradillo Sort function
+					  arma::fvec time(resp_weight.numElements());
+					  arma::fvec resp(resp_weight.numElements());
+					  arma::fvec arma_resp_weight(resp_weight.numElements());
+
+					  arma::fvec time_linear_resp(resp_weight.numElements());
+					  arma::fvec time_sort_resp_weight(resp_weight.numElements());
+
+					  // Put into Matrix for Armadillo
+					  int count = 0;
+					  for(int e=0; e< resp_weight.length(thirdDim); e++){
+						  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+							  for(int view=0; view< resp_weight.length(firstDim); view++){
+								  time(count) = data.time(view,slice,e);
+								  resp(count) = data.resp(view,slice,e);
+								  count++;
+							  }}}
+					  time.save("Time.txt",arma::raw_ascii);
+					  resp.save("Resp.txt",arma::raw_ascii);
+
+					  // Sort
+					  arma::uvec idx = arma::sort_index(time); 
+
+					  // Copy Resp
+					  idx.save("Sorted.dat", arma::raw_ascii);
+					  for(int i=0; i< (int)resp_weight.numElements(); i++){
+						  time_linear_resp( i )= resp( idx(i));
+					  }
+					  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
+
+
+					  // Size of histogram
+					  cout << "Time range = " << ( max(data.time)-min(data.time) ) << endl;
+					  int fsize = (int)( 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
+
+
+					  // Now Filter
+					  cout << "Thresholding Data Frame Size = " << fsize << endl;
+					  for(int i=0; i< (int)time_linear_resp.n_elem; i++){
+						  int start = i - fsize;
+						  int stop  = i + fsize;
+						  if(start < 0){
+							  stop  = 2*fsize;
+							  start = 0; 
+						  }
+
+						  if(stop >=  (int)time_linear_resp.n_elem){
+							  stop  = time_linear_resp.n_elem -1;
+							  start = time_linear_resp.n_elem - 1 - 2*fsize;
+						  }
+
+						  arma::fvec temp = time_linear_resp.rows( start,stop);
+						  arma::fvec temp2= sort(temp);
+						  float thresh = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency )));
+
+						  arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
+						  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
+					  }
+					  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
+					  arma_resp_weight.save("Weight.txt",arma::raw_ascii);
+
+
+					  // Copy Back
+					  count = 0;
+					  for(int e=0; e< resp_weight.length(thirdDim); e++){
+						  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+							  for(int view=0; view< resp_weight.length(firstDim); view++){
+								  resp_weight(view,slice,e)=arma_resp_weight(count);
+								  count++;
+							  }}}
+				  }break;
+		case(RESP_WEIGHT):{
+
+					  if (external_weights == 1) {
+						  cout << "Reading fuzzy retrospective weights from file" << endl;
+ 						  resp_weight.resize( data.resp.shape());
+					  
+						  ArrayRead(resp_weight,external_weights_filename);
+					  }else{
+
+						  cout << "Fuzzy weighting for retrospective respiratory gating only implemented for externally provided weights.  Reconstructing without respiratory gating." << endl;
+						  resp_gate_type = RESP_NONE;
+						  return;
+					  }
+					
+				  }break;
+		case(RESP_NONE):
+		default:{
+				return;
+			}
 	}
-	time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
-	
-	
-	// Size of histogram
-	cout << "Time range = " << ( max(data.time)-min(data.time) ) << endl;
-	int fsize = (int)( 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
-	
-	
-	// Now Filter
-	cout << "Thresholding Data Frame Size = " << fsize << endl;
-	for(int i=0; i< (int)time_linear_resp.n_elem; i++){
-		int start = i - fsize;
-		int stop  = i + fsize;
-		if(start < 0){
-			stop  = 2*fsize;
-			start = 0; 
-		}
-			
-		if(stop >=  (int)time_linear_resp.n_elem){
-			stop  = time_linear_resp.n_elem -1;
-			start = time_linear_resp.n_elem - 1 - 2*fsize;
-		}
-		
-		arma::fvec temp = time_linear_resp.rows( start,stop);
-		arma::fvec temp2= sort(temp);
-		float thresh = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency )));
-	
-		arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
-		time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
-	}
-	time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
-	arma_resp_weight.save("Weight.txt",arma::raw_ascii);
-	
-	
-	// Copy Back
-	count = 0;
-	for(int e=0; e< resp_weight.length(thirdDim); e++){
-	 for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-	  for(int view=0; view< resp_weight.length(firstDim); view++){
-	   resp_weight(view,slice,e)=arma_resp_weight(count);
-	   count++;
-	}}}
-	
-	
+
+
 	ArrayWrite(resp_weight,"RespWeight.dat");
 }
 
@@ -463,8 +505,18 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
     
 	switch(resp_gate_type){
 		
+		case(RESP_WEIGHT):{
+			cout << "Resp weighting (fuzzy weights)" << endl << flush;	
+			for(int k=0; k<Tw.length(thirdDim); k++){
+			for(int j=0; j<Tw.length(secondDim); j++){
+			for(int i=0; i<Tw.length(firstDim); i++){
+				Tw(i,j,k) *= resp_weight(j,k,e);
+			}}}
+			cout << "Resp weighting done" << endl << flush;	
+		}break;
+		
 		case(RESP_THRESH):{
-			cout << "Resp weighting" << endl << flush;	
+			cout << "Resp weighting (threshold)" << endl << flush;	
 			for(int k=0; k<Tw.length(thirdDim); k++){
 			for(int j=0; j<Tw.length(secondDim); j++){
 			for(int i=0; i<Tw.length(firstDim); i++){
@@ -481,20 +533,20 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 	
 	
 	if( (gate_type!= GATE_NONE) && (comp_type !=COMPOSITE) ){
-		
-	switch(vs_type){
-		case(TORNADO):{
-			tornado_weight(Tw,e, kx, ky,kz, t,w_type);
-     	}break;
-		
-		case(HIST_MODE):
-		case(NONE):{
-			hist_weight( Tw, e,t);
-		}break;
+
+		switch(vs_type){
+			case(TORNADO):	{
+						tornado_weight(Tw,e,kx,ky,kz,t,w_type);
+					}break;
+
+			case(HIST_MODE):
+			case(NONE):	{		 
+						hist_weight(Tw,e,t);
+					}break;
+		}
+
 	}
-	
-	}
-	
+
 	// Normalize Weighting
 	//float sum_Tw = sum(Tw);
 	//cout << "Sum Time Weight = " << sum_Tw << endl;
