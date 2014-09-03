@@ -384,18 +384,25 @@ float THRESHOLD::get_bayesthreshold_subband( Array< complex<float>,3> &XX){
 	float threshold;
 	
 	// Get Std 
+	double N = (double)XX.numElements();
 	double sumXX = 0.0; 
-		
+	double maxCoef = 0.0;
+	complex<double> meanXX;
+    	double meanR,meanI;
+	meanR = (double)(sum(real(XX)))/N;
+	meanI = (double)(sum(imag(XX)))/N;
+	meanXX = complex<double>(meanR,meanI);
+
 	// Standard Deviation of Image
 			
 	for(int k=0; k< XX.extent(thirdDim); k++){
 		for(int j=0; j< XX.extent(secondDim); j++){
 			for(int i=0; i< XX.extent(firstDim); i++){    
-					complex<double> val = complex<double>(XX(i,j,k));
-					sumXX += pow(abs(val),2);
+					double val = (double)abs(complex<double>(XX(i,j,k)) - meanXX);
+					maxCoef = max(val,maxCoef); 
+					sumXX += pow(val,2.0);
 	}}}
 		
-	double N = (double)XX.numElements();
 	float wave_dev = (float)( sumXX/N );
 	
 	// if(VERBOSE) cout << "N  = " << N << endl;
@@ -404,13 +411,9 @@ float THRESHOLD::get_bayesthreshold_subband( Array< complex<float>,3> &XX){
 	// Now Estimate Threshold	
 	float sigmaS = sqrt( max( wave_dev - powf(noise,2),(float)0.0)); 
 	
-	if(sigmaS<=0.0) { 
-		threshold =0.0;
-		for( Array<complex<float>,3>::iterator miter=XX.begin(); miter!=XX.end(); miter++){
-			threshold = max( max(abs(*miter),0.0f), threshold);
-		}
+	if(sigmaS == 0.0) { 
+		threshold = maxCoef;
 	} else {
-		sigmaS = sqrt(sigmaS);
 		threshold = pow(noise,2)/sigmaS;
 	}
 	
@@ -473,19 +476,28 @@ void THRESHOLD::robust_noise_estimate(Array<Array< complex<float>,3>,2>&Coef, WA
 	Range rx,ry,rz;
 	wave.get_subband_range(rx,ry,rz,0,0,0);
 	
+	// The (now commented) code block below may cause problems with multi-frame/encode data, especially when the number
+	// of frames (amount of sampled data) varies significantly between frames/encodes (i.e. some are noisier than others).
+/* *******************************************************************************************	
 	// Get 3D volume
 	Array<complex<float>,3> HHHref;
 	HHHref.reference( Coef(Coef.length(firstDim)-1,Coef.length(secondDim)-1)(rx,ry,rz));
 	
+
 	// Convert to 5D for get_threshold
 	Array< Array<complex<float>,3>,2> DH;
 	DH.setStorage(ColumnMajorArray<2>());
 	DH.resize(1,1);
 	DH(0,0).reference( HHHref);
-	
+**********************************************************************************************/
+
+	// Compute "global" noise from all provided frames and encodes (may be all or some subset)
+	Array< Array<complex<float>,3>,2> DH;
+	DH.reference( Coef(Range::all(),Range::all())(rx,ry,rz));
+	cout << "Size of array for noise estimation: " << DH.shape() << endl;
+		
 	// Noise Estimate = median/ 0.6745	 - noise scale is needed for zero filled data
 	noise = get_threshold(DH,0.5)/0.6745*noise_scale;
-
 }	 
 
 // Option of thresh of appriximation wavelets or all wavelets, hard vs soft threshold
