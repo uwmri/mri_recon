@@ -957,19 +957,34 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  gate.weight_data( TimeWeight,e, kxE, kyE,kzE,act_t,GATING::ITERATIVE, frame_type);
    							 	  TimeWeight /= sum(TimeWeight);
 								  
-								  for(int coil=0; coil< data.Num_Coils; coil++){
+								  if (data.Num_Coils > 1) {
+									  for(int coil=0; coil< data.Num_Coils; coil++){
+										  // Ex
+										  diff_data=0;
+										  gridding.backward(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+
+										  //Ex-d
+										  Array< complex<float>,3>kdataC = data.kdata(e,coil); 
+										  diff_data -= kdataC;
+
+										  //E'(Ex-d)
+										  gridding.forward( R(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  }//Coils
+								  }else{ 
 									  // Ex
 									  diff_data=0;
-									  gridding.backward(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.backward(X(store_t,e),diff_data,kxE,kyE,kzE,TimeWeight);
 
 									  //Ex-d
-									  Array< complex<float>,3>kdataC = data.kdata(e,coil); 
+									  Array< complex<float>,3>kdataC = data.kdata(e,0); 
 									  diff_data -= kdataC;
 
 									  //E'(Ex-d)
-									  gridding.forward( R(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
-								  }//Coils
-								 
+									  gridding.forward( R(store_t,e),diff_data,kxE,kyE,kzE,TimeWeight);
+
+								  }
+								  
+								  
 								  // L2 
 								  if(iteration > 0){
 								  	l2reg.regularize(R(store_t,e),X(store_t,e) );
@@ -977,25 +992,40 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								    
 								  //Now Get Scale factor (for Cauchy-Step Size)
 								  P=0;
-								  for(int coil=0; coil< data.Num_Coils; coil++){
+
+								  if (data.Num_Coils > 1) {
+									  for(int coil=0; coil< data.Num_Coils; coil++){
+										  // EE'(Ex-d)
+										  diff_data=0;
+										  gridding.backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
+
+										  //E'EE'(Ex-d)
+										  gridding.forward(P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  }//Coils
+								  }else{
 									  // EE'(Ex-d)
 									  diff_data=0;
-									  gridding.backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.backward(R(store_t,e), diff_data,kxE,kyE,kzE,TimeWeight);
 
 									  //E'EE'(Ex-d)
-									  gridding.forward(P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
-								  }//Coils
+									  gridding.forward(P,diff_data,kxE,kyE,kzE,TimeWeight);
+								  }
 								  
 								  // TV of Image
 								  if(iteration > 0){
 								  	l2reg.regularize(P,R(store_t,e));
 								  }
 								 
+								  /***
 								  P*=conj(R(store_t,e));
 								  
 								  for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
 								    	scale_RhP += complex< double>( real(*riter),imag(*riter)); 
 								  }
+								  ***/
+
+								  scale_RhP += conj_sum(P,R(store_t,e));
+
 								  cout << e << "," << t << "took " << T << "s" << endl;
 							  }//Time
 						  }//Encode

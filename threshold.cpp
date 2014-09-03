@@ -38,6 +38,7 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 	temporal = false;
 	threshold_type = TH_NONE;
 	noise_scale = 1.0;
+	noise_est_type = NOISE_FRAME;
 	
 #define trig_flag(num,name,val) }else if(strcmp(name,pstring[pos]) == 0){ val=num;
 #define bool_flag(name,val) }else if(strcmp(name,pstring[pos]) == 0){ val=true;
@@ -73,6 +74,15 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 				trig_flag(TH_BAYES,"bayes",threshold_type);
 				trig_flag(TH_SURE,"sure",threshold_type);
 			}
+		}else if(strcmp("-noise_est_type",pstring[pos]) == 0) {
+			pos++;
+			if( pos==numarg){
+				cout << "Please provide noise estimation type..global/frame/first/last" << endl;
+				trig_flag(NOISE_GLOBAL,"global",noise_est_type);
+				trig_flag(NOISE_FRAME,"frame",noise_est_type);
+				trig_flag(NOISE_FIRST,"first",noise_est_type);
+				trig_flag(NOISE_LAST,"last",noise_est_type);
+			}
 		}
 	}    
 }
@@ -83,6 +93,8 @@ void THRESHOLD::help_message() {
 	cout << "----------------------------------------------" << endl;
 	help_flag("-threshold_type []","thresholding method fraction/visu/bayes/sure");
 	help_flag("-thresh []","fraction of coefficient to be removed for fractional method (default=0.0)");
+	help_flag("-noise_est_type []","method for noise estimation global(estimate using all frames)/frame(estimate for each frame)/last(estimate using last frame)/first(estimate using first frame) (default=frame)");
+	help_flag("-noise_scale []","scale factor for noise estimate(s) (e.g. for zero-padding correction)");
 	help_flag("-thmode []","soft/hard (default=soft)");
 	help_flag("-thlow","thresholding of the lowest resolusion band");
 }
@@ -257,6 +269,42 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 void THRESHOLD::get_visuthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELET3D &wave){
 
 	// Populated noise variable
+	
+	switch(noise_est_type){
+		case(NOISE_GLOBAL):{
+					   robust_noise_estimate( Coef, wave);
+					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+				   }break;
+		case(NOISE_FIRST):{
+					   Array< Array<complex<float>,3>,2> Cf;
+					   Cf.setStorage(ColumnMajorArray<2>());
+					   Cf.resize(1,1);
+					   Cf(0,0).reference( Coef(0,0)); 
+					   
+					   robust_noise_estimate( Cf, wave);
+					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+				   }break;
+		case(NOISE_LAST):{
+					   Array< Array<complex<float>,3>,2> Cf;
+					   Cf.setStorage(ColumnMajorArray<2>());
+					   Cf.resize(1,1);
+					   Cf(0,0).reference(Coef(Coef.length(firstDim)-1,Coef.length(secondDim-1))); 
+					   
+					   robust_noise_estimate( Cf, wave);
+					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+				   }break;
+		case(NOISE_FRAME):{
+					  // This is an invalid choice for visu thresholding.  Default to global.
+					  noise_est_type = NOISE_GLOBAL; 
+					  robust_noise_estimate( Coef, wave);
+					  if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+				  }break;
+		default:{
+				cout << "Bad value for noise estimation type" << endl;
+				exit(1);
+			}
+	}
+
 	robust_noise_estimate(Coef,wave);
 
 	// VisuShrink tends to overestimate the threshold especially for large number of samples
@@ -279,8 +327,38 @@ void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVEL
 	subband_threshold = 0.0;		
 	
 	// Get Noise
-	robust_noise_estimate( Coef, wave);
-	if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+	
+	switch(noise_est_type){
+		case(NOISE_GLOBAL):{
+					   robust_noise_estimate( Coef, wave);
+					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+				   }break;
+		case(NOISE_FIRST):{
+					   Array< Array<complex<float>,3>,2> Cf;
+					   Cf.setStorage(ColumnMajorArray<2>());
+					   Cf.resize(1,1);
+					   Cf(0,0).reference( Coef(0,0)); 
+					   
+					   robust_noise_estimate( Cf, wave);
+					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+				   }break;
+		case(NOISE_LAST):{
+					   Array< Array<complex<float>,3>,2> Cf;
+					   Cf.setStorage(ColumnMajorArray<2>());
+					   Cf.resize(1,1);
+					   Cf(0,0).reference(Coef(Coef.length(firstDim)-1,Coef.length(secondDim-1))); 
+					   
+					   robust_noise_estimate( Cf, wave);
+					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+				   }break;
+		case(NOISE_FRAME):{
+					  // compute noise for each frame/encode within the loop below
+				  }break;
+		default:{
+				cout << "Bad value for noise estimation type" << endl;
+				exit(1);
+			}
+	}
 	
 	// Threshold each level
 	
@@ -291,6 +369,16 @@ void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVEL
 	for(int e=0; e< Ne;e++){
 		for(int t=0; t< Nt;t++){
 			
+			if (noise_est_type == NOISE_FRAME) {
+				Array< Array<complex<float>,3>,2> Cf;
+				Cf.setStorage(ColumnMajorArray<2>());
+				Cf.resize(1,1);
+				Cf(0,0).reference( Coef(t,e)); 
+
+				robust_noise_estimate( Cf, wave);
+				if(VERBOSE) cout<<"Estimated noise (" << t << "," << e << "): " << noise << endl;
+			}
+
 			#pragma omp parallel for
 			for( int lz=0; lz < wave.L[2]+1; lz++){
 			for( int ly=0; ly < wave.L[1]+1; ly++){

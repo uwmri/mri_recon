@@ -25,7 +25,7 @@ class GATING {
         
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
-        enum WeightType { ITERATIVE,NON_ITERATIVE};
+        	enum WeightType { ITERATIVE,NON_ITERATIVE};
 		enum FrameType { COMPOSITE, TIME_FRAME};
 		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
