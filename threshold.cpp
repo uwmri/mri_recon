@@ -32,6 +32,7 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 	soft = true;
 	thapp = false;
 	thresh = 0.0;   // Default 
+	group_complex = false;
 	global_threshold =0.0;
 	waveL = 4; // Wavelet Levels need better code to handle
 	VERBOSE = false;
@@ -69,10 +70,18 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 			pos++;
 			if( pos==numarg){
 				cout << "Please provide threshold type..fraction/bayes/visu/sure" << endl;
+				trig_flag(TH_L1REG,"l1reg",threshold_type);
 				trig_flag(TH_FRACTION,"fraction",threshold_type);
 				trig_flag(TH_VISU,"visu",threshold_type);
 				trig_flag(TH_BAYES,"bayes",threshold_type);
 				trig_flag(TH_SURE,"sure",threshold_type);
+			}
+		}else if(strcmp("-th_group_complex",pstring[pos]) == 0) {
+			pos++;
+			if (pos == numarg) {
+				cout << "Please specify setting for grouped complex thresholding..on/off" << endl;
+				trig_flag(false,"off",group_complex);
+				trig_flag(true,"on",group_complex);
 			}
 		}else if(strcmp("-noise_est_type",pstring[pos]) == 0) {
 			pos++;
@@ -91,11 +100,12 @@ void THRESHOLD::help_message() {
 	cout << "----------------------------------------------" << endl;
 	cout << "   Thresholding Control " << endl;
 	cout << "----------------------------------------------" << endl;
-	help_flag("-threshold_type []","thresholding method fraction/visu/bayes/sure");
+	help_flag("-threshold_type []","thresholding method l1reg/fraction/visu/bayes/sure");
 	help_flag("-thresh []","fraction of coefficient to be removed for fractional method (default=0.0)");
 	help_flag("-noise_est_type []","method for noise estimation global(estimate using all frames)/frame(estimate for each frame)/last(estimate using last frame)/first(estimate using first frame) (default=frame)");
 	help_flag("-noise_scale []","scale factor for noise estimate(s) (e.g. for zero-padding correction)");
 	help_flag("-thmode []","soft/hard (default=soft)");
+	help_flag("-th_group_complex []", "on/off --> on performs group soft thresholding of complex data. When off (default) re/im data is treated individually");
 	help_flag("-thlow","thresholding of the lowest resolusion band");
 }
 
@@ -105,7 +115,11 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
 	switch(threshold_type){
 
 		case TH_FRACTION:
-		case TH_VISU: {
+		case TH_VISU:{
+				     thresholding(Coef,  global_threshold);
+		}break;
+		
+		case TH_L1REG:{
 				     thresholding(Coef,  global_threshold);
 		}break;
 		
@@ -129,6 +143,11 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
  void THRESHOLD::update_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVELET3D &wave, float scale){
 
 	switch(threshold_type){
+
+	
+		case TH_L1REG:{
+			global_threshold = scale;
+		}break;
 
 		case TH_FRACTION:{
 			global_threshold = get_threshold( Coef, thresh); 
@@ -180,6 +199,9 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 		min_wave_t[k] = 0.0;
 	}
 		
+	if(VERBOSE) {
+		cout << " ------- Computing min and max coefficients " << endl;
+	}
 	for(int e=0; e< Coef.length(secondDim);e++){
 		for(int t=0; t< Coef.length(firstDim);t++){
 			Array< complex<float>,3> XX;
@@ -189,9 +211,19 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 			for(int k=0; k< XX.extent(thirdDim); k++){
 			for(int j=0; j< XX.extent(secondDim); j++){
 			for(int i=0; i< XX.extent(firstDim); i++){    
-				float v=abs( XX(i,j,k));
-				max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
-				min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
+			
+				if (group_complex) {
+					float v=abs( XX(i,j,k));
+					max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
+					min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
+				}else {
+					float v=abs( real(XX(i,j,k)));
+					max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
+					min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
+					v=abs( imag(XX(i,j,k)));
+					max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
+					min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
+				}
 			}}}	// Spatial			
 	}}
 	
@@ -208,7 +240,7 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 	if(VERBOSE) cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
 
 	// Estimate histogram (sort)
-	int total_points = Coef.numElements()*Coef(0,0).numElements();
+	int total_points = Coef.numElements()*Coef(0,0).numElements() * (group_complex ? 1 : 2); // twice as many points without complex grouping
 	int points_found = total_points;
 	int target = (int)( fraction*(double)total_points);
 	int accuracy = (int)(0.001*(double)total_points);
@@ -249,10 +281,21 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 			for(int k=0; k< XX.extent(thirdDim); k++){
 			for(int j=0; j< XX.extent(secondDim); j++){
 			for(int i=0; i< XX.extent(firstDim); i++){
+				if (group_complex) {
 					float v=abs( XX(i,j,k));
 					if( v < value){
 						points_found++;
 					}
+				} else {
+					float v=abs(real(XX(i,j,k)));
+					if( v < value){
+						points_found++;
+					}
+					v = abs(imag(XX(i,j,k)));
+					if( v < value){
+						points_found++;
+					}
+				}
 					
 			}}}//Spatial
 		}}
@@ -326,30 +369,28 @@ void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVEL
 	subband_threshold.resize( wave.L[0]+1, wave.L[1]+1, wave.L[2]+1, Coef.length(firstDim), Coef.length(secondDim)); 
 	subband_threshold = 0.0;		
 	
+	int Ne = Coef.length(secondDim);
+	int Nt = Coef.length(firstDim);
+
 	// Get Noise
-	
+	Array< Array<complex<float>,3>,2> Cf = Alloc5DContainer< complex<float> >(Coef(0,0).length(firstDim),Coef(0,0).length(secondDim),Coef(0,0).length(thirdDim),1,1);
+
 	switch(noise_est_type){
 		case(NOISE_GLOBAL):{
 					   robust_noise_estimate( Coef, wave);
 					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
 				   }break;
 		case(NOISE_FIRST):{
-					   Array< Array<complex<float>,3>,2> Cf;
-					   Cf.setStorage(ColumnMajorArray<2>());
-					   Cf.resize(1,1);
-					   Cf(0,0).reference( Coef(0,0)); 
-					   
+					   Cf(0,0).resize(Coef(0,0).shape());
+					   Cf(0,0) = Coef(0,0); 
 					   robust_noise_estimate( Cf, wave);
 					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
 				   }break;
 		case(NOISE_LAST):{
-					   Array< Array<complex<float>,3>,2> Cf;
-					   Cf.setStorage(ColumnMajorArray<2>());
-					   Cf.resize(1,1);
-					   Cf(0,0).reference(Coef(Coef.length(firstDim)-1,Coef.length(secondDim-1))); 
-					   
-					   robust_noise_estimate( Cf, wave);
-					   if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
+					 Cf(0,0).resize(Coef(Nt-1,Ne-1).shape());
+					 Cf(0,0) = Coef(Nt-1,Ne-1); 
+					 robust_noise_estimate( Cf, wave);
+					 if(VERBOSE) cout<<"Estimated noise: "<<noise<<endl;
 				   }break;
 		case(NOISE_FRAME):{
 					  // compute noise for each frame/encode within the loop below
@@ -361,20 +402,15 @@ void THRESHOLD::get_bayesthreshold(Array<Array< complex<float>,3>,2>&Coef, WAVEL
 	}
 	
 	// Threshold each level
-	
-	int Ne = Coef.length(secondDim);
-	int Nt = Coef.length(firstDim);
 		
+
 	// Get Update
 	for(int e=0; e< Ne;e++){
 		for(int t=0; t< Nt;t++){
 			
 			if (noise_est_type == NOISE_FRAME) {
-				Array< Array<complex<float>,3>,2> Cf;
-				Cf.setStorage(ColumnMajorArray<2>());
-				Cf.resize(1,1);
-				Cf(0,0).reference( Coef(t,e)); 
-
+				Cf(0,0).resize(Coef(t,e).shape());
+				Cf(0,0) = Coef(t,e); 
 				robust_noise_estimate( Cf, wave);
 				if(VERBOSE) cout<<"Estimated noise (" << t << "," << e << "): " << noise << endl;
 			}
@@ -475,8 +511,8 @@ float THRESHOLD::get_bayesthreshold_subband( Array< complex<float>,3> &XX){
 	double N = (double)XX.numElements();
 	double sumXX = 0.0; 
 	double maxCoef = 0.0;
-	complex<double> meanXX;
-    	double meanR,meanI;
+	complex<double> meanXX = 0.0;
+    	double meanR,meanI = 0.0;
 	meanR = (double)(sum(real(XX)))/N;
 	meanI = (double)(sum(imag(XX)))/N;
 	meanXX = complex<double>(meanR,meanI);
@@ -486,12 +522,13 @@ float THRESHOLD::get_bayesthreshold_subband( Array< complex<float>,3> &XX){
 	for(int k=0; k< XX.extent(thirdDim); k++){
 		for(int j=0; j< XX.extent(secondDim); j++){
 			for(int i=0; i< XX.extent(firstDim); i++){    
-					double val = (double)abs(complex<double>(XX(i,j,k)) - meanXX);
-					maxCoef = max(val,maxCoef); 
-					sumXX += pow(val,2.0);
+					complex<double> val = complex<double>(XX(i,j,k));
+					maxCoef = max(abs(real(val)),maxCoef);
+					maxCoef = max(abs(imag(val)),maxCoef);
+					sumXX += norm( val - meanXX ); 
 	}}}
 		
-	float wave_dev = (float)( sumXX/N );
+	float wave_dev = (float)( sumXX/(2.0*N) );
 	
 	// if(VERBOSE) cout << "N  = " << N << endl;
 	// if(VERBOSE) cout << "Wave Deviation = " << wave_dev << endl;
@@ -535,7 +572,7 @@ float THRESHOLD::get_surethreshold_subband( Array< complex<float>,3>&Coef){
 
 	// Search for best 
 	float min_risk = 0.0;
-	float min_thresh;
+	float min_thresh = 0.0;
 	
 	int sureres=40;
 	
@@ -564,6 +601,9 @@ void THRESHOLD::robust_noise_estimate(Array<Array< complex<float>,3>,2>&Coef, WA
 	Range rx,ry,rz;
 	wave.get_subband_range(rx,ry,rz,0,0,0);
 	
+	int Ne = Coef.length(secondDim);
+	int Nt = Coef.length(firstDim);
+
 	// The (now commented) code block below may cause problems with multi-frame/encode data, especially when the number
 	// of frames (amount of sampled data) varies significantly between frames/encodes (i.e. some are noisier than others).
 /* *******************************************************************************************	
@@ -580,9 +620,16 @@ void THRESHOLD::robust_noise_estimate(Array<Array< complex<float>,3>,2>&Coef, WA
 **********************************************************************************************/
 
 	// Compute "global" noise from all provided frames and encodes (may be all or some subset)
-	Array< Array<complex<float>,3>,2> DH;
-	DH.reference( Coef(Range::all(),Range::all())(rx,ry,rz));
-	cout << "Size of array for noise estimation: " << DH.shape() << endl;
+	Array< complex<float>,3>HHHref = Coef(0,0)(rx,ry,rz);
+	Array< Array<complex<float>,3>,2> DH = Alloc5DContainer< complex<float> >(HHHref.length(firstDim),HHHref.length(secondDim),HHHref.length(thirdDim),Nt,Ne);
+	
+	for(int e=0; e< Ne;e++){
+		for(int t=0; t< Nt;t++){
+			DH(t,e) = Coef(t,e)(rx,ry,rz);
+		}
+	}
+
+	cout << "Size of array for noise estimation -- (nt,ne): " << DH.shape() << " --- (nx,ny,nz): " << DH(0,0).shape() << endl;
 		
 	// Noise Estimate = median/ 0.6745	 - noise scale is needed for zero filled data
 	noise = get_threshold(DH,0.5)/0.6745*noise_scale;
@@ -610,15 +657,30 @@ void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef, float value
 			for(int k=0; k< Nz; k++){
 				for(int j=0; j< Ny; j++){
 					for(int i=0; i< Nx; i++){
-	
-						if( abs( XX(i,j,k)) < value){
-							count++;
-							XX(i,j,k) = complex<float>(0.0,0.0);
-						}else if(soft==true){
-							float theta = arg(XX(i,j,k));
-							XX(i,j,k) = (abs(XX(i,j,k))-value)*complex<float>(cos(theta),sin(theta));
+
+						if (group_complex) {
+							float cc = abs(XX(i,j,k));
+							if( cc <= value ){
+								XX(i,j,k) = complex<float>(0.0,0.0);
+							}else{
+								count++;
+								XX(i,j,k) *= (1.0f - value/cc);
+							}
+						} else {
+							float newR = max(0.0f,real(XX(i,j,k)) - value) - max(0.0f, -real(XX(i,j,k)) - value);
+							float newI = max(0.0f,imag(XX(i,j,k)) - value) - max(0.0f, -imag(XX(i,j,k)) - value);
+							if(soft==true){
+								XX(i,j,k) = complex<float>(newR,newI);
+							}else{
+								newR = (newR == 0.0) ? 0.0 : real(XX(i,j,k));
+								newI = (newI == 0.0) ? 0.0 : imag(XX(i,j,k));
+								XX(i,j,k) = complex<float>(newR,newI);
+							}
+
+
 						}
-			}}}
+
+				}}}
 	}} 
 	// if(VERBOSE) cout << "Removed " << (float)((float)count/(float)Coef.numElements()) << " of the values" << endl;
 }
@@ -641,14 +703,30 @@ void THRESHOLD::thresholding( Array< complex<float>,3> &XX, float value){
 	for(int k=0; k< Nz; k++){
 		for(int j=0; j< Ny; j++){
 			for(int i=0; i< Nx; i++){
-	
-				if( abs( XX(i,j,k)) < value){
-					count++;
-					XX(i,j,k) = complex<float>(0.0,0.0);
-				}else if(soft==true){
-					float theta = arg(XX(i,j,k));
-					XX(i,j,k) = (abs(XX(i,j,k))-value)*complex<float>(cos(theta),sin(theta));
+				
+		
+				if (group_complex) {
+					float cc = abs(XX(i,j,k));
+					if( cc <= value ){
+						XX(i,j,k) = complex<float>(0.0,0.0);
+					}else{
+						count++;
+						XX(i,j,k) *= (1.0f - value/cc);
+					}
+				} else {
+					float newR = max(0.0f,real(XX(i,j,k)) - value) - max(0.0f, -real(XX(i,j,k)) - value);
+					float newI = max(0.0f,imag(XX(i,j,k)) - value) - max(0.0f, -imag(XX(i,j,k)) - value);
+					if(soft==true){
+						XX(i,j,k) = complex<float>(newR,newI);
+					}else{
+						newR = (newR == 0.0) ? 0.0 : real(XX(i,j,k));
+						newI = (newI == 0.0) ? 0.0 : imag(XX(i,j,k));
+						XX(i,j,k) = complex<float>(newR,newI);
+					}
 				}
+				 
+			
+		
 	}}}
 	//if(VERBOSE) cout << "Removed " << (float)((float)count/(float)XX.numElements()) << " of the values" << endl;
 }
@@ -683,7 +761,7 @@ void THRESHOLD::fista_update(  Array<Array< complex<float>,3>,2>&X,Array<Array< 
 	int Ne = X_old.length(secondDim);
 	int Nt = X_old.length(firstDim);
 	
-	//cout << "Matrix Size = " << Nx << " x " << Ny << " x " << Nz << " x " << Nt << " x " << Ne << endl;
+	cout << "fista_update: Matrix Size = " << Nx << " x " << Ny << " x " << Nz << " x " << Nt << " x " << Ne << endl;
 	
 	// Get Update
 	for(int e=0; e< Ne;e++){

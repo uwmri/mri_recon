@@ -309,7 +309,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	gridding.precalc_gridding(rczres,rcyres,rcxres,3);
 	
 	//
-	if(recalc_dcf){
+	if(recalc_dcf && (rcframes == 1)){
 		dcf_calc(data);
 	}
 	
@@ -346,6 +346,11 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	gate.init( data,rcframes);
 		
 	
+	if(recalc_dcf && (rcframes > 1)){
+		dcf_calc(data,gate);
+	}
+
+
 	// -------------------------------------
 	//	This handles special preperations
 	// -------------------------------------
@@ -434,12 +439,12 @@ void RECON::dcf_calc( MRI_DATA& data){
 	
 	for(int e=0; e< rcencodes; e++){
 		
-		
 		data.kx(e)*= dcf_scale;
 		data.ky(e)*= dcf_scale;
 		data.kz(e)*= dcf_scale;
 		
-		Kweight = 1;
+		Kweight = 1;					 
+
 		for(int iter=0; iter < dcf_iter; iter++){
 			cout << "Iteration = " << iter << endl;			 
 						
@@ -451,6 +456,67 @@ void RECON::dcf_calc( MRI_DATA& data){
 		}
 		data.kw(e) = Kweight;
 		
+		
+		data.kx(e)/= dcf_scale;
+		data.ky(e)/= dcf_scale;
+		data.kz(e)/= dcf_scale;
+		
+		
+	}
+	ArrayWrite(data.kw(0),"Kweight_DCF.dat");
+	
+}
+
+void RECON::dcf_calc( MRI_DATA& data, GATING& gate){
+	
+	// Setup Gridding + FFT Structure
+	gridFFT dcf_gridding;
+	dcf_gridding.kernel_type = KAISER_KERNEL;
+	dcf_gridding.dwinX = dcf_dwin;
+	dcf_gridding.dwinY = dcf_dwin;
+	dcf_gridding.dwinZ = dcf_dwin;
+	dcf_gridding.precalc_kernel(2*rczres,2*rcyres,2*rcxres,3);
+			
+	 // Weighting Array for Time coding
+	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Array< float, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	
+	// Array to grid to
+	Array< float, 3 >Xtemp(2*rcxres,2*rcyres,2*rczres,ColumnMajorArray<3>());
+
+	for(int e=0; e< rcencodes; e++){
+		data.kx(e)*= dcf_scale;
+		data.ky(e)*= dcf_scale;
+		data.kz(e)*= dcf_scale;
+
+		for(int t=0; t < rcframes; t++){
+
+			Kweight = 1;					 
+			gate.weight_data( Kweight, e, data.kx(e),data.ky(e),data.kz(e),t,GATING::ITERATIVE,GATING::TIME_FRAME);
+
+			for(int iter=0; iter < dcf_iter; iter++){
+				cout << "Frame " << t << ", Iteration = " << iter << endl;			 
+
+				Xtemp=0;
+				dcf_gridding.grid_forward(Xtemp,Kweight,data.kx(e),data.ky(e),data.kz(e));
+				dcf_gridding.grid_backward(Xtemp,Kweight2,data.kx(e),data.ky(e),data.kz(e));
+
+				Kweight = Kweight / Kweight2;
+			}
+
+
+			for(int s=0; s< Kweight.length(thirdDim); s++){
+				for(int v=0; v< Kweight.length(secondDim); v++){
+					for(int r=0; r< Kweight.length(firstDim); r++){
+						float wt = Kweight(r,v,s);			  	
+						if (wt != 0.0) {
+							data.kw(e)(s,v,r) = wt;
+						}
+					}
+				}
+			}
+
+		}
 		data.kx(e)/= dcf_scale;
 		data.ky(e)/= dcf_scale;
 		data.kz(e)/= dcf_scale;
@@ -955,8 +1021,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  // Temporal weighting
 								  TimeWeight = kwE;
 								  gate.weight_data( TimeWeight,e, kxE, kyE,kzE,act_t,GATING::ITERATIVE, frame_type);
-   							 	  TimeWeight /= sum(TimeWeight);
+								  TimeWeight /= sum(TimeWeight);
 								  
+
 								  if (data.Num_Coils > 1) {
 									  for(int coil=0; coil< data.Num_Coils; coil++){
 										  // Ex
@@ -1016,16 +1083,10 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  	l2reg.regularize(P,R(store_t,e));
 								  }
 								 
-								  /***
 								  P*=conj(R(store_t,e));
-								  
 								  for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
 								    	scale_RhP += complex< double>( real(*riter),imag(*riter)); 
 								  }
-								  ***/
-
-								  scale_RhP += conj_sum(P,R(store_t,e));
-
 								  cout << e << "," << t << "took " << T << "s" << endl;
 							  }//Time
 						  }//Encode
