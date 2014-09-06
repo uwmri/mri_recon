@@ -39,6 +39,7 @@ void RECON::set_defaults( void){
 	rcframes=1;
 	rcencodes=1;
 	
+	external_dcf = false;
 	recalc_dcf =false;
 	dcf_iter = 20;
 	dcf_dwin = 5.5;
@@ -142,6 +143,8 @@ void RECON::help_message(void){
 	help_flag("-dcf_iter","Iterations for DCF");
 	help_flag("-dcf_dwin []","Size of kernel (default 5.5 -radius)");
 	help_flag("-dcf_scale []","Scaling of matrix");
+	help_flag("-external_dcf","Load previously calculated density weights");
+	help_flag("-dcf_file []","Name of external file containing density compensation weights");
 	
 }
 
@@ -228,7 +231,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 				cout << "Please provide encode transform type..none/diff" << endl;
 				exit(1);
 			}
-				
+
 		// Coil Combination		
 		trig_flag(ESPIRIT,"-espirit",coil_combine_type);
 		trig_flag(WALSH,"-walsh",coil_combine_type);
@@ -255,6 +258,9 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		// Iterations for IST
 		int_flag("-max_iter",max_iter);
 		int_flag("-cycle_spins",cycle_spins);
+
+		trig_flag(true,"-external_dcf",external_dcf);
+		char_flag("-dcf_file",dcffilename);
 	}
   }
 } 
@@ -311,6 +317,11 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	//
 	if(recalc_dcf && (rcframes == 1)){
 		dcf_calc(data);
+	} else if (external_dcf) {
+		ArrayRead(data.kw(0),dcffilename);
+		for (int e = 1; e < rcencodes; e++) {
+			data.kw(e) = data.kw(0);
+		}
 	}
 	
 	// Calculate Sensitivity maps (using gridding struct)	
@@ -505,11 +516,12 @@ void RECON::dcf_calc( MRI_DATA& data, GATING& gate){
 			}
 
 
+			cout << "size of data.kw = " << data.kw(e).shape() << endl;
 			for(int s=0; s< Kweight.length(thirdDim); s++){
 				for(int v=0; v< Kweight.length(secondDim); v++){
 					for(int r=0; r< Kweight.length(firstDim); r++){
 						float wt = Kweight(r,v,s);			  	
-						if (wt != 0.0) {
+						if (abs(wt) > 0.0) {
 							data.kw(e)(s,v,r) = wt;
 						}
 					}

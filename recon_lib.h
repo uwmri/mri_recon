@@ -85,6 +85,8 @@ class RECON{
 	  GATING gate;
 	  	  
 	  // Density calcs
+	  bool external_dcf;
+	  char dcffilename[1024];
 	  bool recalc_dcf;
 	  int dcf_iter;
 	  float dcf_dwin;
