@@ -29,12 +29,15 @@ class GATING {
 		enum FrameType { COMPOSITE, TIME_FRAME};
 		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
+		enum RespGateSignal{BELLOWS,DC_DATA};
 		
 		GATING();						
 		GATING(int numarg,char **pstring);
 		void init( const MRI_DATA &data,int);
 		void init_resp_gating(const MRI_DATA &data,int);
 		void init_time_resolved(const MRI_DATA &data,int);
+		
+		void extract_dc_data(NDarray::Array<Complex3D,2> &, const MRI_DATA &);
 	
 		// Tornado Filter Parameters
         int wdth_low;	// k=0 width
@@ -53,12 +56,15 @@ class GATING {
 		
 		NDarray::Array< float, 3>gate_times;
 		NDarray::Array< float, 3>resp_weight;
+
+		NDarray::Array< Complex3D, 2>Kdc;
 		
 		// Control of Retrospective Respiratory Gating
 		RespGateType resp_gate_type;
 		int correct_resp_drift;
 		float resp_gate_efficiency;
-				
+		
+		RespGateSignal resp_gate_signal;
 		int external_weights;
 		char external_weights_filename[1024];
 

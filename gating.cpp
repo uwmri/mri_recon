@@ -45,6 +45,7 @@ GATING::GATING( int numarg, char **pstring) {
 		correct_resp_drift = 0;
 		resp_gate_efficiency = 0.5;
         	resp_gate_type = RESP_NONE;
+		resp_gate_signal = BELLOWS;
 		
 		external_weights = 0;
 		strcpy(external_weights_filename,"");
@@ -97,6 +98,18 @@ GATING::GATING( int numarg, char **pstring) {
 					cout << "Please provide respiratory gating type..thresh/weight (-h for usage)" << endl;
 					exit(1);
 				}			
+			}else if(strcmp("-resp_gate_signal",pstring[pos]) == 0) {
+				pos++;
+				if( pos==numarg){
+					cout << "Please provide a data source for estimation of respiratory phase..bellows/internal (-h for usage)" << endl;
+					exit(1);
+				trig_flag(BELLOWS,"bellows",resp_gate_signal);
+				trig_flag(DC_SIGNAL ,"internal",resp_gate_signal);
+								
+				}else{
+					cout << "Please provide a data source for estimation of respiratory phase..bellows/internal (-h for usage)" << endl;
+					exit(1);
+				}	
 			int_flag("-vs_wdth_low",wdth_low);
             		int_flag("-vs_wdth_high",wdth_high);
      			trig_flag(1,"-correct_resp_drift",correct_resp_drift);
@@ -141,6 +154,10 @@ void GATING::help_message() {
 		help_flag("-resp_gate []","In addition to other gating, perform respiratory gating");
 		help_flag("","  thresh = threshold values");
 		help_flag("","  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
+
+		help_flag("-resp_gate_signal","Specify source for the data used to estimate respiratory phase");
+		help_flag("","  bellows = signal from respiratory bellows belt in gating file (default)");
+		help_flag("","  internal = use dc/low spatial frequency information extracted from acquired data")  
 				
 		cout << "Filter parameters for tornado:" << endl;
         help_flag("-vs_wdth_low []","width in the center of k-space in frames");
@@ -250,6 +267,96 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	
 	cout << "Initializing Respiratory Gating with " << frames << " frames " << endl;
 	
+
+	if (resp_gate_type != RESP_NONE) {
+		
+		switch (resp_gate_signal) {
+			case(BELLOWS):{
+					      cout << "Respiratory gating using bellows belt waveform" << endl;
+				      }break;
+			case(DC_SIGNAL):{
+
+					cout << "Respiratory gating using internal DC waveform(s)" << endl;
+						extract_dc_data(Kdc,data);
+
+						char dc_Mfilename[1024];
+						char dc_Pfilename[1024];
+						for (int coil = 0; coil < data.Num_Coils; coil++) {
+							sprintf(dc_Mfilename,"dcMagnitude_C%02d.dat",coil);
+							sprintf(dc_Pfilename,"dcPhase_C%02d.dat",coil);
+							ArrayWriteMag(Kdc(Range::all(),coil),dc_Mfilename);
+							ArrayWritePhase(Kdc(Range::all(),coil),dc_Pfilename);
+						}
+
+						/*  The question is now how to process/convert this data for the gating algorithm below?
+						 *  For now, just use the vector magnitude over all coils of k = 0, then apply a moving
+						 *  average to upsample to full temporal resolution					*/
+
+						resp_weight.resize(data.resp.shape());
+
+						int Ngrids = Kdc.length(firstDim);
+						int views_per_grid = (int)((float)data.Num_Readouts/(float)Ngrids);
+						int view_start = 0;
+						int view_stop = views_per_grid-1;
+
+						int kzero_x = Kdc(0,0).length(firstDim)/2 + 1;
+						int kzero_y = Kdc(0,0).length(secondDim)/2 + 1;
+						int kzero_z = Kdc(0,0).length(thirdDim)/2 + 1;
+
+						Array<float,1>temp_weight(data.Num_Readouts, ColumnMajorArray<1>());
+						temp_weight = 0.0;
+
+
+						for (int grid = 0; grid < Ngrids; grid++){
+							float dc_resp = 0.0;
+							for (int coil = 0; coil < data.Num_Coils; coil++) {
+								dc_resp += norm(Kdc(grid,coil)(kzero_x,kzero_y,kzero_z));
+							}
+							dc_resp = sqrt(dc_resp);
+							temp_weight(Range(view_start+=views_per_grid, view_stop+=views_per_grid)) = dc_resp;
+						}
+						
+
+						/* Get the acquisition order indices */
+						arma::fvec time(data.time.numElements());
+						// Put into Matrix for Armadillo
+						int count = 0;
+						for(int e=0; e< data.time.length(thirdDim); e++){
+							for(int slice=0; slice< data.time.length(secondDim); slice++){
+								for(int view=0; view< data.time.length(firstDim); view++){
+									time(count) = data.time(view,slice,e);
+									count++;
+								}}}
+
+						// Sort
+						arma::uvec idx = arma::sort_index(time); 
+
+
+						/*  Now compute moving average, with a window 2x the views per grid, store the result in the original order */
+
+						for (int pos = 0; pos < data.Num_Readouts; pos++) {
+							if ((pos - views_per_grid) < 0){
+								float numel = pos+views_per_grid-1;
+								data.resp(idx(pos),Range::all()) = sum(temp_weight(Range(0,numel-1)))/numel;
+							
+							} else if ((pos + views_per_grid - 1) >= data.Num_Readouts) {
+								float numel = views_per_grid + (data.Num_Readouts - pos);
+								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(pos-views_per_grid,data.Num_Readouts-1)))/numel;
+							
+							} else {
+								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(pos-views_per_grid,pos+views_per_grid-1)))/(2.0*(float)views_per_grid);
+							}
+						}
+					  
+					}break;
+			default:{
+						cout << "Invalid option for respiratory gating waveform" << endl;
+				}break;
+		}
+
+	}
+
+
 	switch (resp_gate_type){
 
 		case(RESP_THRESH):{
@@ -257,7 +364,6 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 					  cout << "Copying Resp Waveform" << endl;
 					  resp_weight.resize( data.resp.shape());				  
 					  resp_weight = data.resp;
-
 
 					  cout << "Time Sorting Data" << endl;
 
@@ -324,26 +430,96 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 
 
 					  // Copy Back
-					  count = 0;
+					  
 					  for(int e=0; e< resp_weight.length(thirdDim); e++){
 						  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
 							  for(int view=0; view< resp_weight.length(firstDim); view++){
 								  resp_weight(view,slice,e)=arma_resp_weight(count);
 								  count++;
 							  }}}
+
+
 				  }break;
 		case(RESP_WEIGHT):{
+
 
 					  if (external_weights == 1) {
 						  cout << "Reading fuzzy retrospective weights from file" << endl;
  						  resp_weight.resize( data.resp.shape());
 					  
 						  ArrayRead(resp_weight,external_weights_filename);
+					  
 					  }else{
 
-						  cout << "Fuzzy weighting for retrospective respiratory gating only implemented for externally provided weights.  Reconstructing without respiratory gating." << endl;
-						  resp_gate_type = RESP_NONE;
-						  return;
+						  cout << "Copying Resp Waveform" << endl;
+						  resp_weight.resize( data.resp.shape());				  
+						  resp_weight = data.resp;
+
+						  cout << "Time Sorting Data" << endl;
+
+						  // Use Aradillo Sort function
+						  arma::fvec time(resp_weight.numElements());
+						  arma::fvec resp(resp_weight.numElements());
+						  arma::fvec arma_resp_weight(resp_weight.numElements());
+
+						  arma::fvec time_linear_resp(resp_weight.numElements());
+						  arma::fvec time_sort_resp_weight(resp_weight.numElements());
+
+						  // Put into Matrix for Armadillo
+						  int count = 0;
+						  for(int e=0; e< resp_weight.length(thirdDim); e++){
+							  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+								  for(int view=0; view< resp_weight.length(firstDim); view++){
+									  time(count) = data.time(view,slice,e);
+									  resp(count) = data.resp(view,slice,e);
+									  count++;
+								  }}}
+						  time.save("Time.txt",arma::raw_ascii);
+						  resp.save("Resp.txt",arma::raw_ascii);
+
+						  // Sort
+						  arma::uvec idx = arma::sort_index(time); 
+
+						  // Copy Resp
+						  idx.save("Sorted.dat", arma::raw_ascii);
+						  for(int i=0; i< (int)resp_weight.numElements(); i++){
+							  time_linear_resp( i )= resp( idx(i));
+						  }
+						  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
+
+
+						  // Size of histogram
+						  cout << "Time range = " << ( max(data.time)-min(data.time) ) << endl;
+						  int fsize = (int)( 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
+
+
+						  // Now Filter
+						  cout << "Estimating median within " << resp_gate_efficiency*100 << "% efficiency window of first 10sec of data" << fsize << endl;
+							
+						  	  arma::fvec temp = time_linear_resp.rows( 100,100+2*fsize);
+							  arma::fvec temp2= sort(temp);
+							  float med_resp = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency/2.0 )));
+
+							  float sigma = temp2(temp2.n_elem-1) - temp2((int)((float)temp2.n_elem*(1.0 - resp_gate_efficiency )));
+
+
+							  //arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
+							 
+							  arma_resp_weight(idx(i))= ( 1.0 / (abs(med_resp - time_linear_resp(i)) + sigma));
+							  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
+						  }
+						  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
+						  arma_resp_weight.save("Weight.txt",arma::raw_ascii);
+
+
+						  // Copy Back
+						  count = 0;
+						  for(int e=0; e< resp_weight.length(thirdDim); e++){
+							  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+								  for(int view=0; view< resp_weight.length(firstDim); view++){
+									  resp_weight(view,slice,e)=arma_resp_weight(count);
+									  count++;
+								  }}}
 					  }
 					
 				  }break;
@@ -498,6 +674,78 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	}break;	
   }//Switch
 
+}
+
+
+void GATING::extract_dc_data(Array<Complex3D &K_dc_data, MRI_DATA &data){
+
+	Range all = Range::all();
+
+	/* Grid the low frequency kspace samples to a grid for easier analysis and handling  */
+	int views_per_grid = 16;
+	int Ngrids = (int)((float)data.Num_Readouts/(float)views_per_grid);
+
+	// Setup Gridding + FFT Structure
+	gridFFT dc_gridding;
+	dc_gridding.kernel_type = KAISER_KERNEL;
+	dc_gridding.dwinX = 2.5;
+	dc_gridding.dwinY = 2.5;
+	dc_gridding.dwinZ = 2.5;
+	dc_gridding.precalc_kernel(8,8,8,3);
+	dc_gridding.k_rad = 4;
+	dc_gridding.overgrid = 2;
+
+	// Weighting Array for Time coding
+	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Kweight = 0.0;
+
+
+	// Initialize the array we are going to grid to
+	Array< Complex3D, 2 >Temp = Alloc5DContainer(4,4,4,Ngrids,data.Num_Coils);
+	K_dc_data.reference(Temp);
+
+
+	cout << "Time Sorting" << endl;
+
+	// Use Aradillo Sort function
+	arma::fvec time(resp_weight.numElements());
+
+	// Put into Matrix for Armadillo
+	int count = 0;
+	for(int e=0; e< resp_weight.length(thirdDim); e++){
+		for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+			for(int view=0; view< resp_weight.length(firstDim); view++){
+				time(count) = data.time(view,slice,e);
+				count++;
+			}}}
+					
+	time.save("Time.txt",arma::raw_ascii);
+
+	// Sort indices (acquisition order))
+	arma::uvec idx = arma::sort_index(time); 				  
+	idx.save("Sorted.dat", arma::raw_ascii);
+	
+	/* Note that the exported low frequency kspace grids are stored in time sorted order */
+	for (int d = 0; d < Ngrids; d++) {
+		
+		int view_offset = d*views_per_grid;
+		Kweight = 0.0;
+
+		for (int v = 0; v < views_per_grid; v++) {
+
+			Kweight(all,idx(view_offset + v),all) = data.kw(0)(all,idx(view_offset + v),all);
+
+			for (int c = 0; c < data.Num_Coils; c++) {
+
+				Complex3D kdataC = data.kdata(0,c);
+				Complex3D Kref = K_dc_data(d,c);
+
+				dcf_gridding.grid_forward(Kref,kdataC,data.kx(e),data.ky(e),data.kz(e),Kweight(e));
+				ifft(Kref);
+			}
+		}
+		cout << "DC grid " << d+1 << "/" << Ngrids << " complete" << endl;
+	}
 }
 
 
