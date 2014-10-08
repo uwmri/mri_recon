@@ -104,7 +104,7 @@ GATING::GATING( int numarg, char **pstring) {
 					cout << "Please provide a data source for estimation of respiratory phase..bellows/internal (-h for usage)" << endl;
 					exit(1);
 				trig_flag(BELLOWS,"bellows",resp_gate_signal);
-				trig_flag(DC_SIGNAL ,"internal",resp_gate_signal);
+				trig_flag(DC_DATA ,"internal",resp_gate_signal);
 								
 				}else{
 					cout << "Please provide a data source for estimation of respiratory phase..bellows/internal (-h for usage)" << endl;
@@ -157,7 +157,7 @@ void GATING::help_message() {
 
 		help_flag("-resp_gate_signal","Specify source for the data used to estimate respiratory phase");
 		help_flag("","  bellows = signal from respiratory bellows belt in gating file (default)");
-		help_flag("","  internal = use dc/low spatial frequency information extracted from acquired data")  
+		help_flag("","  internal = use dc/low spatial frequency information extracted from acquired data");
 				
 		cout << "Filter parameters for tornado:" << endl;
         help_flag("-vs_wdth_low []","width in the center of k-space in frames");
@@ -272,51 +272,61 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 		
 		switch (resp_gate_signal) {
 			case(BELLOWS):{
-					      cout << "Respiratory gating using bellows belt waveform" << endl;
+				     cout << "Respiratory gating using bellows belt waveform" << endl;
+						resp_weight.resize(data.resp.shape());
 				      }break;
-			case(DC_SIGNAL):{
+			case(DC_DATA):{
 
 					cout << "Respiratory gating using internal DC waveform(s)" << endl;
-						extract_dc_data(Kdc,data);
+						resp_weight.resize(data.resp.shape());
 
-						char dc_Mfilename[1024];
-						char dc_Pfilename[1024];
+						int views_per_grid = 16;
+						int Ngrids = (int)floor((float)data.Num_Readouts / (float)views_per_grid);
+						Array< Array<complex<float>, 3>, 2 >Kdc = Alloc5DContainer< complex<float> >(4,4,4,Ngrids,data.Num_Coils);
+						
+						extract_dc_data(Kdc,data);
 						for (int coil = 0; coil < data.Num_Coils; coil++) {
-							sprintf(dc_Mfilename,"dcMagnitude_C%02d.dat",coil);
-							sprintf(dc_Pfilename,"dcPhase_C%02d.dat",coil);
-							ArrayWriteMag(Kdc(Range::all(),coil),dc_Mfilename);
-							ArrayWritePhase(Kdc(Range::all(),coil),dc_Pfilename);
+	
+						//	for( Array<Array<complex<float>,3>,1>::iterator miter=TempK.begin(); miter!=TempK.end(); miter++){
+						
+							for (int g = 0; g < Ngrids; g++) {
+								Array<complex<float>, 3> Kgrid = Kdc(g,coil);
+								ArrayWriteMagAppend(Kgrid,"dcMagnitude.dat");
+								ArrayWritePhaseAppend(Kgrid,"dcPhase.dat");
+							}
 						}
 
 						/*  The question is now how to process/convert this data for the gating algorithm below?
 						 *  For now, just use the vector magnitude over all coils of k = 0, then apply a moving
 						 *  average to upsample to full temporal resolution					*/
 
-						resp_weight.resize(data.resp.shape());
 
-						int Ngrids = Kdc.length(firstDim);
-						int views_per_grid = (int)((float)data.Num_Readouts/(float)Ngrids);
 						int view_start = 0;
 						int view_stop = views_per_grid-1;
+
+						cout << "views_per_grid = " << views_per_grid << endl;
 
 						int kzero_x = Kdc(0,0).length(firstDim)/2 + 1;
 						int kzero_y = Kdc(0,0).length(secondDim)/2 + 1;
 						int kzero_z = Kdc(0,0).length(thirdDim)/2 + 1;
 
+						cout << kzero_x << "  " << kzero_y << "   " << kzero_z << endl;
 						Array<float,1>temp_weight(data.Num_Readouts, ColumnMajorArray<1>());
 						temp_weight = 0.0;
 
+						cout << "Compress low frq grids to metric (frob norm for now)" << endl;
 
+						#pragma omp parallel for
 						for (int grid = 0; grid < Ngrids; grid++){
 							float dc_resp = 0.0;
 							for (int coil = 0; coil < data.Num_Coils; coil++) {
 								dc_resp += norm(Kdc(grid,coil)(kzero_x,kzero_y,kzero_z));
 							}
 							dc_resp = sqrt(dc_resp);
-							temp_weight(Range(view_start+=views_per_grid, view_stop+=views_per_grid)) = dc_resp;
+							temp_weight(Range(grid*views_per_grid,(grid+1)*views_per_grid-1)) = dc_resp;
 						}
-						
 
+						cout << "Marker" << endl;
 						/* Get the acquisition order indices */
 						arma::fvec time(data.time.numElements());
 						// Put into Matrix for Armadillo
@@ -331,23 +341,24 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 						// Sort
 						arma::uvec idx = arma::sort_index(time); 
 
+						cout << "Moving average upsampling" << endl;
 
 						/*  Now compute moving average, with a window 2x the views per grid, store the result in the original order */
 
 						for (int pos = 0; pos < data.Num_Readouts; pos++) {
 							if ((pos - views_per_grid) < 0){
-								float numel = pos+views_per_grid-1;
-								data.resp(idx(pos),Range::all()) = sum(temp_weight(Range(0,numel-1)))/numel;
+								int numel = pos+views_per_grid;
+								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(0,numel-1)))/(float)numel;
 							
 							} else if ((pos + views_per_grid - 1) >= data.Num_Readouts) {
-								float numel = views_per_grid + (data.Num_Readouts - pos);
-								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(pos-views_per_grid,data.Num_Readouts-1)))/numel;
+								int numel = views_per_grid + (data.Num_Readouts - pos);
+								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(pos-views_per_grid,data.Num_Readouts-1)))/(float)numel;
 							
 							} else {
 								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(pos-views_per_grid,pos+views_per_grid-1)))/(2.0*(float)views_per_grid);
 							}
 						}
-					  
+					  	cout << "DC signal processing complete" << endl;
 					}break;
 			default:{
 						cout << "Invalid option for respiratory gating waveform" << endl;
@@ -445,17 +456,14 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 
 					  if (external_weights == 1) {
 						  cout << "Reading fuzzy retrospective weights from file" << endl;
- 						  resp_weight.resize( data.resp.shape());
 					  
 						  ArrayRead(resp_weight,external_weights_filename);
 					  
 					  }else{
 
 						  cout << "Copying Resp Waveform" << endl;
-						  resp_weight.resize( data.resp.shape());				  
 						  resp_weight = data.resp;
 
-						  cout << "Time Sorting Data" << endl;
 
 						  // Use Aradillo Sort function
 						  arma::fvec time(resp_weight.numElements());
@@ -505,6 +513,7 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 
 							  //arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
 							 
+					  	for(int i=0; i< (int)time_linear_resp.n_elem; i++){
 							  arma_resp_weight(idx(i))= ( 1.0 / (abs(med_resp - time_linear_resp(i)) + sigma));
 							  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
 						  }
@@ -677,13 +686,13 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 }
 
 
-void GATING::extract_dc_data(Array<Complex3D &K_dc_data, MRI_DATA &data){
+void GATING::extract_dc_data(Array<Array<complex<float>, 3>,2> &K_dc_data, const MRI_DATA &data){
 
 	Range all = Range::all();
 
 	/* Grid the low frequency kspace samples to a grid for easier analysis and handling  */
+	int Ngrids = K_dc_data.length(firstDim);
 	int views_per_grid = 16;
-	int Ngrids = (int)((float)data.Num_Readouts/(float)views_per_grid);
 
 	// Setup Gridding + FFT Structure
 	gridFFT dc_gridding;
@@ -691,21 +700,18 @@ void GATING::extract_dc_data(Array<Complex3D &K_dc_data, MRI_DATA &data){
 	dc_gridding.dwinX = 2.5;
 	dc_gridding.dwinY = 2.5;
 	dc_gridding.dwinZ = 2.5;
-	dc_gridding.precalc_kernel(8,8,8,3);
-	dc_gridding.k_rad = 4;
 	dc_gridding.overgrid = 2;
+	dc_gridding.precalc_gridding(4,4,4,3);
 
 	// Weighting Array for Time coding
-	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Array< float, 3 >Kweight(data.Num_Pts,views_per_grid,1,ColumnMajorArray<3>());
 	Kweight = 0.0;
+	Array< float, 3 > KX(Kweight.shape(),ColumnMajorArray<3>());
+	Array< float, 3 > KY(Kweight.shape(),ColumnMajorArray<3>());
+	Array< float, 3 > KZ(Kweight.shape(),ColumnMajorArray<3>());
+	
+	Array<Array<complex<float>, 3>, 1> kdataC = Alloc4DContainer< complex<float> >(data.Num_Pts,views_per_grid,data.kdata.length(thirdDim),data.Num_Coils);
 
-
-	// Initialize the array we are going to grid to
-	Array< Complex3D, 2 >Temp = Alloc5DContainer(4,4,4,Ngrids,data.Num_Coils);
-	K_dc_data.reference(Temp);
-
-
-	cout << "Time Sorting" << endl;
 
 	// Use Aradillo Sort function
 	arma::fvec time(resp_weight.numElements());
@@ -725,6 +731,7 @@ void GATING::extract_dc_data(Array<Complex3D &K_dc_data, MRI_DATA &data){
 	arma::uvec idx = arma::sort_index(time); 				  
 	idx.save("Sorted.dat", arma::raw_ascii);
 	
+	cout << "DC gridding... ";
 	/* Note that the exported low frequency kspace grids are stored in time sorted order */
 	for (int d = 0; d < Ngrids; d++) {
 		
@@ -732,20 +739,25 @@ void GATING::extract_dc_data(Array<Complex3D &K_dc_data, MRI_DATA &data){
 		Kweight = 0.0;
 
 		for (int v = 0; v < views_per_grid; v++) {
-
-			Kweight(all,idx(view_offset + v),all) = data.kw(0)(all,idx(view_offset + v),all);
-
+			Kweight(all,v,all) = data.kw(0)(all,idx(view_offset + v),all);
+			KX(all,v,all) = data.kx(0)(all,idx(view_offset + v),all);
+			KY(all,v,all) = data.ky(0)(all,idx(view_offset + v),all);
+			KZ(all,v,all) = data.kz(0)(all,idx(view_offset + v),all);
 			for (int c = 0; c < data.Num_Coils; c++) {
-
-				Complex3D kdataC = data.kdata(0,c);
-				Complex3D Kref = K_dc_data(d,c);
-
-				dcf_gridding.grid_forward(Kref,kdataC,data.kx(e),data.ky(e),data.kz(e),Kweight(e));
-				ifft(Kref);
+				kdataC(c)(all,v,all) = data.kdata(0,c)(all,idx(view_offset + v),all);
 			}
 		}
-		cout << "DC grid " << d+1 << "/" << Ngrids << " complete" << endl;
+	
+		for (int c = 0; c < data.Num_Coils; c++) {
+
+			Array<complex<float>, 3> Kref = K_dc_data(d,c);
+			Array<complex<float>, 3> Kdat = kdataC(c);
+
+			dc_gridding.forward(Kref,Kdat,KX,KY,KZ,Kweight);
+			ifft(Kref);
+		}
 	}
+	cout << "Complete" << endl;
 }
 
 
@@ -754,23 +766,19 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 	switch(resp_gate_type){
 		
 		case(RESP_WEIGHT):{
-			cout << "Resp weighting (fuzzy weights)" << endl << flush;	
 			for(int k=0; k<Tw.length(thirdDim); k++){
 			for(int j=0; j<Tw.length(secondDim); j++){
 			for(int i=0; i<Tw.length(firstDim); i++){
 				Tw(i,j,k) *= resp_weight(j,k,e);
 			}}}
-			cout << "Resp weighting done" << endl << flush;	
 		}break;
 		
 		case(RESP_THRESH):{
-			cout << "Resp weighting (threshold)" << endl << flush;	
 			for(int k=0; k<Tw.length(thirdDim); k++){
 			for(int j=0; j<Tw.length(secondDim); j++){
 			for(int i=0; i<Tw.length(firstDim); i++){
 				Tw(i,j,k) *= resp_weight(j,k,e);
 			}}}
-			cout << "Resp weighting done" << endl << flush;	
 		}break;
 		
 		default:{

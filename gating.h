@@ -10,6 +10,7 @@
 #include <omp.h>
 #include <armadillo>
 #include "ArrayTemplates.hpp"
+#include "gridFFT.h"
 #include "mri_data.h"
 #include "tictoc.hpp"
 
@@ -37,7 +38,7 @@ class GATING {
 		void init_resp_gating(const MRI_DATA &data,int);
 		void init_time_resolved(const MRI_DATA &data,int);
 		
-		void extract_dc_data(NDarray::Array<Complex3D,2> &, const MRI_DATA &);
+		void extract_dc_data(NDarray::Array<NDarray::Array<complex<float>, 3>,2> &, const MRI_DATA &);
 	
 		// Tornado Filter Parameters
         int wdth_low;	// k=0 width
@@ -57,7 +58,7 @@ class GATING {
 		NDarray::Array< float, 3>gate_times;
 		NDarray::Array< float, 3>resp_weight;
 
-		NDarray::Array< Complex3D, 2>Kdc;
+		NDarray::Array< NDarray::Array<complex<float>, 3>, 2>Kdc;
 		
 		// Control of Retrospective Respiratory Gating
 		RespGateType resp_gate_type;

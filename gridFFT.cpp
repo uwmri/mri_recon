@@ -826,11 +826,11 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		tempD = 0;
 	}
 					
-	#pragma omp parallel for 
+	#pragma omp parallel for
 	for (int i=0; i < Npts; i++) {
       	
 		complex<float>temp =data[i];
-				
+		
 		// Density Comp
 		temp *= kw[i];
 		
@@ -874,8 +874,10 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 			kr = kx[i]*kx[i] + ky[i]*ky[i];
 		}
 		temp *= exp( -kr / (2.0*k_rad*k_rad) );
+	
 
-		/*This is the main loop - most time is spent here*/
+
+		// This is the main loop - most time is spent here
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
@@ -930,12 +932,14 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 						#pragma omp atomic
 						*I+=ID;
 					}																	
-					/*This Memory Access is the Bottleneck - Also not thread safe!*/	 			 
+					//This Memory Access is the Bottleneck - Also not thread safe!	 			 
 			 		// k3d_grid.vals[lz][ly][lx]+=temp2;
-			}/* end lz loop */
-	  	  }/* end ly */
-		 }/* end lx */
-	}/* end data loop */
+			}//lz
+	  	  }//ly
+		 }//lz
+
+	
+	}// end data loop 
 	
 	// Copy back if using double
 	if(double_grid){
@@ -1062,7 +1066,10 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 	for (int i=0; i < Npts; i++) {
       	
 		float temp =data[i];
-					
+		
+		if (temp == 0.0) { continue; };
+		
+
 	    	// Calculate the exact kspace sample point in 
 	    	// dimension flag->grid* kspace that this point (i,j)
 	    	// is contributing too.
@@ -1187,8 +1194,9 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 		if(ez >= Sz) continue;  
 		
 		complex<float>temp(0,0);
-					
-		/*This is the main loop - most time is spent here*/
+			  
+
+		// This is the main loop - most time is spent here
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
@@ -1216,13 +1224,16 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 						wtx *=( (float)(2*(lx%2) -1 ));
 					}
 														
-					/*This Memory Access is the Bottleneck*/	 			 
+					// This Memory Access is the Bottleneck	 
 			 		temp += wtx*k3d_grid(lx,ly,lz);
 			  	 
-	    	}/* end lz loop */
-	  	  }/* end ly */
-		 }/* end lx */
-		 data[i] += temp;
+	    	}//lx
+	   }//ly
+	}//lz
+		 
+		
+			
+	data[i] += temp;
 	
 	}/* end data loop */
 	return;
