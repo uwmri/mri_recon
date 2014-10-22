@@ -32,7 +32,7 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 	soft = true;
 	thapp = false;
 	thresh = 0.0;   // Default 
-	group_complex = false;
+	group_complex = true;
 	global_threshold =0.0;
 	waveL = 4; // Wavelet Levels need better code to handle
 	VERBOSE = false;
@@ -76,10 +76,10 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 				trig_flag(TH_BAYES,"bayes",threshold_type);
 				trig_flag(TH_SURE,"sure",threshold_type);
 			}
-		}else if(strcmp("-th_group_complex",pstring[pos]) == 0) {
+		}else if(strcmp("-th_group_complex []",pstring[pos]) == 0) {
 			pos++;
 			if (pos == numarg) {
-				cout << "Please specify setting for grouped complex thresholding..on/off" << endl;
+				cout << "Please specify setting for grouped complex thresholding..on/off (default is on)" << endl;
 				trig_flag(false,"off",group_complex);
 				trig_flag(true,"on",group_complex);
 			}

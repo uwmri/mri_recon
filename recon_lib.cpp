@@ -529,7 +529,13 @@ void RECON::dcf_calc( MRI_DATA& data, GATING& gate){
 	dcf_gridding.dwinX = dcf_dwin;
 	dcf_gridding.dwinY = dcf_dwin;
 	dcf_gridding.dwinZ = dcf_dwin;
-	dcf_gridding.precalc_kernel(2*rczres,2*rcyres,2*rcxres,3);
+	dcf_gridding.grid_x = 3.2;
+	dcf_gridding.grid_y = 3.2;
+	dcf_gridding.grid_z = 3.2;
+	dcf_gridding.grid_in_x = 1;
+	dcf_gridding.grid_in_y = 1;
+	dcf_gridding.grid_in_z = 1;
+	dcf_gridding.precalc_kernel(); 
 			
 	 // Weighting Array for Time coding
 	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());

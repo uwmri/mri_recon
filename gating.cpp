@@ -726,7 +726,7 @@ void GATING::extract_dc_data(Array<Array<complex<float>, 3>,2> &K_dc_data, const
 	dc_gridding.dwinY = 2.5;
 	dc_gridding.dwinZ = 2.5;
 	dc_gridding.overgrid = 2;
-	dc_gridding.precalc_gridding(4,4,4,3);
+	dc_gridding.precalc_gridding(4,4,4,data.trajectory_dims,data.trajectory_type);
 
 	// Weighting Array for Time coding
 	Array< float, 3 >Kweight(data.Num_Pts,views_per_grid,1,ColumnMajorArray<3>());
