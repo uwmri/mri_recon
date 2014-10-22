@@ -57,11 +57,20 @@ void RECON::set_defaults( void){
 	
 	cycle_spins = 4;
 
-	walsh_block_size = 8;
+	walsh_block_sizeX = 8;
+	walsh_block_sizeY = 8;
+	walsh_block_sizeZ = 8;
+	
+	// Gaussian Blur of smaps
+	extra_blurX = 0.0;
+	extra_blurY = 0.0;
+	extra_blurZ = 0.0;
 	
 	prep_done = false;
 	
-
+	wavelet_levelsX=4; 
+	wavelet_levelsY=4; 
+	wavelet_levelsZ=4; 
 }
 
 // ----------------------
@@ -78,13 +87,6 @@ RECON::RECON(int numarg, char **pstring){
 	for(int pos=0;pos< numarg;pos++){
 		if( (strcmp(pstring[pos],"-h")==0) || (strcmp(pstring[pos],"-help")==0) || (strcmp(pstring[pos],"--help")==0)){
 			help_message();	
-			gridFFT::help_message();
-			SPIRIT::help_message();	
-			THRESHOLD::help_message();
-			PHANTOM::help_message();
-			GATING::help_message();
-			L2REG::help_message();
-			LOWRANKCOIL::help_message();
 			exit(0);
 		}
 	}
@@ -143,8 +145,18 @@ void RECON::help_message(void){
 	help_flag("-dcf_iter","Iterations for DCF");
 	help_flag("-dcf_dwin []","Size of kernel (default 5.5 -radius)");
 	help_flag("-dcf_scale []","Scaling of matrix");
-	help_flag("-external_dcf","Load previously calculated density weights");
-	help_flag("-dcf_file []","Name of external file containing density compensation weights");
+	help_flag("-external_dcf","Use (precomputed) DCF from external file");
+	help_flag("-dcf_file []","Filename for external DCF usage");
+	
+	gridFFT::help_message();
+	SPIRIT::help_message();	
+	THRESHOLD::help_message();
+	PHANTOM::help_message();
+	GATING::help_message();
+	L2REG::help_message();
+	LOWRANKCOIL::help_message();
+	
+	
 	
 }
 
@@ -231,7 +243,10 @@ void RECON::parse_commandline(int numarg, char **pstring){
 				cout << "Please provide encode transform type..none/diff" << endl;
 				exit(1);
 			}
-
+		int_flag("-wavelet_levelsX",wavelet_levelsX);
+		int_flag("-wavelet_levelsY",wavelet_levelsY);
+		int_flag("-wavelet_levelsZ",wavelet_levelsZ);
+						
 		// Coil Combination		
 		trig_flag(ESPIRIT,"-espirit",coil_combine_type);
 		trig_flag(WALSH,"-walsh",coil_combine_type);
@@ -240,8 +255,13 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(1,"-export_smaps",export_smaps);
 		trig_flag(true,"-intensity_correction",intensity_correction);
 		trig_flag(true,"-iterative_smaps",iterative_smaps);
-		int_flag("-walsh_block_size",walsh_block_size);
-		
+		int_flag("-walsh_block_sizeX",walsh_block_sizeX);
+		int_flag("-walsh_block_sizeY",walsh_block_sizeY);
+		int_flag("-walsh_block_sizeZ",walsh_block_sizeZ);
+		float_flag("-extra_blurX",extra_blurX);
+		float_flag("-extra_blurY",extra_blurY);
+		float_flag("-extra_blurZ",extra_blurZ);
+						
 		// Source of data
 		trig_flag(EXTERNAL,"-external_data",data_type);
 		trig_flag(PFILE,"-pfile",data_type);
@@ -312,7 +332,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 
 	// Setup Gridding + FFT Structure
 	gridding.read_commandline(argc,argv);
-	gridding.precalc_gridding(rczres,rcyres,rcxres,3);
+	gridding.precalc_gridding(rczres,rcyres,rcxres,data.trajectory_dims,data.trajectory_type);
 	
 	//
 	if(recalc_dcf && (rcframes == 1)){
@@ -383,7 +403,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		case(CLEAR):{
 			
 			// Setup 3D Wavelet
-			wave = WAVELET3D( TinyVector<int,3>(rcxres,rcyres,rczres),TinyVector<int,3>(4,4,4),WAVELET3D::WAVE_DB6);
+			wave = WAVELET3D( TinyVector<int,3>(rcxres,rcyres,rczres),TinyVector<int,3>(wavelet_levelsX,wavelet_levelsY,wavelet_levelsZ),WAVELET3D::WAVE_DB4);
 
 			// Temporal differences or FFT
 			tdiff=TDIFF( rcframes,rcencodes );
@@ -439,14 +459,38 @@ void RECON::dcf_calc( MRI_DATA& data){
 	dcf_gridding.dwinX = dcf_dwin;
 	dcf_gridding.dwinY = dcf_dwin;
 	dcf_gridding.dwinZ = dcf_dwin;
-	dcf_gridding.precalc_kernel(2*rczres,2*rcyres,2*rcxres,3);
+	dcf_gridding.grid_x = 3.2;
+	dcf_gridding.grid_y = 3.2;
+	dcf_gridding.grid_z = 3.2;
+	dcf_gridding.grid_in_x = 1;
+	dcf_gridding.grid_in_y = 1;
+	dcf_gridding.grid_in_z = 1;
+	dcf_gridding.precalc_kernel(); // data.trajectory_dims,data.trajectory_type);
+	/*dcf_gridding.grid_x = 1;
+	dcf_gridding.grid_y = 1;
+	dcf_gridding.grid_z = 1;
+		*/
 			
+	/* Take square root of kernel*/
+	for( int pos=0; pos< dcf_gridding.grid_filterX.length(firstDim); pos++){
+		dcf_gridding.grid_filterX(pos) = sqrt( abs(dcf_gridding.grid_filterX(pos)))*( (dcf_gridding.grid_filterX(pos) > 0.0) ?( 1.0 ) : ( -1.0 )); 
+	}
+	
+	for( int pos=0; pos< dcf_gridding.grid_filterY.length(firstDim); pos++){
+		dcf_gridding.grid_filterY(pos) = sqrt( abs(dcf_gridding.grid_filterY(pos)))*( (dcf_gridding.grid_filterY(pos) > 0.0) ?( 1.0 ) : ( -1.0 )); 
+	}
+	
+	for( int pos=0; pos< dcf_gridding.grid_filterZ.length(firstDim); pos++){
+		dcf_gridding.grid_filterZ(pos) = sqrt( abs(dcf_gridding.grid_filterZ(pos)))*( (dcf_gridding.grid_filterZ(pos) > 0.0) ?( 1.0 ) : ( -1.0 )); 
+	}
+				
 	 // Weighting Array for Time coding
 	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
 	Array< float, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
 	
 	// Array to grid to
-	Array< float, 3 >Xtemp(2*rcxres,2*rcyres,2*rczres,ColumnMajorArray<3>());
+	Array< float, 3 >Xtemp(4*rcxres,4*rcyres,4*rczres,ColumnMajorArray<3>());
+	cout << "Size Xtemp = " << Xtemp.length(firstDim) << " x " << Xtemp.length(secondDim) << " x " << Xtemp.length(thirdDim) << endl;
 	
 	for(int e=0; e< rcencodes; e++){
 		
@@ -454,16 +498,15 @@ void RECON::dcf_calc( MRI_DATA& data){
 		data.ky(e)*= dcf_scale;
 		data.kz(e)*= dcf_scale;
 		
-		Kweight = 1;					 
-
+		Kweight = 1;
 		for(int iter=0; iter < dcf_iter; iter++){
-			cout << "Iteration = " << iter << endl;			 
+			cout << "Iteration = " << iter << flush;			 
 						
 			Xtemp=0;
 			dcf_gridding.grid_forward(Xtemp,Kweight,data.kx(e),data.ky(e),data.kz(e));
 			dcf_gridding.grid_backward(Xtemp,Kweight2,data.kx(e),data.ky(e),data.kz(e));
-						
-			Kweight = Kweight / Kweight2;
+			Kweight = Kweight / ( Kweight2);
+			cout << " Sum = " << sum(Kweight) << endl;
 		}
 		data.kw(e) = Kweight;
 		
@@ -1096,6 +1139,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  }
 								 
 								  P*=conj(R(store_t,e));
+								  
 								  for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
 								    	scale_RhP += complex< double>( real(*riter),imag(*riter)); 
 								  }
@@ -1348,6 +1392,9 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 						
 						// Simple gridding
 						gridding.forward( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+						
+						gaussian_blur(smaps(coil),extra_blurX,extra_blurY,extra_blurZ); // TEMP						
+																								
 					}else{
 						// Regularized 
 						single_coil_cg( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
@@ -1394,6 +1441,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 							smaps(coil)(i,j,k) *= sos;
 						}
 					}}}
+					
 				}break;
 			} // Normalization
 	
@@ -1584,7 +1632,110 @@ void  RECON::intensity_correct( Array< float, 3> & IC, Array< Array< complex<flo
 	return;
 }
 	
+void RECON::gaussian_blur( Array< complex<float> , 3> & In, float sigmaX, float sigmaY, float sigmaZ){
 	
+	// Extent of kernel
+	int dwinX = 3*(int)sigmaX;
+	int dwinY = 3*(int)sigmaY;
+	int dwinZ = 3*(int)sigmaZ;
+	
+	if( sigmaX > 0){
+		// Kernel to reduce calls to exp
+		Array< float,1> kern(2*dwinX+1);	
+		for(int t=0; t< (2*dwinX +1); t++){
+			kern(t) = exp( -sqr( (float)t - dwinX ) / (2.0*sqr(sigmaX))); 
+		}				
+			
+		// Gaussian Blur in X
+		cout << "Blur in X" << endl;
+		#pragma omp parallel for
+		for(int k=0; k < rczres; k++){
+		for(int j=0; j < rcyres; j++){
+		
+		Array< complex<float>, 1>TEMP( rcxres);
+		for(int i=0; i < rcxres; i++){
+			TEMP(i) = In(i,j,k);
+			In(i,j,k) = complex<float>(0.0,0.0);
+		}
+		
+		for(int i=0; i < rcxres; i++){
+			int sx = max( i - dwinX, 0);	
+			int ex = min( i + dwinX, rcxres);
+			int ks = sx - (i-dwinX); 
+						
+			for(int ii=sx; ii<ex; ii++){
+				In(i,j,k) += kern(ks)*TEMP(ii);
+				ks++;
+			}
+		}}}
+	}
+	
+	if( sigmaY > 0){
+		// Kernel to reduce calls to exp
+		Array< float,1> kern(2*dwinY+1);	
+		for(int t=0; t< (2*dwinY +1); t++){
+			kern(t) = exp( -sqr( (float)t - dwinY ) / (2.0*sqr(sigmaY))); 
+		}				
+			
+		// Gaussian Blur in Y
+		cout << "Blur in Y" << endl;
+		#pragma omp parallel for
+		for(int k=0; k < rczres; k++){
+		for(int i=0; i < rcxres; i++){
+				
+		Array< complex<float>, 1>TEMP( rcyres);
+		for(int j=0; j < rcyres; j++){
+			TEMP(j) = In(i,j,k);
+			In(i,j,k) = complex<float>(0.0,0.0);
+		}
+		
+		for(int j=0; j < rcyres; j++){
+			int sy = max( j - dwinY, 0);	
+			int ey = min( j + dwinY, rcyres);
+			int ks = sy - (j-dwinY);
+				
+			for(int ii=sy; ii<ey; ii++){
+				In(i,j,k) += kern(ks)*TEMP(ii);
+				ks++;
+			}
+		}
+		
+		}}
+	}	
+	
+	if( sigmaZ > 0){
+		// Kernel to reduce calls to exp
+		Array< float,1> kern(2*dwinZ+1);	
+		for(int t=0; t< (2*dwinZ +1); t++){
+			kern(t) = exp( -sqr( (float)t - dwinZ ) / (2.0*sqr(sigmaZ))); 
+		}				
+			
+		// Gaussian Blur in Y
+		cout << "Blur in Z" << endl;
+		#pragma omp parallel for
+		for(int j=0; j < rcyres; j++){
+		for(int i=0; i < rcxres; i++){
+				
+		Array< complex<float>, 1>TEMP( rczres);
+		for(int k=0; k < rczres; k++){
+			TEMP(k) = In(i,j,k);
+			In(i,j,k) = complex<float>(0.0,0.0);
+		}
+		
+		for(int k=0; k < rczres; k++){
+			int sz =  max( k - dwinZ, 0);	
+			int ez =  min( k + dwinZ, rczres);
+			int ks = sz - (k-dwinZ);
+			
+			for(int ii=sz; ii<ez; ii++){
+				In(i,j,k) += kern(ks)*TEMP(ii);
+				ks++;
+			}
+		}
+		
+		}}
+	}
+}	
 
 
 
@@ -1721,9 +1872,9 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
 	int Ny =image(0).extent(secondDim);
 	int Nz =image(0).extent(thirdDim);
 	
-	int block_size_x = walsh_block_size;
-	int block_size_y = walsh_block_size;
-	int block_size_z = walsh_block_size;
+	int block_size_x = walsh_block_sizeX;
+	int block_size_y = walsh_block_sizeY;
+	int block_size_z = walsh_block_sizeZ;
 		
 	// Blocks shouldn't be larger than the dimension
 	block_size_x = ( block_size_x > Nx) ? ( Nx ) : ( block_size_x );

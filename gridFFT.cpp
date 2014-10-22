@@ -35,9 +35,9 @@ gridFFT::~gridFFT(){
 // Constructor - Sets Default Vals
 //----------------------------------------
 gridFFT::gridFFT(){
-	grid_x=1.375;
-  	grid_y=1.375;
-  	grid_z=1.375;
+	grid_x= -1;
+  	grid_y= -1;
+  	grid_z= -1;
 	overgrid = 1.375;
 	kernel_type = KAISER_KERNEL;
   	betaX=12;
@@ -175,6 +175,10 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		float_flag("-dwinX",dwinX);
 		float_flag("-dwinY",dwinY);
 		float_flag("-dwinZ",dwinZ);
+		float_flag("-grid_x",grid_x);
+		float_flag("-grid_y",grid_y);
+		float_flag("-grid_z",grid_z);
+		
 		
 		int_flag("-grid_in_x",grid_in_x);
 		int_flag("-grid_in_y",grid_in_y);
@@ -182,6 +186,7 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		int_flag("-fft_in_x",fft_in_x);
 		int_flag("-fft_in_y",fft_in_y);
 		int_flag("-fft_in_z",fft_in_z);
+						
 				
 		trig_flag(KAISER_KERNEL,"-kaiser",kernel_type);
 		trig_flag(TRIANGLE_KERNEL,"-triangle",kernel_type);
@@ -204,41 +209,14 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 //    Setup for Gridding 
 //----------------------------------------
 
-void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
-  
-    // Copy to Class
-   Nx = NxT;
-   Ny = NyT;
-   Nz = NzT;
+void gridFFT::precalc_kernel(void){
+   
   
   // How many pts in kernel per delta k for kernel lookup table
   grid_modX = 600;
   grid_modY = 600;
   grid_modZ = 600;
  
-  // Get rounded Gridding ratio*
-  if(grid_in_x ==1){
-  	grid_x =  16.0*ceil( ( overgrid * (float)Nx )/16.0	) / (float)Nx;
-  }else{
-  	grid_x = 1;
-  }
-  
-  if(grid_in_y ==1){
-  	grid_y =  16.0*ceil( ( overgrid * (float)Ny )/16.0	) / (float)Ny;
-  }else{
-  	grid_y = 1;
-  }
-  
-  if(grid_in_z ==1){
-  	grid_z =  16.0*ceil( ( overgrid * (float)Nz )/16.0	) / (float)Nz;
-  }else{
-  	grid_z = 1;
-  }
-  
-  // Compute Grid Size 
-  Sz = (int)(grid_z *Nz);
-  Sy = (int)(grid_y *Ny);
-  Sx = (int)(grid_x *Nx);
   
   // ------------------------------------------------
   //    Kernel Calculations
@@ -260,7 +238,7 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 		grid_filterX.resize( grid_lengthX+10);
 		grid_filterY.resize( grid_lengthY+10);
 		grid_filterZ.resize( grid_lengthZ+10);
-    		grid_filterX = 0.0;
+    	grid_filterX = 0.0;
 		grid_filterY = 0.0;
 		grid_filterZ = 0.0;
 		
@@ -298,7 +276,7 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 		grid_filterX.resize( grid_lengthX+10);
 		grid_filterY.resize( grid_lengthY+10);
 		grid_filterZ.resize( grid_lengthZ+10);
-    		grid_filterX = 0.0;
+    	grid_filterX = 0.0;
 		grid_filterY = 0.0;
 		grid_filterZ = 0.0;
 
@@ -338,9 +316,9 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 	case(SINC_KERNEL):{
 		
 		// Kernel Half Size 
-		dwinX   = (dwinX == -1 ) ? ( 15.0) : ( dwinX );
-		dwinY   = (dwinY == -1 ) ? ( 15.0) : ( dwinY );
-		dwinZ   = (dwinZ == -1 ) ? ( 15.0) : ( dwinZ );
+		dwinX   = (dwinX == -1 ) ? ( 2.5) : ( dwinX );
+		dwinY   = (dwinY == -1 ) ? ( 2.5) : ( dwinY );
+		dwinZ   = (dwinZ == -1 ) ? ( 2.5) : ( dwinZ );
 	
 		// Grid Length for precomputed kernel
 		int grid_lengthX = (int)( (float)dwinX*(float)grid_modX);
@@ -351,36 +329,39 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
 		grid_filterX.resize( grid_lengthX+10);
 		grid_filterY.resize( grid_lengthY+10);
 		grid_filterZ.resize( grid_lengthZ+10);
-    		grid_filterX = 0.0;
+    	grid_filterX = 0.0;
 		grid_filterY = 0.0;
 		grid_filterZ = 0.0;
 				
 		// Compute Seperable Kernels
 		for(int i=0; i<(grid_lengthX+1); i++){
-			double grid_pos=  ( (double)i )/( (double)grid_lengthX);
+			float grid_pos=  ( (float)i * (float)dwinX / (float)1.0)/( (float)grid_lengthX);
 			if(grid_pos < 0.01){
 				grid_filterX(i) = 1.0;
 			}else{
 				grid_filterX(i)=(float)( sin(grid_pos*PI)/(grid_pos*PI));
 			}
+			grid_filterX(i) *=  ( 0.54  + 0.46*cos( PI*(float)i / ( (float)grid_lengthZ))); 
 		}
 		
 		for(int i=0; i<(grid_lengthY+1); i++){
-			double grid_pos=  ( (double)i )/( (double)grid_lengthY);
+			float grid_pos=  ( (float)i * (float)dwinY/(float)1.0)/( (float)grid_lengthY);
 			if(grid_pos < 0.01){
 				grid_filterY(i) = 1.0;
 			}else{
 				grid_filterY(i)=(float)( sin(grid_pos*PI)/(grid_pos*PI));
 			}
+			grid_filterY(i) *=   ( 0.54  + 0.46*cos( PI*(float)i / ( (float)grid_lengthY)));
 		}
 	
 		for(int i=0; i<(grid_lengthZ+1); i++){
-			double grid_pos=  ( (double)i )/( (double)grid_lengthZ);
+			float grid_pos=  ( (float)i * (float)dwinZ / (float)1.0)/( (float)grid_lengthZ);
 			if(grid_pos < 0.01){
 				grid_filterZ(i) = 1.0;
 			}else{
 				grid_filterZ(i)=(float)( sin(grid_pos*PI)/(grid_pos*PI));
 			}
+			grid_filterZ(i) *= ( 0.54  + 0.46*cos( PI*(float)i / ( (float)grid_lengthZ))); 
 		}
 		
 	}break;
@@ -388,20 +369,66 @@ void gridFFT::precalc_kernel(int NzT,int NyT,int NxT, int directions){
   }
   
   // Normalize
-  grid_filterX *= grid_modX /  sum(grid_filterX);
-  grid_filterY *= grid_modY /  sum(grid_filterY);
-  grid_filterZ *= grid_modZ /  sum(grid_filterZ);
+  grid_filterX *= 0.5*grid_modX /  sum(grid_filterX);
+  grid_filterY *= 0.5*grid_modY /  sum(grid_filterY);
+  grid_filterZ *= 0.5*grid_modZ /  sum(grid_filterZ);
+
 }
- 
-void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
+
+
+void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims, TrajType trajectory_type ){
   
-    
-  precalc_kernel(NzT,NyT,NxT,directions);
+  Nx = NxT;
+  Ny = NyT;
+  Nz = NzT;
+  
+  
+  // ---------------------------------------------
+  // Determine what needs to be grid
+  // ---------------------------------------------
+  
+  if( (trajectory_dims==TWOD) || (trajectory_type!= THREEDNONCARTESIAN) ){
+  	grid_in_z = 0;	
+  }
+  
+  if(trajectory_type==CARTESIAN){
+  	grid_in_y = 0;
+  }
+  
+   // Get rounded Gridding ratio*
+  if(grid_in_x ==1){
+  	if(grid_x==-1){
+		grid_x =  16.0*ceil( ( overgrid * (float)Nx )/16.0	) / (float)Nx;
+  	}
+  }else{
+  	grid_x = 1;
+  }
+  
+  if(grid_in_y ==1){
+  	if(grid_y==-1){
+		grid_y =  16.0*ceil( ( overgrid * (float)Ny )/16.0	) / (float)Ny;
+	}
+  }else{
+  	grid_y = 1;
+  }
+  
+  if(grid_in_z ==1){
+  	if(grid_z==-1){
+		grid_z =  16.0*ceil( ( overgrid * (float)Nz )/16.0	) / (float)Nz;
+	}
+  }else{
+  	grid_z = 1;
+  }
+   // Compute Grid Size 
+  Sz = (int)(grid_z *Nz);
+  Sy = (int)(grid_y *Ny);
+  Sx = (int)(grid_x *Nx);  
+      
+  precalc_kernel();
   
   // ------------------------------------------------
   //    Image Domain Calcs (crop + deapp)
   // ------------------------------------------------
-  
   
   // Calculations to Determine Crop Positions
   og_sx =  (int)( (float)Nx*(grid_x - 1)/ 2.0);
@@ -410,6 +437,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, int directions){
   og_ex =  og_sx + Nx;
   og_ey =  og_sy + Ny;
   og_ez =  og_sz + Nz;
+  
   
   printf("\n\nGridding Kernel Info\n");
   printf("Dwin 		%f %f %f\n",dwinX,dwinY,dwinZ); 
@@ -870,7 +898,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		if(ez >= Sz) continue;  
 		
 		float kr = kx[i]*kx[i] + ky[i]*ky[i] + kz[i]*kz[i];
-		if(~fft_in_z){
+		if(!fft_in_z){
 			kr = kx[i]*kx[i] + ky[i]*ky[i];
 		}
 		temp *= exp( -kr / (2.0*k_rad*k_rad) );
@@ -965,6 +993,10 @@ void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, con
 	float cx = imX.length(firstDim)/2;
 	float cy = imX.length(secondDim)/2;
 	float cz = imX.length(thirdDim)/2;
+	
+	int SizeX = imX.length(firstDim);
+	int SizeY = imX.length(secondDim);
+	int SizeZ = imX.length(thirdDim);
 		
 	if( !dataA.isStorageContiguous()){
 		cout << "Non-contiguous storage doesn't work yet" << endl;
@@ -991,14 +1023,14 @@ void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, con
 		int sx = (int)ceil( dkx - dwinX);
 		if(sx <0)   continue;
 		int ex = (int)floor(dkx + dwinX);
-		if(ex >= Sx) continue;  
+		if(ex >= SizeX) continue;  
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
 		int sy = (int)ceil( dky - dwinY);
 		if(sy <0)   continue;
 		int ey = (int)floor(dky + dwinY);
-		if(ey >= Sy) continue;  
+		if(ey >= SizeY) continue;  
 	    
 		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
@@ -1011,8 +1043,7 @@ void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, con
 			ez = sz;
 		}
 		if(sz <0)   continue;
-		if(ez >= Sz) continue;  
-		
+		if(ez >= SizeZ) continue;  
 		
 		/*This is the main loop - most time is spent here*/
 		for(int lz =sz; lz<=ez; lz++){
@@ -1051,6 +1082,10 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 	float cy = imX.length(secondDim)/2;
 	float cz = imX.length(thirdDim)/2;
 	
+	int SizeX = imX.length(firstDim);
+	int SizeY = imX.length(secondDim);
+	int SizeZ = imX.length(thirdDim);
+		
 	if( !dataA.isStorageContiguous()){
 		cout << "Non-contiguous storage doesn't work yet" << endl;
 		exit(1);
@@ -1058,9 +1093,18 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 	
 	int Npts = dataA.numElements();
 	const float *data = dataA.data();
-	const float *kx = kxA.data();
-	const float *ky = kyA.data();
-	const float *kz = kzA.data();
+	const float *kx   = kxA.data();
+	const float *ky   = kyA.data();
+	const float *kz   = kzA.data();
+	
+	/*
+	cout << "Grid Size = " << SizeX << " x " << SizeY  << " x " << SizeZ << endl;
+	cout << "Center X = " << cx << " x " << cy  << " x " << cz << endl;
+	cout << "Dwin = " << dwinX << " x " << dwinY  << " x " << dwinZ << endl;
+	cout << "Grid Length = " << grid_filterX.length(firstDim) << " x " << grid_filterY.length(firstDim)  << " x " << grid_filterZ.length(firstDim) << endl;
+	cout << "Grid Mod  = " << grid_modX << " x " << grid_modY  << " x " << grid_modZ << endl;
+	cout << "Grid In   = " << grid_in_x << " x " << grid_in_y  << " x " << grid_in_z << endl;
+	*/
 	
 	#pragma omp parallel for 
 	for (int i=0; i < Npts; i++) {
@@ -1079,14 +1123,14 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 		int sx = (int)ceil( dkx - dwinX);
 		if(sx <0)   continue;
 		int ex = (int)floor(dkx + dwinX);
-		if(ex >= Sx) continue;  
+		if(ex >= SizeX) continue;  
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
 		int sy = (int)ceil( dky - dwinY);
 		if(sy <0)   continue;
 		int ey = (int)floor(dky + dwinY);
-		if(ey >= Sy) continue;  
+		if(ey >= SizeY) continue;  
 	    
 		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
@@ -1099,7 +1143,7 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 			ez = sz;
 		}
 		if(sz <0)   continue;
-		if(ez >= Sz) continue;  
+		if(ez >= SizeZ) continue;  
 		
 		
 		/*This is the main loop - most time is spent here*/
@@ -1121,6 +1165,7 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 			 		
 					float *image_temp = &imX(lx,ly,lz);					
 					float temp2 = wtx*temp;
+					
 					#pragma omp atomic 
 					*image_temp+= temp2;
 					

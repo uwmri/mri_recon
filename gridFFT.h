@@ -11,6 +11,7 @@
 #include "ArrayTemplates.hpp"
 #include <fftw3.h>
 #include <sys/unistd.h>
+#include "mri_data.h"
 
 // Kernel Types
 enum {TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL};
@@ -93,8 +94,8 @@ class gridFFT{
 		
 		void alloc_grid();
 		void read_commandline(int numarg, char **pstring);
-		void precalc_gridding(int Nz,int Ny,int Nx,int directions);
-		void precalc_kernel(int Nz,int Ny,int Nx,int directions);
+		void precalc_gridding(int Nz,int Ny,int Nx,TrajDim trajectory_dims,TrajType trajectory_type);
+		void precalc_kernel(void);
 		void deapp_chop();
 		void do_fft( void);
 		void do_ifft( void );

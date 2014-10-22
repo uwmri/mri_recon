@@ -15,7 +15,7 @@
 
 // Data Types
 enum TrajDim { THREED, TWOD };
-enum TrajType { CARTESIAN, NONCARTESIAN};
+enum TrajType { CARTESIAN, NONCARTESIAN, THREEDNONCARTESIAN};
 
 class MRI_DATA{
 	public:

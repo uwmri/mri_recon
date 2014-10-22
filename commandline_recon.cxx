@@ -64,7 +64,7 @@ int main(int argc, char **argv){
 			phantom_gridding.dwinX = 6;
 			phantom_gridding.dwinY = 6;
 			phantom_gridding.dwinZ = 6;
-			phantom_gridding.precalc_gridding(phantom.IMAGE.length(firstDim),phantom.IMAGE.length(secondDim),phantom.IMAGE.length(thirdDim),3);
+			phantom_gridding.precalc_gridding(phantom.IMAGE.length(firstDim),phantom.IMAGE.length(secondDim),phantom.IMAGE.length(thirdDim),data.trajectory_dims,data.trajectory_type);
 			
 			
 			GATING gate(argc,argv);
