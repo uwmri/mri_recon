@@ -94,7 +94,7 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
 
 		case TH_FRACTION:
 		case TH_VISU: {
-				     thresholding(Coef,  global_threshold);
+				      thresholding(Coef,  global_threshold);
 		}break;
 		
 		case TH_BAYES:

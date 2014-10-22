@@ -10,7 +10,7 @@ Initial Author:
 Changelog: 
         Stan Kruger (sjkruger@wisc.edu) 130107
         tornado filter should now be more robust.  Bins should be much closer to the same number of projections, and can now overlap as desired depending on < "frames," "vs_a," and "vs_b" >
-		
+		init
 		2013-03-08  KMJ: Major changes. Renamed many variables to practical names. Fixed tornado filer for non equidistant spacing. Added 
 		respiratory gating. Better commenting,etc.
 	
@@ -367,6 +367,9 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	float min_time =min(gate_times);
 	
 	if(gate_type==RETRO_ECG){
+		gate_times -= min_time;
+		min_time = 0;
+				
 		// Use Median to set value
 		arma::fvec temp(gate_times.numElements());
 		int count=0;
@@ -378,7 +381,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	}
 		
 	// Rescale to Frames
-	scale_time= (frames)/(max_time-min_time)*(1+1e-6); // Extra factor is to map last point to < frames
+	scale_time= (frames)/(max_time-min_time)*(1+1e-9); // Extra factor is to map last point to < frames
 	offset_time = min_time;
 	
 	// Temporal resolution
@@ -393,6 +396,28 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	
 	cout << "Time Range :: " << min_time << " to " << max_time << endl;
 	
+	/* Histogram*/
+	{
+		arma::vec temp(frames);
+		temp.fill(0);
+		for( Array<float,3>::iterator miter=gate_times.begin(); miter!=gate_times.end(); miter++){
+		
+			int pos = (int)floor( *miter);
+			if( (pos < frames) && (pos >= 0) ){
+		 		temp(pos)++;
+			}
+		}
+		
+		// Export
+		cout << "Values per frames" << endl;
+		for(int i=0; i < frames; i++){
+			cout << " Frame " << i << " ,count = " << temp(i) << endl;
+		}
+		
+	}
+	
+	
+	cout << "Setting up view share" << endl;
 	switch(vs_type){
 
 	case(TORNADO ):{
@@ -455,7 +480,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		}}}
 	}break;	
   }//Switch
-
+  
 }
 
 

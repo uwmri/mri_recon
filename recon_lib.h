@@ -98,8 +98,18 @@ class RECON{
 	  char filename[1024];
 	  int cycle_spins;
 	  bool iterative_smaps;
-	  int walsh_block_size;
+	  int walsh_block_sizeX;
+	  int walsh_block_sizeY;
+	  int walsh_block_sizeZ;
+	  float extra_blurX;
+	  float extra_blurY;
+	  float extra_blurZ;
 	  
+	  int wavelet_levelsX; 
+	  int wavelet_levelsY; 
+	  int wavelet_levelsZ; 
+	  	  
+		  
 	  int max_iter;
 	  int export_smaps;
 	  bool prep_done;
@@ -119,6 +129,7 @@ class RECON{
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_composite( MRI_DATA& data);
 	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);
 	  void dcf_calc( MRI_DATA& data);
+	  void gaussian_blur(  NDarray::Array< complex<float>, 3> & In, float,float,float);
 	  void normalized_gaussian_blur( const  NDarray::Array< float, 3> & In,  NDarray::Array< float, 3> & out, float sigma);
 	  void intensity_correct( NDarray::Array<float,3> &IC, NDarray::Array< NDarray::Array< complex<float>,3>,1 >&smaps );
 	  

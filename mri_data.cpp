@@ -583,7 +583,7 @@ void MRI_DATA::coilcompress(float thresh)
 
   int Num_Pixels = Num_Encodings*kdata(0,0).numElements();
       
-  arma::cx_mat all_data;
+  arma::cx_fmat all_data;
   all_data.zeros(Num_Pixels,Num_Coils);
   cout << "Num_pixels = " << Num_Pixels << endl;
   
@@ -602,15 +602,15 @@ void MRI_DATA::coilcompress(float thresh)
   }
   
   cout << "SVD " << endl << flush;
-  arma::vec s;
-  arma::cx_mat U;
-  arma::cx_mat V;
+  arma::fvec s;
+  arma::cx_fmat U;
+  arma::cx_fmat V;
   arma::svd_econ(U,s,V,all_data); 
   s = s/s(0);
   
   s.print("S");
   
-  arma::cx_mat VV = V.cols(0,(int)thresh-1);
+  arma::cx_fmat VV = V.cols(0,(int)thresh-1);
   VV.print("V");    
   cout << "Rotate " << endl << flush;  
   all_data = all_data*VV;
@@ -660,7 +660,7 @@ void MRI_DATA::whiten(void){
 	cout << "Noise Pre-Whitening" << endl << flush;
   	
 	// Copy into matrix
-	arma::cx_mat NoiseData = arma::randu<arma::cx_mat>(noise_samples.length(secondDim),noise_samples.length(firstDim));
+	arma::cx_fmat NoiseData = arma::randu<arma::cx_fmat>(noise_samples.length(secondDim),noise_samples.length(firstDim));
   	for(int coil=0; coil < Num_Coils; coil++){
 	for(int i=0; i< noise_samples.length(firstDim); i++){
 		NoiseData(coil,i) = noise_samples(i,coil);
@@ -668,30 +668,30 @@ void MRI_DATA::whiten(void){
 	
 	
 	cout << "Calc Cov" << endl << flush;
-	arma::cx_mat CV =  NoiseData*NoiseData.t();
+	arma::cx_fmat CV =  NoiseData*NoiseData.t();
 	CV.save("CovMatrix.dat",arma::raw_binary);
 		
 	cout << "Whiten" << endl;
-	arma::cx_mat V = chol(CV);
-	arma::cx_mat VT = V.t(); 
-	arma::cx_mat Decorr = VT.i();
+	arma::cx_fmat V = chol(CV);
+	arma::cx_fmat VT = V.t(); 
+	arma::cx_fmat Decorr = VT.i();
 			
 	// Test Whitening
-	arma::cx_mat W = NoiseData;
-	arma::cx_mat temp = arma::randu<arma::cx_mat>(Num_Coils);
+	arma::cx_fmat W = NoiseData;
+	arma::cx_fmat temp = arma::randu<arma::cx_fmat>(Num_Coils);
 	for(int i =0; i< noise_samples.length(firstDim); i++){
 		
 		for(int coil=0; coil < Num_Coils; coil++){
 			temp(coil,0)=W(coil,i);
 		}
-		arma::cx_mat temp2 = Decorr*temp;
+		arma::cx_fmat temp2 = Decorr*temp;
 		
 		for(int coil=0; coil < Num_Coils; coil++){
 			W(coil,i)=temp2(coil,0);
 		}
 	}
 			
-	arma::cx_mat CV_POST = W*W.t();
+	arma::cx_fmat CV_POST = W*W.t();
 	CV_POST.save("CovMatrixPost.dat", arma::raw_binary);
 	
 	
@@ -702,7 +702,7 @@ void MRI_DATA::whiten(void){
   		#pragma omp parallel for
   		for(int j =0; j< Num_Readouts; j++){
   	
-			arma::cx_mat AA;
+			arma::cx_fmat AA;
   			AA.zeros( Num_Coils,Num_Pts); // Working memory
     	
 			// Copy into memory
@@ -713,7 +713,7 @@ void MRI_DATA::whiten(void){
 			}
 	
 			// Transform to matrix
-			arma::cx_mat temp2 = Decorr*AA; 
+			arma::cx_fmat temp2 = Decorr*AA; 
 		
 			// Copy Back
 			for(int coil = 0; coil < Num_Coils; coil++) {
