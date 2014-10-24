@@ -53,7 +53,7 @@ gridFFT::gridFFT(){
   	fft_in_z=1;
   	grid_in_x=1;
   	grid_in_y=1;
-  	grid_in_z=1;
+  	grid_in_z=-1;
 	k_rad=9999.0;
 	time_grid =0 ;
 	double_grid =0;
@@ -388,7 +388,12 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   // ---------------------------------------------
   
   if( (trajectory_dims==TWOD) || (trajectory_type!= THREEDNONCARTESIAN) ){
-  	grid_in_z = 0;	
+  	if(grid_in_z ==-1){
+		grid_in_z = 0;	
+	}
+  }
+  if(grid_in_z == -1){
+  	grid_in_z =1;
   }
   
   if(trajectory_type==CARTESIAN){
@@ -443,10 +448,11 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   printf("Dwin 		%f %f %f\n",dwinX,dwinY,dwinZ); 
   printf("Mod 		%f %f %f\n",grid_modX,grid_modY,grid_modZ); 
   printf("Og %d-%d x %d-%d x %d-%d\n",og_sx,og_ex,og_sy,og_ey,og_sz,og_ez);  
+  printf("Grid in x=%d, y=%d, z=%d\n",grid_in_x,grid_in_y,grid_in_z);
   
   // Deapp Windows
   winx.resize(Sx);
-  if(fft_in_x){
+  if( (fft_in_x==1) && (grid_in_x==1) ){
   winx = 0.0;
   for( int i = 0; i < Sx;i++){
   	float ipos = i - (float)Sx/2.0;
@@ -472,7 +478,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   }
   
   winy.resize(Sy);
-  if(fft_in_y){
+  if( (fft_in_y==1) && (grid_in_y==1) ){
   
   winy = 0.0;
   for( int i = 0; i < Sy;i++){
@@ -497,7 +503,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   }
    
   winz.resize(Sz);
-  if(fft_in_z ){
+  if( (fft_in_z==1) && (grid_in_z==1) ){
   	winz = 0.0;
   	for( int i = 0; i < Sz;i++){
   		float ipos = i - (float)Sz/2.0;
@@ -853,8 +859,11 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		tempD.resize(Sx,Sy,Sz);
 		tempD = 0;
 	}
+	
+	// Remove zeros 
+	
 					
-	#pragma omp parallel for 
+	#pragma omp parallel for schedule(dynamic,1024)
 	for (int i=0; i < Npts; i++) {
       	
 		complex<float>temp =data[i];
@@ -879,11 +888,19 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
+		int sy;
+		int ey;
+		if(grid_in_y==1){
+			sy = (int)ceil( dky - dwinY);
+			ey = (int)floor(dky + dwinY);
+		}else{
+			sy = (int)( dky);
+			ey = sy;
+		}
 		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
 		if(ey >= Sy) continue;  
 	    
+		
 		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
 		int sz,ez;
@@ -1023,11 +1040,19 @@ void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, con
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
+		int sy;
+		int ey;
+		if(grid_in_y==1){
+			sy = (int)ceil( dky - dwinY);
+			ey = (int)floor(dky + dwinY);
+		}else{
+			sy = (int)( dky);
+			ey = sy;
+		}
 		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
-		if(ey >= SizeY) continue;  
-	    
+		if(ey >= Sy) continue;  
+		
+		
 		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
 		int sz,ez;
@@ -1120,11 +1145,20 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
+		int sy;
+		int ey;
+		if(grid_in_y==1){
+			sy = (int)ceil( dky - dwinY);
+			ey = (int)floor(dky + dwinY);
+		}else{
+			sy = (int)( dky);
+			ey = sy;
+		}
 		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
-		if(ey >= SizeY) continue;  
-	    
+		if(ey >= Sy) continue;  
+		
+		
+		
 		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
 		int sz,ez;
@@ -1193,12 +1227,13 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	const float *kz = kzA.data();
 	const float *kw = kwA.data();
 	
-	#pragma omp parallel for 
+	#pragma omp parallel for schedule(dynamic,1024)
 	for (int i=0; i < Npts; i++) {
       	
 		
 		// Do not grid zeros
-     		if( kw[i]==0.0) continue;
+     	if( kw[i]==0.0) continue;
+		
 		
 		// Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
@@ -1213,9 +1248,16 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
+		int sy;
+		int ey;
+		if(grid_in_y==1){
+			sy = (int)ceil( dky - dwinY);
+			ey = (int)floor(dky + dwinY);
+		}else{
+			sy = (int)( dky);
+			ey = sy;
+		}
 		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
 		if(ey >= Sy) continue;  
 	    
 		// Compute Coordinates + Check
