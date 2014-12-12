@@ -45,6 +45,7 @@ GATING::GATING( int numarg, char **pstring) {
 		correct_resp_drift = 0;
 		resp_gate_efficiency = 0.5;
         resp_gate_type = RESP_NONE;
+		adaptive_resp_window = 10.0; // s
 		
 		// Catch command line switches
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
@@ -99,6 +100,8 @@ GATING::GATING( int numarg, char **pstring) {
             int_flag("-vs_wdth_high",wdth_high);
      		trig_flag(1,"-correct_resp_drift",correct_resp_drift);
 			float_flag("-resp_gate_efficiency",resp_gate_efficiency);
+			float_flag("-adaptive_resp_window",adaptive_resp_window);
+			
 			}
 		}
 }
@@ -133,6 +136,7 @@ void GATING::help_message() {
 		cout << "Control for Resp Data" << endl;
 		help_flag("-correct_resp_drift","Median filter with 10s interval");
 		help_flag("-resp_gate_efficiency","Fraction of data to accept");
+		help_flag("-adaptive_resp_window","Length of window to use for thresholding");
 		
 		cout << "Control for ECG Data" << endl;
 		help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
@@ -273,23 +277,23 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	
 	// Size of histogram
 	cout << "Time range = " << ( max(data.time)-min(data.time) ) << endl;
-	int fsize = (int)( 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
-	
-	
+	int fsize = (int)( 0.5*adaptive_resp_window / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
+		
 	// Now Filter
 	cout << "Thresholding Data Frame Size = " << fsize << endl;
 	for(int i=0; i< (int)time_linear_resp.n_elem; i++){
 		int start = i - fsize;
 		int stop  = i + fsize;
 		if(start < 0){
-			stop  = 2*fsize;
+			stop  = min( 2*fsize, (int)time_linear_resp.n_elem -1);
 			start = 0; 
 		}
 			
 		if(stop >=  (int)time_linear_resp.n_elem){
 			stop  = time_linear_resp.n_elem -1;
-			start = time_linear_resp.n_elem - 1 - 2*fsize;
+			start = max(0,(int)time_linear_resp.n_elem - 1 - 2*fsize);
 		}
+		
 		
 		arma::fvec temp = time_linear_resp.rows( start,stop);
 		arma::fvec temp2= sort(temp);

@@ -13,6 +13,10 @@ class HDF5{
 	
 	// Allow Adding of Arrays
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,3> & A);
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,4> & A);
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,5> & A);
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,6> & A);
+		
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,3> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,4> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,5> & A);

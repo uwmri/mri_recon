@@ -58,7 +58,8 @@ class GATING {
 		RespGateType resp_gate_type;
 		int correct_resp_drift;
 		float resp_gate_efficiency;
-				
+		float adaptive_resp_window;
+			
 		// Frame Centers	
 		float *gate_frames;
 		

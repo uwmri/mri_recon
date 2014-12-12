@@ -54,6 +54,9 @@ gridFFT::gridFFT(){
   	grid_in_x=1;
   	grid_in_y=1;
   	grid_in_z=-1;
+	grid_scale_x = 1.0;
+	grid_scale_y = 1.0;
+	grid_scale_z = 1.0;
 	k_rad=9999.0;
 	time_grid =0 ;
 	double_grid =0;
@@ -179,6 +182,10 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		float_flag("-grid_y",grid_y);
 		float_flag("-grid_z",grid_z);
 		
+		float_flag("-grid_scale_x",grid_scale_x);
+		float_flag("-grid_scale_y",grid_scale_y);
+		float_flag("-grid_scale_z",grid_scale_z);
+		
 		
 		int_flag("-grid_in_x",grid_in_x);
 		int_flag("-grid_in_y",grid_in_y);
@@ -281,17 +288,23 @@ void gridFFT::precalc_kernel(void){
 		grid_filterZ = 0.0;
 
 		// Get optimal Beta per Beatty et al
-	 	betaX = PI*sqrtf(  (dwinX*dwinX)/(grid_x*grid_x)*(grid_x -0.5)*(grid_x-0.5) - 0.8);
-	 	betaY = PI*sqrtf(  (dwinY*dwinY)/(grid_y*grid_y)*(grid_y -0.5)*(grid_y-0.5) - 0.8);
-	 	betaZ = PI*sqrtf(  (dwinZ*dwinZ)/(grid_z*grid_z)*(grid_z -0.5)*(grid_z-0.5) - 0.8);
+		float act_grid_x = grid_x*grid_scale_x;
+		float act_grid_y = grid_y*grid_scale_y;
+		float act_grid_z = grid_z*grid_scale_z;
+				
+	 	betaX = PI*sqrtf(  (dwinX*dwinX)/(act_grid_x*act_grid_x)*(act_grid_x -0.5)*(act_grid_x-0.5) - 0.8);
+	 	betaY = PI*sqrtf(  (dwinY*dwinY)/(act_grid_y*act_grid_y)*(act_grid_y -0.5)*(act_grid_y-0.5) - 0.8);
+	 	betaZ = PI*sqrtf(  (dwinZ*dwinZ)/(act_grid_z*act_grid_z)*(act_grid_z -0.5)*(act_grid_z-0.5) - 0.8);
 		
-		float beta_minX = sqrt(pow(PI*2*dwinX/grid_x,2.0) -  9.6752);
-		float beta_minY = sqrt(pow(PI*2*dwinY/grid_y,2.0) -  9.6752);
-		float beta_minZ = sqrt(pow(PI*2*dwinZ/grid_z,2.0) -  9.6752);
+		
+		float beta_minX = sqrt(pow(PI*2*dwinX/act_grid_x,2.0) -  9.6752);
+		float beta_minY = sqrt(pow(PI*2*dwinY/act_grid_y,2.0) -  9.6752);
+		float beta_minZ = sqrt(pow(PI*2*dwinZ/act_grid_z,2.0) -  9.6752);
 		betaX = ( beta_minX > betaX) ? ( beta_minX ) : ( betaX);
 		betaY = ( beta_minY > betaY) ? ( beta_minY ) : ( betaY);
 		betaZ = ( beta_minZ > betaZ) ? ( beta_minZ ) : ( betaZ);
-	
+		
+		
 		// Compute Seperable Kernels
 		for(int i=0; i<(grid_lengthX+1); i++){
 			float grid_pos=  ( (float)i )/( (float)grid_lengthX);
@@ -335,7 +348,7 @@ void gridFFT::precalc_kernel(void){
 				
 		// Compute Seperable Kernels
 		for(int i=0; i<(grid_lengthX+1); i++){
-			float grid_pos=  ( (float)i * (float)dwinX / (float)1.0)/( (float)grid_lengthX);
+			float grid_pos=  ( (float)i * (float)dwinX / (float)grid_scale_x)/( (float)grid_lengthX);
 			if(grid_pos < 0.01){
 				grid_filterX(i) = 1.0;
 			}else{
@@ -345,7 +358,7 @@ void gridFFT::precalc_kernel(void){
 		}
 		
 		for(int i=0; i<(grid_lengthY+1); i++){
-			float grid_pos=  ( (float)i * (float)dwinY/(float)1.0)/( (float)grid_lengthY);
+			float grid_pos=  ( (float)i * (float)dwinY/(float)grid_scale_y)/( (float)grid_lengthY);
 			if(grid_pos < 0.01){
 				grid_filterY(i) = 1.0;
 			}else{
@@ -355,7 +368,7 @@ void gridFFT::precalc_kernel(void){
 		}
 	
 		for(int i=0; i<(grid_lengthZ+1); i++){
-			float grid_pos=  ( (float)i * (float)dwinZ / (float)1.0)/( (float)grid_lengthZ);
+			float grid_pos=  ( (float)i * (float)dwinZ / (float)grid_scale_z)/( (float)grid_lengthZ);
 			if(grid_pos < 0.01){
 				grid_filterZ(i) = 1.0;
 			}else{
@@ -881,42 +894,58 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	   		
 		// Compute Coordinates + Check
 		float dkx = kx[i]*grid_x + cx;
-		int sx = (int)ceil( dkx - dwinX);
-		if(sx <0)   continue;
-		int ex = (int)floor(dkx + dwinX);
-		if(ex >= Sx) continue;  
-	    
-		// Compute Coordinates + Check
+		int sx;
+		int ex;
+		if(grid_in_x){
+			sx = max( (int)ceil( dkx - dwinX),0);
+			ex = min( (int)floor(dkx + dwinX),Sx-1);
+		}else{
+			sx = (int)( dkx);
+			ex = sx;
+		}
+		if(sx >= Sx) continue;
+		if(ex < 0) continue;  
+		
+		
 		float dky = ky[i]*grid_y + cy;
 		int sy;
 		int ey;
-		if(grid_in_y==1){
-			sy = (int)ceil( dky - dwinY);
-			ey = (int)floor(dky + dwinY);
+		if(grid_in_y){
+			sy = max( (int)ceil( dky - dwinY),0);
+			ey = min( (int)floor(dky + dwinY),Sy-1);
 		}else{
-			sy = (int)( dky);
+			sy = (int)(dky);
 			ey = sy;
 		}
-		if(sy <0)   continue;
-		if(ey >= Sy) continue;  
-	    
+		if(sy >= Sy) continue;
+		if(ey < 0) continue;  
+			
 		
-		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
-		int sz,ez;
-		if(grid_in_z==1){
-			sz = (int)ceil( dkz - dwinZ);
-			ez = (int)floor(dkz + dwinZ);
+		int sz;
+		int ez;
+		if(grid_in_z){
+			sz = max( (int)ceil( dkz - dwinZ),0);
+			ez = min( (int)floor(dkz + dwinZ),Sz-1);
 		}else{
-			sz = (int)( dkz);
+			sz = (int)(dkz);
 			ez = sz;
 		}
-		if(sz <0)   continue;
-		if(ez >= Sz) continue;  
+		if(sz >= Sz) continue;
+		if(ez < 0) continue;  
+			
 		
-		float kr = kx[i]*kx[i] + ky[i]*ky[i] + kz[i]*kz[i];
-		if(!fft_in_z){
-			kr = kx[i]*kx[i] + ky[i]*ky[i];
+		float kr=0.0;
+		if( fft_in_x){
+			kr+=(kx[i]*kx[i]);
+		}
+		
+		if( fft_in_y){
+			kr+=(ky[i]*ky[i]);
+		}
+		
+		if( fft_in_z){
+			kr+=(kz[i]*kz[i]);
 		}
 		temp *= exp( -kr / (2.0*k_rad*k_rad) );
 
@@ -925,6 +954,10 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
 			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
+			if(!grid_in_z){
+				wtz =1.0;
+			}
+			
 			if(fft_in_z){
 				wtz *=( (float)(2*(lz%2) -1 ));
 			}
@@ -1233,46 +1266,53 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 		
 		// Do not grid zeros
      	if( kw[i]==0.0) continue;
-		
-		
-		// Calculate the exact kspace sample point in 
+					
+	    // Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
 	    // is contributing too.
-	   			
+	   		
 		// Compute Coordinates + Check
 		float dkx = kx[i]*grid_x + cx;
-		int sx = (int)ceil( dkx - dwinX);
-		if(sx <0)   continue;
-		int ex = (int)floor(dkx + dwinX);
-		if(ex >= Sx) continue;  
-	    
-		// Compute Coordinates + Check
+		int sx;
+		int ex;
+		if(grid_in_x){
+			sx = max( (int)ceil( dkx - dwinX),0);
+			ex = min( (int)floor(dkx + dwinX),Sx-1);
+		}else{
+			sx = (int)( dkx);
+			ex = sx;
+		}
+		if(sx >= Sx) continue;
+		if(ex < 0) continue;  
+		
+		
 		float dky = ky[i]*grid_y + cy;
 		int sy;
 		int ey;
-		if(grid_in_y==1){
-			sy = (int)ceil( dky - dwinY);
-			ey = (int)floor(dky + dwinY);
+		if(grid_in_y){
+			sy = max( (int)ceil( dky - dwinY),0);
+			ey = min( (int)floor(dky + dwinY),Sy-1);
 		}else{
-			sy = (int)( dky);
+			sy = (int)(dky);
 			ey = sy;
 		}
-		if(sy <0)   continue;
-		if(ey >= Sy) continue;  
-	    
-		// Compute Coordinates + Check
+		if(sy >= Sy) continue;
+		if(ey < 0) continue;  
+			
+		
 		float dkz = kz[i]*grid_z + cz;
-		int sz,ez;
-		if(grid_in_z==1){
-			sz = (int)ceil( dkz - dwinZ);
-			ez = (int)floor(dkz + dwinZ);
+		int sz;
+		int ez;
+		if(grid_in_z){
+			sz = max( (int)ceil( dkz - dwinZ),0);
+			ez = min( (int)floor(dkz + dwinZ),Sz-1);
 		}else{
-			sz = (int)( dkz);
+			sz = (int)(dkz);
 			ez = sz;
 		}
-		if(sz <0)   continue;
-		if(ez >= Sz) continue;  
-		
+		if(sz >= Sz) continue;
+		if(ez < 0) continue;  
+
 		complex<float>temp(0,0);
 					
 		/*This is the main loop - most time is spent here*/
@@ -1280,6 +1320,9 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
 			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
+			if(!grid_in_z){
+				wtz =1.0;
+			}
 			
 			if(fft_in_z){
 				wtz *=( (float)(2*(lz%2) -1 ));
