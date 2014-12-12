@@ -39,7 +39,6 @@ void RECON::set_defaults( void){
 	rcframes=1;
 	rcencodes=1;
 	
-	external_dcf = false;
 	recalc_dcf =false;
 	dcf_iter = 20;
 	dcf_dwin = 5.5;
@@ -145,8 +144,10 @@ void RECON::help_message(void){
 	help_flag("-dcf_iter","Iterations for DCF");
 	help_flag("-dcf_dwin []","Size of kernel (default 5.5 -radius)");
 	help_flag("-dcf_scale []","Scaling of matrix");
+	/* Shouldn't be here. It's inherently external to this code
 	help_flag("-external_dcf","Use (precomputed) DCF from external file");
 	help_flag("-dcf_file []","Filename for external DCF usage");
+	*/
 	
 	gridFFT::help_message();
 	SPIRIT::help_message();	
@@ -279,8 +280,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		int_flag("-max_iter",max_iter);
 		int_flag("-cycle_spins",cycle_spins);
 
-		trig_flag(true,"-external_dcf",external_dcf);
-		char_flag("-dcf_file",dcffilename);
+
 	}
   }
 } 
@@ -334,14 +334,9 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	gridding.read_commandline(argc,argv);
 	gridding.precalc_gridding(rczres,rcyres,rcxres,data.trajectory_dims,data.trajectory_type);
 	
-	//
-	if(recalc_dcf && (rcframes == 1)){
+	// Recalculate the Density compensation
+	if(recalc_dcf){
 		dcf_calc(data);
-	} else if (external_dcf) {
-		ArrayRead(data.kw(0),dcffilename);
-		for (int e = 1; e < rcencodes; e++) {
-			data.kw(e) = data.kw(0);
-		}
 	}
 	
 	// Calculate Sensitivity maps (using gridding struct)	

@@ -103,19 +103,20 @@ GATING::GATING( int numarg, char **pstring) {
 				if( pos==numarg){
 					cout << "Please provide a data source for estimation of respiratory phase..bellows/internal (-h for usage)" << endl;
 					exit(1);
-				trig_flag(BELLOWS,"bellows",resp_gate_signal);
-				trig_flag(DC_DATA ,"internal",resp_gate_signal);
+					trig_flag(BELLOWS,"bellows",resp_gate_signal);
+					trig_flag(DC_DATA ,"internal",resp_gate_signal);
 								
 				}else{
 					cout << "Please provide a data source for estimation of respiratory phase..bellows/internal (-h for usage)" << endl;
 					exit(1);
 				}	
-			int_flag("-vs_wdth_low",wdth_low);
-            		int_flag("-vs_wdth_high",wdth_high);
+				
+				int_flag("-vs_wdth_low",wdth_low);
+            	int_flag("-vs_wdth_high",wdth_high);
      			trig_flag(1,"-correct_resp_drift",correct_resp_drift);
-			float_flag("-resp_gate_efficiency",resp_gate_efficiency);
-			trig_flag(1,"-external_weights",external_weights);
-			char_flag("-external_weights_file",external_weights_filename);
+				float_flag("-resp_gate_efficiency",resp_gate_efficiency);
+				// trig_flag(1,"-external_weights",external_weights);
+				// char_flag("-external_weights_file",external_weights_filename);
 			}
 	}
 
@@ -125,11 +126,12 @@ GATING::GATING( int numarg, char **pstring) {
 		cout << "Using (fuzzy) weight based respiratory gating" << endl;
 	}
 
+/* KMJ This should be in wrapper
 	if ((external_weights == 1) && (strcmp("",external_weights_filename) == 0)) {
 		cout << "No external fuzzy weight file specified.  Specify with '-external_weights_file []' option (-h for usage)" << endl;
 		exit(1);
 	}
-
+*/
 
 }
 
@@ -172,9 +174,9 @@ void GATING::help_message() {
 		cout << "Control for ECG Data" << endl;
 		help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
 		
-		cout << "Control for external fuzzy weighting file (more generic functionality similar to '-resp_gate weight' option above)" << endl;
-		help_flag("-external_weights","Read fuzzy weights from external file");
-		help_flag("-external_weights_file []","Specify path to file with fuzzy weights (see Johnson et. al MRM 67(6):1600");
+//		cout << "Control for external fuzzy weighting file (more generic functionality similar to '-resp_gate weight' option above)" << endl;
+//		help_flag("-external_weights","Read fuzzy weights from external file");
+//		help_flag("-external_weights_file []","Specify path to file with fuzzy weights (see Johnson et. al MRM 67(6):1600");
 		
 }
 
@@ -299,10 +301,6 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 						/*  The question is now how to process/convert this data for the gating algorithm below?
 						 *  For now, just use the vector magnitude over all coils of k = 0, then apply a moving
 						 *  average to upsample to full temporal resolution					*/
-
-
-						int view_start = 0;
-						int view_stop = views_per_grid-1;
 
 						cout << "views_per_grid = " << views_per_grid << endl;
 

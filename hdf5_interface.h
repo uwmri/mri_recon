@@ -1,6 +1,9 @@
-#include <H5Cpp.h>
 #include "ArrayTemplates.hpp"
 
+#ifndef HDF_INTERFACE
+#define HDF_INTERFACE
+
+#include <H5Cpp.h>
 class HDF5{
 	
 	public:		
@@ -12,7 +15,10 @@ class HDF5{
 	HDF5(const char *name); 
 	
 	// Allow Adding of Arrays
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,2> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,3> & A);
+	
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,2> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,3> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,4> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,5> & A);
@@ -26,3 +32,4 @@ class HDF5{
 	
 };
 
+#endif

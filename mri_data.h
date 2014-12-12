@@ -12,6 +12,7 @@
 #include "ArrayTemplates.hpp"
 #include <armadillo>
 #include <sys/stat.h>
+#include "hdf5_interface.h"
 
 // Data Types
 enum TrajDim { THREED, TWOD };
@@ -41,11 +42,12 @@ class MRI_DATA{
 		NDarray::Array< std::complex<float>,2> noise_samples; // data for noise samples
 				
 		//Physiologic Data for gating 
-		NDarray::Array< float,3>ecg;		// Distance from ECG in MS
+		NDarray::Array< float,3>ecg;	// Distance from ECG in MS
 		NDarray::Array< float,3>resp;	// Respiratory signal from bellows or navigator
 		NDarray::Array< float,3>time;	// Acquisition Time 
 		NDarray::Array< float,3>prep;	// Time since a prep event (for example inversion)
-				
+		NDarray::Array< complex<float>,4>kdata_gating;	// Repeated sample for gating, need to be the same for each data point, all coils
+						
 		// Native Resolution
 		int xres;
 		int yres;

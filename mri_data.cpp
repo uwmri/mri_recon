@@ -150,6 +150,10 @@ void MRI_DATA::init_memory(void){
 	prep.setStorage( ColumnMajorArray<3>());
 	prep.resize(Num_Readouts,Num_Slices,Num_Encodings);
 
+	kdata_gating.setStorage( ColumnMajorArray<4>());
+	kdata_gating.resize(Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
+
+
 }
 
 
@@ -302,102 +306,61 @@ void MRI_DATA::demod_kdata( float demod){
 
 void MRI_DATA::write_external_data( const char *folder){
 
-	char fname[1024];
-	mkdir(folder,0777);
 	
-	Range all = Range::all();
+	HDF5 file = HDF5("MRI_Raw_h5");
+	for(int encode = 0; encode < kdata.length(firstDim); encode++){
 	
-	cout << "Data size= " << Num_Coils << " coils x " << Num_Encodings << " encodings x "<< Num_Slices<< " slices x "<<  Num_Readouts << " readouts x" << Num_Pts << " pts" << endl;
-	
-	cout << "Write Kx " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKMAPX_VD_%d.dat",folder,e);
-			Array<float,3>KxRef = kx(e);
-			ArrayWrite(KxRef,fname);
-	}
-	
-	cout << "Write Ky " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKMAPY_VD_%d.dat",folder,e);
-			Array<float,3>KyRef = ky(e);
-			ArrayWrite(KyRef,fname);
-	}
-	
-	cout << "Write Kz " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKMAPZ_VD_%d.dat",folder,e);
-			Array<float,3>KzRef = kz(e);
-			ArrayWrite(KzRef,fname);
-	}		
-	
-	cout << "Write Kw " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKWEIGHT_VD_%d.dat",folder,e);
-			Array<float,3>KwRef = kw(e);
-			ArrayWrite(KwRef,fname);
-	}		
-	
-	
-	cout << "Writing Kdata" << endl;
-	for(int c=0; c<Num_Coils;c++){
-		cout << "Write Coil: " << c << endl;
-		for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKDATA_C%02d_VD_%d.dat",folder,c,e);
-			ArrayWrite(kdata(e,c),fname);
+		{
+			stringstream ss;
+  			ss << "KX_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kx(encode));	
+		}	
+				
+		{
+			stringstream ss;
+  			ss << "KY_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),ky(encode));	
+		}	
 			
-	}}
+		{
+			stringstream ss;
+  			ss << "KZ_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kz(encode));	
+		}		
 	
+		{
+			stringstream ss;
+  			ss << "KW_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kw(encode));	
+		}	
 	
-	// Write ECG file
-	if( ecg.numElements()==0){
-		cout << "Physiologic data does not exist yet" << endl;
-	}else{
-		sprintf(fname,"%sgating_track",folder);
-		FILE *fid = fopen(fname,"w");
-		for( int i=0; i< (int)ecg.numElements(); i++){
-			int temp = ( (int)(1e3*ecg(i)));
-			endian_swap(temp);
-			fwrite(&temp,1,sizeof(int),fid);
+		for(int coil = 0; coil < kdata.length(secondDim); coil++){
+			{
+				stringstream ss;
+  				ss << "KData_E" << encode << "_C" << coil;	
+				string s = ss.str();
+				file.AddH5Array( "Kdata",s.c_str(),kdata(encode,coil));	
+			}	
+			
 		}
-		
-		for( int i=0; i< (int)ecg.numElements(); i++){
-			int temp = ( (int)(resp(i)));
-			endian_swap(temp);
-			fwrite(&temp,1,sizeof(int),fid);
-		}
-		
-		for( int i=0; i< (int)ecg.numElements(); i++){
-			int temp = ( (int)(1e6*time(i)));
-			endian_swap(temp);
-			fwrite(&temp,1,sizeof(int),fid);
-		}
-		
-		for( int i=0; i< (int)ecg.numElements(); i++){
-			int temp = ( (int)(1e6*prep(i)));
-			endian_swap(temp);
-			fwrite(&temp,1,sizeof(int),fid);
-		}
-		fclose(fid);
-		
 	}
-		
-	// Write a Header
-	sprintf(fname,"%sHeader.txt",folder);
-	ofstream header;
-  	header.open (fname);
-  	header << "version " << 1 << endl;
-	header << "numrecv " << Num_Coils << endl;
-	header << "xres " << Num_Pts << endl;
-	header << "nproj " << Num_Readouts << endl;
-	header << "rcxres " << xres << endl;
-	header << "rcyres " << yres << endl;
-	header << "rczres " << zres << endl;
-	header << "slices " << Num_Slices << endl;
-	header << "num_encodes " << Num_Encodings << endl;	
-	header << "2d_flag " << trajectory_dims << endl;
-	header << "gate_name " << "gating_track" << endl;
-	header.close();
+	
+	// Noise Samples
+	file.AddH5Array( "Kdata","Noise",noise_samples);	
+	
+	// Gating
+	file.AddH5Array( "Gating","ecg",ecg);	
+	file.AddH5Array( "Gating","resp",resp);	
+	file.AddH5Array( "Gating","prep",prep);	
+	file.AddH5Array( "Gating","time",time);	
+	file.AddH5Array( "Gating","kdata_gating",kdata_gating);	
+	
 }
+
 
 
 /** Undersample the data by deleting argument 'us' readouts

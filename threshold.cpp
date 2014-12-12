@@ -69,8 +69,8 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 		}else if(strcmp("-threshold_type",pstring[pos]) == 0) {
 			pos++;
 			if( pos==numarg){
-				cout << "Please provide threshold type..fraction/bayes/visu/sure" << endl;
-				trig_flag(TH_L1REG,"l1reg",threshold_type);
+				cout << "Please provide threshold type..fraction/bayes/visu/sure/fixed" << endl;
+				trig_flag(TH_FIXED,"fixed",threshold_type);
 				trig_flag(TH_FRACTION,"fraction",threshold_type);
 				trig_flag(TH_VISU,"visu",threshold_type);
 				trig_flag(TH_BAYES,"bayes",threshold_type);
@@ -113,16 +113,12 @@ void THRESHOLD::help_message() {
 void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVELET3D &wave){
 
 	switch(threshold_type){
-
+		case TH_FIXED:
 		case TH_FRACTION:
 		case TH_VISU:{
 				     thresholding(Coef,  global_threshold);
 		}break;
-		
-		case TH_L1REG:{
-				     thresholding(Coef,  global_threshold);
-		}break;
-		
+				
 		case TH_BAYES:
 		case TH_SURE: {
 				     exec_multibandthreshold(Coef, wave);
@@ -145,8 +141,8 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
 	switch(threshold_type){
 
 	
-		case TH_L1REG:{
-			global_threshold = scale;
+		case TH_FIXED:{
+			global_threshold = scale; // This is odd?
 		}break;
 
 		case TH_FRACTION:{

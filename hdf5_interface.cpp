@@ -4,6 +4,7 @@ using namespace std;
 using namespace NDarray;
 using namespace H5;
 
+/*
 herr_t file_info( hid_t loc_id, const char *name, const H5L_info_t *linfo, void *opdata){
 	hid_t group;
 	group = H5Gopen2(loc_id,name,H5P_DEFAULT);
@@ -11,7 +12,7 @@ herr_t file_info( hid_t loc_id, const char *name, const H5L_info_t *linfo, void 
 	cout << "Name: " << name <<endl;
 	H5Gclose(group);
 	return(0);
-} 
+} */
 
 HDF5::HDF5( const char *FileName ){
 	
@@ -103,6 +104,36 @@ int HDF5::AddH5Char( const char *GroupName, const char *Name, char *S){
 }
 
 
+int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,2> & A){
+	
+	Exception::dontPrint();
+
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[2];              // dataset dimensions
+	dimsf[0] = A.length(secondDim);
+	dimsf[1] = A.length(firstDim);
+	DataSpace dataspace( 2, dimsf );
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_FLOAT,dataspace));
+	dataset.write( A.data(),PredType::NATIVE_FLOAT, dataspace);
+
+	return(0);
+}
+
 	
 int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,3> & A){
 	
@@ -135,6 +166,46 @@ int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,3> & 
 
 	return(0);
 }
+
+
+int HDF5::AddH5Array( const char *GroupName,const char *Name, Array<complex<float>,2> & A){
+	
+	Exception::dontPrint();
+		
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[2];              // dataset dimensions
+	dimsf[0] = A.length(secondDim);
+	dimsf[1] = A.length(firstDim);
+	DataSpace dataspace( 2, dimsf );
+	
+	
+	/*DataType Needed for Complex<float>*/
+	CompType datatype(sizeof(complex<float>));
+	datatype.insertMember( "real", 0, PredType::NATIVE_FLOAT);
+	datatype.insertMember( "imag", sizeof(float), PredType::NATIVE_FLOAT);
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, datatype,dataspace));
+	dataset.write( A.data(),datatype, dataspace);
+	
+	return(0);
+	
+}
+
+
 
 int HDF5::AddH5Array( const char *GroupName,const char *Name, Array<complex<float>,3> & A){
 	

@@ -14,7 +14,7 @@
 #include "wavelet3D.h" 
 
 // Thresholding methods
-enum { TH_NONE,TH_L1REG,TH_FRACTION,TH_VISU,TH_BAYES,TH_SURE};
+enum { TH_NONE,TH_FIXED,TH_FRACTION,TH_VISU,TH_BAYES,TH_SURE};
 enum { NOISE_GLOBAL,NOISE_FRAME,NOISE_FIRST,NOISE_LAST};
 
 class THRESHOLD{
@@ -26,7 +26,7 @@ class THRESHOLD{
         bool thapp;				// threshold approx band
         bool temporal;
         double thresh;
-	bool group_complex;
+		bool group_complex;
         int waveL;
 		bool VERBOSE;
         float global_threshold;
