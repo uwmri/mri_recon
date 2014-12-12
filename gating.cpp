@@ -37,7 +37,13 @@ GATING::GATING( int numarg, char **pstring) {
         wdth_high = 4;
         
 		vs_type = NONE;
+>>>>>>>>>>>>>>>>>>>> File 1
         	tornado_shape = VIPR; // Kr^2 shape
+>>>>>>>>>>>>>>>>>>>> File 2
+        tornado_shape = VIPR; // Kr^2 shape
+>>>>>>>>>>>>>>>>>>>> File 3
+        tornado_shape = VIPR; // Kr^2 shape
+<<<<<<<<<<<<<<<<<<<<
 		kmax = 128; // TEMP
 		gate_type = GATE_NONE;;
 		
@@ -47,9 +53,6 @@ GATING::GATING( int numarg, char **pstring) {
         	resp_gate_type = RESP_NONE;
 		resp_gate_signal = BELLOWS;
 		
-		external_weights = 0;
-		strcpy(external_weights_filename,"");
-
 		// Catch command line switches
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
@@ -61,20 +64,20 @@ GATING::GATING( int numarg, char **pstring) {
 			if(strcmp("-viewshare_type",pstring[pos]) == 0) {
 				pos++;
 				if( pos==numarg){
-					cout << "Please provide vieshare type..none/hist/tornado (-h for usage)" << endl;
+					cout << "Please provide vieshare type (-h for usage)" << endl;
 					exit(1);
 				trig_flag(TORNADO,"tornado",vs_type);
 				trig_flag(HIST_MODE,"hist",vs_type);
 				trig_flag(NONE,"none",vs_type);
 				
 				}else{
-					cout << "Please provide vieshare type..none/hist/tornado (-h for usage)" << endl;
+					cout << "Please provide vieshare type (-h for usage)" << endl;
 					exit(1);
 				}
 			}else if(strcmp("-gating_type",pstring[pos]) == 0) {
 				pos++;
 				if( pos==numarg){
-					cout << "Please provide gating type..ecg/retro_ecg/resp/time/prep (-h for usage)" << endl;
+					cout << "Please provide gating type (-h for usage)" << endl;
 					exit(1);
 				trig_flag(RETRO_ECG,"retro_ecg",gate_type);
 				trig_flag(RESP,"resp",gate_type);
@@ -83,7 +86,7 @@ GATING::GATING( int numarg, char **pstring) {
 				trig_flag(PREP,"prep",gate_type);
 								
 				}else{
-					cout << "Please provide gating type..ecg/retro_ecg/resp/time/prep (-h for usage)" << endl;
+					cout << "Please provide gating type..none/dft/diff/pca" << endl;
 					exit(1);
 				}
 			}else if(strcmp("-resp_gate",pstring[pos]) == 0) {
@@ -135,7 +138,6 @@ GATING::GATING( int numarg, char **pstring) {
 
 }
 
-
 void GATING::help_message() {
         cout << "----------------------------------------------" << endl;
         cout << "   View Sharing Control " << endl;
@@ -170,6 +172,11 @@ void GATING::help_message() {
 		cout << "Control for Resp Data" << endl;
 		help_flag("-correct_resp_drift","Median filter with 10s interval");
 		help_flag("-resp_gate_efficiency","Fraction of data to accept");
+>>>>>>>>>>>>>>>>>>>> File 1
+>>>>>>>>>>>>>>>>>>>> File 2
+>>>>>>>>>>>>>>>>>>>> File 3
+		help_flag("-adaptive_resp_window","Length of window to use for thresholding");
+<<<<<<<<<<<<<<<<<<<<
 		
 		cout << "Control for ECG Data" << endl;
 		help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
@@ -269,274 +276,89 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 	
 	cout << "Initializing Respiratory Gating with " << frames << " frames " << endl;
 	
-
-	if (resp_gate_type != RESP_NONE) {
-		
-		switch (resp_gate_signal) {
-			case(BELLOWS):{
-				     cout << "Respiratory gating using bellows belt waveform" << endl;
-						resp_weight.resize(data.resp.shape());
-				      }break;
-			case(DC_DATA):{
-
-					cout << "Respiratory gating using internal DC waveform(s)" << endl;
-						resp_weight.resize(data.resp.shape());
-
-						int views_per_grid = 16;
-						int Ngrids = (int)floor((float)data.Num_Readouts / (float)views_per_grid);
-						Array< Array<complex<float>, 3>, 2 >Kdc = Alloc5DContainer< complex<float> >(4,4,4,Ngrids,data.Num_Coils);
-						
-						extract_dc_data(Kdc,data);
-						for (int coil = 0; coil < data.Num_Coils; coil++) {
+	if(resp_gate_type == RESP_NONE){
+		return;
+	}
 	
-						//	for( Array<Array<complex<float>,3>,1>::iterator miter=TempK.begin(); miter!=TempK.end(); miter++){
-						
-							for (int g = 0; g < Ngrids; g++) {
-								Array<complex<float>, 3> Kgrid = Kdc(g,coil);
-								ArrayWriteMagAppend(Kgrid,"dcMagnitude.dat");
-								ArrayWritePhaseAppend(Kgrid,"dcPhase.dat");
-							}
-						}
+	cout << "Copying Resp Waveform" << endl;
+	resp_weight.resize( data.resp.shape());				  
+	resp_weight = data.resp;
 
-						/*  The question is now how to process/convert this data for the gating algorithm below?
-						 *  For now, just use the vector magnitude over all coils of k = 0, then apply a moving
-						 *  average to upsample to full temporal resolution					*/
-
-						cout << "views_per_grid = " << views_per_grid << endl;
-
-						int kzero_x = Kdc(0,0).length(firstDim)/2 + 1;
-						int kzero_y = Kdc(0,0).length(secondDim)/2 + 1;
-						int kzero_z = Kdc(0,0).length(thirdDim)/2 + 1;
-
-						cout << kzero_x << "  " << kzero_y << "   " << kzero_z << endl;
-						Array<float,1>temp_weight(data.Num_Readouts, ColumnMajorArray<1>());
-						temp_weight = 0.0;
-
-						cout << "Compress low frq grids to metric (frob norm for now)" << endl;
-
-						#pragma omp parallel for
-						for (int grid = 0; grid < Ngrids; grid++){
-							float dc_resp = 0.0;
-							for (int coil = 0; coil < data.Num_Coils; coil++) {
-								dc_resp += norm(Kdc(grid,coil)(kzero_x,kzero_y,kzero_z));
-							}
-							dc_resp = sqrt(dc_resp);
-							temp_weight(Range(grid*views_per_grid,(grid+1)*views_per_grid-1)) = dc_resp;
-						}
-
-						cout << "Marker" << endl;
-						/* Get the acquisition order indices */
-						arma::fvec time(data.time.numElements());
-						// Put into Matrix for Armadillo
-						int count = 0;
-						for(int e=0; e< data.time.length(thirdDim); e++){
-							for(int slice=0; slice< data.time.length(secondDim); slice++){
-								for(int view=0; view< data.time.length(firstDim); view++){
-									time(count) = data.time(view,slice,e);
-									count++;
-								}}}
-
-						// Sort
-						arma::uvec idx = arma::sort_index(time); 
-
-						cout << "Moving average upsampling" << endl;
-
-						/*  Now compute moving average, with a window 2x the views per grid, store the result in the original order */
-
-						for (int pos = 0; pos < data.Num_Readouts; pos++) {
-							if ((pos - views_per_grid) < 0){
-								int numel = pos+views_per_grid;
-								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(0,numel-1)))/(float)numel;
-							
-							} else if ((pos + views_per_grid - 1) >= data.Num_Readouts) {
-								int numel = views_per_grid + (data.Num_Readouts - pos);
-								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(pos-views_per_grid,data.Num_Readouts-1)))/(float)numel;
-							
-							} else {
-								data.resp(idx(pos),Range::all(),Range::all()) = sum(temp_weight(Range(pos-views_per_grid,pos+views_per_grid-1)))/(2.0*(float)views_per_grid);
-							}
-						}
-					  	cout << "DC signal processing complete" << endl;
-					}break;
-			default:{
-						cout << "Invalid option for respiratory gating waveform" << endl;
-				}break;
+	
+	cout << "Time Sorting Data" << endl;
+	
+	// Use Aradillo Sort function
+	arma::fvec time(resp_weight.numElements());
+	arma::fvec resp(resp_weight.numElements());
+	arma::fvec arma_resp_weight(resp_weight.numElements());
+	
+	arma::fvec time_linear_resp(resp_weight.numElements());
+	arma::fvec time_sort_resp_weight(resp_weight.numElements());
+			
+	// Put into Matrix for Armadillo
+	int count = 0;
+	for(int e=0; e< resp_weight.length(thirdDim); e++){
+	 for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+	  for(int view=0; view< resp_weight.length(firstDim); view++){
+	   time(count) = data.time(view,slice,e);
+	   resp(count) = data.resp(view,slice,e);
+	   count++;
+	}}}
+	time.save("Time.txt",arma::raw_ascii);
+	resp.save("Resp.txt",arma::raw_ascii);
+	
+	// Sort
+	arma::uvec idx = arma::sort_index(time); 
+		
+	// Copy Resp
+	idx.save("Sorted.dat", arma::raw_ascii);
+	for(int i=0; i< (int)resp_weight.numElements(); i++){
+		time_linear_resp( i )= resp( idx(i));
+	}
+	time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
+	
+	
+	// Size of histogram
+	cout << "Time range = " << ( max(data.time)-min(data.time) ) << endl;
+	int fsize = (int)( 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
+	
+	
+	// Now Filter
+	cout << "Thresholding Data Frame Size = " << fsize << endl;
+	for(int i=0; i< (int)time_linear_resp.n_elem; i++){
+		int start = i - fsize;
+		int stop  = i + fsize;
+		if(start < 0){
+			stop  = 2*fsize;
+			start = 0; 
 		}
-
+			
+		if(stop >=  (int)time_linear_resp.n_elem){
+			stop  = time_linear_resp.n_elem -1;
+			start = time_linear_resp.n_elem - 1 - 2*fsize;
+		}
+		
+		arma::fvec temp = time_linear_resp.rows( start,stop);
+		arma::fvec temp2= sort(temp);
+		float thresh = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency )));
+	
+		arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
+		time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
 	}
-
-
-	switch (resp_gate_type){
-
-		case(RESP_THRESH):{
-
-					  cout << "Copying Resp Waveform" << endl;
-					  resp_weight.resize( data.resp.shape());				  
-					  resp_weight = data.resp;
-
-					  cout << "Time Sorting Data" << endl;
-
-					  // Use Aradillo Sort function
-					  arma::fvec time(resp_weight.numElements());
-					  arma::fvec resp(resp_weight.numElements());
-					  arma::fvec arma_resp_weight(resp_weight.numElements());
-
-					  arma::fvec time_linear_resp(resp_weight.numElements());
-					  arma::fvec time_sort_resp_weight(resp_weight.numElements());
-
-					  // Put into Matrix for Armadillo
-					  int count = 0;
-					  for(int e=0; e< resp_weight.length(thirdDim); e++){
-						  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-							  for(int view=0; view< resp_weight.length(firstDim); view++){
-								  time(count) = data.time(view,slice,e);
-								  resp(count) = data.resp(view,slice,e);
-								  count++;
-							  }}}
-					  time.save("Time.txt",arma::raw_ascii);
-					  resp.save("Resp.txt",arma::raw_ascii);
-
-					  // Sort
-					  arma::uvec idx = arma::sort_index(time); 
-
-					  // Copy Resp
-					  idx.save("Sorted.dat", arma::raw_ascii);
-					  for(int i=0; i< (int)resp_weight.numElements(); i++){
-						  time_linear_resp( i )= resp( idx(i));
-					  }
-					  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
-
-
-					  // Size of histogram
-					  cout << "Time range = " << ( max(data.time)-min(data.time) ) << endl;
-					  int fsize = (int)( 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
-
-
-					  // Now Filter
-					  cout << "Thresholding Data Frame Size = " << fsize << endl;
-					  for(int i=0; i< (int)time_linear_resp.n_elem; i++){
-						  int start = i - fsize;
-						  int stop  = i + fsize;
-						  if(start < 0){
-							  stop  = 2*fsize;
-							  start = 0; 
-						  }
-
-						  if(stop >=  (int)time_linear_resp.n_elem){
-							  stop  = time_linear_resp.n_elem -1;
-							  start = time_linear_resp.n_elem - 1 - 2*fsize;
-						  }
-
-						  arma::fvec temp = time_linear_resp.rows( start,stop);
-						  arma::fvec temp2= sort(temp);
-						  float thresh = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency )));
-
-						  arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
-						  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
-					  }
-					  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
-					  arma_resp_weight.save("Weight.txt",arma::raw_ascii);
-
-
-					  // Copy Back
-					  
-					  for(int e=0; e< resp_weight.length(thirdDim); e++){
-						  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-							  for(int view=0; view< resp_weight.length(firstDim); view++){
-								  resp_weight(view,slice,e)=arma_resp_weight(count);
-								  count++;
-							  }}}
-
-
-				  }break;
-		case(RESP_WEIGHT):{
-
-
-					  if (external_weights == 1) {
-						  cout << "Reading fuzzy retrospective weights from file" << endl;
-					  
-						  ArrayRead(resp_weight,external_weights_filename);
-					  
-					  }else{
-
-						  cout << "Copying Resp Waveform" << endl;
-						  resp_weight = data.resp;
-
-
-						  // Use Aradillo Sort function
-						  arma::fvec time(resp_weight.numElements());
-						  arma::fvec resp(resp_weight.numElements());
-						  arma::fvec arma_resp_weight(resp_weight.numElements());
-
-						  arma::fvec time_linear_resp(resp_weight.numElements());
-						  arma::fvec time_sort_resp_weight(resp_weight.numElements());
-
-						  // Put into Matrix for Armadillo
-						  int count = 0;
-						  for(int e=0; e< resp_weight.length(thirdDim); e++){
-							  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-								  for(int view=0; view< resp_weight.length(firstDim); view++){
-									  time(count) = data.time(view,slice,e);
-									  resp(count) = data.resp(view,slice,e);
-									  count++;
-								  }}}
-						  time.save("Time.txt",arma::raw_ascii);
-						  resp.save("Resp.txt",arma::raw_ascii);
-
-						  // Sort
-						  arma::uvec idx = arma::sort_index(time); 
-
-						  // Copy Resp
-						  idx.save("Sorted.dat", arma::raw_ascii);
-						  for(int i=0; i< (int)resp_weight.numElements(); i++){
-							  time_linear_resp( i )= resp( idx(i));
-						  }
-						  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
-
-
-						  // Size of histogram
-						  cout << "Time range = " << ( max(data.time)-min(data.time) ) << endl;
-						  int fsize = (int)( 5.0 / (  ( max(data.time)-min(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
-
-
-						  // Now Filter
-						  cout << "Estimating median within " << resp_gate_efficiency*100 << "% efficiency window of first 10sec of data" << fsize << endl;
-							
-						  	  arma::fvec temp = time_linear_resp.rows( 100,100+2*fsize);
-							  arma::fvec temp2= sort(temp);
-							  float med_resp = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency/2.0 )));
-
-							  float sigma = temp2(temp2.n_elem-1) - temp2((int)((float)temp2.n_elem*(1.0 - resp_gate_efficiency )));
-
-
-							  //arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
-							 
-					  	for(int i=0; i< (int)time_linear_resp.n_elem; i++){
-							  arma_resp_weight(idx(i))= ( 1.0 / (abs(med_resp - time_linear_resp(i)) + sigma));
-							  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
-						  }
-						  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
-						  arma_resp_weight.save("Weight.txt",arma::raw_ascii);
-
-
-						  // Copy Back
-						  count = 0;
-						  for(int e=0; e< resp_weight.length(thirdDim); e++){
-							  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-								  for(int view=0; view< resp_weight.length(firstDim); view++){
-									  resp_weight(view,slice,e)=arma_resp_weight(count);
-									  count++;
-								  }}}
-					  }
-					
-				  }break;
-		case(RESP_NONE):
-		default:{
-				return;
-			}
-	}
-
-
+	time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
+	arma_resp_weight.save("Weight.txt",arma::raw_ascii);
+	
+	
+	// Copy Back
+	count = 0;
+	for(int e=0; e< resp_weight.length(thirdDim); e++){
+	 for(int slice=0; slice< resp_weight.length(secondDim); slice++){
+	  for(int view=0; view< resp_weight.length(firstDim); view++){
+	   resp_weight(view,slice,e)=arma_resp_weight(count);
+	   count++;
+	}}}
+	
+	
 	ArrayWrite(resp_weight,"RespWeight.dat");
 }
 
@@ -797,11 +619,13 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 		}break;
 		
 		case(RESP_THRESH):{
+			cout << "Resp weighting" << endl << flush;	
 			for(int k=0; k<Tw.length(thirdDim); k++){
 			for(int j=0; j<Tw.length(secondDim); j++){
 			for(int i=0; i<Tw.length(firstDim); i++){
 				Tw(i,j,k) *= resp_weight(j,k,e);
 			}}}
+			cout << "Resp weighting done" << endl << flush;	
 		}break;
 		
 		default:{

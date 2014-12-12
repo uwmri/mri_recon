@@ -53,7 +53,16 @@ gridFFT::gridFFT(){
   	fft_in_z=1;
   	grid_in_x=1;
   	grid_in_y=1;
+>>>>>>>>>>>>>>>>>>>> File 1
   	grid_in_z=1;
+>>>>>>>>>>>>>>>>>>>> File 2
+  	grid_in_z=1;
+>>>>>>>>>>>>>>>>>>>> File 3
+  	grid_in_z=-1;
+	grid_scale_x = 1.0;
+	grid_scale_y = 1.0;
+	grid_scale_z = 1.0;
+<<<<<<<<<<<<<<<<<<<<
 	k_rad=9999.0;
 	time_grid =0 ;
 	double_grid =0;
@@ -179,6 +188,14 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		float_flag("-grid_y",grid_y);
 		float_flag("-grid_z",grid_z);
 		
+>>>>>>>>>>>>>>>>>>>> File 1
+>>>>>>>>>>>>>>>>>>>> File 2
+>>>>>>>>>>>>>>>>>>>> File 3
+		float_flag("-grid_scale_x",grid_scale_x);
+		float_flag("-grid_scale_y",grid_scale_y);
+		float_flag("-grid_scale_z",grid_scale_z);
+		
+<<<<<<<<<<<<<<<<<<<<
 		
 		int_flag("-grid_in_x",grid_in_x);
 		int_flag("-grid_in_y",grid_in_y);
@@ -281,17 +298,23 @@ void gridFFT::precalc_kernel(void){
 		grid_filterZ = 0.0;
 
 		// Get optimal Beta per Beatty et al
-	 	betaX = PI*sqrtf(  (dwinX*dwinX)/(grid_x*grid_x)*(grid_x -0.5)*(grid_x-0.5) - 0.8);
-	 	betaY = PI*sqrtf(  (dwinY*dwinY)/(grid_y*grid_y)*(grid_y -0.5)*(grid_y-0.5) - 0.8);
-	 	betaZ = PI*sqrtf(  (dwinZ*dwinZ)/(grid_z*grid_z)*(grid_z -0.5)*(grid_z-0.5) - 0.8);
+		float act_grid_x = grid_x*grid_scale_x;
+		float act_grid_y = grid_y*grid_scale_y;
+		float act_grid_z = grid_z*grid_scale_z;
+				
+	 	betaX = PI*sqrtf(  (dwinX*dwinX)/(act_grid_x*act_grid_x)*(act_grid_x -0.5)*(act_grid_x-0.5) - 0.8);
+	 	betaY = PI*sqrtf(  (dwinY*dwinY)/(act_grid_y*act_grid_y)*(act_grid_y -0.5)*(act_grid_y-0.5) - 0.8);
+	 	betaZ = PI*sqrtf(  (dwinZ*dwinZ)/(act_grid_z*act_grid_z)*(act_grid_z -0.5)*(act_grid_z-0.5) - 0.8);
 		
-		float beta_minX = sqrt(pow(PI*2*dwinX/grid_x,2.0) -  9.6752);
-		float beta_minY = sqrt(pow(PI*2*dwinY/grid_y,2.0) -  9.6752);
-		float beta_minZ = sqrt(pow(PI*2*dwinZ/grid_z,2.0) -  9.6752);
+		
+		float beta_minX = sqrt(pow(PI*2*dwinX/act_grid_x,2.0) -  9.6752);
+		float beta_minY = sqrt(pow(PI*2*dwinY/act_grid_y,2.0) -  9.6752);
+		float beta_minZ = sqrt(pow(PI*2*dwinZ/act_grid_z,2.0) -  9.6752);
 		betaX = ( beta_minX > betaX) ? ( beta_minX ) : ( betaX);
 		betaY = ( beta_minY > betaY) ? ( beta_minY ) : ( betaY);
 		betaZ = ( beta_minZ > betaZ) ? ( beta_minZ ) : ( betaZ);
-	
+		
+		
 		// Compute Seperable Kernels
 		for(int i=0; i<(grid_lengthX+1); i++){
 			float grid_pos=  ( (float)i )/( (float)grid_lengthX);
@@ -335,7 +358,7 @@ void gridFFT::precalc_kernel(void){
 				
 		// Compute Seperable Kernels
 		for(int i=0; i<(grid_lengthX+1); i++){
-			float grid_pos=  ( (float)i * (float)dwinX / (float)1.0)/( (float)grid_lengthX);
+			float grid_pos=  ( (float)i * (float)dwinX / (float)grid_scale_x)/( (float)grid_lengthX);
 			if(grid_pos < 0.01){
 				grid_filterX(i) = 1.0;
 			}else{
@@ -345,7 +368,7 @@ void gridFFT::precalc_kernel(void){
 		}
 		
 		for(int i=0; i<(grid_lengthY+1); i++){
-			float grid_pos=  ( (float)i * (float)dwinY/(float)1.0)/( (float)grid_lengthY);
+			float grid_pos=  ( (float)i * (float)dwinY/(float)grid_scale_y)/( (float)grid_lengthY);
 			if(grid_pos < 0.01){
 				grid_filterY(i) = 1.0;
 			}else{
@@ -355,7 +378,7 @@ void gridFFT::precalc_kernel(void){
 		}
 	
 		for(int i=0; i<(grid_lengthZ+1); i++){
-			float grid_pos=  ( (float)i * (float)dwinZ / (float)1.0)/( (float)grid_lengthZ);
+			float grid_pos=  ( (float)i * (float)dwinZ / (float)grid_scale_z)/( (float)grid_lengthZ);
 			if(grid_pos < 0.01){
 				grid_filterZ(i) = 1.0;
 			}else{
@@ -388,7 +411,12 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   // ---------------------------------------------
   
   if( (trajectory_dims==TWOD) || (trajectory_type!= THREEDNONCARTESIAN) ){
-  	grid_in_z = 0;	
+  	if(grid_in_z ==-1){
+		grid_in_z = 0;	
+	}
+  }
+  if(grid_in_z == -1){
+  	grid_in_z =1;
   }
   
   if(trajectory_type==CARTESIAN){
@@ -443,10 +471,11 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   printf("Dwin 		%f %f %f\n",dwinX,dwinY,dwinZ); 
   printf("Mod 		%f %f %f\n",grid_modX,grid_modY,grid_modZ); 
   printf("Og %d-%d x %d-%d x %d-%d\n",og_sx,og_ex,og_sy,og_ey,og_sz,og_ez);  
+  printf("Grid in x=%d, y=%d, z=%d\n",grid_in_x,grid_in_y,grid_in_z);
   
   // Deapp Windows
   winx.resize(Sx);
-  if(fft_in_x){
+  if( (fft_in_x==1) && (grid_in_x==1) ){
   winx = 0.0;
   for( int i = 0; i < Sx;i++){
   	float ipos = i - (float)Sx/2.0;
@@ -472,7 +501,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   }
   
   winy.resize(Sy);
-  if(fft_in_y){
+  if( (fft_in_y==1) && (grid_in_y==1) ){
   
   winy = 0.0;
   for( int i = 0; i < Sy;i++){
@@ -497,7 +526,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   }
    
   winz.resize(Sz);
-  if(fft_in_z ){
+  if( (fft_in_z==1) && (grid_in_z==1) ){
   	winz = 0.0;
   	for( int i = 0; i < Sz;i++){
   		float ipos = i - (float)Sz/2.0;
@@ -853,12 +882,15 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		tempD.resize(Sx,Sy,Sz);
 		tempD = 0;
 	}
+	
+	// Remove zeros 
+	
 					
-	#pragma omp parallel for
+	#pragma omp parallel for schedule(dynamic,1024)
 	for (int i=0; i < Npts; i++) {
       	
 		complex<float>temp =data[i];
-		
+				
 		// Density Comp
 		temp *= kw[i];
 		
@@ -872,44 +904,70 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	   		
 		// Compute Coordinates + Check
 		float dkx = kx[i]*grid_x + cx;
-		int sx = (int)ceil( dkx - dwinX);
-		if(sx <0)   continue;
-		int ex = (int)floor(dkx + dwinX);
-		if(ex >= Sx) continue;  
-	    
-		// Compute Coordinates + Check
-		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
-		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
-		if(ey >= Sy) continue;  
-	    
-		// Compute Coordinates + Check
-		float dkz = kz[i]*grid_z + cz;
-		int sz,ez;
-		if(grid_in_z==1){
-			sz = (int)ceil( dkz - dwinZ);
-			ez = (int)floor(dkz + dwinZ);
+		int sx;
+		int ex;
+		if(grid_in_x){
+			sx = max( (int)ceil( dkx - dwinX),0);
+			ex = min( (int)floor(dkx + dwinX),Sx-1);
 		}else{
-			sz = (int)( dkz);
+			sx = (int)( dkx);
+			ex = sx;
+		}
+		if(sx >= Sx) continue;
+		if(ex < 0) continue;  
+		
+		
+		float dky = ky[i]*grid_y + cy;
+		int sy;
+		int ey;
+		if(grid_in_y){
+			sy = max( (int)ceil( dky - dwinY),0);
+			ey = min( (int)floor(dky + dwinY),Sy-1);
+		}else{
+			sy = (int)(dky);
+			ey = sy;
+		}
+		if(sy >= Sy) continue;
+		if(ey < 0) continue;  
+			
+		
+		float dkz = kz[i]*grid_z + cz;
+		int sz;
+		int ez;
+		if(grid_in_z){
+			sz = max( (int)ceil( dkz - dwinZ),0);
+			ez = min( (int)floor(dkz + dwinZ),Sz-1);
+		}else{
+			sz = (int)(dkz);
 			ez = sz;
 		}
-		if(sz <0)   continue;
-		if(ez >= Sz) continue;  
+		if(sz >= Sz) continue;
+		if(ez < 0) continue;  
+			
 		
-		float kr = kx[i]*kx[i] + ky[i]*ky[i] + kz[i]*kz[i];
-		if(!fft_in_z){
-			kr = kx[i]*kx[i] + ky[i]*ky[i];
+		float kr=0.0;
+		if( fft_in_x){
+			kr+=(kx[i]*kx[i]);
+		}
+		
+		if( fft_in_y){
+			kr+=(ky[i]*ky[i]);
+		}
+		
+		if( fft_in_z){
+			kr+=(kz[i]*kz[i]);
 		}
 		temp *= exp( -kr / (2.0*k_rad*k_rad) );
-	
 
-
-		// This is the main loop - most time is spent here
+		/*This is the main loop - most time is spent here*/
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
 			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
+			if(!grid_in_z){
+				wtz =1.0;
+			}
+			
 			if(fft_in_z){
 				wtz *=( (float)(2*(lz%2) -1 ));
 			}
@@ -960,14 +1018,12 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 						#pragma omp atomic
 						*I+=ID;
 					}																	
-					//This Memory Access is the Bottleneck - Also not thread safe!	 			 
+					/*This Memory Access is the Bottleneck - Also not thread safe!*/	 			 
 			 		// k3d_grid.vals[lz][ly][lx]+=temp2;
-			}//lz
-	  	  }//ly
-		 }//lz
-
-	
-	}// end data loop 
+			}/* end lz loop */
+	  	  }/* end ly */
+		 }/* end lx */
+	}/* end data loop */
 	
 	// Copy back if using double
 	if(double_grid){
@@ -1027,11 +1083,19 @@ void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, con
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
+		int sy;
+		int ey;
+		if(grid_in_y==1){
+			sy = (int)ceil( dky - dwinY);
+			ey = (int)floor(dky + dwinY);
+		}else{
+			sy = (int)( dky);
+			ey = sy;
+		}
 		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
-		if(ey >= SizeY) continue;  
-	    
+		if(ey >= Sy) continue;  
+		
+		
 		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
 		int sz,ez;
@@ -1110,10 +1174,7 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 	for (int i=0; i < Npts; i++) {
       	
 		float temp =data[i];
-		
-		if (temp == 0.0) { continue; };
-		
-
+					
 	    	// Calculate the exact kspace sample point in 
 	    	// dimension flag->grid* kspace that this point (i,j)
 	    	// is contributing too.
@@ -1127,11 +1188,20 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 	    
 		// Compute Coordinates + Check
 		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
+		int sy;
+		int ey;
+		if(grid_in_y==1){
+			sy = (int)ceil( dky - dwinY);
+			ey = (int)floor(dky + dwinY);
+		}else{
+			sy = (int)( dky);
+			ey = sy;
+		}
 		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
-		if(ey >= SizeY) continue;  
-	    
+		if(ey >= Sy) continue;  
+		
+		
+		
 		// Compute Coordinates + Check
 		float dkz = kz[i]*grid_z + cz;
 		int sz,ez;
@@ -1200,52 +1270,69 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	const float *kz = kzA.data();
 	const float *kw = kwA.data();
 	
-	#pragma omp parallel for 
+	#pragma omp parallel for schedule(dynamic,1024)
 	for (int i=0; i < Npts; i++) {
       	
 		
 		// Do not grid zeros
-     		if( kw[i]==0.0) continue;
-		
-		// Calculate the exact kspace sample point in 
+     	if( kw[i]==0.0) continue;
+					
+	    // Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
 	    // is contributing too.
-	   			
+	   		
 		// Compute Coordinates + Check
 		float dkx = kx[i]*grid_x + cx;
-		int sx = (int)ceil( dkx - dwinX);
-		if(sx <0)   continue;
-		int ex = (int)floor(dkx + dwinX);
-		if(ex >= Sx) continue;  
-	    
-		// Compute Coordinates + Check
-		float dky = ky[i]*grid_y + cy;
-		int sy = (int)ceil( dky - dwinY);
-		if(sy <0)   continue;
-		int ey = (int)floor(dky + dwinY);
-		if(ey >= Sy) continue;  
-	    
-		// Compute Coordinates + Check
-		float dkz = kz[i]*grid_z + cz;
-		int sz,ez;
-		if(grid_in_z==1){
-			sz = (int)ceil( dkz - dwinZ);
-			ez = (int)floor(dkz + dwinZ);
+		int sx;
+		int ex;
+		if(grid_in_x){
+			sx = max( (int)ceil( dkx - dwinX),0);
+			ex = min( (int)floor(dkx + dwinX),Sx-1);
 		}else{
-			sz = (int)( dkz);
+			sx = (int)( dkx);
+			ex = sx;
+		}
+		if(sx >= Sx) continue;
+		if(ex < 0) continue;  
+		
+		
+		float dky = ky[i]*grid_y + cy;
+		int sy;
+		int ey;
+		if(grid_in_y){
+			sy = max( (int)ceil( dky - dwinY),0);
+			ey = min( (int)floor(dky + dwinY),Sy-1);
+		}else{
+			sy = (int)(dky);
+			ey = sy;
+		}
+		if(sy >= Sy) continue;
+		if(ey < 0) continue;  
+			
+		
+		float dkz = kz[i]*grid_z + cz;
+		int sz;
+		int ez;
+		if(grid_in_z){
+			sz = max( (int)ceil( dkz - dwinZ),0);
+			ez = min( (int)floor(dkz + dwinZ),Sz-1);
+		}else{
+			sz = (int)(dkz);
 			ez = sz;
 		}
-		if(sz <0)   continue;
-		if(ez >= Sz) continue;  
-		
-		complex<float>temp(0,0);
-			  
+		if(sz >= Sz) continue;
+		if(ez < 0) continue;  
 
-		// This is the main loop - most time is spent here
+		complex<float>temp(0,0);
+					
+		/*This is the main loop - most time is spent here*/
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
 			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
+			if(!grid_in_z){
+				wtz =1.0;
+			}
 			
 			if(fft_in_z){
 				wtz *=( (float)(2*(lz%2) -1 ));
@@ -1269,16 +1356,13 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 						wtx *=( (float)(2*(lx%2) -1 ));
 					}
 														
-					// This Memory Access is the Bottleneck	 
+					/*This Memory Access is the Bottleneck*/	 			 
 			 		temp += wtx*k3d_grid(lx,ly,lz);
 			  	 
-	    	}//lx
-	   }//ly
-	}//lz
-		 
-		
-			
-	data[i] += temp;
+	    	}/* end lz loop */
+	  	  }/* end ly */
+		 }/* end lx */
+		 data[i] += temp;
 	
 	}/* end data loop */
 	return;

@@ -51,6 +51,11 @@ class gridFFT{
   		int og_ey;
   		int og_ez;
 		
+		float grid_scale_x;
+		float grid_scale_y;
+		float grid_scale_z;
+		
+		
 		// arma::matrix Size
 		int Nx;
 		int Ny;

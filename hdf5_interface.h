@@ -1,3 +1,9 @@
+>>>>>>>>>>>>>>>>>>>> File 1
+>>>>>>>>>>>>>>>>>>>> File 2
+#include <H5Cpp.h>
+>>>>>>>>>>>>>>>>>>>> File 3
+#include <H5Cpp.h>
+<<<<<<<<<<<<<<<<<<<<
 #include "ArrayTemplates.hpp"
 
 #ifndef HDF_INTERFACE
