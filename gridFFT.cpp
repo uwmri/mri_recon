@@ -53,16 +53,10 @@ gridFFT::gridFFT(){
   	fft_in_z=1;
   	grid_in_x=1;
   	grid_in_y=1;
->>>>>>>>>>>>>>>>>>>> File 1
-  	grid_in_z=1;
->>>>>>>>>>>>>>>>>>>> File 2
-  	grid_in_z=1;
->>>>>>>>>>>>>>>>>>>> File 3
   	grid_in_z=-1;
 	grid_scale_x = 1.0;
 	grid_scale_y = 1.0;
 	grid_scale_z = 1.0;
-<<<<<<<<<<<<<<<<<<<<
 	k_rad=9999.0;
 	time_grid =0 ;
 	double_grid =0;
@@ -188,14 +182,9 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		float_flag("-grid_y",grid_y);
 		float_flag("-grid_z",grid_z);
 		
->>>>>>>>>>>>>>>>>>>> File 1
->>>>>>>>>>>>>>>>>>>> File 2
->>>>>>>>>>>>>>>>>>>> File 3
 		float_flag("-grid_scale_x",grid_scale_x);
 		float_flag("-grid_scale_y",grid_scale_y);
 		float_flag("-grid_scale_z",grid_scale_z);
-		
-<<<<<<<<<<<<<<<<<<<<
 		
 		int_flag("-grid_in_x",grid_in_x);
 		int_flag("-grid_in_y",grid_in_y);

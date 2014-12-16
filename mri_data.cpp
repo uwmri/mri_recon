@@ -150,10 +150,12 @@ void MRI_DATA::init_memory(void){
 	prep.setStorage( ColumnMajorArray<3>());
 	prep.resize(Num_Readouts,Num_Slices,Num_Encodings);
 
-	kdata_gating.setStorage( ColumnMajorArray<4>());
-	kdata_gating.resize(Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
 
+}
 
+void MRI_DATA::init_gating_kdata(int gating_samples){
+	kdata_gating.setStorage( ColumnMajorArray<5>());
+	kdata_gating.resize(gating_samples,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
 }
 
 

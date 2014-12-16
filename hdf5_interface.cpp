@@ -167,6 +167,75 @@ int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,3> & 
 	return(0);
 }
 
+int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,4> & A){
+	
+	Exception::dontPrint();
+
+	
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[3];              // dataset dimensions
+	dimsf[0] = A.length(fourthDim);
+	dimsf[1] = A.length(thirdDim);
+	dimsf[2] = A.length(secondDim);
+	dimsf[3] = A.length(firstDim);
+	DataSpace dataspace( 4, dimsf );
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_FLOAT,dataspace));
+	dataset.write( A.data(),PredType::NATIVE_FLOAT, dataspace);
+
+	return(0);
+}
+
+
+int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,5> & A){
+	
+	Exception::dontPrint();
+
+	
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[3];              // dataset dimensions
+	dimsf[0] = A.length(fifthDim);
+	dimsf[1] = A.length(fourthDim);
+	dimsf[2] = A.length(thirdDim);
+	dimsf[3] = A.length(secondDim);
+	dimsf[4] = A.length(firstDim);
+	DataSpace dataspace( 5, dimsf );
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_FLOAT,dataspace));
+	dataset.write( A.data(),PredType::NATIVE_FLOAT, dataspace);
+
+	return(0);
+}
+
+
 
 int HDF5::AddH5Array( const char *GroupName,const char *Name, Array<complex<float>,2> & A){
 	

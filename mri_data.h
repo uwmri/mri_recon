@@ -46,7 +46,7 @@ class MRI_DATA{
 		NDarray::Array< float,3>resp;	// Respiratory signal from bellows or navigator
 		NDarray::Array< float,3>time;	// Acquisition Time 
 		NDarray::Array< float,3>prep;	// Time since a prep event (for example inversion)
-		NDarray::Array< complex<float>,4>kdata_gating;	// Repeated sample for gating, need to be the same for each data point, all coils
+		NDarray::Array< complex<float>,5>kdata_gating;	// Repeated sample for gating, need to be the same for each data point, all coils
 						
 		// Native Resolution
 		int xres;
@@ -68,6 +68,7 @@ class MRI_DATA{
 		
 		// Initialization Filling Operations				
 		void init_memory();
+		void init_gating_kdata(int);
 		void init_noise_samples(int);
 		void read_external_data(const char *folder,int);
 		void write_external_data(const char *folder);

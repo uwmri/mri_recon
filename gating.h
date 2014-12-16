@@ -26,11 +26,11 @@ class GATING {
         
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
-        	enum WeightType { ITERATIVE,NON_ITERATIVE};
+        enum WeightType { ITERATIVE,NON_ITERATIVE};
 		enum FrameType { COMPOSITE, TIME_FRAME};
 		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
-		enum RespGateSignal{BELLOWS,DC_DATA};
+		
 		
 		GATING();						
 		GATING(int numarg,char **pstring);
@@ -38,8 +38,6 @@ class GATING {
 		void init_resp_gating(const MRI_DATA &data,int);
 		void init_time_resolved(const MRI_DATA &data,int);
 		
-		void extract_dc_data(NDarray::Array<NDarray::Array<complex<float>, 3>,2> &, const MRI_DATA &);
-	
 		// Tornado Filter Parameters
         int wdth_low;	// k=0 width
 		int wdth_high; 	// k=kmax width
@@ -58,18 +56,15 @@ class GATING {
 		NDarray::Array< float, 3>gate_times;
 		NDarray::Array< float, 3>resp_weight;
 
-		NDarray::Array< NDarray::Array<complex<float>, 3>, 2>Kdc;
-		
 		// Control of Retrospective Respiratory Gating
 		RespGateType resp_gate_type;
 		int correct_resp_drift;
 		float resp_gate_efficiency;
-		
+
+		// Respiratory Signal 
+		enum RespGateSignal{BELLOWS,DC_DATA};
 		RespGateSignal resp_gate_signal;
-		int external_weights;
-		char external_weights_filename[1024];
-
-
+		float resp_sign; 
 
 		// Frame Centers	
 		float *gate_frames;
@@ -81,6 +76,7 @@ class GATING {
 	   	void hist_weight( NDarray::Array<float,3>&Tw, int e, int t);
 		void tornado_weight(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);
 		void filter_resp(  const MRI_DATA &data );
+		NDarray::Array< complex<float>,3> combine_kspace_channels(  const NDarray::Array< complex<float>,5> &kdata_gating );
     private:
 
 };
