@@ -872,9 +872,6 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		tempD = 0;
 	}
 	
-	// Remove zeros 
-	
-					
 	#pragma omp parallel for schedule(dynamic,1024)
 	for (int i=0; i < Npts; i++) {
       	
@@ -884,12 +881,12 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		temp *= kw[i];
 		
 		// Do not grid zeros
-     	if( temp==complex<float>(0,0)) continue;
+     		if( temp==complex<float>(0,0)) continue;
 		
 				
-	    // Calculate the exact kspace sample point in 
-	    // dimension flag->grid* kspace that this point (i,j)
-	    // is contributing too.
+	 	// Calculate the exact kspace sample point in 
+		// dimension flag->grid* kspace that this point (i,j)
+		// is contributing too.
 	   		
 		// Compute Coordinates + Check
 		float dkx = kx[i]*grid_x + cx;
@@ -904,8 +901,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		}
 		if(sx >= Sx) continue;
 		if(ex < 0) continue;  
-		
-		
+				
 		float dky = ky[i]*grid_y + cy;
 		int sy;
 		int ey;
@@ -950,7 +946,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 
 		/*This is the main loop - most time is spent here*/
 		for(int lz =sz; lz<=ez; lz++){
-    		float delz = fabs(grid_modZ*(dkz -(float)lz));
+    			float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
 			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
 			if(!grid_in_z){
@@ -1009,8 +1005,8 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 					}																	
 					/*This Memory Access is the Bottleneck - Also not thread safe!*/	 			 
 			 		// k3d_grid.vals[lz][ly][lx]+=temp2;
-			}/* end lz loop */
-	  	  }/* end ly */
+				}/* end lz loop */
+	  	 	}/* end ly */
 		 }/* end lx */
 	}/* end data loop */
 	
@@ -1082,7 +1078,7 @@ void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, con
 			ey = sy;
 		}
 		if(sy <0)   continue;
-		if(ey >= Sy) continue;  
+		if(ey >= SizeY) continue;  
 		
 		
 		// Compute Coordinates + Check
@@ -1187,7 +1183,7 @@ void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, cons
 			ey = sy;
 		}
 		if(sy <0)   continue;
-		if(ey >= Sy) continue;  
+		if(ey >= SizeY) continue;  
 		
 		
 		
@@ -1364,7 +1360,6 @@ float gridFFT::bessi0(float x)
 {
   float ax, ans;
   double y;
-
 
   if ((ax=fabs(x)) < 3.75) {
     y = x/3.75;

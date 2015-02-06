@@ -135,10 +135,11 @@ Array< Array<T,3>, 1> Alloc4DContainer( int x, int y, int z, int t){
 	Array< Array<T,3>,1> temp;
 	temp.setStorage(ColumnMajorArray<1>());
 	temp.resize( t );
-	for(int i1=0; i1< t; i1++){
-		temp(i1).setStorage(ColumnMajorArray<3>());
-		temp(i1).resize(x,y,z);
-		temp(i1)= (T )0;
+
+	for( typename Array<Array<T,3>,1>::iterator miter=temp.begin();   miter !=temp.end(); miter++){
+		(*miter).setStorage(ColumnMajorArray<3>());
+		(*miter).resize(x,y,z);
+		(*miter)= (T )0;
 	}
 	return(temp);
 }

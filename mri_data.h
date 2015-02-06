@@ -71,7 +71,7 @@ class MRI_DATA{
 		void init_gating_kdata(int);
 		void init_noise_samples(int);
 		void read_external_data(const char *folder,int);
-		void write_external_data(const char *folder);
+		void write_external_data(const char *fname);
 		void parse_external_header(const char *filename);
 		void load_pcvipr_gating_file(const char *full_filename); //Temp
 		void data_stats(void);

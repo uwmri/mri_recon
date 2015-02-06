@@ -448,8 +448,7 @@ void THRESHOLD::get_surethreshold(Array<Array< complex<float>,3>,2>&Coef, WAVELE
 	// Get Update
 	for(int e=0; e< Ne;e++){
 		for(int t=0; t< Nt;t++){
-		
-	
+
 			#pragma omp parallel for
 			for( int lz=0; lz < wave.L[2]+1; lz++){
 			for( int ly=0; ly < wave.L[1]+1; ly++){
@@ -630,6 +629,8 @@ void THRESHOLD::robust_noise_estimate(Array<Array< complex<float>,3>,2>&Coef, WA
 	// Noise Estimate = median/ 0.6745	 - noise scale is needed for zero filled data
 	noise = get_threshold(DH,0.5)/0.6745*noise_scale;
 }	 
+
+
 
 // Option of thresh of appriximation wavelets or all wavelets, hard vs soft threshold
 void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef, float value){

@@ -165,6 +165,8 @@ MRI_DATA::MRI_DATA( void){
 	Num_Pts = -1;
 	Num_Coils = -1;
 	Num_Slices =  1; 
+	trajectory_dims = THREED;
+	trajectory_type = THREEDNONCARTESIAN;
 }
 
 
@@ -306,10 +308,9 @@ void MRI_DATA::demod_kdata( float demod){
 //  Temporary Function to Write Data ( will be replaced by ismrmd ) 
 //---------------------------------------------------
 
-void MRI_DATA::write_external_data( const char *folder){
-
-	
-	HDF5 file = HDF5("MRI_Raw_h5");
+void MRI_DATA::write_external_data( const char *fname){
+		
+	HDF5 file = HDF5(fname);
 	for(int encode = 0; encode < kdata.length(firstDim); encode++){
 	
 		{
@@ -352,7 +353,9 @@ void MRI_DATA::write_external_data( const char *folder){
 	}
 	
 	// Noise Samples
-	file.AddH5Array( "Kdata","Noise",noise_samples);	
+	if( noise_samples.numElements()!=0){
+		file.AddH5Array( "Kdata","Noise",noise_samples);	
+	}
 	
 	// Gating
 	file.AddH5Array( "Gating","ecg",ecg);	

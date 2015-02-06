@@ -42,7 +42,7 @@ class FRACTAL3D{
 		void calc_image(int,int);
 		void write_matlab_truth_script( const char *);
 		void calc_image(NDarray::Array<complex<float>,3>&,int,int);
-		void build_tree(int Nx, int Ny, int Nz,int Nt);
+		void build_tree(int Nx, int Ny, int Nz);
 				
 	private:
 		NDarray::Array<int,3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);

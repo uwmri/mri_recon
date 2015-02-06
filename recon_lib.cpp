@@ -126,8 +126,8 @@ void RECON::help_message(void){
 	
 	cout << "Transforms for Compressed Sensing:" << endl;
 	help_flag("-spatial_transform []","none/wavelet");
-    	help_flag("-temporal_transform []","none/diff/pca/dft/wavelet");
-    	help_flag("-encode_transform []","none/diff");
+    help_flag("-temporal_transform []","none/diff/pca/dft/wavelet");
+    help_flag("-encode_transform []","none/diff");
     	
 	cout << "Iterative Recon Control:" << endl;
 	help_flag("-max_iter []","max iterations for iterative recons");
@@ -872,15 +872,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 				
 				 // Structures  	
 				 Array< Array< complex<float>,3>, 2>R = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
-				 for( Array< Array<complex<float>,3>,2>::iterator miter =R.begin(); miter != R.end(); miter++){
-				 	(*miter)= complex<float>(0.0,0.0);
-				 }
-				 
 				 Array< Array< complex<float>,3>, 2>P = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
-				 for( Array< Array<complex<float>,3>,2>::iterator miter =P.begin(); miter != P.end(); miter++){
-				 	(*miter)= complex<float>(0.0,0.0);
-				 }
-				 
 				 Array< Array< complex<float>,3>, 2>LHS = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
 				 				 
 				 // Storage for (Ex-d)
@@ -918,6 +910,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					  tictoc iteration_timer;
 					  iteration_timer.tic();
 					  
+					  // E'Ex
 					  for(int e=0; e< rcencodes; e++){
 						  for(int t=0; t< Nt; t++){
 							  int act_t = times(t);
@@ -936,9 +929,36 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 								  gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 							  }//Coils
+							  
+							  // L2 R'R 
+							  if(iteration> 0){
+							  	
+							  }
+							  
 						}// t
 					}// e
-						  
+					
+					
+					// Regularization
+					if(iteration==0){
+						float sum_P_P = 0.0; 
+						float sum_L_L = 0.0; 
+						for(int e=0; e< LHS.length(secondDim); e++){
+						  for(int t=0; t< LHS.length(firstDim); t++){
+							sum_P_P += sum(norm(P(t,e)));
+							sum_L_L += sum(norm(LHS(t,e)));
+						}}
+						
+						l2reg.reg_scale = l2reg.lambda*sqrt(sum_L_L/sum_P_P);
+						cout << "L2 Scale = " << l2reg.reg_scale << endl;
+					}
+					
+					for(int e=0; e< LHS.length(firstDim); e++){
+						  for(int t=0; t< LHS.length(secondDim); t++){
+							l2reg.regularize(LHS(t,e),P(t,e));
+						}
+					}
+											  
 					//----------------------------------------------------
 					//  Now perform gradient update
 					// ---------------------------------------------------
@@ -1113,6 +1133,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  	l2reg.regularize(R(store_t,e),X(store_t,e) );
 								  }
 								    
+									
 								  //Now Get Scale factor (for Cauchy-Step Size)
 								  P=0;
 
@@ -1157,9 +1178,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  
 						  // Error check
 						  if(iteration==0){
-							  cout << "L2 set scale " << endl << flush;
-						  	  error0 = abs(scale_RhR);
-							  l2reg.set_scale(error0,X);
+							  l2reg.reg_scale = abs(scale_RhR);
 						  }
 						  cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
 						  cout << "RhP = " << scale_RhP << endl;
@@ -1361,29 +1380,26 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		case(IST):
 		case(FISTA):
 		case(CG):{
+			
 			// Allocate Storage for Map	and zero	
 			cout << "Allocate Sense Maps"  << endl << flush;
-			smaps.setStorage( ColumnMajorArray<1>());
-			smaps.resize( data.Num_Coils );
-			for(int coil=0; coil< smaps.length(firstDim); coil++){
-				smaps(coil).setStorage( ColumnMajorArray<3>());
-				smaps(coil).resize(rcxres,rcyres,rczres,data.Num_Coils);
-				smaps(coil)=0;
-			} 
-			
+			{
+				Array< Array< complex<float>, 3>,1> temp =  Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,data.Num_Coils);
+				smaps.reference(temp);
+			}
+
 			if(data.Num_Coils ==1){
 				smaps(0)=complex<float>(1.0,0.0);
 				break;
 			}
-						
+			
 			cout << "Recon Low Resolution Images"  << endl<< flush; 
-			
-			
+
 			// Recon the maps
 			for(int e=0; e< 1;e++){
 				for(int coil=0; coil< data.Num_Coils; coil++){
 					
-					cout << "Coil = " << coil  << " encode = " << e << endl;
+					cout << "Coil = " << coil  << " encode = " << e << endl << flush;
 					if( !iterative_smaps){
 						
 						// Low Pass filtering for Sensitivity Map
@@ -1392,8 +1408,10 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 						}
 						
 						// Simple gridding
+						cout << "Grid " << endl << flush;
 						gridding.forward( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
 						
+						cout << "Gaussian Blur " << endl << flush;
 						gaussian_blur(smaps(coil),extra_blurX,extra_blurY,extra_blurZ); // TEMP						
 																								
 					}else{
@@ -1403,7 +1421,8 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				}
 			}
 			gridding.k_rad = 9999;
-			
+
+
 			Array< float , 3 > IC;
 			if( intensity_correction ){
 				intensity_correct( IC, smaps);
@@ -1456,7 +1475,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 						smaps(coil)(i,j,k) *= IC(i,j,k);
 					}}}
 				}
-				ArrayWrite(IC,"Intensity.dat");
+				//ArrayWrite(IC,"Intensity.dat");
 			}
 		
 		
@@ -1469,21 +1488,27 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 					ArrayWrite(smaps(coil),name);
 				}
 			}
-		
+
 		}break;
 		
 		
 		case(SOS):{
 			// Allocate Storage for Map	and zero	
 			cout << "Allocate Sense Maps"  << endl << flush;
-			smaps = Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,data.Num_Coils);
+			{
+				Array< Array< complex<float>, 3>,1> temp =  Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,data.Num_Coils);
+				smaps.reference(temp);
+			}
+
 			for(int coil=0; coil< smaps.length(firstDim); coil++){
 				smaps(coil)=complex<float>(1.0,0.0);
 			}	
 		
 		}break;
 	}
-} 
+
+}
+
 
 
 void RECON::single_coil_cg( Array< complex<float>,3> & X, Array< complex<float>,3> &kdata, Array<float,3> &kx, Array<float,3> &ky, Array<float,3> &kz, Array<float,3> &kw){

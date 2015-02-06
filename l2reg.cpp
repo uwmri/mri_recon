@@ -52,6 +52,7 @@ L2REG::L2REG(int numarg, char **pstring){
 
 void L2REG::set_scale( float EhE_scale, Array< Array< complex<float>,3>,2>&X){
 	
+	
 	if(lambda==0.0){
 		return;
 	}
@@ -64,9 +65,9 @@ void L2REG::set_scale( float EhE_scale, Array< Array< complex<float>,3>,2>&X){
 		case(NONE):{
 	  
 	  		#pragma omp parallel for reduction(+:transform_energy)
-			for(int et=0; et < X.numElements(); et++){ 	  
-				int t = et % X.length(firstDim);
-				int e = et / X.length(firstDim);
+			for(int et=0; et < (int)X.numElements(); et++){ 	  
+				int t = et % (int)X.length(firstDim);
+				int e = et / (int)X.length(firstDim);
 								
 				float temp = sum(norm(X(t,e)));
 				transform_energy += temp; 
@@ -99,6 +100,12 @@ void L2REG::set_scale( float EhE_scale, Array< Array< complex<float>,3>,2>&X){
 	 		for(Array< Array< complex<float>,3>,2>::iterator miter=X.begin(); miter !=X.end(); miter++){
 				transform_energy += sum( pow( imag(*miter),2));
 	  		}
+		}break;
+
+		case(LOWRES):{
+			
+			// Do nothing
+			
 		}break;
 	}
 	cout << "Transform Energy = " << transform_energy << endl;
@@ -148,7 +155,7 @@ void L2REG::set_scale( float EhE_scale, Array< complex<float>,3> &X){
 		
 		case(LOWRES):{
 			
-		
+			// Do nothing
 			
 		}break;
 		
@@ -212,12 +219,12 @@ void L2REG::regularize( Array< complex<float>,3 > &Rref, Array< complex<float>,3
 	case(LOWRES):{
 			
 			
-			int rcxres = Xref.length(firstDim);
-			int rcyres = Xref.length(secondDim);
-			int rczres = Xref.length(thirdDim);
+			int rcxres = (int)Xref.length(firstDim);
+			int rcyres = (int)Xref.length(secondDim);
+			int rczres = (int)Xref.length(thirdDim);
 				  
 			// Zeropadded bluring
-			if( ZeroPad.numElements() !=  ( (rcxres+64)*(rcyres+64)*(rczres+64) ) ){
+			if( (int)ZeroPad.numElements() !=  ( (rcxres+64)*(rcyres+64)*(rczres+64) ) ){
 				ZeroPad.setStorage( ColumnMajorArray<3>() );
 				ZeroPad.resize( rcxres+64, rcyres+64, rczres+64 );
 			}

@@ -134,7 +134,7 @@ void PHANTOM::init(int Sx, int Sy, int Sz,int St){
 	switch(phantom_type){
 		case(FRACTAL):{
 			cout << "Build Tree" << endl << flush;
-			fractal.build_tree(Nx,Ny,Nz,Nt);
+			fractal.build_tree(Nx,Ny,Nz);
 		}break;
 		
 		case(SHEPP):{
@@ -745,7 +745,7 @@ field<FRACTAL3D::TFRACT_RAND> FRACTAL3D::create_tree( fmat seeds_start, fmat see
 //	 Generate Fractal Based on Random Generation within Volume
 //     Similar to Karch et al. Computers in Biology and Medicine 29(1999)19-38
 //
-void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz, int Nt){
+void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz){
 
 	// Inputs
 	int terminal_pts = fractal_pts; // Number of Endpoints

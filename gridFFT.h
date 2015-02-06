@@ -24,9 +24,12 @@ class gridFFT{
 	public:
 		int threads;
 		
-  		NDarray::Array< complex<float>,3 >k3d_grid; 	/*Actual Gridding Space*/
+  		NDarray::Array< complex<float>,3 >k3d_grid; /*Actual Gridding Space*/
   		NDarray::Array< complex<float>,3 >image;   	/*Complex Storage Space*/
   		
+		NDarray::Array<   NDarray::Array< complex<float>,3>, 1>k3d_MT;  // Thread gridding
+		NDarray::Array<   NDarray::Array< complex<float>,3>, 1>image_MT;  // Thread gridding
+				
 		// Controls for phase encode / 2D directions
 		int fft_in_x;
   		int fft_in_y;
@@ -116,7 +119,7 @@ class gridFFT{
 						
 		void chop_grid_forward( const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 		void chop_grid_backward( NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
-		float bessi0(float);
+		static float bessi0(float);
 		void plan_fft( void );
 		
 		// grid for dcf 

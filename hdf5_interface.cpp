@@ -186,7 +186,7 @@ int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,4> & 
 	}
 	
 	// Create DataSet
-	hsize_t dimsf[3];              // dataset dimensions
+	hsize_t dimsf[4];              // dataset dimensions
 	dimsf[0] = A.length(fourthDim);
 	dimsf[1] = A.length(thirdDim);
 	dimsf[2] = A.length(secondDim);
@@ -220,7 +220,7 @@ int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<float,5> & 
 	}
 	
 	// Create DataSet
-	hsize_t dimsf[3];              // dataset dimensions
+	hsize_t dimsf[5];              // dataset dimensions
 	dimsf[0] = A.length(fifthDim);
 	dimsf[1] = A.length(fourthDim);
 	dimsf[2] = A.length(thirdDim);
