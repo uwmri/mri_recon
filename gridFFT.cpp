@@ -93,14 +93,27 @@ void gridFFT::plan_fft( void ){
 	char hname[300];
 	char com[1300];
 	gethostname( hname,299);
-#ifdef SCANNER
-	sprintf(fname,"/usr/g/research/pcvipr/fft_wisdom_host_%s_x%d_y%d_z%d.dat",hname,Sx,Sy,Sz);
-#else
-	sprintf(fname,"/export/home/kmjohnso/FFT_PLANS/fft_wisdom_host_%s_x%d_y%d_z%d.dat",hname,Sx,Sy,Sz);
-#endif
-	printf("The FFT File will be %s\n",fname);
+	
+	
+	// Get FFTW Plan Folder
+	char const* tmp = getenv("FFT_PLAN_PATH");
+	string fft_wisdom_folder;
+	if(tmp == NULL){
+		cout << "Warning no FFTW Plan folder " << endl;
+		cout << "  -- Set FFT_PLAN_PATH or plans may be slow" << endl;
+	}else{
+		fft_wisdom_folder = string(tmp);
+	}
+		
+	// Create Name
+	ostringstream stringStream;
+	stringStream << fft_wisdom_folder << "/fft_wisdom_host_" << hname << "_x" << Sx << "_y" << Sy << "_z" << Sz << ".dat";
+	string fft_name =  stringStream.str();
+	
+
+	cout << "The FFT File will be" << fft_name << endl;
 				
-	if(  (fid=fopen(fname,"r")) != NULL){
+	if(  (fid=fopen(fft_name.c_str(),"r")) != NULL){
 		fftwf_import_wisdom_from_file(fid);
 		fclose(fid);
 	}	
