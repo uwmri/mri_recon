@@ -86,10 +86,7 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
 
 
 void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, int dim){
-	
-	
-	typedef Array<complex<float>,3> Complex3D;
-	
+		
 	// Shorthand
 	int Nt =image.extent(firstDim);
 	int Ne =image.extent(secondDim);
@@ -215,8 +212,6 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 //-----------------------------------------------------
 void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, int dim){
 	
-	
-	typedef Array<complex<float>,3> Complex3D;
 	
 	// Shorthand
 	int Nt =image.extent(firstDim);

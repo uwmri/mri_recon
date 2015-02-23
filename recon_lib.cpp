@@ -323,9 +323,6 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	if (compress_coils > 0){
 		data.coilcompress(compress_coils);
 	}
-		
-	// Shorthand for Blitz++
-	Range all=Range::all();
 
 	// Matlab like timer (openmp code base)
 	tictoc T; 
@@ -1339,7 +1336,6 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 	// ------------------------------------
 	//  Get coil sensitivity map ( move into function)
 	// ------------------------------------
-	Range all = Range::all();	
 	
 	switch( recon_type){
 	
@@ -1889,9 +1885,7 @@ void RECON::normalized_gaussian_blur( const Array< float, 3> & In, Array< float,
  */
 void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
 {
-    	
-	typedef Array<complex<float>,3> Complex3D;
-	
+    		
 	// Shorthand
 	int Ncoils = image.extent(firstDim);
 	int Nx =image(0).extent(firstDim);
