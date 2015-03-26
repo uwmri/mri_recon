@@ -8,8 +8,8 @@
 
 
 #Look for libraries
-FIND_LIBRARY( HDF5CPP_LIBRARY  NAMES libhdf5_cpp.a hdf5_cpp PATHS /usr/local/ /usr/local/lib64/ /usr/lib/ /usr/lib64/ )
-FIND_LIBRARY( HDF5_LIBRARY  NAMES libhdf5.a hdf5 PATHS /usr/local/ /usr/local/lib64/ /usr/lib/ /usr/lib64/ )
+FIND_LIBRARY( HDF5CPP_LIBRARY  NAMES libhdf5_cpp.a hdf5_cpp  )
+FIND_LIBRARY( HDF5_LIBRARY  NAMES libhdf5.a hdf5 )
 FIND_PATH( HDF5_INCLUDE_DIR H5Cpp.h )
 
 

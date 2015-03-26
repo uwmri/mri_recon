@@ -1201,11 +1201,11 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  Array<complex<float>,2>Xslice=X(0,0)(all,all,X(0,0).length(2)/2);
 						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
 						  
-						  /* TEMP
-						  lranktime.update_threshold(X,0);
-						  lranktime.thresh(X,0);
-						  ArrayWriteMagAppend(Xslice,"X_mag.dat");
-						  */
+						  if(lranktime.clear_alpha_time > 0.0){
+						  	lranktime.update_threshold(X,0);
+						  	lranktime.thresh(X,0);
+						  	ArrayWriteMagAppend(Xslice,"X_mag.dat");
+						  }
 						  
 						  if( Nt > 1){
 						  	ArrayWriteMag(Xslice,"X_frames.dat");

@@ -33,7 +33,7 @@ LOWRANKCOIL::LOWRANKCOIL(){
   block_size_z = 4;
   block_iter = 4;
 
-  clear_alpha_coil = 0.01;
+  clear_alpha_coil = 0.0;
   clear_alpha_time = 0.0;
   clear_alpha_encode = 0.0;
   debug =0;
