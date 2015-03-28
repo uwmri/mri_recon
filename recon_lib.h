@@ -77,8 +77,12 @@ class RECON{
 	  int rcframes;
 	  int rcencodes;
   
-  	  // Store for later
-      	  gridFFT gridding;
+  	  // Gridding operators
+	  int grid_workers;
+	  int grid_threads;
+	  NDarray::Array< gridFFT,1> gridding;
+	  
+	  // Arrays for calculations
 	  NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps; // Array of arrays
 	  NDarray::Array< complex<float>,3>composite_image;
 	  NDarray::Array< float, 3 >IntensityCorrection;
@@ -113,6 +117,7 @@ class RECON{
 	  int max_iter;
 	  int export_smaps;
 	  bool prep_done;
+	  bool pregate_data_flag;
 	  
 	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 
@@ -133,7 +138,7 @@ class RECON{
 	  void gaussian_blur(  NDarray::Array< complex<float>, 3> & In, float,float,float);
 	  void normalized_gaussian_blur( const  NDarray::Array< float, 3> & In,  NDarray::Array< float, 3> & out, float sigma);
 	  void intensity_correct( NDarray::Array<float,3> &IC, NDarray::Array< NDarray::Array< complex<float>,3>,1 >&smaps );
-	  
+	  void pregate_data( MRI_DATA&);
 	  void single_coil_cg( NDarray::Array< complex<float>,3> & X, NDarray::Array< complex<float>,3> &kdata, NDarray::Array<float,3> &kx, NDarray::Array<float,3> &ky, NDarray::Array<float,3> &kz, NDarray::Array<float,3> &kw);
 
 	  	  
