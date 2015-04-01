@@ -244,8 +244,11 @@ void RECON::parse_commandline(int numarg, char **pstring){
 				exit(1);
 				trig_flag(NONE,"none",cs_encode_transform);
 				trig_flag(DIFF,"diff",cs_encode_transform);
+				trig_flag(DFT,"dft",cs_encode_transform);
+				trig_flag(PCA,"pca",cs_encode_transform);
+				trig_flag(WAVELET,"wavelet",cs_encode_transform);
 			}else{
-				cout << "Please provide encode transform type..none/diff" << endl;
+				cout << "Please provide encode transform type..none/dft/wavelet/diff" << endl;
 				exit(1);
 			}
 		int_flag("-wavelet_levelsX",wavelet_levelsX);
@@ -408,9 +411,6 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 			// Setup 3D Wavelet
 			wave = WAVELET3D( TinyVector<int,3>(rcxres,rcyres,rczres),TinyVector<int,3>(wavelet_levelsX,wavelet_levelsY,wavelet_levelsZ),WAVELET3D::WAVE_DB4);
 
-			// Temporal differences or FFT
-			tdiff=TDIFF( rcframes,rcencodes );
-
 			// Setup Soft Thresholding
 			softthresh = THRESHOLD(argc,argv);
 					
@@ -445,6 +445,8 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
  */
 void RECON::pregate_data( MRI_DATA &data){
 	
+	//data.stats();
+	
 	// For now balloon memory
 	MRI_DATA data2;
 	
@@ -468,7 +470,7 @@ void RECON::pregate_data( MRI_DATA &data){
 		
 			// First count th number of points required
 			Kweight = 1;					 
-			gate.weight_data( Kweight, e, data.kx(e),data.ky(e),data.kz(e),t,GATING::ITERATIVE,GATING::TIME_FRAME);
+			gate.weight_data( Kweight, e, data.kx(e),data.ky(e),data.kz(e),t,GATING::NON_ITERATIVE,GATING::TIME_FRAME);
 			
 			// Count the number of frames
 			int number_of_points=0;
@@ -525,16 +527,18 @@ void RECON::pregate_data( MRI_DATA &data){
 	rcframes =1;
 	rcencodes = data2.Num_Encodings;
 	
-	data.kx.reference( data2.kx);
-	data.ky.reference( data2.ky);
-	data.kz.reference( data2.kz);
-	data.kw.reference( data2.kw);
-	data.kdata.reference( data2.kdata);
-	data.Num_Encodings = data2.Num_Encodings;
-	data.Num_Readouts = 1;
-	data.Num_Slices = 1;
-	data.Num_Pts = 1;
+	cycleArrays( data.kx, data2.kx);
+	cycleArrays( data.ky, data2.ky);
+	cycleArrays( data.kz, data2.kz);
+	cycleArrays( data.kw, data2.kw);
+	cycleArrays( data.kdata, data2.kdata);
 	
+	data.Num_Encodings = data2.Num_Encodings;
+	data.Num_Readouts = -1;
+	data.Num_Slices = -1;
+	data.Num_Pts = -1;
+	
+	// data.stats();
 		
 	cout << "Done gating data" << endl << flush;
 }	
@@ -697,6 +701,7 @@ void RECON::dcf_calc( MRI_DATA& data, GATING& gate){
 	ArrayWrite(data.kw(0),"Kweight_DCF.dat");
 	
 }
+
 
 
 
@@ -1184,10 +1189,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					  // Temp variable for E'ER 
 					  Array< complex<float>,3 >P(rcxres,rcyres,rczres,ColumnMajorArray<3>());
 
-					  // Storage for (Ex-d)
-					  Array< complex<float>,3 >diff_data(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-
-
+					  
 					  cout << "Iterate" << endl;
 					  double error0=0.0;
 					  for(int iteration =0; iteration< max_iter; iteration++){
@@ -1213,24 +1215,30 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  cout << "\tGradient Calculation" << endl;
 						  
 						  for(int e=0; e< rcencodes; e++){
+							  
+							  // Get Sub-Arrays for Encoding
+							  Array< float,3 >kxE = data.kx(e); 
+							  Array< float,3 >kyE = data.ky(e); 
+							  Array< float,3 >kzE = data.kz(e);
+							  
+							  // Storage for (Ex-d)
+					  		  Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
+
+							  
 							  for(int t=0; t< Nt; t++){
 							  	int act_t = times(t);
 								int store_t = times_store(t);
-							  
+							  							  	 
 								  T.tic();
-
-								  // Get Sub-Arrays for Encoding
-								  Array< float,3 >kxE = data.kx(e); 
-								  Array< float,3 >kyE = data.ky(e); 
-								  Array< float,3 >kzE = data.kz(e); 
-								  Array< float,3 >kwE = data.kw(e); 
+																  								  
+								  // Temporal weighting 
+								  if(pregate_data_flag){
+					 				TimeWeight.reference( data.kw(e) );
+								  }else{
+					 				TimeWeight = data.kw(e);
+					 				gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   								  }
 								  
-								  // Temporal weighting
-								  TimeWeight = kwE;
-								  gate.weight_data( TimeWeight,e, kxE, kyE,kzE,act_t,GATING::ITERATIVE, frame_type);
-								  TimeWeight /= sum(TimeWeight);
-								  
-
 								  if (data.Num_Coils > 1) {
 									  for(int coil=0; coil< data.Num_Coils; coil++){
 										  // Ex
@@ -1310,6 +1318,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  // Error check
 						  if(iteration==0){
 							  l2reg.reg_scale = abs(scale_RhR);
+							  error0 = abs(scale_RhR);
 						  }
 						  cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
 						  cout << "RhP = " << scale_RhP << endl;
@@ -1341,16 +1350,22 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  	ArrayWriteMagAppend(Xslice,"X_mag.dat");
 						  }
 						  
-						  if( Nt > 1){
-						  	ArrayWriteMag(Xslice,"X_frames.dat");
-							ArrayWritePhase(Xslice,"X_frames.dat.phase");
-							for(int t=1; t< Nt; t++){
-								Array<complex<float>,2>Xf=X(t,0)(all,all,X(0,0).length(2)/2);
-								ArrayWriteMagAppend(Xf,"X_frames.dat");
-								ArrayWritePhaseAppend(Xf,"X_frames.dat.phase");
+						  if( X.numElements() > 1){
+						  	int count=0;
+							for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+								
+								Array<complex<float>,2>Xf=(*miter)(all,all,X(0,0).length(2)/2);
+								if(count==0){
+									ArrayWriteMag(Xf,"X_frames.dat");
+									ArrayWritePhase(Xf,"X_frames.dat.phase");
+								}else{
+									ArrayWriteMagAppend(Xf,"X_frames.dat");
+									ArrayWritePhaseAppend(Xf,"X_frames.dat.phase");
+								}
+								count++;
 							}
 						  }
-						  
+							
 						  // ------------------------------------
 						  // Soft thresholding operation (need to add transform control)
 						  // ------------------------------------
@@ -1371,6 +1386,91 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 }
 
 
+void RECON::transform_in_encode( Array< Array< complex<float>,3>, 2>&X, TransformDirection direction){
+
+	
+	switch(cs_encode_transform){
+		case(DFT):{	
+			cout << "DFT in Encode" << endl;
+			if(direction==FORWARD){
+				TRANSFORMS::fft_e(X); 
+			}else{
+				TRANSFORMS::ifft_e(X); 
+			}
+		}break;
+								
+		case(DIFF):{
+			cout << "DIFF in Encode" << endl;
+			if(direction==FORWARD){
+				TRANSFORMS::ediff(X); 
+			}else{
+				TRANSFORMS::inv_ediff(X); 
+			}
+		}break;
+								
+		case(WAVELET):{
+			cout << "WAVELET in Encode" << rcencodes << endl;
+			if(direction==FORWARD){
+				TRANSFORMS::ewave(X); 
+			}else{
+				TRANSFORMS::inv_ewave(X); 
+			}
+		}break;
+		
+		default:{
+		}break;
+	}
+}
+
+void RECON::transform_in_time( Array< Array< complex<float>,3>, 2>&X, TransformDirection direction){
+
+	
+	switch(cs_temporal_transform){
+		case(DFT):{	
+			cout << "DFT in Time" << endl;
+			if(direction==FORWARD){
+				TRANSFORMS::fft_t(X); 
+			}else{
+				TRANSFORMS::ifft_t(X); 
+			}
+		}break;
+								
+		case(DIFF):{
+			cout << "DIFF in Time" << endl;
+			if(direction==FORWARD){
+				TRANSFORMS::tdiff(X); 
+			}else{
+				TRANSFORMS::inv_tdiff(X); 
+			}
+		}break;
+								
+		case(WAVELET):{
+			cout << "WAVELET in Time" << endl;
+			if(direction==FORWARD){
+				TRANSFORMS::twave(X); 
+			}else{
+				TRANSFORMS::inv_twave(X); 
+			}
+		}break;
+		
+		case(COMPOSITE_DIFF):{
+				cout << "Composite Diff" << endl;
+				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+						if(direction==FORWARD){
+							*miter -= composite_image;
+						}else{
+							*miter += composite_image;
+						}
+				}
+		}break;
+								
+		default:{
+		}break;
+	}
+}
+
+
+
 void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 	
 	
@@ -1379,34 +1479,8 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 		actual_cycle_spins = 1;
 	}
 	
-	
-	switch(cs_temporal_transform){
-		case(DFT):{	
-			cout << "DFT in Time" << endl;
-			tdiff.fft_t(X); 
-		}break;
-								
-		case(DIFF):{
-			cout << "DIFF in Time" << endl;
-			tdiff.tdiff(X); 
-		}break;
-								
-		case(WAVELET):{
-			cout << "WAVELET in Time" << endl;
-			tdiff.twave(X); 
-		}break;
-		
-		case(COMPOSITE_DIFF):{
-				cout << "Composite Diff" << endl;
-				for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
-						*miter -= composite_image;
-				}
-		}break;
-								
-		default:{
-		}break;
-	}
-	
+	transform_in_encode( X, FORWARD);
+	transform_in_time( X , FORWARD);
 	
 	if(cs_spatial_transform==WAVELET){
 		cout << "WAVLET in Space" << endl;
@@ -1432,33 +1506,9 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 		softthresh.exec_threshold(X,wave);
 
 	}// Wavelet
-						  
-	switch(cs_temporal_transform){
-		case(DFT):{ 
-			tdiff.ifft_t(X); 
-		}break;
-							
-		case(DIFF):{
-			cout << "DIFF in Time" << endl;
-			tdiff.inv_tdiff(X); 
-		}break;
-							
-		case(WAVELET):{
-			cout << "WAVE in Time" << endl;
-			tdiff.inv_twave(X); 
-		}break;
-								
-		case(COMPOSITE_DIFF):{
-			cout << "Composite Diff" << endl;
-			for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
-				*miter += composite_image;
-			}
-		}break;																
-					
-		default:{
-							
-		}break;
-	}
+	
+	transform_in_time( X , BACKWARD);
+	transform_in_encode( X, BACKWARD);
 
 
 }

@@ -14,44 +14,35 @@
 #include <armadillo>
 
 
-class TDIFF{
+class TRANSFORMS{
 	public:
 	 
-	 TDIFF();
-	 TDIFF( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);
-	 TDIFF( int, int);
-	 	
-	 arma::cx_mat AWt;	// forward in time
-	 arma::cx_mat AWIt;	// inverse in time 
+	 static void get_difference_transform( arma::cx_mat & A, arma::cx_mat & Ai, int N);
+	 static void get_wavelet_transform( arma::cx_mat & A, arma::cx_mat & Ai, int N);
 	 
-	 arma::cx_mat At;	// forward in time
-	 arma::cx_mat AIt;	// inverse in time
+	  
+	 static void fft_e( NDarray::Array< NDarray::Array< complex<float>,3>, 2>&temp);	 
+	 static void ifft_e(NDarray::Array< NDarray::Array< complex<float>,3>, 2>&temp);	 
 	 
-	 arma::cx_mat Ae; 	// forward in encode
-	 arma::cx_mat AIe; 	// inverse in encode
-	 
-	 int Nt;
-	 int Ne;
+	 static void fft_t(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 static void ifft_t(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
 	 
 	 
-	 void fft_e( NDarray::Array< NDarray::Array< complex<float>,3>, 2>&temp);	 
-	 void ifft_e(NDarray::Array< NDarray::Array< complex<float>,3>, 2>&temp);	 
+	 static void ediff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 static void inv_ediff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
 	 
-	 void fft_t(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
-	 void ifft_t(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 static void ewave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 static void inv_ewave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
 	 
+	 static void tdiff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 	 
+	 static void inv_tdiff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
 	 
-	 void ediff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
-	 void inv_ediff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
-	 
-	 void tdiff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 	 
-	 void inv_tdiff(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
-	 
-	 void twave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 	 
-	 void inv_twave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
+	 static void twave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 	 
+	 static void inv_twave(NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp);	 
 	 
 	 
-	 void mat_multiply( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp,arma::cx_mat);
+	 static void multiply_in_time( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp,arma::cx_mat);
+	 static void multiply_in_encode( NDarray::Array< NDarray::Array< complex<float>,3>,2>&temp,arma::cx_mat);
 	 
 	private:	
 		

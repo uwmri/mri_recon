@@ -2,8 +2,7 @@
 3D Wavlet Libraries for pcvipr.e
 
 Initial Author: Kevin M. Johnson
-Description: This code contains functions for 3D wavelet transform. I tried blitzwave 
-  but ended up not liking the lack of updates for newer gcc compilers and lack of threads.
+Description: This code controls transfroms in the non-spatial dimensions
 
 *************************************************/
 
@@ -11,129 +10,215 @@ Description: This code contains functions for 3D wavelet transform. I tried blit
 
 using namespace NDarray;
 using arma::cx_mat;
-using arma::mat;
 using arma::cx_vec;
-using arma::fvec;
 
-TDIFF::TDIFF(){
+
+void TRANSFORMS::get_difference_transform( cx_mat & A, cx_mat & Ai, int N){
+	
+	A.zeros(N,N);
+	Ai.zeros(N,N);
+	
+	for(int i = 0; i < N; i++) {
+    	A(0,i)=1.0;
+	}
+	for(int i = 1; i < N; i++) {
+    	A(i,i-1)=1.0;
+		A(i,i)= -1.0;
+	}
+	
+	Ai = A.i();
+	
+	return;
 }
 
-TDIFF::TDIFF(int Nt_in, int Ne_in){
+void TRANSFORMS::get_wavelet_transform( cx_mat & A, cx_mat & Ai, int N){
 	
-	Nt = Nt_in;
-	Ne = Ne_in;
+	A.zeros(N,N);
+	Ai.zeros(N,N);
 	
-	At.zeros(Nt,Nt);
-	Ae.zeros(Ne,Ne);
+	int levels = (int)log2( (double)N );
+	//cout << "Levels = " << levels << endl;
 	
-	// Construct Temporal Differences Matrix
-	for(int i = 0; i < Ne; i++) {
-    	Ae(0,i)=1.0 / sqrt(Ne);
-	}
-	for(int i = 1; i < Ne; i++) {
-    	Ae(i,i-1)=1.0/sqrt(2.0);
-		Ae(i,i)=-1.0/sqrt(2.0);
-	}
-	AIe = Ae.i();
+	for( int level = 0; level < levels; level++){
+		
+		// R is the center of the matrix
+		int R = (int)( 0.5*(float)N / pow(2.0,(float)level)); 
+		int span = pow(2,level);
 	
-	
-	// Construct Temporal Differences Matrix
-	for(int i = 0; i < Nt; i++) {
-    	At(0,i)=1.0;
-	}
-	for(int i = 1; i < Nt; i++) {
-    	At(i,i-1)=1.0;
-		At(i,i)= -1.0;
-	}
-	//Temp test transform orthogonalization
-	cx_mat U;
-	arma::vec s;
-	cx_mat V;
-	svd(U,s,V,At);	
-	At = V.t(); // 
-	//At.print("Temporal Diff Operator");
-	AIt = At.i();
-	
-	
-	/* Construct wavelet coef
-	AWt.zeros(Nt,Nt);
-	for( int i=0; i< (int)(Nt/2); i++){
-		// Construct Difference Operator
-		AWt(i,i*2)  =1;
-		AWt(i,i*2+1)=-1;
+		for(int i =0; i < R; i++){
 			
-		//Average Operator
-		AWt(i+Nt/2,i*2)  = 1;
-		AWt(i+Nt/2,i*2+1)= 1;
-	}
-	AWIt = AWt.i();	*/
-	
-	
-}
-
-TDIFF::TDIFF(Array< Array< complex<float>,3>,2>&temp){ 
-	
-	Nt = temp.length(firstDim);
-	Ne = temp.length(secondDim);
-	At.zeros(Nt,Nt);
-	Ae.zeros(Ne,Ne);
-	
-	// Construct Temporal Differences Matrix
-	for(int i = 0; i < Ne; i++) {
-    	Ae(0,i)=1.0 / sqrt(Ne);
-	}
-	for(int i = 1; i < Ne; i++) {
-    	Ae(i,i-1)=1.0/sqrt(2.0);
-		Ae(i,i)=-1.0/sqrt(2.0);
-	}
-	AIe = Ae.i();
-	
-	
-	// Construct Temporal Differences Matrix
-	for(int i = 0; i < Nt; i++) {
-    	At(0,i)=1.0 / sqrt(Nt);
-	}
-	for(int i = 1; i < Nt; i++) {
-    	At(i,i-1)=1.0/sqrt(2.0);
-		At(i,i)=-1.0/sqrt(2.0);
-	}
-	AIt = At.i();
-	
-	// Construct wavelet coef
-	AWt.zeros(Nt,Nt);
-	for( int i=0; i< (int)(Nt/2); i++){
-		for(int j=0; j< (int)(Nt/2); j++){
-			// Construct Difference Operator
-			AWt(i,j*2)=1;
-			AWt(i,j*2+1)=-1;
+			int offset = 2*span*i;
 			
-			//Average Operator
-			AWt(i+Nt/2,j*2)  = 1;
-			AWt(i+Nt/2,j*2+1)= 1;
+			// Zero the rows
+			for(int j = 0; j < N; j++){
+				A(i,j)  = complex<float>(0.0,0.0);
+				A(i+R,j)= complex<float>(0.0,0.0);
+			}
+			
+			// Set the average
+			for(int j=offset; j< offset+2*span; j++){
+				A(i,j) = 1.0;
+			}
+					
+			// Set the difference
+			for(int j=offset; j< offset+span; j++){
+				A(i+R,j) = 1.0;
+				A(i+R,j+span) = -1.0;
+			}
+		}
+		//A.print("A-wavelet");
+	}
+	
+	// Normalize
+	for(int i =0; i<N; i++){
+		float temp = 0.0;
+		for(int j=0; j<N; j++){
+			temp += norm( A(i,j));
+		}
+		temp = sqrt(temp);
+		
+		for(int j=0; j<N; j++){
+			A(i,j)/= temp;
 		}
 	}
-	AWIt = AWt.i();	
-	AWt.print("Wavelet Matrix");
-	AWIt.print("Wavelet Inverse Matrix");
+	//A.print("A-noramlize wavelet");	
 	
 	
+	Ai = A.i();
 	
+	return;
 }
 
 
 
-void TDIFF::mat_multiply( Array< Array< complex<float>,3>,2>&temp, cx_mat A){
-	for(int e=0; e<temp.extent(secondDim); e++){
+
+void TRANSFORMS::tdiff( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(firstDim)==1){
+	 	return;
+	 }
+	 	 
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_difference_transform(A,Ai,temp.length(firstDim));
+	 multiply_in_time(temp,A);
+	 
+	 return;
+}
+
+void TRANSFORMS::inv_tdiff( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(firstDim)==1){
+	 	return;
+	 }
+	 
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_difference_transform(A,Ai,temp.length(firstDim) );
+	 multiply_in_time(temp,Ai);
+	 
+	 return;
+}
+
+
+void TRANSFORMS::twave( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(firstDim)==1){
+	 	return;
+	 }
+	 
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_wavelet_transform(A,Ai,temp.length(firstDim));
+	 multiply_in_time(temp,A);
+	 
+	 return;
+}
+
+void TRANSFORMS::inv_twave( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(firstDim)==1){
+	 	return;
+	 }
+	 
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_wavelet_transform(A,Ai,temp.length(firstDim));
+	 multiply_in_time(temp,Ai);
+	 
+	 return;
+}
+
+
+
+
+
+
+
+void TRANSFORMS::ediff( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(secondDim)==1){
+	 	return;
+	 }
+	 
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_difference_transform(A,Ai,temp.length(secondDim));
+	 multiply_in_encode(temp,A);
+	 
+	 return;
+}
+
+void TRANSFORMS::inv_ediff( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(secondDim)==1){
+	 	return;
+	 }
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_difference_transform(A,Ai,temp.length(secondDim) );
+	 multiply_in_encode(temp,Ai);
+	 return;
+}
+
+
+void TRANSFORMS::ewave( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(secondDim)==1){
+	 	return;
+	 }
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_wavelet_transform(A,Ai,temp.length(secondDim));
+	 multiply_in_encode(temp,A);
+	 return;
+}
+
+void TRANSFORMS::inv_ewave( Array< Array< complex<float>,3>,2>&temp){
+	 if(temp.length(secondDim)==1){
+	 	return;
+	 }
+	 cx_mat A;
+	 cx_mat Ai;
+	 get_wavelet_transform(A,Ai,temp.length(secondDim));
+	 multiply_in_encode(temp,Ai);
+	 return;
+}
+
+
+
+
+void TRANSFORMS::multiply_in_time( Array< Array< complex<float>,3>,2>&temp, cx_mat A){
+	int Nt = temp.length(firstDim);
+	int Ne = temp.length(secondDim);
+	int Nx = temp(0).length(firstDim);
+	int Ny = temp(0).length(secondDim);
+	int Nz = temp(0).length(thirdDim);
+	
+	for(int e=0; e< Ne; e++){
 	
 	#pragma omp parallel for
-	for(int k=0; k<temp(0).extent(thirdDim); k++){
+	for(int k=0; k< Nz; k++){
 		cx_vec s(Nt);
 		cx_vec ss(Nt);
-		for(int j=0; j<temp(0).extent(secondDim); j++){
-			for(int i=0; i<temp(0).extent(firstDim); i++){	
+		for(int j=0; j< Ny; j++){
+			for(int i=0; i<Nx; i++){	
 				
 				//Copy
-				for(int t=0; t<temp.extent(firstDim); t++){
+				for(int t=0; t<Nt; t++){
 					s(t)=temp(t,e)(i,j,k);
 				}
 				
@@ -141,92 +226,54 @@ void TDIFF::mat_multiply( Array< Array< complex<float>,3>,2>&temp, cx_mat A){
 				ss=A*s;
 				
 				//Copy Back
-				for(int t=0; t<temp.extent(firstDim); t++){
+				for(int t=0; t<Nt; t++){
 					temp(t,e)(i,j,k) =ss(t);
 				}
 		}
 	}}
 	}
-}
-
-void TDIFF::tdiff( Array< Array< complex<float>,3>,2>&temp){
-	 mat_multiply(temp,At);
-}
-
-void TDIFF::inv_tdiff( Array< Array< complex<float>,3>,2>&temp){
-	 mat_multiply(temp,AIt);
-}
-
-void TDIFF::twave( Array< Array< complex<float>,3>,2>&temp){
-	 mat_multiply(temp,AWt);
-}
-
-void TDIFF::inv_twave( Array< Array< complex<float>,3>,2>&temp){
-	 mat_multiply(temp,AWIt);
+	return;
 }
 
 
-
-
-void TDIFF::ediff( Array< Array< complex<float>,3>,2>&temp){ 
+void TRANSFORMS::multiply_in_encode( Array< Array< complex<float>,3>,2>&temp, cx_mat A){ 
 	
-	for(int t=0; t<temp.extent(firstDim); t++){
+	int Nt = temp.length(firstDim);
+	int Ne = temp.length(secondDim);
+	int Nx = temp(0).length(firstDim);
+	int Ny = temp(0).length(secondDim);
+	int Nz = temp(0).length(thirdDim);
+	
+	for(int t=0; t<Nt; t++){
 	#pragma omp parallel for 
-	for(int k=0; k<temp(0).extent(thirdDim); k++){
+	for(int k=0; k< Nz; k++){
 		cx_vec s(Ne);
 		cx_vec ss(Ne);
-		for(int j=0; j<temp(0).extent(secondDim); j++){
-			for(int i=0; i<temp(0).extent(firstDim); i++){	
+		for(int j=0; j< Ny; j++){
+			for(int i=0; i< Nx; i++){	
 				//Copy
-				for(int e=0; e<temp.extent(secondDim); e++){
+				for(int e=0; e< Ne; e++){
 					s(e)=temp(t,e)(i,j,k);
 				}
 				
 				// Transform
-				ss=Ae*s;
+				ss=A*s;
 				
 				//Copy Back
-				for(int e=0; e<temp.extent(secondDim); e++){
+				for(int e=0; e< Ne; e++){
 					temp(t,e)(i,j,k) =ss(e);
 				}
 		}
 	}}
 	}
+	return;
 }
-
-
-void TDIFF::inv_ediff( Array< Array< complex<float>,3>,2>&temp){ 
-	
-	for(int t=0; t<temp.extent(firstDim); t++){
-	#pragma omp parallel for 
-	for(int k=0; k<temp(0).extent(thirdDim); k++){
-		cx_vec s(Ne);
-		cx_vec ss(Ne);
-		for(int j=0; j<temp(0).extent(secondDim); j++){
-			for(int i=0; i<temp(0).extent(firstDim); i++){	
-				//Copy
-				for(int e=0; e<temp.extent(secondDim); e++){
-					s(e)=temp(t,e)(i,j,k);
-				}
-				
-				// Transform
-				ss=AIe*s;
-				
-				//Copy Back
-				for(int e=0; e<temp.extent(secondDim); e++){
-					temp(t,e)(i,j,k) =ss(e);
-				}
-		}
-	}}
-	}
-}
-
 
 	 
-void TDIFF::fft_t(Array< Array< complex<float>,3>,2>&temp){ 
+void TRANSFORMS::fft_t(Array< Array< complex<float>,3>,2>&temp){ 
 	
-	Nt = temp.length(firstDim);
-	Ne = temp.length(secondDim);
+	int Nt = temp.length(firstDim);
+	int Ne = temp.length(secondDim);
 	int Nx = temp(0).length(firstDim);
 	int Ny = temp(0).length(secondDim);
 	int Nz = temp(0).length(thirdDim);
@@ -261,12 +308,14 @@ void TDIFF::fft_t(Array< Array< complex<float>,3>,2>&temp){
 	
 	fftwf_destroy_plan(p);
 	delete [] in;
+	
+	return;
 } 
 
-void TDIFF::ifft_t(Array< Array< complex<float>,3>,2>&temp){ 
+void TRANSFORMS::ifft_t(Array< Array< complex<float>,3>,2>&temp){ 
 	
-	Nt = temp.length(firstDim);
-	Ne = temp.length(secondDim);
+	int Nt = temp.length(firstDim);
+	int Ne = temp.length(secondDim);
 	int Nx = temp(0).length(firstDim);
 	int Ny = temp(0).length(secondDim);
 	int Nz = temp(0).length(thirdDim);
@@ -301,12 +350,14 @@ void TDIFF::ifft_t(Array< Array< complex<float>,3>,2>&temp){
 	
 	fftwf_destroy_plan(p);
 	delete [] in;
+	
+	return;
 } 
 
-void TDIFF::fft_e(Array< Array< complex<float>,3>,2>&temp){ 
+void TRANSFORMS::fft_e(Array< Array< complex<float>,3>,2>&temp){ 
 	
-	Nt = temp.length(firstDim);
-	Ne = temp.length(secondDim);
+	int Nt = temp.length(firstDim);
+	int Ne = temp.length(secondDim);
 	int Nx = temp(0).length(firstDim);
 	int Ny = temp(0).length(secondDim);
 	int Nz = temp(0).length(thirdDim);
@@ -341,14 +392,15 @@ void TDIFF::fft_e(Array< Array< complex<float>,3>,2>&temp){
 	
 	fftwf_destroy_plan(p);
 	delete [] in;
+	return;
 } 
 
 
 
-void TDIFF::ifft_e(Array< Array< complex<float>,3>,2>&temp){ 
+void TRANSFORMS::ifft_e(Array< Array< complex<float>,3>,2>&temp){ 
 	
-	Nt = temp.length(firstDim);
-	Ne = temp.length(secondDim);
+	int Nt = temp.length(firstDim);
+	int Ne = temp.length(secondDim);
 	int Nx = temp(0).length(firstDim);
 	int Ny = temp(0).length(secondDim);
 	int Nz = temp(0).length(thirdDim);
@@ -383,4 +435,5 @@ void TDIFF::ifft_e(Array< Array< complex<float>,3>,2>&temp){
 	
 	fftwf_destroy_plan(p);
 	delete [] in;
+	return;
 }

@@ -74,8 +74,10 @@ class MRI_DATA{
 		void write_external_data(const char *fname);
 		void parse_external_header(const char *filename);
 		void load_pcvipr_gating_file(const char *full_filename); //Temp
-		void data_stats(void);
-				
+		void stats(void);
+		void dump_stats(const std::string, const NDarray::Array< NDarray::Array<float,3>,1> & in);
+		void dump_stats(const std::string, const NDarray::Array< NDarray::Array<complex<float>,3>,2> & in);
+			
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 	private:	

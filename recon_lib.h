@@ -44,6 +44,8 @@ class RECON{
 	  
 	  // Enum Transform Types
 	  enum TransformType {NONE,WAVELET,DIFF,DFT,PCA,COMPOSITE_DIFF};
+	  
+	  enum TransformDirection {FORWARD,BACKWARD};
 	  	 
 	  // Recon Flags  
 	  ReconType recon_type;
@@ -57,7 +59,6 @@ class RECON{
 	  
 	  // Reconstruction modules
 	  WAVELET3D wave;
-	  TDIFF tdiff;
 	  THRESHOLD softthresh;
 	  LOWRANKCOIL lrankcoil;
 	  LOWRANKCOIL lranktime;
@@ -127,7 +128,11 @@ class RECON{
 	  void parse_commandline(int numarg, char **pstring);
 	  void init_recon(int argc, char **argv, MRI_DATA& data );
 	  void calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data);
+	  
 	  void L1_threshold( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&);
+	  void transform_in_time( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);
+	  void transform_in_encode( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);
+	  
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >full_recon( MRI_DATA& data, NDarray::Range, NDarray::Range,bool);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_one_frame( MRI_DATA& data, int);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruct_all_frames( MRI_DATA& data);

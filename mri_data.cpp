@@ -7,24 +7,54 @@ using arma::cx_fmat;
 using arma::fvec;
 using namespace NDarray;
 
-void MRI_DATA::data_stats(void){
+void MRI_DATA::dump_stats(const string name, const Array< Array<float,3>,1> & in){
+	cout << name << endl;
+	cout << "\tContainer Size = " << in.length(firstDim) << endl;
+	cout << "\tElement size = " << in(0).length(firstDim) << " x " << in(0).length(secondDim) << " x " << in(0).length(thirdDim) << endl;
+	float high = 0;
+	float low = 9999;
+	for( Array< Array<float,3>,1> ::const_iterator miter=in.begin();   miter !=in.end(); miter++){
+		high = max(high, max(*miter) );
+		low = min(low, min(*miter));
+	}
+	cout << "\tRange = " << low << " to " << high << endl;
+}
+
+void MRI_DATA::dump_stats(const string name, const Array< Array<complex<float>,3>,2> & in){
+	cout << name << endl;
+	cout << "\tContainer Size = " << in.length(firstDim) << " x " << in.length(secondDim) << endl;
+	cout << "\tElement size = " << in(0).length(firstDim) << " x " << in(0).length(secondDim) << " x " << in(0).length(thirdDim) << endl;
+	float high = 0;
+	float low = 9999;
+	for( Array< Array< complex<float>,3>,2>::const_iterator miter=in.begin();   miter !=in.end(); miter++){
+		float temp = max(abs(*miter));
+		high = max(high,temp);
+		
+		temp = min(abs(*miter));
+		low = min(low, temp);
+	}
+	cout << "\tRange = " << low << " to " << high << endl;
+}
+
+
+void MRI_DATA::stats(void){
 	
 
-/*	
+	
 	if( kx.numElements()==0){
 		cout << "Kspace does not exist" << endl;
 	}else{
-		cout << "Range Kx = " << min(kx) << " to " << max(kx) << endl;
-		cout << "Range Ky = " << min(ky) << " to " << max(ky) << endl;
-		cout << "Range Kz = " << min(kz) << " to " << max(kz) << endl;
-		cout << "Range Kw = " << min(kw) << " to " << max(kw) << endl;
+		dump_stats("Kx",kx);
+		dump_stats("Ky",ky);
+		dump_stats("Kz",kz);
+		dump_stats("Kw",kw);
 	}
 	
 	
 	if( kdata.numElements()==0){
 		cout << "Kdata does not exist yet" << endl;
 	}else{
-		cout << "Range Kdata = " << min(abs(kdata)) << " to " << max(abs(kdata)) << endl;
+		dump_stats("Kdata",kdata);
 	}
 	
 	// gating
@@ -36,7 +66,7 @@ void MRI_DATA::data_stats(void){
 		cout << "Range TIME = " << min(time) << " to " << max(time) << endl;
 		cout << "Range PREP = " << min(prep) << " to " << max(prep) << endl;
 	}
-*/	
+
 }
 
 
@@ -244,8 +274,7 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 	
 	// Now Read Physiologic Data
 	MRI_DATA::load_pcvipr_gating_file(gate_name); // TEMP	
-	data_stats();
-		
+	
 	
 	cout << "Reading Kdata" << endl;
 	if(read_kdata==1){

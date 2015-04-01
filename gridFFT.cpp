@@ -601,7 +601,7 @@ void gridFFT::do_fft( void ){
 
 	if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) ){
 		fftwf_execute(fft_plan); //FFT 
-	}else{
+	}else{ 
 		if(fft_in_x){
 			fft3( k3d_grid,0,FFTW_FORWARD,0);
 		}
