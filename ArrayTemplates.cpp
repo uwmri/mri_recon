@@ -116,10 +116,8 @@ void NDarray::ifft( Array< complex<float>,3>& temp, int dim){
 }
 
 void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool chop){
-
-	fftwf_init_threads();
-	fftwf_plan_with_nthreads(1);
-
+	
+	
 	// Get Size		
 	int N;
 	switch(dim){
@@ -132,12 +130,20 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 		}
 	}
 	
+	fftwf_plan plan;
 	
-	// Get a plan but never use
-	complex<float> *data_temp = new complex<float>[N];
-	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
-	fftwf_plan plan = fftwf_plan_dft_1d(N,ptr,ptr,direction, FFTW_MEASURE);
-	delete [] data_temp;
+	#pragma omp critical
+	{
+		//  FFT planning is not thread safe
+		fftwf_init_threads();
+		fftwf_plan_with_nthreads(1);
+	
+		// Get a plan but never use
+		complex<float> *data_temp = new complex<float>[N];
+		fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
+		plan = fftwf_plan_dft_1d(N,ptr,ptr,direction, FFTW_MEASURE);
+		delete [] data_temp;
+	}
 	
 	float scale = 1./sqrt(N);
 	switch(dim){

@@ -146,7 +146,7 @@ class RECON{
 	  void pregate_data( MRI_DATA&);
 	  void single_coil_cg( NDarray::Array< complex<float>,3> & X, NDarray::Array< complex<float>,3> &kdata, NDarray::Array<float,3> &kx, NDarray::Array<float,3> &ky, NDarray::Array<float,3> &kz, NDarray::Array<float,3> &kw);
 
-	  	  
+	  void export_slice( NDarray::Array< complex<float>,3> &temp, const char * fname);
 	private:	
 		
 };

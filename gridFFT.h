@@ -27,9 +27,6 @@ class gridFFT{
   		NDarray::Array< complex<float>,3 >k3d_grid; /*Actual Gridding Space*/
   		NDarray::Array< complex<float>,3 >image;   	/*Complex Storage Space*/
   		
-		NDarray::Array<   NDarray::Array< complex<float>,3>, 1>k3d_MT;  // Thread gridding
-		NDarray::Array<   NDarray::Array< complex<float>,3>, 1>image_MT;  // Thread gridding
-				
 		// Controls for phase encode / 2D directions
 		int fft_in_x;
   		int fft_in_y;
@@ -70,6 +67,8 @@ class gridFFT{
 		int Sz;
 		int kernel_type;
 		float overgrid;
+		 
+		int grid_threads;
 		  
   		/*Kaiser Bessel Beta - Calculated*/
   		float betaX;
@@ -98,44 +97,73 @@ class gridFFT{
 		int time_grid;
 		
 		gridFFT();
-		~gridFFT();
 		
 		void alloc_grid();
 		void read_commandline(int numarg, char **pstring);
 		void precalc_gridding(int Nz,int Ny,int Nx,TrajDim trajectory_dims,TrajType trajectory_type);
 		void precalc_kernel(void);
-		void deapp_chop();
+		
+		void plan_fft( void );
 		void do_fft( void);
 		void do_ifft( void );
+		void set_threads( int );
+		void deapp( void );
 		
-		// Main Calls with and without Sensitivity maps
-		void forward( NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap,const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
-		void forward( NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap,const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
-		void forward( NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
+		// Main Calls with sensitivity map
+		void forward( NDarray::Array<complex<float>,3>&X,\
+					   const NDarray::Array<complex<float>,3>&smap,\
+					   const NDarray::Array<complex<float>,3>&data,\
+					   const NDarray::Array<float,3>&kx,\
+					   const NDarray::Array<float,3>&ky,\
+					   const NDarray::Array<float,3>&kz,\
+					   const NDarray::Array<float,3>&kw);
 		
-		void backward( const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap,NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
-		void backward( const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap,NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
-		void backward( const NDarray::Array< complex<float>,3 >&X,NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
-						
+		void backward(const NDarray::Array<complex<float>,3>&X,\
+					   const NDarray::Array<complex<float>,3>&smap,\
+					         NDarray::Array<complex<float>,3>&data,\
+					   const NDarray::Array<float,3>&kx,\
+					   const NDarray::Array<float,3>&ky,\
+					   const NDarray::Array<float,3>&kz,\
+					   const NDarray::Array<float,3>&kw);
+		
+		// Main Calls without sensitivity map
+		void forward( NDarray::Array<complex<float>,3>&X,\
+					   const NDarray::Array<complex<float>,3>&data,\
+					   const NDarray::Array<float,3>&kx,\
+					   const NDarray::Array<float,3>&ky,\
+					   const NDarray::Array<float,3>&kz,\
+					   const NDarray::Array<float,3>&kw);
+		
+		void backward(const NDarray::Array<complex<float>,3>&X,\
+					         NDarray::Array<complex<float>,3>&data,\
+					   const NDarray::Array<float,3>&kx,\
+					   const NDarray::Array<float,3>&ky,\
+					   const NDarray::Array<float,3>&kz,\
+					   const NDarray::Array<float,3>&kw);
+		
+		// Special call for sum of squares
+		void forward_sos( NDarray::Array<complex<float>,3>&X,\
+					   const NDarray::Array<complex<float>,3>&data,\
+					   const NDarray::Array<float,3>&kx,\
+					   const NDarray::Array<float,3>&ky,\
+					   const NDarray::Array<float,3>&kz,\
+					   const NDarray::Array<float,3>&kw);
+					   
+					   
+		// For accumulating images
+		void accumulate( NDarray::Array< complex<float>,3 >&X, const NDarray::Array< complex<float>,3 >&smap);
+		void accumulate( NDarray::Array< complex<float>,3 >&X);
+		void accumulate_sos( NDarray::Array< complex<float>,3 >&X);
+		
+		//For setting images
+		void set_image( const NDarray::Array< complex<float>,3 >&X, const NDarray::Array< complex<float>,3 >&smap);
+		void set_image( const NDarray::Array< complex<float>,3 >&X);
+		
+				
 		void chop_grid_forward( const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 		void chop_grid_backward( NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 		static float bessi0(float);
-		void plan_fft( void );
-		
-		// grid for dcf 
-		void grid_forward( NDarray::Array< float, 3 >&X, const NDarray::Array< float,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz); 
-		void grid_backward( const NDarray::Array< float, 3 >&X, NDarray::Array< float,3 >&data, const NDarray::Array< float,3 >&kx,const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz); 
-
-		// Copy Gridding to Image 
-		void forward_image_copy(NDarray::Array< complex<float>,3 >&X);
-		void forward_image_copy(NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap);
-		void forward_image_copy(NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap);
-		
-		
-		// Copy Image to Gridding
-		void backward_image_copy(const NDarray::Array< complex<float>,3 >&X);
-		void backward_image_copy(const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< complex<float>,3 >&smap);
-		void backward_image_copy(const NDarray::Array< complex<float>,3 >&X,const NDarray::Array< float,3 >&smap);
+						
 		
 		static void help_message(void);
 		

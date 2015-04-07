@@ -21,15 +21,6 @@ Usage Example:
 #include "tictoc.hpp"
 using namespace NDarray;
 
-//----------------------------------------
-// Deconstructor - Free's Memory
-//----------------------------------------
-
-gridFFT::~gridFFT(){
-
-
-
-}
 
 //----------------------------------------
 // Constructor - Sets Default Vals
@@ -60,6 +51,7 @@ gridFFT::gridFFT(){
 	k_rad=9999.0;
 	time_grid =0 ;
 	double_grid =0;
+	grid_threads = -1;
 }
 
 //----------------------------------------
@@ -70,7 +62,8 @@ void gridFFT::alloc_grid(){
 	k3d_grid.setStorage( ColumnMajorArray<3>());
 	k3d_grid.resize(Sx,Sy,Sz);
 	k3d_grid = 0;
-
+	
+	// Get a subarray
 	Array< complex<float>,3>image2 = k3d_grid( Range(og_sx,og_ex-1),Range(og_sy,og_ey-1),Range(og_sz,og_ez-1));
 	image.reference(image2);
 }
@@ -83,8 +76,13 @@ void gridFFT::alloc_grid(){
 void gridFFT::plan_fft( void ){
     
 	fftwf_init_threads();
-    fftwf_plan_with_nthreads(omp_get_max_threads());
-    cout << "FFT Planning with " << omp_get_max_threads() << " threads"<< endl;
+	
+	if( grid_threads == -1){
+		grid_threads = omp_get_max_threads();
+	}
+	
+    fftwf_plan_with_nthreads(grid_threads);
+    cout << "FFT Planning with " << grid_threads << " threads"<< endl;
 		
 	//- Load old Plan if Possible
 	FILE *fid;
@@ -113,7 +111,9 @@ void gridFFT::plan_fft( void ){
 
 	cout << "The FFT File will be" << fft_name << endl;
 				
-	if(  (fid=fopen(fft_name.c_str(),"r")) != NULL){
+	if(  (fid=fopen(fft_name.c_str(),"r")) == NULL){
+		cout << "Unable to open wisdom file" << endl;
+	}else{
 		fftwf_import_wisdom_from_file(fid);
 		fclose(fid);
 	}	
@@ -128,12 +128,12 @@ void gridFFT::plan_fft( void ){
 	ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
 		
 	/*In case New Knowledge Was Gained*/	
-	if( (fid2 = fopen(fname, "w")) == NULL){
+	if( (fid2 = fopen(fft_name.c_str(), "w")) == NULL){
 		printf("Could Not Export FFT Wisdom\n");
 	}else{
 		fftwf_export_wisdom_to_file(fid2);
 		fclose(fid2);
-		sprintf(com,"chmod 777 %s",fname);
+		sprintf(com,"chmod 777 %s",fft_name.c_str());
 		if( system(com) != 1 ){
 			cout << "Failed to Change FFT Plan Permissions" << endl;
 		}
@@ -401,6 +401,10 @@ void gridFFT::precalc_kernel(void){
 }
 
 
+void gridFFT::set_threads(int temp){
+	grid_threads = temp;
+}
+
 void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims, TrajType trajectory_type ){
   
   Nx = NxT;
@@ -561,41 +565,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   
 }
 
-#include "sys/time.h"
-double gettime(void){
-   	timeval tv;
-    gettimeofday(&tv, NULL);
-    return (tv.tv_sec % 1000000000) + tv.tv_usec/1000000.0;
-};
-  
-//----------------------------------------
-//    Gridding Calls
-//----------------------------------------
 
-void gridFFT::forward( Array<complex<float>,3>&X,\
-					   const Array<complex<float>,3>&smap,\
-					   const Array<complex<float>,3>&data,\
-					   const Array<float,3>&kx,\
-					   const Array<float,3>&ky,\
-					   const Array<float,3>&kz,\
-					   const Array<float,3>&kw){
-	tictoc T;
-	if(time_grid) T.tic(); 
-	k3d_grid=0; // Zero K-Space
-	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
-	
-	if(time_grid) T.tic(); 
-	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
-	if(time_grid)cout << ",grid:"<< T << endl << flush;
-	
-	if(time_grid) T.tic(); 
-	do_fft();
-	if(time_grid)cout << ",fft:"<< T << endl << flush;
-	
-	if(time_grid) T.tic(); 
-	forward_image_copy(X,smap); // Copy result to X
-	if(time_grid)cout << ",copy:"<< T << endl<< flush;
-}
 
 void gridFFT::do_fft( void ){
 
@@ -636,9 +606,16 @@ void gridFFT::do_ifft( void ){
 }
 
 
-// Float Sensitivty Map (intensity correction)
-void gridFFT::forward( Array<complex<float>,3>&X,\
-					   const Array<float,3>&smap,\
+/**
+ * Forward gridding sos
+ * @param X image to be accumulated
+ * @param data raw k-space data
+ * @param kx corrdinate in x
+ * @param ky corrdinate in y
+ * @param kz corrdinate in z
+ * @param kw k-space weight
+ */
+void gridFFT::forward_sos( Array<complex<float>,3>&X,\
 					   const Array<complex<float>,3>&data,\
 					   const Array<float,3>&kx,\
 					   const Array<float,3>&ky,\
@@ -658,11 +635,25 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",fft:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
-	forward_image_copy(X,smap); // Copy result to X
-	if(time_grid)cout << ",copy:"<< T << endl<< flush;
+	deapp(); // Deapp and multiply by sensitivity map
+	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
+	
+	if(time_grid) T.tic(); 
+	accumulate_sos(X); // Deapp,multiply by sensitivity map, and copy
+	if(time_grid)cout << ",accumulate:"<< T << endl<< flush;			   
+
 }
 
-// No Sensitivity map
+
+/**
+ * Forward gridding 
+ * @param X image to be accumulated
+ * @param data raw k-space data
+ * @param kx corrdinate in x
+ * @param ky corrdinate in y
+ * @param kz corrdinate in z
+ * @param kw k-space weight
+ */
 void gridFFT::forward( Array<complex<float>,3>&X,\
 					   const Array<complex<float>,3>&data,\
 					   const Array<float,3>&kx,\
@@ -672,25 +663,75 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	tictoc T;
 	if(time_grid) T.tic(); 
 	k3d_grid=0; // Zero K-Space
-	if(time_grid) cout << "Forward::zero:"<< T << flush;
+	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
-	if(time_grid)cout << ",grid:"<< T<< flush;
+	if(time_grid)cout << ",grid:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
 	do_fft();
-	if(time_grid)cout << ",fft:"<< T<< flush;
+	if(time_grid)cout << ",fft:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
-	forward_image_copy(X); // Copy result to X
-	if(time_grid)cout << ",copy:"<< T << endl<< flush;
+	deapp(); // Deapp and multiply by sensitivity map
+	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
+	
+	if(time_grid) T.tic(); 
+	accumulate(X); // Deapp,multiply by sensitivity map, and copy
+	if(time_grid)cout << ",accumulate:"<< T << endl<< flush;			   
+
 }
 
+/**
+ * Forward gridding 
+ * @param X image to be accumulated
+ * @param sensitivity map
+ * @param data raw k-space data
+ * @param kx corrdinate in x
+ * @param ky corrdinate in y
+ * @param kz corrdinate in z
+ * @param kw k-space weight
+ */					   
+void gridFFT::forward( Array<complex<float>,3>&X,\
+					   const Array<complex<float>,3>&smap,\
+					   const Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw){
+	tictoc T;
+	if(time_grid) T.tic(); 
+	k3d_grid=0; // Zero K-Space
+	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
+	
+	if(time_grid) T.tic(); 
+	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
+	if(time_grid)cout << ",grid:"<< T << endl << flush;
+	
+	if(time_grid) T.tic(); 
+	do_fft();
+	if(time_grid)cout << ",fft:"<< T << endl << flush;
+	
+	if(time_grid) T.tic(); 
+	deapp(); // Deapp and multiply by sensitivity map
+	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
+	
+	if(time_grid) T.tic(); 
+	accumulate(X,smap); // Deapp,multiply by sensitivity map, and copy
+	if(time_grid)cout << ",accumulate:"<< T << endl<< flush;
+}
 
-
-
-
+/**
+ * Backward gridding with sensitivity map
+ * @param X image to be accumulated
+ * @param sensitivity map
+ * @param data raw k-space data
+ * @param kx corrdinate in x
+ * @param ky corrdinate in y
+ * @param kz corrdinate in z
+ * @param kw k-space weight
+ */					   
 void gridFFT::backward(const Array<complex<float>,3>&X,\
 					   const Array<complex<float>,3>&smap,\
 					   Array<complex<float>,3>&data,\
@@ -699,11 +740,17 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 					   const Array<float,3>&kz,\
 					   const Array<float,3>&kw){
 	
+	k3d_grid=0; // Zero K-Space
+	
 	tictoc T;
 	if(time_grid) T.tic(); 
-	backward_image_copy(X,smap); // Copy image to gridding 
+	set_image(X,smap); // Copy image to gridding 
 	if(time_grid) cout << "Backward::copy:"<< T;
 	
+	if(time_grid) T.tic(); 
+	deapp(); // Deapp and multiply by sensitivity map
+	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
+		
 	if(time_grid) T.tic(); 
 	do_ifft();
 	if(time_grid)cout << ",ifft:"<< T;
@@ -714,20 +761,33 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	
 }
 
-// Float sensitivty map (intensity correction)
+/**
+ * Backward gridding without sensitivity map
+ * @param X image to be accumulated
+ * @param data raw k-space data
+ * @param kx corrdinate in x
+ * @param ky corrdinate in y
+ * @param kz corrdinate in z
+ * @param kw k-space weight
+ */					   
 void gridFFT::backward(const Array<complex<float>,3>&X,\
-					   const Array<float,3>&smap,\
 					   Array<complex<float>,3>&data,\
 					   const Array<float,3>&kx,\
 					   const Array<float,3>&ky,\
 					   const Array<float,3>&kz,\
 					   const Array<float,3>&kw){
 	
+	k3d_grid=0; // Zero K-Space
+	
 	tictoc T;
 	if(time_grid) T.tic(); 
-	backward_image_copy(X,smap); // Copy image to gridding 
+	set_image(X); // Copy image to gridding 
 	if(time_grid) cout << "Backward::copy:"<< T;
 	
+	if(time_grid) T.tic(); 
+	deapp(); // Deapp and multiply by sensitivity map
+	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
+		
 	if(time_grid) T.tic(); 
 	do_ifft();
 	if(time_grid)cout << ",ifft:"<< T;
@@ -736,122 +796,114 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	chop_grid_backward(data,kx,ky,kz,kw); // Inverse gridding
 	if(time_grid)cout << ",igrid:"<< T << endl;
 	
-}
-
-// Same but without smap
-void gridFFT::backward(const Array<complex<float>,3>&X,\
-					   Array<complex<float>,3>&data,\
-					   const Array<float,3>&kx,\
-					   const Array<float,3>&ky,\
-					   const Array<float,3>&kz,\
-					   const Array<float,3>&kw){
-	
-	tictoc T;
-	if(time_grid) T.tic(); 
-	backward_image_copy(X); // Copy image to gridding 
-	if(time_grid) cout << "Backward::copy:"<< T;
-	
-	if(time_grid) T.tic(); 
-	do_ifft();
-	if(time_grid)cout << ",ifft:"<< T;
-	
-	if(time_grid) T.tic();
-	chop_grid_backward(data,kx,ky,kz,kw); // Inverse gridding
-	if(time_grid)cout << ",igrid:"<< T << endl;
 }
 
 //----------------------------------------
 //    Crop from Gridding Matrix to Image
 //----------------------------------------
-void gridFFT::forward_image_copy(Array<complex<float>,3>&X){
-	
+
+void gridFFT::deapp( void ){
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
 	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
 	    float wty = wtz*winy(j+og_sy);
 		for(int i=0; i<Nx; i++) {
-			X(i,j,k) = ( image(i,j,k)*wty*winx(i+og_sx)); /* Don't just sum coils when no sense map is given*/
+			 image(i,j,k)*= wty*winx(i+og_sx); /* Don't just sum coils when no sense map is given*/
 	}}}
 }
 
-void gridFFT::forward_image_copy(Array<complex<float>,3>&X,const Array<complex<float>,3>&smap){
-	#pragma omp parallel for
-	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz(k+og_sz);
-	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy(j+og_sy);
-		for(int i=0; i<Nx; i++) {
-			X(i,j,k) += ( image(i,j,k)*wty*winx(i+og_sx)*conj(smap(i,j,k)));
-	}}}
-}
-
-
-void gridFFT::forward_image_copy(Array<complex<float>,3>&X,const Array< float,3>&smap){
-	#pragma omp parallel for
-	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz(k+og_sz);
-	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy(j+og_sy);
-		for(int i=0; i<Nx; i++) {
-			X(i,j,k) += ( image(i,j,k)*wty*winx(i+og_sx)*smap(i,j,k));
-	}}}
-}
-
-
-//----------------------------------------
-//    Copy Image to gridding Matrix, Multiply by Smaps, and Zero 
-//----------------------------------------
-
-void gridFFT::backward_image_copy(const Array<complex<float>,3>&X){
-	
-	if(overgrid > 1.0){
-		k3d_grid = 0;
-	}
+void gridFFT::accumulate( Array< complex<float>, 3>&X, const Array< complex<float>, 3>&smap){
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy(j+og_sy);
-		for(int i=0; i<Nx; i++) {
-			image(i,j,k) = X(i,j,k)*wty*winx(i+og_sx);
+	    for(int i=0; i<Nx; i++){
+			
+			// Acumulate in a thread safe manner
+			complex<float>temp2 = image(i,j,k)*conj( smap(i,j,k) );
+			
+			float RD = real(temp2);
+			float ID = imag(temp2);
+			float *I = reinterpret_cast<float *>(&X(i,j,k));
+			float *R = I++;
+					
+			// Prevent Race conditions in multi-threaded
+			#pragma omp atomic
+			*R+=RD;
+					
+			#pragma omp atomic
+			*I+=ID;
 	}}}
 }
 
-void gridFFT::backward_image_copy(const Array<complex<float>,3>&X,const Array<complex<float>,3>&smap){
-	
-	if(overgrid > 1.0){
-		k3d_grid = 0;
-	}
+void gridFFT::accumulate( Array< complex<float>, 3>&X){
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy(j+og_sy);
-		for(int i=0; i<Nx; i++) {
-			image(i,j,k) =  X(i,j,k)*wty*winx(i+og_sx)*smap(i,j,k);
+	    for(int i=0; i<Nx; i++){
+			
+			// Acumulate in a thread safe manner
+			complex<float>temp2 = image(i,j,k);
+			
+			float RD = real(temp2);
+			float ID = imag(temp2);
+			float *I = reinterpret_cast<float *>(&X(i,j,k));
+			float *R = I++;
+					
+			// Prevent Race conditions in multi-threaded
+			#pragma omp atomic
+			*R+=RD;
+					
+			#pragma omp atomic
+			*I+=ID;
 	}}}
 }
 
-
-void gridFFT::backward_image_copy(const Array<complex<float>,3>&X,const Array<float,3>&smap){
-	
-	if(overgrid > 1.0){
-		k3d_grid = 0;
-	}
+void gridFFT::accumulate_sos( Array< complex<float>, 3>&X){
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
-	  float wtz = winz(k+og_sz);
 	  for(int j=0; j<Ny; j++){ 
-	    float wty = wtz*winy(j+og_sy);
-		for(int i=0; i<Nx; i++) {
-			image(i,j,k) =  X(i,j,k)*wty*winx(i+og_sx)*smap(i,j,k);
+	    for(int i=0; i<Nx; i++){
+			
+			// Acumulate in a thread safe manner
+			complex<float>temp2 = image(i,j,k)*conj(image(i,j,k));;
+			
+			float RD = real(temp2);
+			float ID = imag(temp2);
+			float *I = reinterpret_cast<float *>(&X(i,j,k));
+			float *R = I++;
+					
+			// Prevent Race conditions in multi-threaded
+			#pragma omp atomic
+			*R+=RD;
+					
+			#pragma omp atomic
+			*I+=ID;
 	}}}
 }
 
+void gridFFT::set_image( const Array< complex<float>, 3>&X, const Array< complex<float>, 3>&smap){
+	
+	#pragma omp parallel for
+	for(int k=0; k< Nz; k++){ 
+	  for(int j=0; j<Ny; j++){ 
+	    for(int i=0; i<Nx; i++){
+			image(i,j,k)= X(i,j,k)*smap(i,j,k);
+	}}}
+}
+
+void gridFFT::set_image( const Array< complex<float>, 3>&X){
+	
+	#pragma omp parallel for
+	for(int k=0; k< Nz; k++){ 
+	  for(int j=0; j<Ny; j++){ 
+	    for(int i=0; i<Nx; i++){
+			image(i,j,k)= X(i,j,k);
+	}}}
+}
 
 // -------------------------------------------------------
 //  This is the main function for Gridding.  Assumes data
@@ -885,7 +937,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		tempD = 0;
 	}
 	
-	#pragma omp parallel for schedule(dynamic,1024)
+	#pragma omp parallel for schedule(dynamic,2048)
 	for (int i=0; i < Npts; i++) {
       	
 		complex<float>temp =data[i];
@@ -1032,216 +1084,6 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	}}}
 	}
 	
-	
-	return;
-}
-
-
-// -------------------------------------------------------
-//  This is the main function for Gridding.  Assumes data
-//  is already density compensated, etc.
-// -------------------------------------------------------
-
-void gridFFT::grid_backward( const Array<float,3>&imX, Array<float,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA){
-
-	float cx = imX.length(firstDim)/2;
-	float cy = imX.length(secondDim)/2;
-	float cz = imX.length(thirdDim)/2;
-	
-	int SizeX = imX.length(firstDim);
-	int SizeY = imX.length(secondDim);
-	int SizeZ = imX.length(thirdDim);
-		
-	if( !dataA.isStorageContiguous()){
-		cout << "Non-contiguous storage doesn't work yet" << endl;
-		exit(1);
-	}
-	
-	int Npts = dataA.numElements();
-	float *data = dataA.data();
-	const float *kx = kxA.data();
-	const float *ky = kyA.data();
-	const float *kz = kzA.data();
-	
-	#pragma omp parallel for 
-	for (int i=0; i < Npts; i++) {
-      	
-		float temp =0.0;
-					
-	    	// Calculate the exact kspace sample point in 
-	    	// dimension flag->grid* kspace that this point (i,j)
-	    	// is contributing too.
-	   		
-		// Compute Coordinates + Check
-		float dkx = kx[i]*grid_x + cx;
-		int sx = (int)ceil( dkx - dwinX);
-		if(sx <0)   continue;
-		int ex = (int)floor(dkx + dwinX);
-		if(ex >= SizeX) continue;  
-	    
-		// Compute Coordinates + Check
-		float dky = ky[i]*grid_y + cy;
-		int sy;
-		int ey;
-		if(grid_in_y==1){
-			sy = (int)ceil( dky - dwinY);
-			ey = (int)floor(dky + dwinY);
-		}else{
-			sy = (int)( dky);
-			ey = sy;
-		}
-		if(sy <0)   continue;
-		if(ey >= SizeY) continue;  
-		
-		
-		// Compute Coordinates + Check
-		float dkz = kz[i]*grid_z + cz;
-		int sz,ez;
-		if(grid_in_z==1){
-			sz = (int)ceil( dkz - dwinZ);
-			ez = (int)floor(dkz + dwinZ);
-		}else{
-			sz = (int)( dkz);
-			ez = sz;
-		}
-		if(sz <0)   continue;
-		if(ez >= SizeZ) continue;  
-		
-		/*This is the main loop - most time is spent here*/
-		for(int lz =sz; lz<=ez; lz++){
-    		float delz = fabs(grid_modZ*(dkz -(float)lz));
-			float dz = delz - (float)((int)delz);
-			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
-			
-			for(int ly =sy; ly<=ey; ly++){
-        		
-				float dely = fabs(grid_modY*(dky -(float)ly));
-				float dy = dely - (float)((int)dely);
-				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
-			 	 
-				for(int lx =sx; lx<=ex; lx++){
-			 		float delx = fabs(grid_modX*(dkx -(float)lx));
-			 		float dx = delx - (float)((int)delx);
-					float wtx =wty*(  grid_filterX((int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
-			 		
-					temp+= wtx*imX(lx,ly,lz);
-					
-					
-			}/* end lz loop */
-	  	  }/* end ly */
-		 }/* end lx */
-		 data[i] = temp;
-		 	 
-		 
-	}/* end data loop */
-	
-	return;
-}
-
-void gridFFT::grid_forward( Array<float,3>&imX, const Array<float,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA){
-
-	float cx = imX.length(firstDim)/2;
-	float cy = imX.length(secondDim)/2;
-	float cz = imX.length(thirdDim)/2;
-	
-	int SizeX = imX.length(firstDim);
-	int SizeY = imX.length(secondDim);
-	int SizeZ = imX.length(thirdDim);
-		
-	if( !dataA.isStorageContiguous()){
-		cout << "Non-contiguous storage doesn't work yet" << endl;
-		exit(1);
-	}
-	
-	int Npts = dataA.numElements();
-	const float *data = dataA.data();
-	const float *kx   = kxA.data();
-	const float *ky   = kyA.data();
-	const float *kz   = kzA.data();
-	
-	/*
-	cout << "Grid Size = " << SizeX << " x " << SizeY  << " x " << SizeZ << endl;
-	cout << "Center X = " << cx << " x " << cy  << " x " << cz << endl;
-	cout << "Dwin = " << dwinX << " x " << dwinY  << " x " << dwinZ << endl;
-	cout << "Grid Length = " << grid_filterX.length(firstDim) << " x " << grid_filterY.length(firstDim)  << " x " << grid_filterZ.length(firstDim) << endl;
-	cout << "Grid Mod  = " << grid_modX << " x " << grid_modY  << " x " << grid_modZ << endl;
-	cout << "Grid In   = " << grid_in_x << " x " << grid_in_y  << " x " << grid_in_z << endl;
-	*/
-	
-	#pragma omp parallel for 
-	for (int i=0; i < Npts; i++) {
-      	
-		float temp =data[i];
-					
-	    	// Calculate the exact kspace sample point in 
-	    	// dimension flag->grid* kspace that this point (i,j)
-	    	// is contributing too.
-	   		
-		// Compute Coordinates + Check
-		float dkx = kx[i]*grid_x + cx;
-		int sx = (int)ceil( dkx - dwinX);
-		if(sx <0)   continue;
-		int ex = (int)floor(dkx + dwinX);
-		if(ex >= SizeX) continue;  
-	    
-		// Compute Coordinates + Check
-		float dky = ky[i]*grid_y + cy;
-		int sy;
-		int ey;
-		if(grid_in_y==1){
-			sy = (int)ceil( dky - dwinY);
-			ey = (int)floor(dky + dwinY);
-		}else{
-			sy = (int)( dky);
-			ey = sy;
-		}
-		if(sy <0)   continue;
-		if(ey >= SizeY) continue;  
-		
-		
-		
-		// Compute Coordinates + Check
-		float dkz = kz[i]*grid_z + cz;
-		int sz,ez;
-		if(grid_in_z==1){
-			sz = (int)ceil( dkz - dwinZ);
-			ez = (int)floor(dkz + dwinZ);
-		}else{
-			sz = (int)( dkz);
-			ez = sz;
-		}
-		if(sz <0)   continue;
-		if(ez >= SizeZ) continue;  
-		
-		
-		/*This is the main loop - most time is spent here*/
-		for(int lz =sz; lz<=ez; lz++){
-    		float delz = fabs(grid_modZ*(dkz -(float)lz));
-			float dz = delz - (float)((int)delz);
-			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
-			
-			for(int ly =sy; ly<=ey; ly++){
-        		
-				float dely = fabs(grid_modY*(dky -(float)ly));
-				float dy = dely - (float)((int)dely);
-				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
-			 	 
-				for(int lx =sx; lx<=ex; lx++){
-			 		float delx = fabs(grid_modX*(dkx -(float)lx));
-			 		float dx = delx - (float)((int)delx);
-					float wtx =wty*(  grid_filterX((int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
-			 		
-					float *image_temp = &imX(lx,ly,lz);					
-					float temp2 = wtx*temp;
-					
-					#pragma omp atomic 
-					*image_temp+= temp2;
-					
-					
-			}/* end lz loop */
-	  	  }/* end ly */
-		 }/* end lx */
-	}/* end data loop */
 	
 	return;
 }

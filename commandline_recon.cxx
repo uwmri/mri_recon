@@ -102,7 +102,7 @@ int main(int argc, char **argv){
    											
 					// Now Inverse Grid
 					cout << " Inverse Grid :: " << t << endl;
-					phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,TimeWeight);
+					// phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,TimeWeight);
 				}
 			}
 			
