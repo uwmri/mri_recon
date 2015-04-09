@@ -112,6 +112,7 @@ void NDarray::fft( Array< complex<float>,3>& temp, int dim){
 }
 
 void NDarray::ifft( Array< complex<float>,3>& temp, int dim){
+	
 	fft3( temp, dim, FFTW_BACKWARD,1);
 }
 

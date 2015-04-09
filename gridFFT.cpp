@@ -51,7 +51,9 @@ gridFFT::gridFFT(){
 	k_rad=9999.0;
 	time_grid =0 ;
 	double_grid =0;
-	grid_threads = -1;
+	
+	pruned_fft= false;
+
 }
 
 //----------------------------------------
@@ -76,18 +78,12 @@ void gridFFT::alloc_grid(){
 void gridFFT::plan_fft( void ){
     
 	fftwf_init_threads();
-	
-	if( grid_threads == -1){
-		grid_threads = omp_get_max_threads();
-	}
-	
-    fftwf_plan_with_nthreads(grid_threads);
-    cout << "FFT Planning with " << grid_threads << " threads"<< endl;
+	fftwf_plan_with_nthreads(omp_get_max_threads());
+    cout << "FFT Planning with " << omp_get_max_threads() << " threads"<< endl;
 		
 	//- Load old Plan if Possible
 	FILE *fid;
 	FILE *fid2;
-	char fname[300];
 	char hname[300];
 	char com[1300];
 	gethostname( hname,299);
@@ -143,6 +139,7 @@ void gridFFT::plan_fft( void ){
 }
 
 
+
 // ----------------------
 // Help Message
 // ----------------------
@@ -170,6 +167,7 @@ void gridFFT::help_message(void){
 	help_flag("-dwinY []","Size of kernel in y");
 	help_flag("-dwinZ []","Size of kernel in z");
 	help_flag("-double_grid","Use complex<double> for forward gridding (slow)");
+	help_flag("-pruned_fftf","Used pruned FFT (experimental)");
 }
 	
  
@@ -212,6 +210,8 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		trig_flag(SINC_KERNEL,"-sinc",kernel_type);
 		trig_flag(1,"-time_grid",time_grid);
 		trig_flag(1,"-double_grid",double_grid);
+		
+		trig_flag(true,"-pruned_fft",pruned_fft);
 	// Special Copies
 	}else if(strcmp("-fast_grid", pstring[pos]) == 0) {
 	  	overgrid = 1.0;
@@ -401,10 +401,6 @@ void gridFFT::precalc_kernel(void){
 }
 
 
-void gridFFT::set_threads(int temp){
-	grid_threads = temp;
-}
-
 void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims, TrajType trajectory_type ){
   
   Nx = NxT;
@@ -559,49 +555,81 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   alloc_grid();
   
   // Setup 3D FFT
-  if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) ){	
+  if( (!fft_in_z) || (!fft_in_y) || (!fft_in_x) || (!pruned_fft) ){
   	plan_fft();
   }
-  
 }
 
 
 
 void gridFFT::do_fft( void ){
 
-	if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) ){
+	if( (!fft_in_z) || (!fft_in_y) || (!fft_in_x) || (!pruned_fft) ){
+
 		fftwf_execute(fft_plan); //FFT 
 	}else{ 
+		
+		Array< complex<float>,3> temp = k3d_grid(Range::all(),Range::all(),Range::all());
+
+		// Biggest
 		if(fft_in_x){
-			fft3( k3d_grid,0,FFTW_FORWARD,0);
+			fft3(temp, 0, FFTW_FORWARD, 0);
+			
+			//Trim in X
+			Array< complex<float>,3> temp2 = temp(Range(og_sx,og_ex),Range::all(),Range::all());
+			temp.reference(temp2);
 		}
 		
+		// Medium
 		if(fft_in_y){
-			fft3( k3d_grid,1,FFTW_FORWARD,0);
+			fft3(temp, 1, FFTW_FORWARD, 0);
+			
+			//Trim in Y
+			Array< complex<float>,3> temp2 = temp(Range::all(),Range(og_sy,og_ey),Range::all() );
+			temp.reference(temp2);
 		}
 		
+		// Small
 		if(fft_in_z){
-			fft3( k3d_grid,2,FFTW_FORWARD,0);
+			fft3(temp, 2, FFTW_FORWARD, 0);
+			
+			//Trim in Z
+			Array< complex<float>,3> temp2 = temp(Range::all(),Range::all(),Range(og_sz,og_ez));
+			temp.reference(temp2);
 		}
 	}
 }
 
 void gridFFT::do_ifft( void ){
 
-	if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) ){
+	if( (!fft_in_z) || (!fft_in_y) || (!fft_in_x) || (!pruned_fft) ){
+
 		fftwf_execute(ifft_plan); //FFT 
 	}else{
-		if(fft_in_x){
-			fft3( k3d_grid, 0,FFTW_BACKWARD,0);
-		}
 		
-		if(fft_in_y){
-			fft3( k3d_grid, 1,FFTW_BACKWARD,0);
-		}
 		
+		// Smallest array
 		if(fft_in_z){
-			fft3( k3d_grid, 2,FFTW_BACKWARD,0);
+			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range(og_sy,og_ey),Range::all());
+
+			// Already expanded in z
+			fft3(temp, 2, FFTW_BACKWARD, 0);
+			
 		}
+		
+		// Bigger
+		if(fft_in_y){
+			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range::all(),Range::all());
+			fft3(temp, 1, FFTW_BACKWARD, 0);
+			
+		}
+		
+		// Biggest
+		if(fft_in_x){
+			fft3(k3d_grid, 0, FFTW_BACKWARD, 0);
+		}
+		
+
 	}
 }
 
@@ -674,10 +702,6 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",fft:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
-	deapp(); // Deapp and multiply by sensitivity map
-	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
-	
-	if(time_grid) T.tic(); 
 	accumulate(X); // Deapp,multiply by sensitivity map, and copy
 	if(time_grid)cout << ",accumulate:"<< T << endl<< flush;			   
 
@@ -714,10 +738,6 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",fft:"<< T << endl << flush;
 	
 	if(time_grid) T.tic(); 
-	deapp(); // Deapp and multiply by sensitivity map
-	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
-	
-	if(time_grid) T.tic(); 
 	accumulate(X,smap); // Deapp,multiply by sensitivity map, and copy
 	if(time_grid)cout << ",accumulate:"<< T << endl<< flush;
 }
@@ -746,10 +766,6 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	if(time_grid) T.tic(); 
 	set_image(X,smap); // Copy image to gridding 
 	if(time_grid) cout << "Backward::copy:"<< T;
-	
-	if(time_grid) T.tic(); 
-	deapp(); // Deapp and multiply by sensitivity map
-	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
 		
 	if(time_grid) T.tic(); 
 	do_ifft();
@@ -783,11 +799,7 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	if(time_grid) T.tic(); 
 	set_image(X); // Copy image to gridding 
 	if(time_grid) cout << "Backward::copy:"<< T;
-	
-	if(time_grid) T.tic(); 
-	deapp(); // Deapp and multiply by sensitivity map
-	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
-		
+
 	if(time_grid) T.tic(); 
 	do_ifft();
 	if(time_grid)cout << ",ifft:"<< T;
@@ -817,11 +829,17 @@ void gridFFT::accumulate( Array< complex<float>, 3>&X, const Array< complex<floa
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz(k+og_sz);
+	  
 	  for(int j=0; j<Ny; j++){ 
+	  	float wty = wtz*winy(j+og_sy);
+	  
 	    for(int i=0; i<Nx; i++){
 			
+			float wt = wty*winx(i+og_sx);
+			
 			// Acumulate in a thread safe manner
-			complex<float>temp2 = image(i,j,k)*conj( smap(i,j,k) );
+			complex<float>temp2 = wt*image(i,j,k)*conj( smap(i,j,k) );
 			
 			float RD = real(temp2);
 			float ID = imag(temp2);
@@ -841,11 +859,17 @@ void gridFFT::accumulate( Array< complex<float>, 3>&X){
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz(k+og_sz);
+	  
 	  for(int j=0; j<Ny; j++){ 
+	  	float wty = wtz*winy(j+og_sy);
+	  
 	    for(int i=0; i<Nx; i++){
 			
+			float wt = wty*winx(i+og_sx);
+			
 			// Acumulate in a thread safe manner
-			complex<float>temp2 = image(i,j,k);
+			complex<float>temp2 = wt*image(i,j,k);
 			
 			float RD = real(temp2);
 			float ID = imag(temp2);
@@ -889,9 +913,15 @@ void gridFFT::set_image( const Array< complex<float>, 3>&X, const Array< complex
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz(k+og_sz);
+	  
 	  for(int j=0; j<Ny; j++){ 
+	  	float wty = wtz*winy(j+og_sy);
+	  
 	    for(int i=0; i<Nx; i++){
-			image(i,j,k)= X(i,j,k)*smap(i,j,k);
+			
+			float wt = wty*winx(i+og_sx);
+			image(i,j,k)= wt*X(i,j,k)*smap(i,j,k);
 	}}}
 }
 
@@ -899,9 +929,15 @@ void gridFFT::set_image( const Array< complex<float>, 3>&X){
 	
 	#pragma omp parallel for
 	for(int k=0; k< Nz; k++){ 
+	  float wtz = winz(k+og_sz);
+	  
 	  for(int j=0; j<Ny; j++){ 
+	  	float wty = wtz*winy(j+og_sy);
+	  
 	    for(int i=0; i<Nx; i++){
-			image(i,j,k)= X(i,j,k);
+			
+			float wt = wty*winx(i+og_sx);
+			image(i,j,k)= wt*X(i,j,k);
 	}}}
 }
 
@@ -916,37 +952,34 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	float cy = Sy/2;
 	float cz = Sz/2;
 	
-	if( !dataA.isStorageContiguous()){
-		cout << "Non-contiguous storage doesn't work yet" << endl;
-		exit(1);
-	}
-	
 	int Npts = dataA.numElements();
-	const complex<float> *data = dataA.data();
-	const float *kx = kxA.data();
-	const float *ky = kyA.data();
-	const float *kz = kzA.data();
-	const float *kw = kwA.data();
-	
-	// For testing
-	Array< complex<double>,3>tempD;
-	if(double_grid==1){
-		cout << "WARNING::gridding using double" << endl; 
-		tempD.setStorage( ColumnMajorArray<3>());
-		tempD.resize(Sx,Sy,Sz);
-		tempD = 0;
-	}
+		
+	int stride_x = 1;
+	int stride_y = dataA.length(firstDim);
+	int stride_z = dataA.length(secondDim);
 	
 	#pragma omp parallel for schedule(dynamic,2048)
 	for (int i=0; i < Npts; i++) {
       	
-		complex<float>temp =data[i];
+		
+		// Nested parallelism workaround
+		int ii = (int)( i % stride_y);
+		int tempi = (int)( (float)i / (float)stride_y);
+		int jj = (int)(        tempi % stride_z );
+		int kk = (int)( (float)tempi / (float)(stride_z) );
+		
+		float kx = kxA(ii,jj,kk);
+		float ky = kyA(ii,jj,kk);
+		float kz = kzA(ii,jj,kk);
+		float kw = kwA(ii,jj,kk);
+		
+		complex<float>temp =dataA(ii,jj,kk);
 				
 		// Density Comp
-		temp *= kw[i];
+		temp *= kw;
 		
 		// Do not grid zeros
-     		if( temp==complex<float>(0,0)) continue;
+     	if( temp==complex<float>(0,0)) continue;
 		
 				
 	 	// Calculate the exact kspace sample point in 
@@ -954,7 +987,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		// is contributing too.
 	   		
 		// Compute Coordinates + Check
-		float dkx = kx[i]*grid_x + cx;
+		float dkx = kx*grid_x + cx;
 		int sx;
 		int ex;
 		if(grid_in_x){
@@ -967,7 +1000,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		if(sx >= Sx) continue;
 		if(ex < 0) continue;  
 				
-		float dky = ky[i]*grid_y + cy;
+		float dky = ky*grid_y + cy;
 		int sy;
 		int ey;
 		if(grid_in_y){
@@ -981,7 +1014,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		if(ey < 0) continue;  
 			
 		
-		float dkz = kz[i]*grid_z + cz;
+		float dkz = kz*grid_z + cz;
 		int sz;
 		int ez;
 		if(grid_in_z){
@@ -997,15 +1030,15 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		
 		float kr=0.0;
 		if( fft_in_x){
-			kr+=(kx[i]*kx[i]);
+			kr+=(kx*kx);
 		}
 		
 		if( fft_in_y){
-			kr+=(ky[i]*ky[i]);
+			kr+=(ky*ky);
 		}
 		
 		if( fft_in_z){
-			kr+=(kz[i]*kz[i]);
+			kr+=(kz*kz);
 		}
 		temp *= exp( -kr / (2.0*k_rad*k_rad) );
 
@@ -1040,34 +1073,19 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 						wtx *=( (float)(2*(lx%2) -1 ));
 					}
 					
-					if(double_grid){
-						complex<float>temp2 = wtx*temp;
-						double RD = (double)real(temp2);
-						double ID = (double)imag(temp2);
-						double *I = reinterpret_cast<double *>(&tempD(lx,ly,lz));
-						double *R = I++;
+					complex<float>temp2 = wtx*temp;
+					float RD = real(temp2);
+					float ID = imag(temp2);
+					float *I = reinterpret_cast<float *>(&k3d_grid(lx,ly,lz));
+					float *R = I++;
 					
-						// Prevent Race conditions in multi-threaded
-						#pragma omp atomic
-						*R+=RD;
+					// Prevent Race conditions in multi-threaded
+					#pragma omp atomic
+					*R+=RD;
 					
-						#pragma omp atomic
-						*I+=ID;
-					
-					}else{
-						complex<float>temp2 = wtx*temp;
-						float RD = real(temp2);
-						float ID = imag(temp2);
-						float *I = reinterpret_cast<float *>(&k3d_grid(lx,ly,lz));
-						float *R = I++;
-					
-						// Prevent Race conditions in multi-threaded
-						#pragma omp atomic
-						*R+=RD;
-					
-						#pragma omp atomic
-						*I+=ID;
-					}																	
+					#pragma omp atomic
+					*I+=ID;
+																	
 					/*This Memory Access is the Bottleneck - Also not thread safe!*/	 			 
 			 		// k3d_grid.vals[lz][ly][lx]+=temp2;
 				}/* end lz loop */
@@ -1075,14 +1093,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		 }/* end lx */
 	}/* end data loop */
 	
-	// Copy back if using double
-	if(double_grid){
-	for(int k=0; k< Sz; k++){ 
-	  for(int j=0; j<Sy; j++){ 
-	   for(int i=0; i<Sx; i++) {
-			k3d_grid(i,j,k) =  tempD(i,j,k);
-	}}}
-	}
+
 	
 	
 	return;
@@ -1098,31 +1109,37 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	float cy = Sy/2;
 	float cz = Sz/2;
 	
-	if( !dataA.isStorageContiguous()){
-		cout << "Non-contiguous storage doesn't work yet" << endl;
-		exit(1);
-	}
-	
 	int Npts = dataA.numElements();
-	complex<float> *data = dataA.data();
-	const float *kx = kxA.data();
-	const float *ky = kyA.data();
-	const float *kz = kzA.data();
-	const float *kw = kwA.data();
+		
+	int stride_x = 1;
+	int stride_y = dataA.length(firstDim);
+	int stride_z = dataA.length(secondDim);
 	
 	#pragma omp parallel for schedule(dynamic,1024)
 	for (int i=0; i < Npts; i++) {
       	
+		// Nested parallelism workaround
+		int ii = (int)( i % stride_y);
+		int tempi = (int)( (float)i / (float)stride_y);
+		int jj = (int)(        tempi % stride_z );
+		int kk = (int)( (float)tempi / (float)(stride_z) );
+		
+		float kx = kxA(ii,jj,kk);
+		float ky = kyA(ii,jj,kk);
+		float kz = kzA(ii,jj,kk);
+		float kw = kwA(ii,jj,kk);
+		
+		dataA(ii,jj,kk) = complex<float>(0.0,0.0);
 		
 		// Do not grid zeros
-     	if( kw[i]==0.0) continue;
+     	if( kw==0.0) continue;
 					
 	    // Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
 	    // is contributing too.
 	   		
 		// Compute Coordinates + Check
-		float dkx = kx[i]*grid_x + cx;
+		float dkx = kx*grid_x + cx;
 		int sx;
 		int ex;
 		if(grid_in_x){
@@ -1136,7 +1153,7 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 		if(ex < 0) continue;  
 		
 		
-		float dky = ky[i]*grid_y + cy;
+		float dky = ky*grid_y + cy;
 		int sy;
 		int ey;
 		if(grid_in_y){
@@ -1150,7 +1167,7 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 		if(ey < 0) continue;  
 			
 		
-		float dkz = kz[i]*grid_z + cz;
+		float dkz = kz*grid_z + cz;
 		int sz;
 		int ez;
 		if(grid_in_z){
@@ -1202,7 +1219,7 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	    	}/* end lz loop */
 	  	  }/* end ly */
 		 }/* end lx */
-		 data[i] += temp;
+		 dataA(ii,jj,kk) = temp;
 	
 	}/* end data loop */
 	return;

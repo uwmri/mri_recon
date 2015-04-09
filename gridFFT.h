@@ -22,19 +22,19 @@ enum {TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL};
 
 class gridFFT{
 	public:
-		int threads;
-		
-  		NDarray::Array< complex<float>,3 >k3d_grid; /*Actual Gridding Space*/
+		NDarray::Array< complex<float>,3 >k3d_grid; /*Actual Gridding Space*/
   		NDarray::Array< complex<float>,3 >image;   	/*Complex Storage Space*/
   		
 		// Controls for phase encode / 2D directions
-		int fft_in_x;
-  		int fft_in_y;
-  		int fft_in_z;
-  		int grid_in_x;
-  		int grid_in_y;
-  		int grid_in_z;
+		bool fft_in_x;
+  		bool fft_in_y;
+  		bool fft_in_z;
+  		bool grid_in_x;
+  		bool grid_in_y;
+  		bool grid_in_z;
   		
+		bool pruned_fft;
+		
 		// Grid Testing for Double 
 		int double_grid;
 				
@@ -67,8 +67,6 @@ class gridFFT{
 		int Sz;
 		int kernel_type;
 		float overgrid;
-		 
-		int grid_threads;
 		  
   		/*Kaiser Bessel Beta - Calculated*/
   		float betaX;
@@ -106,7 +104,6 @@ class gridFFT{
 		void plan_fft( void );
 		void do_fft( void);
 		void do_ifft( void );
-		void set_threads( int );
 		void deapp( void );
 		
 		// Main Calls with sensitivity map

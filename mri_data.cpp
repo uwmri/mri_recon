@@ -135,27 +135,27 @@ void MRI_DATA::init_memory(void){
 	
 	cout << "Container Size = " << Num_Encodings << " x " << Num_Coils << endl;
 	cout <<"3D Size " << Num_Pts << " x " << Num_Readouts << " x " << Num_Slices << endl;
-	
-	// Allocate Memory and Copy Values
+
 	{
 		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
 		kx.reference(temp);
 	}
-	
+
 	{
 		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
 		ky.reference(temp);
 	}
-	
+
 	{
 		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
 		kz.reference(temp);
 	}
-	
+
 	{
 		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
 		kw.reference(temp);
 	}
+	
 	
 	{
 		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);

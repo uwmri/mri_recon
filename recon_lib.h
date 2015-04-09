@@ -79,9 +79,7 @@ class RECON{
 	  int rcencodes;
   
   	  // Gridding operators
-	  int grid_workers;
-	  int grid_threads;
-	  NDarray::Array< gridFFT,1> gridding;
+	  gridFFT gridding;
 	  
 	  // Arrays for calculations
 	  NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps; // Array of arrays

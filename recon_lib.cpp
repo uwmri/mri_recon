@@ -71,8 +71,6 @@ void RECON::set_defaults( void){
 	wavelet_levelsY=4; 
 	wavelet_levelsZ=4;
 	
-	grid_workers = 1;
-	grid_threads = -1;
 	pregate_data_flag = false;
 }
 
@@ -287,8 +285,6 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		int_flag("-max_iter",max_iter);
 		int_flag("-cycle_spins",cycle_spins);
 		
-		int_flag("-grid_workers", grid_workers);
-		int_flag("-grid_threads", grid_threads);
 		trig_flag(true,"-pregate_data",pregate_data_flag);
 	}
   }
@@ -335,20 +331,11 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 
 	// Matlab like timer (openmp code base)
 	tictoc T; 
-
-	if(grid_threads == -1){
-		grid_threads = (int)( omp_get_max_threads()/grid_workers );
-	}
 	
 	// Setup Gridding + FFT Structure
-	gridding.resize(grid_workers);
-	for( int pos=0; pos< grid_workers; pos++){
-		
-		gridding(pos).read_commandline(argc,argv);
-		gridding(pos).set_threads( grid_threads);
-		gridding(pos).precalc_gridding(rczres,rcyres,rcxres,data.trajectory_dims,data.trajectory_type);
-	}
-		
+	gridding.read_commandline(argc,argv);
+	gridding.precalc_gridding(rczres,rcyres,rcxres,data.trajectory_dims,data.trajectory_type);
+			
 	// Recalculate the Density compensation
 	if(recalc_dcf){
 		dcf_calc(data);
@@ -715,6 +702,7 @@ void RECON::dcf_calc( MRI_DATA& data, GATING& gate){
 
 Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range times, Range times_store, bool composite){
 	
+			
 	// Shorthand for Blitz++
 	Range all=Range::all();
 
@@ -775,18 +763,12 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
    					}
 					
 					// cout << "\tForward Gridding Coil ";
-					omp_set_nested(1);
-					omp_set_num_threads(grid_workers);
-					#pragma omp parallel for 
 					for(int coil=0; coil< data.Num_Coils; coil++){
-						int grid_worker = omp_get_thread_num();
-						omp_set_num_threads(grid_threads);
-				
 						// K-space to Image
 						if(recon_type==PILS){
-							gridding(grid_worker).forward(X(store_t,e),smaps(coil),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+							gridding.forward(X(store_t,e),smaps(coil),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 						}else{
-							gridding(grid_worker).forward_sos(X(store_t,e),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+							gridding.forward_sos(X(store_t,e),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 						}
 						
 					}
@@ -853,16 +835,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  TimeWeight = kwE;
 								  gate.weight_data( TimeWeight,e, kxE, kyE,kzE,act_t,GATING::ITERATIVE, frame_type);
    							 	  
-								  omp_set_nested(1);
-								  omp_set_num_threads(grid_workers);
-								  #pragma omp parallel for 
 								  for(int coil=0; coil< data.Num_Coils; coil++){
 										  
-									 // Get the worker
-									int grid_worker = omp_get_thread_num();
-									omp_set_num_threads(grid_threads);
-								
-								
 									  T.tic();
 									  
 									  // Alloc Data
@@ -870,7 +844,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								      diff_data=0;
 								  
 									  // Ex
-									  gridding(grid_worker).backward(XX(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.backward(XX(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
 									  									  									  									  
 									  //Ex-d
 									  Array< complex<float>,3>kdataC = data.kdata(e,coil); 
@@ -878,7 +852,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 									  
 									  //E'(Ex-d)
 									  RR(t,e,coil)=complex<float>(0.0,0.0);
-									  gridding(grid_worker).forward( RR(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.forward( RR(store_t,e,coil),diff_data,kxE,kyE,kzE,TimeWeight);
 									  
 									  
 									  // Now Get Scale
@@ -886,11 +860,11 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 									   							  
 									  // EE'(Ex-d)
 									  diff_data=0;
-									  gridding(grid_worker).backward(RR(store_t,e,coil), diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.backward(RR(store_t,e,coil), diff_data,kxE,kyE,kzE,TimeWeight);
 									  
 									  
 									  //E'EE'(Ex-d)
-									  gridding(grid_worker).forward(P,diff_data,kxE,kyE,kzE,TimeWeight);
+									  gridding.forward(P,diff_data,kxE,kyE,kzE,TimeWeight);
 								  	  
 									  scale_RhP += conj_sum(P,RR(t,e,coil)); 
 									  
@@ -1030,18 +1004,10 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
    						}
 						
 						// E'd
-						omp_set_nested(1);
-						omp_set_num_threads(grid_workers);
-						#pragma omp parallel for 
 						for(int coil=0; coil< data.Num_Coils; coil++){
-										  
-							// Get the worker
-							int grid_worker = omp_get_thread_num();
-							omp_set_num_threads(grid_threads);
-										  
-							gridding(grid_worker).forward( R(store_t,e),smaps(coil),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+							gridding.forward( R(store_t,e),smaps(coil),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 						} 
-						 
+						
 				 	}
 				 }
 				 
@@ -1073,23 +1039,15 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					 			gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    							  }
 							  
-							  	  
-							  omp_set_nested(1);
-							  omp_set_num_threads(grid_workers);
-							  #pragma omp parallel for 
 							  for(int coil=0; coil< data.Num_Coils; coil++){
 										  
-								  // Get the worker
-								  int grid_worker = omp_get_thread_num();
-								  omp_set_num_threads(grid_threads);
-
 								  // Storage for (Ex-d) - dynamic for variable size
 			  		  			  Array< complex<float>,3 >diff_data( data.kx(e).shape(),ColumnMajorArray<3>());
 								  diff_data=0;
 
 								  // E'Ex
-								  gridding(grid_worker).backward( P(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
-								  gridding(grid_worker).forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+								  gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+								  gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 							  }//Coils
 							  
 							  // L2 R'R 
@@ -1259,31 +1217,21 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
    								  }
 								  
 								  // Images
-								  omp_set_nested(1);
-								  omp_set_num_threads(grid_workers);
-								  #pragma omp parallel for 
 								  for(int coil=0; coil< data.Num_Coils; coil++){
-										  
-										  // Get the worker
-										  int grid_worker = omp_get_thread_num();
-										  omp_set_num_threads(grid_threads);
-										  
-										  // Storage for (Ex-d)
-					  		  			  Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
-										  diff_data=0;
-										  
+									 
+									      Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
+								
 										  // Ex
-										  gridding(grid_worker).backward(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+										  gridding.backward(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
 
 										  //Ex-d
 										  diff_data -= data.kdata(e,coil);
 
 										  //E'(Ex-d)
-										  gridding(grid_worker).forward(R(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+										  gridding.forward(R(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
 										  
 								  }//Coils
-								  
-								  
+													  
 								  // L2 
 								  if(iteration > 0){
 								  	l2reg.regularize(R(store_t,e),X(store_t,e) );
@@ -1292,25 +1240,20 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 									
 								  //Now Get Scale factor (for Cauchy-Step Size)
 								  P=0;
-								  omp_set_nested(1);
-								  omp_set_num_threads(grid_workers);
-								  #pragma omp parallel for 
 								  for(int coil=0; coil< data.Num_Coils; coil++){
-										  // Get the worker
-										  int grid_worker = omp_get_thread_num();
-										  omp_set_num_threads(grid_threads);
 										  
 										  // Storage for (Ex-d)
 					  		  			  Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
-										  diff_data=0;
+								
+										  // this is in backward diff_data=0;
 
 										  // EE'(Ex-d)
-										  gridding(grid_worker).backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
+										  gridding.backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
 
 										  //E'EE'(Ex-d)
-										  gridding(grid_worker).forward(P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+										  gridding.forward(            P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
 								  }//Coils
-								
+								  
 								  
 								  // TV of Image
 								  if(iteration > 0){
@@ -1565,8 +1508,8 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 					for(int coil=0; coil< data.Num_Coils; coil++){
 						cout << "Coil = " << coil  << " encode = " << e << endl;
 					
-						//gridding(0).forward(data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),data.kw(e));
-						IntensityCorrection += norm( gridding(0).image);
+						//gridding.forward(data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),data.kw(e));
+						IntensityCorrection += norm( gridding.image);
 					}
 				}
 				IntensityCorrection = sqrt(IntensityCorrection);
@@ -1605,24 +1548,15 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			// Recon the maps
 			
 			// Low Pass filtering for Sensitivity Map
-			for(int grid_worker =0 ; grid_worker< grid_workers; grid_worker++){
-				if(coil_combine_type!=ESPIRIT){
-					gridding(grid_worker).k_rad = smap_res;
-				}
+			if(coil_combine_type!=ESPIRIT){
+				gridding.k_rad = smap_res;
 			}
 			
 			for(int e=0; e< 1;e++){
-				omp_set_nested(1);
-				omp_set_num_threads(grid_workers);
-				#pragma omp parallel for 
 				for(int coil=0; coil< data.Num_Coils; coil++){
-					
-					int grid_worker = omp_get_thread_num();
-					omp_set_num_threads(grid_threads);
 						
 					// Simple gridding
-					Array< complex<float>,3>dummy;
-					gridding(grid_worker).forward( smaps(coil),data.kdata(e,coil),data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+					gridding.forward( smaps(coil),data.kdata(e,coil),data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
 					
 					// Gaussian blur	
 					gaussian_blur(smaps(coil),extra_blurX,extra_blurY,extra_blurZ); // TEMP						
@@ -1632,10 +1566,8 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				}
 			}
 			
-			for(int grid_worker =0 ; grid_worker< grid_workers; grid_worker++){
-				gridding(grid_worker).k_rad = 9999;
-			}
-
+			gridding.k_rad = 9999;
+			
 			Array< float , 3 > IC;
 			if( intensity_correction ){
 				intensity_correct( IC, smaps);
@@ -1756,7 +1688,7 @@ void RECON::single_coil_cg( Array< complex<float>,3> & X, Array< complex<float>,
 	
 	// Get LHS
 	R = complex<float>(0.0,0.0);
-	gridding(0).forward(kdata,kx,ky,kz,kw);
+	gridding.forward(kdata,kx,ky,kz,kw);
 	R = gridding.image;
 	R = -R;
 	P = R;	
@@ -1769,8 +1701,8 @@ void RECON::single_coil_cg( Array< complex<float>,3> & X, Array< complex<float>,
 			// E'Ex
 			diff_data= complex<float>(0.0,0.0);
 			LHS = complex<float>(0.0,0.0);
-			gridding(0).backward( P ,diff_data,kx,ky,kz,kw);
-			gridding(0).forward( LHS ,diff_data,kx,ky,kz,kw);
+			gridding.backward( P ,diff_data,kx,ky,kz,kw);
+			gridding.forward( LHS ,diff_data,kx,ky,kz,kw);
 			
 			// Get scale
 			if(iteration==0){
