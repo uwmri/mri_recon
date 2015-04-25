@@ -389,8 +389,10 @@ void MRI_DATA::write_external_data( const char *fname){
 	file.AddH5Array( "Gating","resp",resp);	
 	file.AddH5Array( "Gating","prep",prep);	
 	file.AddH5Array( "Gating","time",time);	
-	file.AddH5Array( "Gating","kdata_gating",kdata_gating);	
 	
+	if(kdata_gating.numElements() != 0){
+		file.AddH5Array( "Gating","kdata_gating",kdata_gating);	
+	}
 }
 
 

@@ -26,12 +26,12 @@ class gridFFT{
   		NDarray::Array< complex<float>,3 >image;   	/*Complex Storage Space*/
   		
 		// Controls for phase encode / 2D directions
-		bool fft_in_x;
-  		bool fft_in_y;
-  		bool fft_in_z;
-  		bool grid_in_x;
-  		bool grid_in_y;
-  		bool grid_in_z;
+		int fft_in_x;
+  		int fft_in_y;
+  		int fft_in_z;
+  		int grid_in_x;
+  		int grid_in_y;
+  		int grid_in_z;
   		
 		bool pruned_fft;
 		

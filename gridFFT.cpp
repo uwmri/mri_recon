@@ -555,7 +555,9 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   alloc_grid();
   
   // Setup 3D FFT
-  if( (!fft_in_z) || (!fft_in_y) || (!fft_in_x) || (!pruned_fft) ){
+  if( (fft_in_z==0) || (fft_in_y==0) || (fft_in_x==0) || (pruned_fft==1) ){
+  
+  }else{
   	plan_fft();
   }
 }
@@ -564,15 +566,15 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
 
 void gridFFT::do_fft( void ){
 
-	if( (!fft_in_z) || (!fft_in_y) || (!fft_in_x) || (!pruned_fft) ){
-
+	 if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) && (pruned_fft==0) ){
+  
 		fftwf_execute(fft_plan); //FFT 
 	}else{ 
 		
 		Array< complex<float>,3> temp = k3d_grid(Range::all(),Range::all(),Range::all());
 
 		// Biggest
-		if(fft_in_x){
+		if(fft_in_x==1){
 			fft3(temp, 0, FFTW_FORWARD, 0);
 			
 			//Trim in X
@@ -581,7 +583,7 @@ void gridFFT::do_fft( void ){
 		}
 		
 		// Medium
-		if(fft_in_y){
+		if(fft_in_y==1){
 			fft3(temp, 1, FFTW_FORWARD, 0);
 			
 			//Trim in Y
@@ -590,26 +592,25 @@ void gridFFT::do_fft( void ){
 		}
 		
 		// Small
-		if(fft_in_z){
+		if(fft_in_z==1){
 			fft3(temp, 2, FFTW_FORWARD, 0);
 			
 			//Trim in Z
-			Array< complex<float>,3> temp2 = temp(Range::all(),Range::all(),Range(og_sz,og_ez));
-			temp.reference(temp2);
+			//Array< complex<float>,3> temp2 = temp(Range::all(),Range::all(),Range(og_sz,og_ez));
+			//temp.reference(temp2);
 		}
 	}
 }
 
 void gridFFT::do_ifft( void ){
 
-	if( (!fft_in_z) || (!fft_in_y) || (!fft_in_x) || (!pruned_fft) ){
-
-		fftwf_execute(ifft_plan); //FFT 
+	 if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) && (pruned_fft==0) ){
+  		fftwf_execute(ifft_plan); //FFT 
 	}else{
 		
 		
 		// Smallest array
-		if(fft_in_z){
+		if(fft_in_z==1){
 			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range(og_sy,og_ey),Range::all());
 
 			// Already expanded in z
@@ -618,14 +619,14 @@ void gridFFT::do_ifft( void ){
 		}
 		
 		// Bigger
-		if(fft_in_y){
+		if(fft_in_y==1){
 			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range::all(),Range::all());
 			fft3(temp, 1, FFTW_BACKWARD, 0);
 			
 		}
 		
 		// Biggest
-		if(fft_in_x){
+		if(fft_in_x==1){
 			fft3(k3d_grid, 0, FFTW_BACKWARD, 0);
 		}
 		
@@ -957,16 +958,17 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	int stride_x = 1;
 	int stride_y = dataA.length(firstDim);
 	int stride_z = dataA.length(secondDim);
+		
 	
-	#pragma omp parallel for schedule(dynamic,2048)
+	#pragma omp parallel for
 	for (int i=0; i < Npts; i++) {
       	
 		
 		// Nested parallelism workaround
 		int ii = (int)( i % stride_y);
-		int tempi = (int)( (float)i / (float)stride_y);
+		int tempi = (int)( (double)i / (double)stride_y);
 		int jj = (int)(        tempi % stride_z );
-		int kk = (int)( (float)tempi / (float)(stride_z) );
+		int kk = (int)( (double)tempi / (double)(stride_z) );
 		
 		float kx = kxA(ii,jj,kk);
 		float ky = kyA(ii,jj,kk);

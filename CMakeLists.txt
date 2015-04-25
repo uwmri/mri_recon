@@ -42,6 +42,9 @@ target_link_libraries(RECONLIB ${LOCAL_LIBS})
 add_executable(recon_binary commandline_recon.cxx ${LOCAL_INCS})
 target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB)
 
+add_executable(toy_recon toy_recon.cpp ${LOCAL_INCS})
+target_link_libraries(toy_recon ${LOCAL_LIBS} RECONLIB)
+
 #--------------------------------------
 # Install 
 #--------------------------------------
