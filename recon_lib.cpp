@@ -41,8 +41,8 @@ void RECON::set_defaults( void){
 	
 	recalc_dcf =false;
 	dcf_iter = 20;
-	dcf_dwin = 5.5;
-	dcf_scale = 1.0;
+	dcf_dwin = 2.5;
+	dcf_scale = 0.9;
 	
 	smap_res=8;
 	intensity_correction = false;
@@ -560,20 +560,24 @@ Array< Array<complex<float>,3 >,1 >RECON::reconstruct_composite( MRI_DATA& data)
 
 void RECON::dcf_calc( MRI_DATA& data){
 
-#ifdef LKJKL	
+	
 	// Setup Gridding + FFT Structure
 	gridFFT dcf_gridding;
 	dcf_gridding.kernel_type = KAISER_KERNEL;
 	dcf_gridding.dwinX = dcf_dwin;
 	dcf_gridding.dwinY = dcf_dwin;
 	dcf_gridding.dwinZ = dcf_dwin;
-	dcf_gridding.grid_x = 3.2;
-	dcf_gridding.grid_y = 3.2;
-	dcf_gridding.grid_z = 3.2;
+	dcf_gridding.grid_x = 2;
+	dcf_gridding.grid_y = 2;
+	dcf_gridding.grid_z = 2;
 	dcf_gridding.grid_in_x = 1;
 	dcf_gridding.grid_in_y = 1;
 	dcf_gridding.grid_in_z = 1;
-	dcf_gridding.precalc_kernel(); // data.trajectory_dims,data.trajectory_type);
+	dcf_gridding.fft_in_x = 0;
+	dcf_gridding.fft_in_y = 0;
+	dcf_gridding.fft_in_z = 0;
+	dcf_gridding.precalc_gridding(rcxres,rcyres,rcxres,data.trajectory_dims,data.trajectory_type);
+		
 	/*dcf_gridding.grid_x = 1;
 	dcf_gridding.grid_y = 1;
 	dcf_gridding.grid_z = 1;
@@ -593,11 +597,13 @@ void RECON::dcf_calc( MRI_DATA& data){
 	}
 				
 	 // Weighting Array for Time coding
-	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-	Array< float, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Array< complex<float>, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Array< complex<float>, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Array< float, 3 >Kones(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Kones = 1;
 	
 	// Array to grid to
-	Array< float, 3 >Xtemp(4*rcxres,4*rcyres,4*rczres,ColumnMajorArray<3>());
+	Array< complex<float>, 3 >Xtemp(4*rcxres,4*rcyres,4*rczres,ColumnMajorArray<3>());
 	cout << "Size Xtemp = " << Xtemp.length(firstDim) << " x " << Xtemp.length(secondDim) << " x " << Xtemp.length(thirdDim) << endl;
 	
 	for(int e=0; e< rcencodes; e++){
@@ -611,14 +617,18 @@ void RECON::dcf_calc( MRI_DATA& data){
 			cout << "Iteration = " << iter << flush;			 
 						
 			Xtemp=0;
-			dcf_gridding.grid_forward(Xtemp,Kweight,data.kx(e),data.ky(e),data.kz(e));
-			dcf_gridding.grid_backward(Xtemp,Kweight2,data.kx(e),data.ky(e),data.kz(e));
-			Kweight = Kweight / ( Kweight2);
+			dcf_gridding.k3d_grid=0;
+			dcf_gridding.chop_grid_forward(Kweight,data.kx(e),data.ky(e),data.kz(e),Kones); // Grid data to K-Space
+			dcf_gridding.chop_grid_backward(Kweight2,data.kx(e),data.ky(e),data.kz(e),Kones); // Degrid
+			
+			float zp = 1e-30*max(abs(Kweight2));
+						
+			Kweight = Kweight / ( Kweight2 + complex<float>(zp,0.0) );
 			cout << " Sum = " << sum(Kweight) << endl;
 		}
-		data.kw(e) = Kweight;
 		
-		
+		data.kw(e) = abs(Kweight);
+				
 		data.kx(e)/= dcf_scale;
 		data.ky(e)/= dcf_scale;
 		data.kz(e)/= dcf_scale;
@@ -626,7 +636,7 @@ void RECON::dcf_calc( MRI_DATA& data){
 		
 	}
 	ArrayWrite(data.kw(0),"Kweight_DCF.dat");
-#endif
+
 }
 
 void RECON::dcf_calc( MRI_DATA& data, GATING& gate){
