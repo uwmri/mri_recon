@@ -208,6 +208,8 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		trig_flag(KAISER_KERNEL,"-kaiser",kernel_type);
 		trig_flag(TRIANGLE_KERNEL,"-triangle",kernel_type);
 		trig_flag(SINC_KERNEL,"-sinc",kernel_type);
+		trig_flag(POLY_KERNEL,"-poly_kernel",kernel_type);
+		
 		trig_flag(1,"-time_grid",time_grid);
 		trig_flag(1,"-double_grid",double_grid);
 		
@@ -223,6 +225,63 @@ void gridFFT::read_commandline(int numarg, char **pstring){
   }
 }    
 
+
+
+/* The kernel's radius FOV product is the length,
+ * in pixels, to the first truncation point.
+ */
+#define RADIUS_FOV_PRODUCT 0.96960938
+
+/* this is a 0-sidelobes kernel using a 5th order polynomial fit */
+#define POLY_ORDER 5
+double _poly_sdc_kern_0lobes(double r)
+{
+    long i;
+    double FIT_LEN = 394; /* Length of the table used in polyfit (0 sidelobe).
+                           * The polynomial is not valid outside of this window. */
+    double SPECTRAL_LEN = 25600; /* length of the k domain table */
+    double FOV = 63;             /* length of the FOV (zeta) */
+
+    /* scale index to match table */
+    double x = SPECTRAL_LEN * r / FOV;
+
+    /* poly[0]*x^(POLY_LEN-1) + ... poly[POLY_LEN-1]*1 */
+    double poly[POLY_ORDER+1]={ -1.1469041640943728E-13, 
+                                 8.5313956268885989E-11, 
+                                 1.3282009203652969E-08, 
+                                -1.7986635886194154E-05, 
+                                 3.4511129626832091E-05, 
+                                 0.99992359966186584 };
+
+    /* get the zeroth order coefficient */
+    double out = poly[POLY_ORDER]; /* x^0 */
+
+    /* not valid beyond rfp */
+    if (x >= FIT_LEN) return(0.);
+
+    /* add up polynomial for this point */
+    for (i=1;i<=POLY_ORDER;i++){
+        out += pow(x,i)*poly[POLY_ORDER-i];
+	}
+    /* clip negative lobes */
+    if (out < 0.) out = 0.;
+
+    return(out);
+}
+
+
+void  loadKernelTable(Array<float,1> & out)
+{
+    /* get radius-FOV-product */
+    double rfp = RADIUS_FOV_PRODUCT;
+    unsigned long i;
+	unsigned long len = out.numElements();
+    /* load based on radius sqrd */        
+    for(i=0;i<len;i++){
+        out(i) = _poly_sdc_kern_0lobes( sqrt(pow(rfp,2)*(double)i/(double)(len-1)) );
+	}
+    return;
+} 
 
 //----------------------------------------
 //    Setup for Gridding 
@@ -391,6 +450,33 @@ void gridFFT::precalc_kernel(void){
 		
 	}break;
 	
+	case(POLY_KERNEL):{
+		
+		// Kernel Half Size 
+		dwinX   = (dwinX == -1 ) ? ( 2) : ( dwinX );
+		dwinY   = (dwinY == -1 ) ? ( 2) : ( dwinY );
+		dwinZ   = (dwinZ == -1 ) ? ( 2) : ( dwinZ );
+	
+		// Grid Length for precomputed kernel
+		int grid_lengthX = (int)( (float)dwinX*(float)grid_modX);
+		int grid_lengthY = (int)( (float)dwinY*(float)grid_modY);
+		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
+		
+		// Alloc Lookup Table Structs for Gridding
+		grid_filterX.resize( grid_lengthX+10);
+		grid_filterY.resize( grid_lengthY+10);
+		grid_filterZ.resize( grid_lengthZ+10);
+    	grid_filterX = 0.0;
+		grid_filterY = 0.0;
+		grid_filterZ = 0.0;
+		
+		loadKernelTable( grid_filterX);
+		loadKernelTable( grid_filterY);
+		loadKernelTable( grid_filterZ);
+		
+	}break;
+	
+	
   }
   
   // Normalize
@@ -399,6 +485,9 @@ void gridFFT::precalc_kernel(void){
   grid_filterZ *= 0.5*grid_modZ /  sum(grid_filterZ);
 
 }
+
+
+
 
 
 void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims, TrajType trajectory_type ){

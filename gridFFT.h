@@ -14,7 +14,7 @@
 #include "mri_data.h"
 
 // Kernel Types
-enum {TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL};
+enum {TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL,POLY_KERNEL};
 
 #ifndef PI
 #define PI 3.14159265359
