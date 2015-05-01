@@ -41,7 +41,7 @@ void RECON::set_defaults( void){
 	
 	recalc_dcf =false;
 	dcf_iter = 20;
-	dcf_dwin = 5.5;
+	dcf_dwin = 2.0;
 	dcf_scale = 1.0;
 	
 	smap_res=8;
@@ -447,16 +447,19 @@ void RECON::dcf_calc( MRI_DATA& data){
 	
 	// Setup Gridding + FFT Structure
 	gridFFT dcf_gridding;
-	dcf_gridding.kernel_type = KAISER_KERNEL;
+	dcf_gridding.kernel_type = POLY_KERNEL;
 	dcf_gridding.dwinX = dcf_dwin;
 	dcf_gridding.dwinY = dcf_dwin;
 	dcf_gridding.dwinZ = dcf_dwin;
-	dcf_gridding.grid_x = 3.2;
-	dcf_gridding.grid_y = 3.2;
-	dcf_gridding.grid_z = 3.2;
+	dcf_gridding.grid_x = 2.1;
+	dcf_gridding.grid_y = 2.1;
+	dcf_gridding.grid_z = 2.1;
 	dcf_gridding.grid_in_x = 1;
 	dcf_gridding.grid_in_y = 1;
 	dcf_gridding.grid_in_z = 1;
+	dcf_gridding.fft_in_x = 1;
+	dcf_gridding.fft_in_y = 1;
+	dcf_gridding.fft_in_z = 1;
 	dcf_gridding.precalc_kernel(); // data.trajectory_dims,data.trajectory_type);
 	/*dcf_gridding.grid_x = 1;
 	dcf_gridding.grid_y = 1;
