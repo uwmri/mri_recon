@@ -77,7 +77,7 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	arma::fvec kxx_sorted (Npts);
 	arma::fvec kyy_sorted (Npts);
 	arma::fvec kzz_sorted (Npts);
-	for(int pos=0; pos< kxx.n_elem; pos++){
+	for(int pos=0; pos< (int)kxx.n_elem; pos++){
 		kxx_sorted( pos )=kxx(index(pos));
 		kyy_sorted( pos )=kyy(index(pos));
 		kzz_sorted( pos )=kzz(index(pos));
@@ -86,15 +86,23 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	
 	arma::fvec kn( Npts); // Number of points
 	arma::vec kpos( Npts); // Position in container
+	arma::vec counted( Npts); // Sets if pint belongs
+	arma::uvec set_idx( Npts); // Sets if pint belongs
+	counted.zeros();
 	
 	cout << "Finding Unique and adding" << endl;
 	int unique_points=0;
-	for(unsigned int pos=0; pos< kxx.n_elem;  ){
+	for(unsigned int pos=0; pos< kxx.n_elem; pos++ ){
 			
 			if( (pos % 10000) ==0){
 				cout << "Pos = " << pos << " found " << unique_points << endl;
 			}
 			
+			// Check to see if point has been collected
+			if(counted(pos) ){
+				continue;
+			}
+						
 			// Now search over points
 			float kxt = kxx_sorted(pos); 
 			float kyt = kyy_sorted(pos); 
@@ -104,29 +112,42 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 			float kxavg = kxt;
 			float kyavg = kyt;
 			float kzavg = kzt;
-			float n = 1.0;
+			int n = 1;
+			set_idx(n) = pos;
 			
 			// Gather unique points
 			int forward_pos=pos+1;
-			while( forward_pos < kxx.n_elem){
-				float diff = abs(kxx_sorted(forward_pos) - kxt);
-				diff      += abs(kyy_sorted(forward_pos) - kyt);
-				diff      += abs(kzz_sorted(forward_pos) - kzt);
-				if(diff > 0.05){
+			while( forward_pos < (int)kxx.n_elem){
+				// Difference in X (determines search range)
+				float xdiff = abs(kxx_sorted(forward_pos) - kxt);
+				
+				// Difference in radius				
+				float diff = pow(xdiff,2.0);
+				diff      += pow(kyy_sorted(forward_pos) - kyt,2.0);
+				diff      += pow(kzz_sorted(forward_pos) - kzt,2.0);
+				diff = sqrt(diff);
+				
+				
+				if(xdiff > 0.05){
+					// out of search range
 					break;
+				}else if(diff > 0.5){
+					// Just don't add point
 				}else{
+					// Count this shot
 					kxavg += kxx_sorted(forward_pos);
 					kyavg += kyy_sorted(forward_pos);
 					kzavg += kzz_sorted(forward_pos);
-					n += 1.0;
+					set_idx(n) = forward_pos;
+					n++;
 				}
 				forward_pos++;
 			}
 									
 			// Compute actual average
-			kxavg /= n;
-			kyavg /= n;
-			kzavg /= n;
+			kxavg /= (float)n;
+			kyavg /= (float)n;
+			kzavg /= (float)n;
 			
 			// cout << "Pt = (" << kxavg << "," << kyavg << "," << kzavg << ")" << endl;
 			
@@ -135,21 +156,21 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 				con.put(order,unique_points,kxavg,kyavg,kzavg);
 				
 				// Update decoding array
-				for(int dpos= pos; dpos < (pos+n); dpos++){
-					kpos(dpos) = unique_points;
-					kn(dpos)   = n;
+				for(int dpos= 0; dpos < n; dpos++){
+					kpos(set_idx(dpos)) = unique_points;
+					kn(set_idx(dpos))   = n;
+					counted(set_idx(dpos)) = 1;
 				}
 				unique_points++;
 			}else{
 				// Update decoding array
-				for(int dpos= pos; dpos < (pos+n); dpos++){
-					kpos(dpos) = -1; // -1 means it doesnt exist (kw=0)
-					kn(dpos)   = n;  
+				// Update decoding array
+				for(int dpos= 0; dpos < n; dpos++){
+					kpos(set_idx(dpos)) = -1;
+					kn(set_idx(dpos))   = n;
+					counted(set_idx(dpos)) = 1;
 				}
 			}
-			
-			// Advance by n
-			pos+= n;
 	}
 	cout << "Done combining, found " << unique_points << " points " << endl << flush;
 	
@@ -170,7 +191,6 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
         }else{
 			kw_calculated(count) = 0.0;
 		}
-		//cout << "Count =" << count << ",Kw = " << kw_calculated(count) << endl;
 		count++;
 	}while( vl.inc());
 
@@ -187,10 +207,10 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	// Unsort
 	cout << " Unsort " << endl;
 	arma::fvec kw_unsorted( Npts );
-	for(int pos=0; pos< kxx.n_elem; pos++){
+	for(int pos=0; pos< (int)kxx.n_elem; pos++){
 		kw_unsorted(index(pos) )=kw_sorted(pos);
 	}
-	
+		
 	// Unsort and put in array 
 	cout << "Copy back" << endl;
 	count = 0;
