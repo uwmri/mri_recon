@@ -10,6 +10,7 @@
 #include <cstring>
 #include <complex>
 #include <omp.h>
+#include <armadillo>
 #include "ArrayTemplates.hpp"
 
 #include "voro++/voro++.hh"
@@ -27,8 +28,8 @@
 class VORONOI_DCF{
 	public:
 		
-		static void dcf_3D( NDarray::Array< float,3> &,NDarray::Array< float,3> &,NDarray::Array< float,3> &,NDarray::Array< float,3> &);
-		static void dcf_2D( NDarray::Array< float,3> &,NDarray::Array< float,3> &,NDarray::Array< float,3> &);
+		enum KShape{ SPHERE, CYLINDER};
+		static void vor_dcf( NDarray::Array< float,3> &,NDarray::Array< float,3> &,NDarray::Array< float,3> &,NDarray::Array< float,3> &,KShape);
 						
 	private:
 

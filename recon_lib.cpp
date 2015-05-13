@@ -345,10 +345,12 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	if(recalc_dcf){
 		
 		if( data.trajectory_type == THREEDNONCARTESIAN){
-			VORONOI_DCF::dcf_3D(data.kw(0),data.kx(0),data.ky(0),data.kz(0));
+			VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::SPHERE);
 		}else{
-			VORONOI_DCF::dcf_2D(data.kw(0),data.kx(0),data.ky(0));
+			VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::CYLINDER);
 		}
+		ArrayWrite(data.kw(0),"Kweight_DCF.dat");
+		
 		//dcf_calc(data);
 	}
 	

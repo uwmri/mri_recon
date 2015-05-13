@@ -3,8 +3,9 @@
 using namespace std;
 using namespace NDarray;
 using namespace voro;
+using namespace arma;
 
-void VORONOI_DCF::dcf_3D( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> &ky,Array<float,3> &kz){
+void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> &ky,Array<float,3> &kz,VORONOI_DCF::KShape shape ){
 
 	double x_min = min(kx);
 	double y_min = min(ky);
@@ -16,7 +17,7 @@ void VORONOI_DCF::dcf_3D( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> &
 	
 	int n_x = ceil((x_max - x_min)/4);
 	int n_y = ceil((y_max - y_min)/4);
-	int n_z = ceil((z_max - z_min)/4);
+	int n_z = max( 1, (int)ceil((z_max - z_min)/4) );
 	
 	cout << "Starting Vor DCF " << endl;
 	cout << "  X: " << x_min << " to " << x_max << endl;
@@ -25,189 +26,183 @@ void VORONOI_DCF::dcf_3D( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> &
 	cout << "  Grid Size: " << n_x << " , " << n_y << " , " << n_z  << endl;
 	
 	// Create Container
-	container con(x_min,x_max, \
-				  y_min,y_max, \
-				  z_min,z_max, \
-				  n_x,n_y,n_z, \
-				  false, \
-				  false, \
-				  false, \
-				  50);
+	container con(x_min,x_max,y_min,y_max,z_min,z_max,n_x,n_y,n_z,false,false,false,512);
+
+	// Add wall
+	wall_sphere ksphere(0,0,0,x_max);
+	wall_cylinder kcylinder(0,0,-0.5+z_min,0,0,0.5+z_max,x_max);
+	switch(shape){
+		case(CYLINDER):{
+			// Add a cylinder to the container
+    		cout << "Add Cylinder ( " << x_max << " ) " << endl;
+			con.add_wall(kcylinder);
+		}break;
 	
-	// Add a spherical wall to the container
-    wall_sphere kmax(0,0,0,x_max);
-    con.add_wall(kmax);
+		case(SPHERE):{
+			// Add a spherical wall to the container
+   			cout << "Add Sphere" << endl;
+			con.add_wall(ksphere);
+		}break;
+	}
 	
+
+
 	float fermi_r = x_max - 6;
 	float fermi_w = 1;
 	
+	int Npts = kx.numElements();
 	
 	// Add Points
-	particle_order order(kx.numElements() );
-	Array< int,1> index_order( kx.numElements() );
-	index_order = 0;
-	
-	int count = 0;
-	int tot_count = 0;
+	particle_order order(Npts);
+		
+	// Need to remove points that are duplicates to some precision
+	cout << "Assign to Arma pts = " << Npts << endl;
+	arma::fvec kxx (Npts);
+	arma::fvec kyy (Npts);
+	arma::fvec kzz (Npts);
+	int count= 0;
 	for(int k =0; k< kx.length(thirdDim); k++){
 		for(int j =0; j< kx.length(secondDim); j++){
 			for(int i =0; i< kx.length(firstDim); i++){
+				kxx(count) = kx(i,j,k);
+				kyy(count) = ky(i,j,k);
+				kzz(count) = kz(i,j,k);
+				count++;				
+	}}}
 				
-				double x = (double)kx(i,j,k) + 0.00001*(double)( (double)rand()/(double)RAND_MAX - 0.5);
-				double y = (double)ky(i,j,k) + 0.00001*(double)( (double)rand()/(double)RAND_MAX - 0.5);
-				double z = (double)kz(i,j,k) + 0.00001*(double)( (double)rand()/(double)RAND_MAX - 0.5);
-						
-				if(con.point_inside(x,y,z)){ 
-        			con.put(order,count,x,y,z);
-					index_order(count) = tot_count;
-					count++;
-				}
-				tot_count++;
-			}
-		}	
-	}
-
+	cout << "Sorting in x" << endl;
+	uvec index = sort_index( kxx ); // Sort in xx
 	
+	cout << "Asigning " << endl;	
+	arma::fvec kxx_sorted (Npts);
+	arma::fvec kyy_sorted (Npts);
+	arma::fvec kzz_sorted (Npts);
+	for(int pos=0; pos< kxx.n_elem; pos++){
+		kxx_sorted( pos )=kxx(index(pos));
+		kyy_sorted( pos )=kyy(index(pos));
+		kzz_sorted( pos )=kzz(index(pos));
+	}
+	
+	
+	arma::fvec kn( Npts); // Number of points
+	arma::vec kpos( Npts); // Position in container
+	
+	cout << "Finding Unique and adding" << endl;
+	int unique_points=0;
+	for(unsigned int pos=0; pos< kxx.n_elem;  ){
+			
+			if( (pos % 10000) ==0){
+				cout << "Pos = " << pos << " found " << unique_points << endl;
+			}
+			
+			// Now search over points
+			float kxt = kxx_sorted(pos); 
+			float kyt = kyy_sorted(pos); 
+			float kzt = kzz_sorted(pos); 
+			
+			// Gather all non-unique points and average
+			float kxavg = kxt;
+			float kyavg = kyt;
+			float kzavg = kzt;
+			float n = 1.0;
+			
+			// Gather unique points
+			int forward_pos=pos+1;
+			while( forward_pos < kxx.n_elem){
+				float diff = abs(kxx_sorted(forward_pos) - kxt);
+				diff      += abs(kyy_sorted(forward_pos) - kyt);
+				diff      += abs(kzz_sorted(forward_pos) - kzt);
+				if(diff > 0.05){
+					break;
+				}else{
+					kxavg += kxx_sorted(forward_pos);
+					kyavg += kyy_sorted(forward_pos);
+					kzavg += kzz_sorted(forward_pos);
+					n += 1.0;
+				}
+				forward_pos++;
+			}
+									
+			// Compute actual average
+			kxavg /= n;
+			kyavg /= n;
+			kzavg /= n;
+			
+			// cout << "Pt = (" << kxavg << "," << kyavg << "," << kzavg << ")" << endl;
+			
+			// Check to see if it's in the container. If it is add it
+			if(con.point_inside(kxavg,kyavg,kzavg)){
+				con.put(order,unique_points,kxavg,kyavg,kzavg);
+				
+				// Update decoding array
+				for(int dpos= pos; dpos < (pos+n); dpos++){
+					kpos(dpos) = unique_points;
+					kn(dpos)   = n;
+				}
+				unique_points++;
+			}else{
+				// Update decoding array
+				for(int dpos= pos; dpos < (pos+n); dpos++){
+					kpos(dpos) = -1; // -1 means it doesnt exist (kw=0)
+					kn(dpos)   = n;  
+				}
+			}
+			
+			// Advance by n
+			pos+= n;
+	}
+	cout << "Done combining, found " << unique_points << " points " << endl << flush;
+	
+
 	// Now calculate and copy back
+	arma::fvec kw_calculated( unique_points );
 	voronoicell c;
   	c_loop_order vl(con,order);
   	
 	count=0;
 	if(vl.start()) do{
-		
-		double vv = 0.0;
-		
 		if(count%10000==0){
-			cout << "Counted " << count/10000 << " of " << kx.numElements()/10000 << endl;
+			cout << "Counted " << count/10000 << " of " << unique_points/10000 << endl;
 		}
 				
-		
 		if(con.compute_cell(c,vl)){
-			vv = c.volume();
+			kw_calculated(count) = c.volume();
         }else{
-			vv = 0.0;
+			kw_calculated(count) = 0.0;
 		}
-		
-		int t = index_order( count);
-		
-		// Convert count to index
-		int i = t % kx.length(firstDim);
-		int tempjj = t / kx.length(firstDim);
-		int j = tempjj % kx.length(secondDim);
-		int k = tempjj / kx.length(secondDim);
-		
-		float r = sqrt( kx(i,j,k)*kx(i,j,k) + ky(i,j,k)*ky(i,j,k) + kz(i,j,k)*kz(i,j,k));
-		
-		kw(i,j,k) = vv*(1 + exp( (r-fermi_r)/fermi_w));
-		
+		//cout << "Count =" << count << ",Kw = " << kw_calculated(count) << endl;
 		count++;
-		
 	}while( vl.inc());
 
-}
-
-void VORONOI_DCF::dcf_2D( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> &ky){
+	// Convert to sorted index
+	arma::fvec kw_sorted( Npts );
+	for(int pos=0; pos < Npts; pos++){
+		if( kpos(pos) == -1){
+			kw_sorted(pos) = 0.0;
+		}else{
+			kw_sorted(pos) = kw_calculated( kpos(pos))/kn(pos);
+		}
+	}
 	
-	double x_min = min(kx);
-	double y_min = min(ky);
-	double z_min = -0.5;
+	// Unsort
+	cout << " Unsort " << endl;
+	arma::fvec kw_unsorted( Npts );
+	for(int pos=0; pos< kxx.n_elem; pos++){
+		kw_unsorted(index(pos) )=kw_sorted(pos);
+	}
 	
-	double x_max = max(kx);
-	double y_max = max(ky);
-	double z_max = 0.5;
-	
-	int n_x = ceil((x_max - x_min)/4);
-	int n_y = ceil((y_max - y_min)/4);
-	int n_z = 1;
-	
-	cout << "Starting Vor DCF " << endl;
-	cout << "  X: " << x_min << " to " << x_max << endl;
-	cout << "  Y: " << y_min << " to " << y_max << endl;
-	cout << "  Z: " << z_min << " to " << z_max << endl;
-	cout << "  Grid Size: " << n_x << " , " << n_y << " , " << n_z  << endl;
-	
-	// Create Container
-	container con(x_min,x_max, \
-				  y_min,y_max, \
-				  z_min,z_max, \
-				  n_x,n_y,n_z, \
-				  false, \
-				  false, \
-				  false, \
-				  64);
-	
-	// Add a spherical wall to the container
-    wall_cylinder kmax(0,0,-0.5,0,0,0.5,x_max);
-    con.add_wall(kmax);
-	
-	float fermi_r = x_max - 6;
-	float fermi_w = 1;
-	
-	
-	// Add Points
-	particle_order order(kx.numElements() );
-	Array< int,1> index_order( kx.numElements() );
-	index_order = 0;
-	
-	int count = 0;
-	int tot_count = 0;
+	// Unsort and put in array 
+	cout << "Copy back" << endl;
+	count = 0;
 	for(int k =0; k< kx.length(thirdDim); k++){
 		for(int j =0; j< kx.length(secondDim); j++){
 			for(int i =0; i< kx.length(firstDim); i++){
+				float kww = kw_unsorted(count);
 				
-				double x = (double)kx(i,j,k);
-				double y = (double)ky(i,j,k);
-				double z = 0.0;
-							
-				if(con.point_inside(x,y,z)){ 
-        			con.put(order,count,x,y,z);
-					index_order(count) = tot_count;
-					count++;
-				}
-				tot_count++;
-			}
-		}	
-	}
-
-	
-	// Now calculate and copy back
-	voronoicell c;
-  	c_loop_order vl(con,order);
-  	vl.start();
-	count=0;
-
-
-	if(vl.start()) do{
-		
-		double vv = 0.0;
-		
-		if(count%10000==0){
-			cout << "Counted " << count/10000 << " of " << kx.numElements()/10000 << endl;
-		}
-				
-		
-		if(con.compute_cell(c,vl)){
-			vv = c.volume();
-        }else{
-			vv = 0.0;
-		}
-		
-		int t = index_order( count);
-		
-		// Convert count to index
-		int i = t % kx.length(firstDim);
-		int tempjj = t / kx.length(firstDim);
-		int j = tempjj % kx.length(secondDim);
-		int k = tempjj / kx.length(secondDim);
-		
-		float r = sqrt( kx(i,j,k)*kx(i,j,k) + ky(i,j,k)*ky(i,j,k) );
-		
-		kw(i,j,k) = vv/(1 + exp( (r-fermi_r)/fermi_w) );
-		
-		count++;
-		
-	}while( vl.inc());
-	
-
+				float r = sqrt( kx(i,j,k)*kx(i,j,k) + ky(i,j,k)*ky(i,j,k) + kz(i,j,k)*kz(i,j,k));
+				kw(i,j,k) = kww*(1 + exp( (r-fermi_r)/fermi_w));
+				count++;				
+	}}}
 }
+
 
