@@ -92,6 +92,7 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	
 	cout << "Finding Unique and adding" << endl;
 	int unique_points=0;
+	int non_unique_points=0;
 	for(unsigned int pos=0; pos< kxx.n_elem; pos++ ){
 			
 			if( (pos % 10000) ==0){
@@ -113,7 +114,7 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 			float kyavg = kyt;
 			float kzavg = kzt;
 			int n = 1;
-			set_idx(n) = pos;
+			set_idx(0) = pos;
 			
 			// Gather unique points
 			int forward_pos=pos+1;
@@ -122,19 +123,16 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 				float xdiff = abs(kxx_sorted(forward_pos) - kxt);
 				
 				// Difference in radius				
-				float diff = pow(xdiff,2.0);
-				diff      += pow(kyy_sorted(forward_pos) - kyt,2.0);
-				diff      += pow(kzz_sorted(forward_pos) - kzt,2.0);
-				diff = sqrt(diff);
-				
-				
+				float ydiff = abs(kyy_sorted(forward_pos) - kyt);
+				float zdiff = abs(kzz_sorted(forward_pos) - kzt);
+								
 				if(xdiff > 0.05){
 					// out of search range
 					break;
-				}else if(diff > 0.5){
+				}else if( (ydiff>0.05) || ( zdiff > 0.05)){
 					// Just don't add point
 				}else{
-					// Count this shot
+					// Add this
 					kxavg += kxx_sorted(forward_pos);
 					kyavg += kyy_sorted(forward_pos);
 					kzavg += kzz_sorted(forward_pos);
@@ -158,7 +156,7 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 				// Update decoding array
 				for(int dpos= 0; dpos < n; dpos++){
 					kpos(set_idx(dpos)) = unique_points;
-					kn(set_idx(dpos))   = n;
+					kn(set_idx(dpos))   = (float)n;
 					counted(set_idx(dpos)) = 1;
 				}
 				unique_points++;
@@ -167,12 +165,15 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 				// Update decoding array
 				for(int dpos= 0; dpos < n; dpos++){
 					kpos(set_idx(dpos)) = -1;
-					kn(set_idx(dpos))   = n;
+					kn(set_idx(dpos))   = (float)n;
 					counted(set_idx(dpos)) = 1;
 				}
+				non_unique_points += n;
 			}
 	}
-	cout << "Done combining, found " << unique_points << " points " << endl << flush;
+	
+	cout << "Min counted" <<  min(counted) << endl;
+	cout << "Done combining, found " << unique_points << " unique points " << endl << flush;
 	
 
 	// Now calculate and copy back
