@@ -41,8 +41,10 @@ void RECON::set_defaults( void){
 	
 	recalc_dcf =false;
 	dcf_iter = 20;
-	dcf_dwin = 5.5;
+	dcf_dwin = 2.1;
 	dcf_scale = 1.0;
+	dcf_overgrid = 2.1;
+	dcf_acc = 1.0;
 	
 	smap_res=8;
 	intensity_correction = false;
@@ -146,6 +148,7 @@ void RECON::help_message(void){
 	help_flag("-dcf_iter","Iterations for DCF");
 	help_flag("-dcf_dwin []","Size of kernel (default 5.5 -radius)");
 	help_flag("-dcf_scale []","Scaling of matrix");
+	help_flag("-dcf_acc []","Increase size of kernel at edge of k-space by this amount");
 	/* Shouldn't be here. It's inherently external to this code
 	help_flag("-external_dcf","Use (precomputed) DCF from external file");
 	help_flag("-dcf_file []","Filename for external DCF usage");
@@ -202,6 +205,8 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		int_flag("-dcf_iter",dcf_iter);
 		float_flag("-dcf_dwin",dcf_dwin);
 		float_flag("-dcf_scale",dcf_scale);
+		float_flag("-dcf_overgrid",dcf_overgrid);
+		float_flag("-dcf_acc",dcf_acc);
 		
 		// Spatial Transforms
 		}else if(strcmp("-spatial_transform",pstring[pos]) == 0) {
@@ -338,7 +343,13 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 			
 	// Recalculate the Density compensation
 	if(recalc_dcf){
-		dcf_calc(data);
+		
+		if( data.trajectory_type == THREEDNONCARTESIAN){
+			VORONOI_DCF::dcf_3D(data.kw(0),data.kx(0),data.ky(0),data.kz(0));
+		}else{
+			VORONOI_DCF::dcf_2D(data.kw(0),data.kx(0),data.ky(0));
+		}
+		//dcf_calc(data);
 	}
 	
 	// Calculate Sensitivity maps (using gridding struct)	
@@ -562,48 +573,27 @@ void RECON::dcf_calc( MRI_DATA& data){
 
 	
 	// Setup Gridding + FFT Structure
-	gridFFT dcf_gridding;
-	dcf_gridding.kernel_type = POLY_KERNEL;
+	DCFgridFFT dcf_gridding;
+	dcf_gridding.kernel_type = DCFgridFFT::POLY_KERNEL;
 	dcf_gridding.dwinX = dcf_dwin;
 	dcf_gridding.dwinY = dcf_dwin;
 	dcf_gridding.dwinZ = dcf_dwin;
-	dcf_gridding.grid_x = 2.1;
-	dcf_gridding.grid_y = 2.1;
-	dcf_gridding.grid_z = 2.1;
+	dcf_gridding.grid_x = dcf_overgrid;
+	dcf_gridding.grid_y = dcf_overgrid;
+	dcf_gridding.grid_z = dcf_overgrid;
 	dcf_gridding.grid_in_x = 1;
 	dcf_gridding.grid_in_y = 1;
 	dcf_gridding.grid_in_z = 1;
-	dcf_gridding.fft_in_x = 1;
-	dcf_gridding.fft_in_y = 1;
-	dcf_gridding.fft_in_z = 1;
-	dcf_gridding.precalc_kernel(); // data.trajectory_dims,data.trajectory_type);
-	/*dcf_gridding.grid_x = 1;
-	dcf_gridding.grid_y = 1;
-	dcf_gridding.grid_z = 1;
-		*/
-			
-	/* Take square root of kernel*/
-	for( int pos=0; pos< dcf_gridding.grid_filterX.length(firstDim); pos++){
-		dcf_gridding.grid_filterX(pos) = sqrt( abs(dcf_gridding.grid_filterX(pos)))*( (dcf_gridding.grid_filterX(pos) > 0.0) ?( 1.0 ) : ( -1.0 )); 
-	}
+	dcf_gridding.precalc_kernel();
+	dcf_gridding.acc = dcf_acc;
 	
-	for( int pos=0; pos< dcf_gridding.grid_filterY.length(firstDim); pos++){
-		dcf_gridding.grid_filterY(pos) = sqrt( abs(dcf_gridding.grid_filterY(pos)))*( (dcf_gridding.grid_filterY(pos) > 0.0) ?( 1.0 ) : ( -1.0 )); 
-	}
-	
-	for( int pos=0; pos< dcf_gridding.grid_filterZ.length(firstDim); pos++){
-		dcf_gridding.grid_filterZ(pos) = sqrt( abs(dcf_gridding.grid_filterZ(pos)))*( (dcf_gridding.grid_filterZ(pos) > 0.0) ?( 1.0 ) : ( -1.0 )); 
-	}
-				
+	//dcf_gridding.precalc_gridding(rczres+16,rcyres+16,rcxres+16,data.trajectory_dims,data.trajectory_type);
+  
 	 // Weighting Array for Time coding
-	Array< complex<float>, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-	Array< complex<float>, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-	Array< float, 3 >Kones(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-	Kones = 1;
+	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+	Array< float, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
 	
-	// Array to grid to
-	Array< complex<float>, 3 >Xtemp(4*rcxres,4*rcyres,4*rczres,ColumnMajorArray<3>());
-	cout << "Size Xtemp = " << Xtemp.length(firstDim) << " x " << Xtemp.length(secondDim) << " x " << Xtemp.length(thirdDim) << endl;
+	Array<float,3> X(dcf_overgrid*rczres+16,dcf_overgrid*rcyres+16,dcf_overgrid*rcxres+16,ColumnMajorArray<3>());
 	
 	for(int e=0; e< rcencodes; e++){
 		
@@ -615,17 +605,27 @@ void RECON::dcf_calc( MRI_DATA& data){
 		for(int iter=0; iter < dcf_iter; iter++){
 			cout << "Iteration = " << iter << flush;			 
 						
-			Xtemp=0;
-			dcf_gridding.k3d_grid=0;
-			dcf_gridding.chop_grid_forward(Kweight,data.kx(e),data.ky(e),data.kz(e),Kones); // Grid data to K-Space
-			dcf_gridding.chop_grid_backward(Kweight2,data.kx(e),data.ky(e),data.kz(e),Kones); // Degrid
+			X=0;
+			Kweight2 =0.0;
+			dcf_gridding.forward(X,Kweight,data.kx(e),data.ky(e),data.kz(e)); // Grid data to K-Space
+			dcf_gridding.backward(X,Kweight2,data.kx(e),data.ky(e),data.kz(e)); // Degrid
 			
-			float zp = 1e-30*max(abs(Kweight2));
+			float kw_sum = 0.0;
+			Array< float,3>::iterator kw_iter=Kweight.begin();
+			Array< float,3>::iterator kw2_iter=Kweight2.begin();
+			for(  ;(kw_iter!=Kweight.end()) && (kw2_iter!=Kweight2.end()); kw_iter++,kw2_iter++){
+				if( abs(*kw2_iter) < (1e-3) ){
+					*kw_iter = 0.0; 
+				}else{
+					*kw_iter = *kw_iter / * kw2_iter;
+					kw_sum += abs(*kw_iter);
+				}
+			} 
 						
-			Kweight = Kweight / ( Kweight2 + complex<float>(zp,0.0) );
-			cout << " Sum = " << sum(Kweight) << endl;
+			cout << " Sum = " << kw_sum << endl;
 		}
 		
+		dcf_gridding.scale_kw( Kweight, data.kx(e),data.ky(e),data.kz(e));
 		data.kw(e) = abs(Kweight);
 				
 		data.kx(e)/= dcf_scale;
@@ -647,13 +647,14 @@ void RECON::dcf_calc( MRI_DATA& data, GATING& gate){
 	dcf_gridding.dwinX = dcf_dwin;
 	dcf_gridding.dwinY = dcf_dwin;
 	dcf_gridding.dwinZ = dcf_dwin;
-	dcf_gridding.grid_x = 3.2;
-	dcf_gridding.grid_y = 3.2;
-	dcf_gridding.grid_z = 3.2;
+	dcf_gridding.grid_x = dcf_dwin;
+	dcf_gridding.grid_y = dcf_dwin;
+	dcf_gridding.grid_z = dcf_dwin;
 	dcf_gridding.grid_in_x = 1;
 	dcf_gridding.grid_in_y = 1;
 	dcf_gridding.grid_in_z = 1;
 	dcf_gridding.precalc_kernel(); 
+	
 			
 	 // Weighting Array for Time coding
 	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
@@ -748,6 +749,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 	if(!pregate_data_flag){
 		TimeWeight.resize(data.Num_Pts,data.Num_Readouts,data.Num_Slices);
 	}
+	
+	cout << "Full recon for " << rcencodes << " encodes, " << Nt << "frames " << endl;
 	
 	switch(recon_type){
 		default:

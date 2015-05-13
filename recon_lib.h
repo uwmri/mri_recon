@@ -19,6 +19,7 @@
 #include "wavelet3D.h"	
 #include "temporal_diff.h"	
 #include "gridFFT.h"
+#include "DCFgridFFT.h"
 #include "mri_data.h"
 #include "threshold.h"
 #include "spirit.h"
@@ -30,6 +31,7 @@
 #include "l2reg.h"
 #include "hdf5_interface.h"
 #include "polynomial_fitting.h"
+#include "voronoi_dcf.h"
 
 class RECON{
 	public:
@@ -92,6 +94,8 @@ class RECON{
 	  int dcf_iter;
 	  float dcf_dwin;
 	  float dcf_scale;
+	  float dcf_overgrid;
+	  float dcf_acc;
 	  
 	  int acc;
 	  float compress_coils;

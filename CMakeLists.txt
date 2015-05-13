@@ -20,7 +20,7 @@ include(FindARMADILLO)
 
 #Set include directories
 include_directories( BEFORE ${ARMADILLO_INCLUDE_DIR}  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR} )
-set(LOCAL_LIBS ${FFTW3_LIBRARIES} ${ARMADILLO_LIBRARIES} ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
+set(LOCAL_LIBS voro++ ${FFTW3_LIBRARIES} ${ARMADILLO_LIBRARIES} ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
 set(CMAKE_FIND_STATIC FIRST) 
 set(BUILD_SHARED_LIBS ON)
@@ -33,7 +33,7 @@ link_directories(${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 #--------------------------------------
 
 #Main Recon
-add_library(RECONLIB STATIC polynomial_fitting.cpp hdf5_interface.cpp ArrayTemplates.cpp l2reg.cpp clear.cpp gating.cpp recon_lib.cpp threshold.cpp temporal_diff.cpp mri_data.cpp spirit.cpp gridFFT.cpp wavelet3D.cpp phantom.cpp)
+add_library(RECONLIB STATIC polynomial_fitting.cpp hdf5_interface.cpp ArrayTemplates.cpp voronoi_dcf.cpp l2reg.cpp clear.cpp gating.cpp recon_lib.cpp threshold.cpp temporal_diff.cpp mri_data.cpp spirit.cpp DCFgridFFT.cpp gridFFT.cpp wavelet3D.cpp phantom.cpp)
 target_link_libraries(RECONLIB ${LOCAL_LIBS})
 
 #--------------------------------------
