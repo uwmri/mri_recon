@@ -112,6 +112,14 @@ class RECON{
 	  float extra_blurY;
 	  float extra_blurZ;
 	  
+	  float blurX;
+	  float blurY;
+	  float blurZ;
+	  
+	  
+	  bool smap_use_all_encodes;
+	  bool smap_nex_encodes;
+	  
 	  int wavelet_levelsX; 
 	  int wavelet_levelsY; 
 	  int wavelet_levelsZ; 
@@ -139,7 +147,7 @@ class RECON{
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_one_frame( MRI_DATA& data, int);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruct_all_frames( MRI_DATA& data);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_composite( MRI_DATA& data);
-	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &image);
+	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &smaps,NDarray::Array< NDarray::Array< complex<float>,3 >,2 > &image);
 	  void dcf_calc( MRI_DATA& data);
 	  void dcf_calc( MRI_DATA& data, GATING& gate);
 	  void gaussian_blur(  NDarray::Array< complex<float>, 3> & In, float,float,float);

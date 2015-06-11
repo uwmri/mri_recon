@@ -538,35 +538,33 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   // Deapp Windows
   winx.resize(Sx);
   if( (fft_in_x==1) && (grid_in_x==1) ){
-  winx = 0.0;
-  for( int i = 0; i < Sx;i++){
-  	float ipos = i - (float)Sx/2.0;
-	for(int grid_pos = 0; grid_pos < dwinX*grid_modX; grid_pos++){ 
-		// Fourier Transform of Kernel
-		winx(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modX / (float)Sx)*grid_filterX(grid_pos);
-	}
-	winx(i) = (float)grid_modX/winx(i);
+  	winx = 0.0;
+  	for( int i = 0; i < Sx;i++){
+  		float ipos = i - (float)Sx/2.0;
+		for(int grid_pos = 0; grid_pos < dwinX*grid_modX; grid_pos++){ 
+			// Fourier Transform of Kernel
+			winx(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modX / (float)Sx)*grid_filterX(grid_pos);
+		}
+		winx(i) = (float)grid_modX/winx(i);
 	
-	// Put chopping + zeroing in window to save time
-	float fact =  ((float)( 2*(( i  )%2) - 1));
-	winx(i)*=fact / Sx;
-	winx(i)*=( i < og_sx) ? ( 0.0 ) : ( 1.0);
-	winx(i)*=( i > og_ex-1) ? ( 0.0 ) : ( 1.0);
-	
-	if(grid_in_x==0){
-		winx(i)=1.0;
-	}
-  }
-  winx /= max(winx);
+		// Put chopping + zeroing in window to save time
+		float fact =  ((float)( 2*(( i  )%2) - 1));
+		winx(i)*=fact / Sx;
+		winx(i)*=( i < og_sx) ? ( 0.0 ) : ( 1.0);
+		winx(i)*=( i > og_ex-1) ? ( 0.0 ) : ( 1.0);
+
+  	}
+  	winx /= max(winx);
   }else{
   	winx = 1.0;
   }
+
   
   winy.resize(Sy);
   if( (fft_in_y==1) && (grid_in_y==1) ){
   
-  winy = 0.0;
-  for( int i = 0; i < Sy;i++){
+  	winy = 0.0;
+  	for( int i = 0; i < Sy;i++){
   	float ipos = i - (float)Sy/2.0;
 	for(int grid_pos = 0; grid_pos < dwinY*grid_modY; grid_pos++){ 
 		winy(i) += 2*cos( 2*PI*ipos* grid_pos / (float)grid_modY / (float)Sy)*grid_filterY(grid_pos);
@@ -577,15 +575,12 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
 	winy(i)*=fact / Sy;
   	winy(i)*=( i < og_sy) ? ( 0.0 ) : ( 1.0);
 	winy(i)*=( i > og_ey-1) ? ( 0.0 ) : ( 1.0);
-	
-	if(grid_in_y==0){
-		winy(i)=1.0;
-	}
-  }
-  winy /= max(winy);
+  	}
+  	winy /= max(winy);
   }else{
   	winy=1.0;
   }
+
    
   winz.resize(Sz);
   if( (fft_in_z==1) && (grid_in_z==1) ){
@@ -600,11 +595,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
 		winz(i)*=fact / Sz;
 		winz(i)*=( i < og_sz) ? ( 0.0 ) : ( 1.0);
 		winz(i)*=( i > og_ez-1) ? ( 0.0 ) : ( 1.0);
-	
-		if(grid_in_z==0){
-		winz(i)=1.0;
-		}	
-  	}
+ 	}
   	winz /= max(winz);  
   }else{
   	winz = 1.0;
@@ -638,8 +629,8 @@ void gridFFT::do_fft( void ){
 			fft3(temp, 0, FFTW_FORWARD, 0);
 			
 			//Trim in X
-			Array< complex<float>,3> temp2 = temp(Range(og_sx,og_ex),Range::all(),Range::all());
-			temp.reference(temp2);
+			//Array< complex<float>,3> temp2 = temp(Range(og_sx,og_ex),Range::all(),Range::all());
+			//temp.reference(temp2);
 		}
 		
 		// Medium
@@ -647,8 +638,8 @@ void gridFFT::do_fft( void ){
 			fft3(temp, 1, FFTW_FORWARD, 0);
 			
 			//Trim in Y
-			Array< complex<float>,3> temp2 = temp(Range::all(),Range(og_sy,og_ey),Range::all() );
-			temp.reference(temp2);
+			//Array< complex<float>,3> temp2 = temp(Range::all(),Range(og_sy,og_ey),Range::all() );
+			//temp.reference(temp2);
 		}
 		
 		// Small
@@ -973,7 +964,7 @@ void gridFFT::set_image( const Array< complex<float>, 3>&X){
 // -------------------------------------------------------
 
 void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA){
-
+	
 	float cx = Sx/2;
 	float cy = Sy/2;
 	float cz = Sz/2;

@@ -29,7 +29,7 @@ DCFgridFFT::DCFgridFFT(){
 	grid_x= -1;
   	grid_y= -1;
   	grid_z= -1;
-	overgrid = 1.375;
+	overgrid = 2.1;
 	kernel_type = POLY_KERNEL;
   
 	dwinX=-1;
@@ -44,75 +44,9 @@ DCFgridFFT::DCFgridFFT(){
 	grid_scale_z = 1.0;
 	time_grid =0 ;
 	
-	acc = 4;
+	acc = 1;
 
 }
-
-// ----------------------
-// Help Message
-// ----------------------
-void DCFgridFFT::help_message(void){
-	cout << "----------------------------------------------" << endl;
-	cout << "   Gridding Control " << endl;
-	cout << "----------------------------------------------" << endl;
-	
-	cout<<"Control" << endl;
-	help_flag("-kaiser","use kaiser bessel kernel");
- 	help_flag("-triangle","use triangle kernel");
- 	help_flag("-sinc","use sinc kernel");
- 	help_flag("-overgrid []","overgrid by factor []");
- 	help_flag("-fast_grid","no overgrid,traingle kernel");
-	help_flag("-time_grid","output times for gridding");
-			
-	cout<<"Fine Control" << endl;
-	help_flag("-grid_in_x []","0=use nearest neighbor interpolation in x");
-	help_flag("-grid_in_y []","0=use nearest neighbor interpolation in y");
-	help_flag("-grid_in_z []","0=use nearest neighbor interpolation in z");
-	help_flag("-dwinX []","Size of kernel in x");
-	help_flag("-dwinY []","Size of kernel in y");
-	help_flag("-dwinZ []","Size of kernel in z");
-}
-	
- 
-//----------------------------------------
-// Parse Command Line Args
-//----------------------------------------
-
-void DCFgridFFT::read_commandline(int numarg, char **pstring){
-
-#define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
-#define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
-#define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
-
-  for(int pos=0; pos < numarg; pos++){
-  
-  	if (strcmp("-h", pstring[pos] ) == 0) {
-	 
-		float_flag("-overgrid",overgrid);
-		float_flag("-dwinX",dwinX);
-		float_flag("-dwinY",dwinY);
-		float_flag("-dwinZ",dwinZ);
-		float_flag("-grid_x",grid_x);
-		float_flag("-grid_y",grid_y);
-		float_flag("-grid_z",grid_z);
-		
-		float_flag("-grid_scale_x",grid_scale_x);
-		float_flag("-grid_scale_y",grid_scale_y);
-		float_flag("-grid_scale_z",grid_scale_z);
-		
-		int_flag("-grid_in_x",grid_in_x);
-		int_flag("-grid_in_y",grid_in_y);
-		int_flag("-grid_in_z",grid_in_z);
-
-		trig_flag(POLY_KERNEL,"-poly_kernel",kernel_type);
-		
-		trig_flag(1,"-time_grid",time_grid);
-
-	// Special Copies
-	}
-  }
-}    
-
 
 
 /* The kernel's radius FOV product is the length,
@@ -141,6 +75,26 @@ void  DCFgridFFT::loadKernelTable(Array<float,1> & out)
 	
     return;
 } 
+
+
+void  DCFgridFFT::loadKernelTable2(Array<float,1> & out)
+{
+  int len = out.numElements();
+  double c0 = 1.;
+  double c1 = 0.03056504;
+  double c2 = -3.01961845;
+  double c3 = 0.6679865;
+  double c4 = 2.77924058;
+  double c5 = -1.45923643;
+  for (int i = 0; i < len; i++) {
+    double x = double(i)/double(len);
+    double x2 = x*x;
+    double x4 = x2*x2;
+    double x3 = x*x2;
+    double x5 = x*x4;
+    out(i) = c0 + c1*x + c2*x2 + c3*x3 + c4*x4 + c5*x5;
+  }
+}
 
 //----------------------------------------
 //    Setup for Gridding 
@@ -175,9 +129,9 @@ void DCFgridFFT::precalc_kernel(void){
 		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
 		
 		// Alloc Lookup Table Structs for Gridding
-		grid_filterX.resize( grid_lengthX+10);
-		grid_filterY.resize( grid_lengthY+10);
-		grid_filterZ.resize( grid_lengthZ+10);
+		grid_filterX.resize( grid_lengthX+100);
+		grid_filterY.resize( grid_lengthY+100);
+		grid_filterZ.resize( grid_lengthZ+100);
     	grid_filterX = 0.0;
 		grid_filterY = 0.0;
 		grid_filterZ = 0.0;
@@ -188,6 +142,31 @@ void DCFgridFFT::precalc_kernel(void){
 		
 	}break;
 	
+	case(POLY_KERNEL2):{
+		
+		// Kernel Half Size 
+		dwinX   = (dwinX == -1 ) ? ( 2) : ( dwinX );
+		dwinY   = (dwinY == -1 ) ? ( 2) : ( dwinY );
+		dwinZ   = (dwinZ == -1 ) ? ( 2) : ( dwinZ );
+	
+		// Grid Length for precomputed kernel
+		int grid_lengthX = (int)( (float)dwinX*(float)grid_modX);
+		int grid_lengthY = (int)( (float)dwinY*(float)grid_modY);
+		int grid_lengthZ = (int)( (float)dwinZ*(float)grid_modZ);
+		
+		// Alloc Lookup Table Structs for Gridding
+		grid_filterX.resize( grid_lengthX+100);
+		grid_filterY.resize( grid_lengthY+100);
+		grid_filterZ.resize( grid_lengthZ+100);
+    	grid_filterX = 0.0;
+		grid_filterY = 0.0;
+		grid_filterZ = 0.0;
+		
+		loadKernelTable2( grid_filterX);
+		loadKernelTable2( grid_filterY);
+		loadKernelTable2( grid_filterZ);
+		
+	}break;
 	
   }
   
@@ -236,8 +215,7 @@ void DCFgridFFT::forward( Array< float,3> & image, const Array<float,3>&dataA, c
 		
 		float kr = sqrt(kx*kx + ky*ky + kz*kz);
 		float scale = kr/128.0*(acc-1) + 1;
-		
-		
+				
 		// Do not grid zeros
      	if( temp==0.0) continue;
 						
@@ -301,12 +279,19 @@ void DCFgridFFT::forward( Array< float,3> & image, const Array<float,3>&dataA, c
 				float dely = fabs(grid_modY*(dky -(float)ly))/scale;
 				float dy = dely - (float)((int)dely);
 				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
-							 
+				if(!grid_in_y){
+					wty =wtz;
+				}
+						 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx))/scale;
 			 		float dx = delx - (float)((int)delx);
 					float wtx =wty*(  grid_filterX( (int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
 			 		
+					if(!grid_in_x){
+						wtx =wty;
+					}
+					
 					float temp2 = wtx*temp;
 					
 					#pragma omp atomic 
@@ -449,12 +434,18 @@ void DCFgridFFT::backward(Array< float,3> & image,Array< float,3>&dataA, const A
 				float dely = fabs(grid_modY*(dky -(float)ly))/scale;
 				float dy = dely - (float)((int)dely);
 				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
-								 
+				if(!grid_in_y){
+					wty =wtz;
+				}
+							 
 				for(int lx =sx; lx<=ex; lx++){
 			 		float delx = fabs(grid_modX*(dkx -(float)lx))/scale;
 			 		float dx = delx - (float)((int)delx);
 					float wtx =wty*(  grid_filterX((int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
-			 		
+			 		if(!grid_in_y){
+						wtx =wty;
+					}
+				
 					/*This Memory Access is the Bottleneck*/	 			 
 			 		temp += wtx*image(lx,ly,lz);
 			  	 

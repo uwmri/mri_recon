@@ -20,7 +20,7 @@
 class DCFgridFFT{
 	public:
  		// Kernel Types
-		enum {POLY_KERNEL};
+		enum {POLY_KERNEL,POLY_KERNEL2};
 
 		// Controls for phase encode / 2D directions
   		int grid_in_x;
@@ -71,9 +71,9 @@ class DCFgridFFT{
 		
 		DCFgridFFT();
 		
-		void read_commandline(int numarg, char **pstring);
 		void precalc_kernel(void);
 		void loadKernelTable(NDarray::Array<float,1> & out);
+		void loadKernelTable2(NDarray::Array<float,1> & out);
 	
 		//For setting images
 		void forward( NDarray::Array<float,3>&image,const NDarray::Array< float,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz);
@@ -81,8 +81,6 @@ class DCFgridFFT{
 		
 		void scale_kw( NDarray::Array< float,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz);
 		
-		
-		static void help_message(void);
 		
 	private:	
 		

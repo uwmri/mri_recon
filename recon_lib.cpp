@@ -55,6 +55,8 @@ void RECON::set_defaults( void){
 	whiten = false;
 	export_smaps = 0;
 	max_iter = 50;
+	smap_use_all_encodes = false;
+	smap_nex_encodes = false;
 	
 	cycle_spins = 4;
 
@@ -66,6 +68,11 @@ void RECON::set_defaults( void){
 	extra_blurX = 0.0;
 	extra_blurY = 0.0;
 	extra_blurZ = 0.0;
+	
+	// Gaussian Blur of smaps
+	blurX = 0.0;
+	blurY = 0.0;
+	blurZ = 0.0;
 	
 	prep_done = false;
 	
@@ -257,6 +264,9 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		int_flag("-wavelet_levelsX",wavelet_levelsX);
 		int_flag("-wavelet_levelsY",wavelet_levelsY);
 		int_flag("-wavelet_levelsZ",wavelet_levelsZ);
+		float_flag("-blurX",blurX);
+		float_flag("-blurY",blurY);
+		float_flag("-blurZ",blurZ);
 						
 		// Coil Combination		
 		trig_flag(ESPIRIT,"-espirit",coil_combine_type);
@@ -272,6 +282,8 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-extra_blurX",extra_blurX);
 		float_flag("-extra_blurY",extra_blurY);
 		float_flag("-extra_blurZ",extra_blurZ);
+		trig_flag(true,"-smap_use_all_encodes",smap_use_all_encodes);
+		trig_flag(true,"-smap_nex_encodes",smap_nex_encodes);
 						
 		// Source of data
 		trig_flag(EXTERNAL,"-external_data",data_type);
@@ -918,14 +930,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 												  
 						  // Export X slice
 						  {
-						  	Array< float,2>Xslice;
-							Xslice.setStorage(ColumnMajorArray<2>());
-							Xslice.resize( rcxres,rcyres);
+						  	Array< float,2>Xslice( rcxres,rcyres,ColumnMajorArray<2>());
+							
 							Xslice =0;
 							for(int coil=0; coil< data.Num_Coils; coil++){
-																
-								Xslice += norm( XX(0,0,coil)(all,all,RR(0,0,0).length(2)/2) );
-						  	}
+								Array< complex<float>,2> Xtemp  = XX(0,0,coil)(all,all,RR(0,0,0).length(2)/2);
+								Xslice += norm( Xtemp );
+						  		ArrayWriteMagAppend( Xtemp,"X_coils.dat");
+							}
 							Xslice = sqrt( Xslice );
 							ArrayWriteAppend(Xslice,"X_mag.dat");
 						  }
@@ -1458,6 +1470,9 @@ void RECON::transform_in_time( Array< Array< complex<float>,3>, 2>&X, TransformD
 
 void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 	
+	for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+		gaussian_blur(*miter,blurX,blurY,blurZ); // TEMP		
+	}
 	
 	int actual_cycle_spins=cycle_spins;
 	if(cs_spatial_transform != WAVELET){
@@ -1556,30 +1571,56 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				smaps(0)=complex<float>(1.0,0.0);
 				break;
 			}
-			
+			 
 			cout << "Recon Low Resolution Images"  << endl<< flush; 
-
-			// Recon the maps
 			
+			// Multiple Encode Smaps
+			Array< Array<complex<float>,3>,2> image_store;
+			int smap_num_encodes=1;
+			if( smap_use_all_encodes){
+				Array< Array<complex<float>,3>,2> temp = Alloc5DContainer< complex<float> >(rcxres, rcyres, rczres, data.Num_Coils,data.Num_Encodings);
+				image_store.reference( temp);
+				smap_num_encodes = data.Num_Encodings;
+			}else{
+				// Point to Smaps
+				image_store.setStorage( ColumnMajorArray<2>() );
+				image_store.resize(data.Num_Coils,1);
+				for( int coil = 0; coil < data.Num_Coils; coil++){
+					image_store(coil,0).reference( smaps(coil) );
+				}			
+			}
+			 
 			// Low Pass filtering for Sensitivity Map
 			if(coil_combine_type!=ESPIRIT){
 				gridding.k_rad = smap_res;
 			}
 			
-			for(int e=0; e< 1;e++){
-				for(int coil=0; coil< data.Num_Coils; coil++){
-						
-					// Simple gridding
-					gridding.forward( smaps(coil),data.kdata(e,coil),data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+			if( smap_use_all_encodes){
+			
+				for(int e=0; e< smap_num_encodes;e++){
+					for(int coil=0; coil< data.Num_Coils; coil++){
+						cout << "Coil " << coil << "Encode " << e << endl;	
+						// Simple gridding
+						gridding.forward( image_store(coil,e),data.kdata(e,coil),data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
 					
+						// Gaussian blur	
+						gaussian_blur(image_store(coil,e),extra_blurX,extra_blurY,extra_blurZ); // TEMP						
+					}
+				}
+			}else{
+				for(int coil=0; coil< data.Num_Coils; coil++){
+					image_store(coil,0) =complex<float>(0.0,0.0);
+					
+					int used_encodes = smap_nex_encodes ?  data.Num_Encodings : 1;
+					for( int e = 0; e < used_encodes; e++){
+						cout << "Coil " << coil << "Encode " << e << endl;	
+						// Simple gridding
+						gridding.forward( image_store(coil,0),data.kdata(e,coil),data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+					}
 					// Gaussian blur	
-					gaussian_blur(smaps(coil),extra_blurX,extra_blurY,extra_blurZ); // TEMP						
-																								
-					// Broken for now
-					// single_coil_cg( smaps(coil),  data.kdata(e,coil), data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+					gaussian_blur(image_store(coil,0),extra_blurX,extra_blurY,extra_blurZ); // TEMP	
 				}
 			}
-			
 			gridding.k_rad = 9999;
 			
 			Array< float , 3 > IC;
@@ -1601,7 +1642,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		
 				case(WALSH):{
 					// Image space eigen Method
-					eigen_coils(smaps);
+					eigen_coils(smaps, image_store);
 				}break;
 		
 				case(LOWRES):{ // E-spirit Code 
@@ -1611,13 +1652,22 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 					for(int k=0; k<smaps(0).length(thirdDim); k++){
 					for(int j=0; j<smaps(0).length(secondDim); j++){
 					for(int i=0; i<smaps(0).length(firstDim); i++){
+						
 						float sos=0.0;
-						for(int coil=0; coil< data.Num_Coils; coil++){
-							sos+= norm(smaps(coil)(i,j,k));
-						}
+						for(int e=0; e< smap_num_encodes;e++){
+							for(int coil=0; coil< data.Num_Coils; coil++){
+								sos+= norm(image_store(coil,e)(i,j,k));
+							}
+						}	
+						
 						sos = 1./sqrtf(sos);
 						for(int coil=0; coil< data.Num_Coils; coil++){
-							smaps(coil)(i,j,k) *= sos;
+							
+							complex<float>s(0.0,0.0);
+							for(int e=0; e< smap_num_encodes;e++){
+								s += image_store(coil,e)(i,j,k);
+							}
+							smaps(coil)(i,j,k) = s*sos;
 						}
 					}}}
 					
@@ -1823,9 +1873,9 @@ void  RECON::intensity_correct( Array< float, 3> & IC, Array< Array< complex<flo
 void RECON::gaussian_blur( Array< complex<float> , 3> & In, float sigmaX, float sigmaY, float sigmaZ){
 	
 	// Extent of kernel
-	int dwinX = 3*(int)sigmaX;
-	int dwinY = 3*(int)sigmaY;
-	int dwinZ = 3*(int)sigmaZ;
+	int dwinX = (int)( 5*sigmaX);
+	int dwinY = (int)( 5*sigmaY);
+	int dwinZ = (int)( 5*sigmaZ);
 	
 	if( sigmaX > 0){
 		// Kernel to reduce calls to exp
@@ -1833,6 +1883,7 @@ void RECON::gaussian_blur( Array< complex<float> , 3> & In, float sigmaX, float 
 		for(int t=0; t< (2*dwinX +1); t++){
 			kern(t) = exp( -sqr( (float)t - dwinX ) / (2.0*sqr(sigmaX))); 
 		}				
+		kern /= sum(kern);
 			
 		// Gaussian Blur in X
 		cout << "Blur in X" << endl;
@@ -1864,6 +1915,7 @@ void RECON::gaussian_blur( Array< complex<float> , 3> & In, float sigmaX, float 
 		for(int t=0; t< (2*dwinY +1); t++){
 			kern(t) = exp( -sqr( (float)t - dwinY ) / (2.0*sqr(sigmaY))); 
 		}				
+		kern /= sum(kern);
 			
 		// Gaussian Blur in Y
 		cout << "Blur in Y" << endl;
@@ -1897,6 +1949,7 @@ void RECON::gaussian_blur( Array< complex<float> , 3> & In, float sigmaX, float 
 		for(int t=0; t< (2*dwinZ +1); t++){
 			kern(t) = exp( -sqr( (float)t - dwinZ ) / (2.0*sqr(sigmaZ))); 
 		}				
+		kern /= sum(kern);
 			
 		// Gaussian Blur in Y
 		cout << "Blur in Z" << endl;
@@ -2049,10 +2102,11 @@ void RECON::normalized_gaussian_blur( const Array< float, 3> & In, Array< float,
 /**
  * Generate coils from SPIRiT kernel.
  */
-void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
+void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Array< complex<float>,3 >,2 > &image)
 {
     		
 	// Shorthand
+	int Nencodes = image.extent(secondDim);
 	int Ncoils = image.extent(firstDim);
 	int Nx =image(0).extent(firstDim);
 	int Ny =image(0).extent(secondDim);
@@ -2067,8 +2121,9 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
 	block_size_y = ( block_size_y > Ny) ? ( Ny ) : ( block_size_y );
 	block_size_z = ( block_size_z > Nz) ? ( Nz ) : ( block_size_z );
 	
-	int Np = block_size_x*block_size_y*block_size_z;
+	int Np = block_size_x*block_size_y*block_size_z*Nencodes;
 	
+	cout << "Eigen Coil ( " << Nx << " x " << Ny << " x " << Nz << " x " << Ncoils << " x " << Nencodes << endl;
 	cout << "Actual Block Size = " << block_size_x << " x " << block_size_y << " x " << block_size_z << endl;	
 	cout << "Getting Low Rank threshold (N=" << Ncoils << ")(Np = " << Np << ")" << endl;
 	
@@ -2083,6 +2138,8 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
 	#pragma omp parallel for
 	for( int block = 0; block < total_blocks; block++){
 		
+		//cout << "Block " << block << " of " << total_blocks << endl;
+			
 		// Nested parallelism workaround
 		int i = (int)( block % block_Nx);
 		
@@ -2094,14 +2151,11 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
 		j*= block_size_y;
 		i*= block_size_x;
 				
-		arma::cx_fmat A;
-		A.zeros(Np,Ncoils); // Pixels x Coils
-	
 		arma::cx_fmat U;
-		U.zeros(Np,Np); // Pixels x Pixels
+		U.zeros(Ncoils,Ncoils); // Pixels x Pixels
 	    
 		arma::fmat S;
-		S.zeros(Np,Ncoils); // Pixels x Coils
+		S.zeros(Ncoils,Ncoils); // Pixels x Coils
 	    		
 		arma::cx_fmat V;
 		V.zeros(Ncoils,Ncoils); // Coils x Coils
@@ -2110,30 +2164,34 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &image)
 		//   Block section
 		//-----------------------------------------------------
 		
-		for(int c=0; c< Ncoils; c++){
-			int count=0;
-			for(int kk=k; kk < k+block_size_z; kk++){
-			for(int jj=j; jj < j+block_size_y; jj++){
-			for(int ii=i; ii < i+block_size_x; ii++){
-				A(count,c) = image(c)(ii,jj,kk);
-				count++;
-			}}}
+		// Collect a block
+		arma::cx_fmat R;
+		R.zeros(Ncoils,Ncoils);
+		for(int e=0; e< Nencodes; e++){
+			for(int c1=0; c1< Ncoils; c1++){
+				for(int c2=0; c2< Ncoils; c2++){
+					for(int kk=k; kk < k+block_size_z; kk++){
+					for(int jj=j; jj < j+block_size_y; jj++){
+					for(int ii=i; ii < i+block_size_x; ii++){
+						R(c1,c2) += image(c1,e)(ii,jj,kk)*conj( image(c2,e)(ii,jj,kk));
+					}}}
+				}
+			}
 		}
 		
-				
-		// SVD
+		// SVD to Get Eigen Vector
 		arma::fvec s;
-  		arma::svd(U,s,V,A);
+  		arma::svd(U,s,V,R);
 		
 		//  V.print("V");
-		arma::cx_fvec sens = V.col(0);
+		arma::cx_fvec sens = U.col(0);
 		
 		for(int c=0; c< Ncoils; c++){
 			int count=0;
 			for(int kk=k; kk < k+block_size_z; kk++){
 			for(int jj=j; jj < j+block_size_y; jj++){
 			for(int ii=i; ii < i+block_size_x; ii++){
-				image(c)(ii,jj,kk) = conj( sens(c,0));
+				smaps(c)(ii,jj,kk) =  ( sens(c,0) );
 				count++;
 			}}}
 		}
