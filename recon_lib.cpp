@@ -38,13 +38,8 @@ void RECON::set_defaults( void){
 	rczres=-1;
 	rcframes=1;
 	rcencodes=1;
+	rc_frame_start = 0;
 	
-	recalc_dcf =false;
-	dcf_iter = 20;
-	dcf_dwin = 2.1;
-	dcf_scale = 1.0;
-	dcf_overgrid = 2.1;
-	dcf_acc = 1.0;
 	
 	smap_res=8;
 	intensity_correction = false;
@@ -81,6 +76,14 @@ void RECON::set_defaults( void){
 	wavelet_levelsZ=4;
 	
 	pregate_data_flag = false;
+	
+	dcf_type = SUPPLIED;
+	dcf_iter = 20;
+	dcf_dwin = 2.1;
+	dcf_scale = 1.0;
+	dcf_overgrid = 2.1;
+	dcf_acc = 1.0;
+	
 }
 
 // ----------------------
@@ -193,6 +196,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		int_flag("-rcyres",rcyres);
 		int_flag("-rczres",rczres);
 		int_flag("-rcframes",rcframes);
+		int_flag("-rc_frame_start",rc_frame_start);
 		
 		float_flag("-zoom",zoom);
 		float_flag("-zoom_x",zoom_x);
@@ -208,7 +212,8 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(CLEAR,"-clear",recon_type);
 		trig_flag(CG,"-cg",recon_type);
 		
-		trig_flag(true,"-recalc_dcf",recalc_dcf);
+		trig_flag(RECALC_DCF,"-recalc_dcf",dcf_type);
+		trig_flag(RECALC_VOR,"-recalc_vor",dcf_type);
 		int_flag("-dcf_iter",dcf_iter);
 		float_flag("-dcf_dwin",dcf_dwin);
 		float_flag("-dcf_scale",dcf_scale);
@@ -354,17 +359,25 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	gridding.precalc_gridding(rczres,rcyres,rcxres,data.trajectory_dims,data.trajectory_type);
 			
 	// Recalculate the Density compensation
-	if(recalc_dcf){
+	switch(dcf_type){
 		
-		if( data.trajectory_type == THREEDNONCARTESIAN){
-			VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::SPHERE);
-		}else{
-			VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::CYLINDER);
-		}
-		ArrayWrite(data.kw(0),"Kweight_DCF.dat");
+		default:{
+			// Use supplied
+		}break;
 		
-		//dcf_calc(data);
+		case(RECALC_DCF):{
+			dcf_calc(data);
+		}break;
+		
+		case(RECALC_VOR):{
+			if( data.trajectory_type == THREEDNONCARTESIAN){
+				VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::SPHERE);
+			}else{
+				VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::CYLINDER);
+			}
+		}break;
 	}
+
 	
 	// Calculate Sensitivity maps (using gridding struct)	
 	calc_sensitivity_maps(  argc,argv, data);
@@ -389,6 +402,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 			}
 		}
 		rcencodes -= 1; 
+		data.Num_Encodings -= 1;
 	}
 		
 	// -------------------------------------
@@ -401,10 +415,6 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		pregate_data( data ); 	
 	}
 	
-	if(recalc_dcf && (rcframes > 1)){
-		dcf_calc(data,gate);
-	}
-
 
 	// -------------------------------------
 	//	This handles special preperations
@@ -563,20 +573,18 @@ void RECON::pregate_data( MRI_DATA &data){
 
 
 
-
-
-
-Array< Array<complex<float>,3 >,1 >RECON::reconstruct_one_frame( MRI_DATA& data, int frame_number){
+Array< Array<complex<float>,3 >,1 > RECON::reconstruct_one_frame( MRI_DATA& data, int frame_number){
 	Array< Array<complex<float>,3 >,2 >XX = full_recon( data, Range(frame_number,frame_number),Range(0,0),false);
 	Array< Array<complex<float>,3 >,1 >X = XX(0,Range::all());
 	return(X);
 }
 
-Array< Array<complex<float>,3 >,2 >RECON::reconstruct_all_frames( MRI_DATA& data){
-	return(full_recon( data, Range(0,rcframes-1),Range(0,rcframes-1),false));
+Array< Array<complex<float>,3 >,2 > RECON::reconstruct_all_frames( MRI_DATA& data){
+	Array< Array<complex<float>,3 >,2 >XX = full_recon( data, Range(rc_frame_start,rcframes-1),Range(0,rcframes-1-rc_frame_start),false);
+	return(XX);
 }
 
-Array< Array<complex<float>,3 >,1 >RECON::reconstruct_composite( MRI_DATA& data){
+Array< Array<complex<float>,3 >,1 > RECON::reconstruct_composite( MRI_DATA& data){
 	Array< Array<complex<float>,3 >,2 >XX = full_recon( data, Range(0,0),Range(0,0),true);
 	Array< Array<complex<float>,3 >,1 >X = XX(0,Range::all());
 	return(X);

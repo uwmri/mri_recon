@@ -79,7 +79,10 @@ class RECON{
 	  int rczres;
 	  int rcframes;
 	  int rcencodes;
-  
+  	  
+	  int rc_frame_start;
+	  
+  		
   	  // Gridding operators
 	  gridFFT gridding;
 	  
@@ -90,7 +93,8 @@ class RECON{
 	  GATING gate;
 	  	  
 	  // Density calcs
-	  bool recalc_dcf;
+	  enum DcfType { SUPPLIED, RECALC_VOR, RECALC_DCF};
+	  DcfType dcf_type;
 	  int dcf_iter;
 	  float dcf_dwin;
 	  float dcf_scale;
@@ -143,10 +147,10 @@ class RECON{
 	  void transform_in_time( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);
 	  void transform_in_encode( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);
 	  
-	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >full_recon( MRI_DATA& data, NDarray::Range, NDarray::Range,bool);
-	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_one_frame( MRI_DATA& data, int);
-	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >reconstruct_all_frames( MRI_DATA& data);
-	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >reconstruct_composite( MRI_DATA& data);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 > full_recon( MRI_DATA& data, NDarray::Range, NDarray::Range,bool);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 > reconstruct_one_frame( MRI_DATA& data, int);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 > reconstruct_all_frames( MRI_DATA& data);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 > reconstruct_composite( MRI_DATA& data);
 	  void eigen_coils( NDarray::Array< NDarray::Array< complex<float>,3 >,1 > &smaps,NDarray::Array< NDarray::Array< complex<float>,3 >,2 > &image);
 	  void dcf_calc( MRI_DATA& data);
 	  void dcf_calc( MRI_DATA& data, GATING& gate);

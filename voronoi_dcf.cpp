@@ -15,9 +15,9 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	double y_max = max(ky);
 	double z_max = max(kz);
 	
-	int n_x = 1+ceil((x_max - x_min)/2);
-	int n_y = 1+ceil((y_max - y_min)/2);
-	int n_z = 1+ceil((z_max - z_min)/2);
+	int n_x = 1+ceil(1.0*(x_max - x_min));
+	int n_y = 1+ceil(1.0*(y_max - y_min));
+	int n_z = 1+ceil(1.0*(z_max - z_min));
 	
 	cout << "Starting Vor DCF " << endl;
 	cout << "  X: " << x_min << " to " << x_max << endl;
@@ -28,7 +28,7 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	// Create Container
 	container con(x_min-0.5,x_max+0.5,y_min-0.5,y_max+0.5,z_min-0.5,z_max+0.5,n_x,n_y,n_z,false,false,false,64);
 	
-	double kmax = x_max*0.95;
+	double kmax = x_max*0.98;
 	
 	// Add wall
 	wall_sphere ksphere(0,0,0,kmax+0.5);
@@ -129,10 +129,10 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 				float ydiff = abs(kyy_sorted(forward_pos) - kyt);
 				float zdiff = abs(kzz_sorted(forward_pos) - kzt);
 								
-				if(xdiff > 0.05){
+				if(xdiff > 0.01){
 					// out of search range
 					break;
-				}else if( (ydiff>0.05) || ( zdiff > 0.05)){
+				}else if( (ydiff>0.01) || ( zdiff > 0.01)){
 					// Just don't add point
 				}else{
 					// Add this
