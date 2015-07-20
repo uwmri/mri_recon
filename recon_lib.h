@@ -36,7 +36,7 @@
 class RECON{
 	public:
 	  // Types of Recons
-	  enum ReconType { SOS, PILS, CG, IST, FISTA, CLEAR};
+	  enum ReconType { SOS, PILS, CG, IST, FISTA, CLEAR, ADMM};
 	   
 	  // Data Types
 	  enum DataType { PFILE, EXTERNAL, SIMULATE, PSF, PHANTOM };
@@ -127,7 +127,10 @@ class RECON{
 	  int wavelet_levelsX; 
 	  int wavelet_levelsY; 
 	  int wavelet_levelsZ; 
-	  	  
+	  
+	  float admm_rho;
+	  float admm_gamma;
+	  int admm_max_iter;	  
 		  
 	  int max_iter;
 	  int export_smaps;

@@ -142,7 +142,7 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
 
 	
 		case TH_FIXED:{
-			global_threshold = scale; // This is odd?
+			global_threshold = thresh *scale; // This is odd?
 		}break;
 
 		case TH_FRACTION:{

@@ -84,6 +84,9 @@ void RECON::set_defaults( void){
 	dcf_overgrid = 2.1;
 	dcf_acc = 1.0;
 	
+	admm_gamma = 0.1;
+	admm_max_iter = 20;
+	admm_rho = 0.5;
 }
 
 // ----------------------
@@ -211,6 +214,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(FISTA,"-fista",recon_type);
 		trig_flag(CLEAR,"-clear",recon_type);
 		trig_flag(CG,"-cg",recon_type);
+		trig_flag(ADMM,"-admm",recon_type);
 		
 		trig_flag(RECALC_DCF,"-recalc_dcf",dcf_type);
 		trig_flag(RECALC_VOR,"-recalc_vor",dcf_type);
@@ -306,6 +310,10 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		// Iterations for IST
 		int_flag("-max_iter",max_iter);
 		int_flag("-cycle_spins",cycle_spins);
+		
+		float_flag("-admm_gamma",admm_gamma);
+		int_flag("-admm_max_iter",admm_max_iter);
+		float_flag("-admm_rho",admm_rho);
 		
 		trig_flag(true,"-pregate_data",pregate_data_flag);
 	}
@@ -434,7 +442,8 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		case(CG):
 		case(IST):
 		case(FISTA):
-		case(CLEAR):{
+		case(CLEAR):
+		case(ADMM):{
 			
 			// Setup 3D Wavelet
 			wave = WAVELET3D( TinyVector<int,3>(rcxres,rcyres,rczres),TinyVector<int,3>(wavelet_levelsX,wavelet_levelsY,wavelet_levelsZ),WAVELET3D::WAVE_DB4);
@@ -1009,6 +1018,248 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 
 		}break;
 		
+		case(ADMM):{
+
+				 // ------------------------------------
+				 // Alternating Direction of Multipliers
+				 //   0.5||Ex-d||2  + gamma*||y||1 + rho*||x-y||2 + L'*(x-y)  
+				
+				 // CG Structures  	
+				 Array< Array< complex<float>,3>, 2>R = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 Array< Array< complex<float>,3>, 2>P = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 Array< Array< complex<float>,3>, 2>LHS = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 
+				 // Augmented Lagrangian Structures
+				 Array< Array< complex<float>,3>, 2>Y = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 Array< Array< complex<float>,3>, 2>L = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				 
+				
+				 float cg_thresh = 1e-9;
+				 
+				 // Initialize
+				 //X = 0;
+				 //Y = 0;
+				 //L = 0;
+				 for(int e=0; e< rcencodes; e++){
+					for(int t=0; t< Nt; t++){
+						X(t,e) = complex<float>(0.0,0.0);
+						Y(t,e) = complex<float>(0.0,0.0);
+						L(t,e) = complex<float>(0.0,0.0);
+						LHS(t,e) = complex<float>(0.0,0.0);
+				 }}		
+							
+				 
+				 // Iterate
+				 for(int admm_iteration =0; admm_iteration< admm_max_iter; admm_iteration++){
+				 				 				 
+				 		
+						//   
+						//  Solve Subproblem  1  
+						//  	0.5||Ex-d||2  + gamma*||y||1 + rho*||x-y||2 + L'*(x-y)
+						//      where y and L are fixed paramaters. This reduces to minimizing
+						// 		0.5||Ex-d||2  + rho*||x-y||2 + L'*(x-y)	
+						
+						// (E'E + rho*I)*x = E'd + rho*y - L; 
+							
+						// First Calculate E'd
+				 		cout << "ADMM Inner :: LHS Calculation" << endl;
+						for(int e=0; e< rcencodes; e++){
+							for(int t=0; t< Nt; t++){
+								
+								R(t,e) = complex<float>(0.0,0.0);
+								
+								int act_t = times(t);
+								int store_t = times_store(t);
+																
+								// Temporal weighting 
+								if(pregate_data_flag){
+					 				TimeWeight.reference( data.kw(e) );
+								}else{
+					 				TimeWeight = data.kw(e);
+					 				gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   								}
+						 								
+								// Images
+								for(int coil=0; coil< data.Num_Coils; coil++){
+									 
+									Array< complex<float>,3 >diff_data( data.kx(e).shape(),ColumnMajorArray<3>());
+									diff_data = complex<float>(0.0,0.0);
+									
+									// Ex
+									gridding.backward(X(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+
+									//Ex-d
+									diff_data = data.kdata(e,coil) - diff_data;
+
+									//E'(Ex-d)
+									gridding.forward(R(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+										  
+								 }//Coils
+								 
+								 // Values
+								 R(store_t,e) -= admm_rho*X(store_t,e);
+								 R(store_t,e) += admm_rho*Y(store_t,e);
+								 R(store_t,e) -= admm_rho*L(store_t,e);
+								 
+								 // Initiialize P
+								 P(store_t,e) = R(store_t,e);
+							}
+				 		}
+						
+																				 
+				 		// Now Iterate
+						cout << "ADMM Inner :: Iterate " << endl;
+						for(int cg_iteration =0; cg_iteration< max_iter; cg_iteration++){
+
+							tictoc iteration_timer;
+							iteration_timer.tic();
+					  
+							// E'Ex
+							for(int e=0; e< rcencodes; e++){
+								for(int t=0; t< Nt; t++){
+									int act_t = times(t);
+									int store_t = times_store(t);
+							  
+									LHS(t,e ) = complex<float>(0.0,0.0);
+									T.tic();
+ 
+									// Temporal weighting 
+									if(pregate_data_flag){
+					 					TimeWeight.reference( data.kw(e) );
+									}else{
+					 					TimeWeight = data.kw(e);
+					 					gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   									}
+							  
+							  		for(int coil=0; coil< data.Num_Coils; coil++){
+										  
+										// Storage for (Ex-d) - dynamic for variable size
+			  		  					Array< complex<float>,3 >diff_data( data.kx(e).shape(),ColumnMajorArray<3>());
+										diff_data=complex<float>(0.0,0.0);
+
+										// E'Ex
+										gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+										gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+									}//Coils
+									
+									// Values
+									LHS(store_t,e) += admm_rho*P(store_t,e);
+							
+								}// t
+							}// e
+							
+							
+																	  
+							//----------------------------------------------------
+							//  Now perform gradient update
+							// ---------------------------------------------------
+					
+							complex< float> sum_R0_R0(0.0,0.0);
+							complex< float> sum_R_R(0.0,0.0);
+							complex< float> sum_P_LHS(0.0,0.0);
+					
+							// Calc R'R and P'*LHS
+							for(int e=0; e< rcencodes; e++){
+					 			for(int t=0; t< Nt; t++){
+									for(int k=0; k < rczres; k++){
+										for(int j=0; j < rcyres; j++){
+											for(int i=0; i < rcxres; i++){
+												sum_R0_R0 += norm( R(t,e)(i,j,k) );
+												sum_P_LHS += conj( P(t,e)(i,j,k) )*LHS(t,e)(i,j,k);
+									}}}
+							}}	
+							complex< float> scale = sum_R0_R0 / sum_P_LHS; 
+					
+										
+							// Take step size
+							for(int e=0; e< rcencodes; e++){
+					 			for(int t=0; t< Nt; t++){
+									for(int k=0; k < rczres; k++){
+										for(int j=0; j < rcyres; j++){
+											for(int i=0; i < rcxres; i++){
+												X(t,e)(i,j,k) += ( scale* (  P(t,e)(i,j,k)) );
+												R(t,e)(i,j,k) -= ( scale* (LHS(t,e)(i,j,k)) );
+												sum_R_R += norm( R(t,e)(i,j,k) );
+									}}}
+							}}
+										
+							cout << "       Sum R'R = " << sum_R_R << endl;
+							complex< float> scale2 = sum_R_R / sum_R0_R0; 
+					
+							// Take step size
+							for(int e=0; e< rcencodes; e++){
+					 			for(int t=0; t< Nt; t++){
+									for(int k=0; k < rczres; k++){
+										for(int j=0; j < rcyres; j++){
+											for(int i=0; i < rcxres; i++){
+												P(t,e)(i,j,k) = R(t,e)(i,j,k) + ( scale2*P(t,e)(i,j,k) );
+									}}}
+							}}
+							
+														
+							{
+								Array<complex<float>,2>Xslice=X(0,0)(all,all,X(0,0).length(2)/2);
+						  		ArrayWriteMagAppend(Xslice,"X_mag.dat");
+							}
+							
+							if( abs(sum_R_R) < cg_thresh){
+								break;
+							}
+							
+						}// Inner CG Iterations
+							
+							
+							
+						//   
+						//  Solve Subproblem  2  
+						//  	0.5||Ex-d||2  + gamma*||y||1 + rho*||x-y||2 + L'*(x-y)
+						//      where x and L are fixed paramaters. This reduces to
+						//		gamma*||y||1 + rho*||x-y||2 + L'*(x-y)  				
+						
+						
+						// Take step size
+						for(int e=0; e< rcencodes; e++){
+					 		for(int t=0; t< Nt; t++){
+								for(int k=0; k < rczres; k++){
+									for(int j=0; j < rcyres; j++){
+										for(int i=0; i < rcxres; i++){
+											Y(t,e)(i,j,k) = X(t,e)(i,j,k) + L(t,e)(i,j,k)/admm_rho;
+								}}}
+						}}
+						
+						{
+							Array<complex<float>,2>Xslice=Y(0,0)(all,all,X(0,0).length(2)/2);
+							ArrayWriteMagAppend(Xslice,"Y_mag.dat");
+						}
+						
+						if(admm_iteration==0){
+							admm_gamma *= max(abs(X(0,0)));
+						}
+						softthresh.threshold_type = TH_FIXED;
+						softthresh.thresh = admm_gamma / admm_rho;
+						L1_threshold(Y);
+						
+						{
+							Array<complex<float>,2>Xslice=Y(0,0)(all,all,X(0,0).length(2)/2);
+							ArrayWriteMagAppend(Xslice,"Y_mag.dat");
+						}
+								
+						// 
+						// Update the lagrangian multiplier
+						// 
+						for(int e=0; e< rcencodes; e++){
+					 		for(int t=0; t< Nt; t++){
+								for(int k=0; k < rczres; k++){
+									for(int j=0; j < rcyres; j++){
+										for(int i=0; i < rcxres; i++){
+												L(t,e)(i,j,k) = L(t,e)(i,j,k) + admm_rho*( X(t,e)(i,j,k) - Y(t,e)(i,j,k) );
+								}}}
+						}}	
+						
+			}//iteration	
+
+		}break;
+
 		case(CG):{
 
 				 // ------------------------------------
@@ -1176,9 +1427,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					
 				}//iteration	
 
-			   }break;
-
-
+		}break;
+		
+		
 		case(IST):
 		case(FISTA):{
 
@@ -1563,6 +1814,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				
 		}break;
 		
+		case(ADMM):
 		case(PILS):
 		case(IST):
 		case(FISTA):
