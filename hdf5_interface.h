@@ -21,6 +21,12 @@ class HDF5{
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,5> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<float,6> & A);
 
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<double,2> & A);
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<double,3> & A);
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<double,4> & A);
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<double,5> & A);
+	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<double,6> & A);
+
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,2> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,3> & A);
 	int AddH5Array( const char *GroupName, const char *Name, NDarray::Array<complex<float>,4> & A);

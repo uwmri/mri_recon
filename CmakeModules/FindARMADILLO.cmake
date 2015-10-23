@@ -47,7 +47,7 @@ if(ARMADILLO_INCLUDE_DIR)
   set(ARMADILLO_VERSION_NAME "EARLY RELEASE")
 
   if(EXISTS "${ARMADILLO_INCLUDE_DIR}/armadillo_bits/arma_version.hpp")
-
+	
     # Read and parse armdillo version header file for version number 
     file(READ "${ARMADILLO_INCLUDE_DIR}/armadillo_bits/arma_version.hpp" _armadillo_HEADER_CONTENTS)
     string(REGEX REPLACE ".*#define ARMA_VERSION_MAJOR ([0-9]+).*" "\\1" ARMADILLO_VERSION_MAJOR "${_armadillo_HEADER_CONTENTS}")

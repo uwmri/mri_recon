@@ -55,6 +55,7 @@ template< typename T, const int N_rank>
 void ArrayWriteMagAppend( Array<complex<T>,N_rank>& temp, const char *name){
 	 
 	 ofstream ofs(name, ios_base::binary | ios_base::app);
+	 
 	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 		T val = abs( *miter);
 		ofs.write( (char *)&val,sizeof(T));
@@ -66,30 +67,42 @@ template< typename T, const int N_rank>
 void ArrayWriteAppend( Array< T ,N_rank>& temp, const char *name){
 	 
 	 ofstream ofs(name, ios_base::binary | ios_base::app);
+	 
 	 for(typename Array< T ,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 		T val =  *miter;
 		ofs.write( (char *)&val,sizeof(T));
      }	
+	 
 }
 
 
 template< typename T, const int N_rank>
 void ArrayWrite( Array< T , N_rank>& temp, const char *name){
+	 remove(name); // This speeds things up considerably
 	 ofstream ofs(name, ios_base::binary);
+
 	 for(typename Array<T,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 			T val= *miter;
 			ofs.write( (char *)&val,sizeof(T));
      }
+	 
 }
 
+
+
+
 template< typename T, const int N_rank>
-void ArrayWriteMag( Array<complex<T>, N_rank>& temp, const char *name){
+void ArrayWriteMag(  Array<complex<T>, N_rank> & temp, const char *name){
+	 
+	 remove(name); // This speeds things up considerably
 	 ofstream ofs(name, ios_base::binary);
-	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+	 for( typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 			T val=abs( *miter);
 			ofs.write( (char *)&val,sizeof(T));
      }
+	
 }
+
 
 template< typename T, const int N_rank >
 double ArrayEnergy( Array< complex< T >, N_rank >& temp){
@@ -114,20 +127,24 @@ template< typename T, const int N_rank>
 void ArrayWritePhase( Array<complex<T>,N_rank>& temp, const char *name){
 	 
 	 ofstream ofs(name, ios_base::binary);
+
 	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 	 	T val= arg( *miter);
 		ofs.write( (char *)&val,sizeof(T));
      }	
+	 
 }
 
 template< typename T, const int N_rank>
 void ArrayWritePhaseAppend( Array<complex<T>,N_rank>& temp, const char *name){
 	 
 	 ofstream ofs(name, ios_base::binary  | ios_base::app);
+
 	 for(typename Array<complex<T>,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
 	 	T val= arg( *miter);
 		ofs.write( (char *)&val,sizeof(T));
      }	
+	 
 }
 
 template < typename T > 

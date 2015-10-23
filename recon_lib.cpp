@@ -311,6 +311,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		int_flag("-max_iter",max_iter);
 		int_flag("-cycle_spins",cycle_spins);
 		
+		float_flag("-admm_alpha",admm_alpha);
 		float_flag("-admm_gamma",admm_gamma);
 		int_flag("-admm_max_iter",admm_max_iter);
 		float_flag("-admm_rho",admm_rho);
@@ -411,6 +412,14 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		}
 		rcencodes -= 1; 
 		data.Num_Encodings -= 1;
+		
+		
+		/* Need to resize Gating*/
+		data.time.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
+		data.resp.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
+		data.prep.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
+		data.ecg.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
+		
 	}
 		
 	// -------------------------------------
@@ -1088,18 +1097,21 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 									// Ex
 									gridding.backward(X(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 
-									//Ex-d
+									// d - Ex
 									diff_data = data.kdata(e,coil) - diff_data;
 
-									//E'(Ex-d)
+									// E'd - E'Ex
 									gridding.forward(R(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 										  
 								 }//Coils
 								 
-								 // Values
+								 // E'd - ( E'Ex + rho*Ix) 
 								 R(store_t,e) -= admm_rho*X(store_t,e);
+								 
+								 
+								 // RHS Values ( E'd + rho*Y - L ) - (E' + rho)*X 
 								 R(store_t,e) += admm_rho*Y(store_t,e);
-								 R(store_t,e) -= admm_rho*L(store_t,e);
+								 R(store_t,e) -= L(store_t,e);
 								 
 								 // Initiialize P
 								 P(store_t,e) = R(store_t,e);
@@ -1138,12 +1150,12 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 										diff_data=complex<float>(0.0,0.0);
 
 										// E'Ex
-										gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
-										gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+										gridding.backward( P(t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+										gridding.forward( LHS(t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
 									}//Coils
 									
 									// Values
-									LHS(store_t,e) += admm_rho*P(store_t,e);
+									LHS(t,e) += admm_rho*P(t,e);
 							
 								}// t
 							}// e
@@ -1218,19 +1230,28 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						
 						
 						// Take step size
+						float alpha = 0;
 						for(int e=0; e< rcencodes; e++){
 					 		for(int t=0; t< Nt; t++){
 								for(int k=0; k < rczres; k++){
 									for(int j=0; j < rcyres; j++){
 										for(int i=0; i < rcxres; i++){
-											Y(t,e)(i,j,k) = X(t,e)(i,j,k) + L(t,e)(i,j,k)/admm_rho;
+											Y(t,e)(i,j,k) = alpha*X(t,e)(i,j,k) + (1-alpha)*Y(t,e)(i,j,k) + L(t,e)(i,j,k)/admm_rho;
+											
+											// Also update dual
+											L(t,e)(i,j,k);
+											
 								}}}
 						}}
+						
+						
 						
 						{
 							Array<complex<float>,2>Xslice=Y(0,0)(all,all,X(0,0).length(2)/2);
 							ArrayWriteMagAppend(Xslice,"Y_mag.dat");
 						}
+						
+						
 						
 						if(admm_iteration==0){
 							admm_gamma *= max(abs(X(0,0)));
@@ -1252,9 +1273,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								for(int k=0; k < rczres; k++){
 									for(int j=0; j < rcyres; j++){
 										for(int i=0; i < rcxres; i++){
-												L(t,e)(i,j,k) = L(t,e)(i,j,k) + admm_rho*( X(t,e)(i,j,k) - Y(t,e)(i,j,k) );
+												L(t,e)(i,j,k) = L(t,e)(i,j,k) +  admm_rho*( X(t,e)(i,j,k) - Y(t,e)(i,j,k));
 								}}}
 						}}	
+						
+						{
+							Array<complex<float>,2>Xslice=L(0,0)(all,all,X(0,0).length(2)/2);
+							ArrayWriteMagAppend(Xslice,"L_mag.dat");
+						}
 						
 			}//iteration	
 

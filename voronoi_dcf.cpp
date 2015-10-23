@@ -50,8 +50,8 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	
 
 
-	float fermi_r = kmax - 6;
-	float fermi_w = 1;
+	//float fermi_r = kmax - 6;
+	//float fermi_w = 1;
 	
 	int Npts = kx.numElements();
 	
@@ -281,7 +281,7 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 			for(int i =0; i< kx.length(firstDim); i++){
 				float kww = kw_unsorted(count);
 				
-				float r = sqrt( kx(i,j,k)*kx(i,j,k) + ky(i,j,k)*ky(i,j,k) + kz(i,j,k)*kz(i,j,k));
+				// float r = sqrt( kx(i,j,k)*kx(i,j,k) + ky(i,j,k)*ky(i,j,k) + kz(i,j,k)*kz(i,j,k));
 				kw(i,j,k) = kww; //*(1 + exp( (r-fermi_r)/fermi_w));
 				count++;				
 	}}}

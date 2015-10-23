@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
 file(GLOB LOCAL_INCS ${CMAKE_SOURCE_DIR}/*.h)
 
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -J16 -O2 -fopenmp")
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -J16 -O3 -fopenmp")
 set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} )
 
 # Find Required Libraries
@@ -41,6 +41,9 @@ target_link_libraries(RECONLIB ${LOCAL_LIBS})
 #--------------------------------------
 add_executable(recon_binary commandline_recon.cxx ${LOCAL_INCS})
 target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB)
+
+add_executable(ops_test test_array_ops.cpp ${LOCAL_INCS})
+target_link_libraries(ops_test ${LOCAL_LIBS} RECONLIB)
 
 #--------------------------------------
 # Install 

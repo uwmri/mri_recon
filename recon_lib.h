@@ -128,6 +128,7 @@ class RECON{
 	  int wavelet_levelsY; 
 	  int wavelet_levelsZ; 
 	  
+	  float admm_alpha;
 	  float admm_rho;
 	  float admm_gamma;
 	  int admm_max_iter;	  

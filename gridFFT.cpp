@@ -971,7 +971,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	
 	long Npts = dataA.numElements();
 		
-	long stride_x = 1;
+	//long stride_x = 1;
 	long stride_y = dataA.length(firstDim);
 	long stride_z = dataA.length(secondDim);
 		
@@ -1127,7 +1127,7 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	float cz = Sz/2;
 	
 	long Npts = dataA.numElements();
-	long stride_x = 1;
+	//long stride_x = 1;
 	long stride_y = dataA.length(firstDim);
 	long stride_z = dataA.length(secondDim);
 	

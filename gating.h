@@ -45,15 +45,15 @@ class GATING {
 		TornadoType tornado_shape; // kr^2 vs kr                         
         
 		// Scaling for Waveform
-		float scale_time;
-		float offset_time;
-		float actual_temporal_resolution;
+		double scale_time;
+		double offset_time;
+		double actual_temporal_resolution;
 		
 		//Control Gating Method		
 		ViewshareType vs_type;	
 		GateType gate_type;
 		
-		NDarray::Array< float, 3>gate_times;
+		NDarray::Array< double, 3>gate_times;
 		NDarray::Array< float, 3>resp_weight;
 
 		// Control of Retrospective Respiratory Gating
@@ -67,7 +67,7 @@ class GATING {
 		float resp_sign; 
 
 		// Frame Centers	
-		float *gate_frames;
+		double *gate_frames;
 		
 		// Function Calls		
 		static void help_message(void);

@@ -435,3 +435,137 @@ int HDF5::AddH5Array( const char *GroupName,const char *Name, Array<complex<floa
 }
 
 
+
+int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<double,2> & A){
+	
+	Exception::dontPrint();
+
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[2];              // dataset dimensions
+	dimsf[0] = A.length(secondDim);
+	dimsf[1] = A.length(firstDim);
+	DataSpace dataspace( 2, dimsf );
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_DOUBLE,dataspace));
+	dataset.write( A.data(),PredType::NATIVE_DOUBLE, dataspace);
+
+	return(0);
+}
+
+	
+int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<double,3> & A){
+	
+	Exception::dontPrint();
+
+	
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[3];              // dataset dimensions
+	dimsf[0] = A.length(thirdDim);
+	dimsf[1] = A.length(secondDim);
+	dimsf[2] = A.length(firstDim);
+	DataSpace dataspace( 3, dimsf );
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_DOUBLE,dataspace));
+	dataset.write( A.data(),PredType::NATIVE_DOUBLE, dataspace);
+
+	return(0);
+}
+
+int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<double,4> & A){
+	
+	Exception::dontPrint();
+
+	
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[4];              // dataset dimensions
+	dimsf[0] = A.length(fourthDim);
+	dimsf[1] = A.length(thirdDim);
+	dimsf[2] = A.length(secondDim);
+	dimsf[3] = A.length(firstDim);
+	DataSpace dataspace( 4, dimsf );
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_DOUBLE,dataspace));
+	dataset.write( A.data(),PredType::NATIVE_DOUBLE, dataspace);
+
+	return(0);
+}
+
+
+int HDF5::AddH5Array( const char *GroupName, const char *Name, Array<double,5> & A){
+	
+	Exception::dontPrint();
+
+	
+	// Create Group
+	Group group;
+	try{
+		cout << "Trying to Open: " << GroupName << endl;
+		group = Group(file.openGroup( GroupName ) ); 
+	}catch(FileIException error){
+		cout << "Group does not exist-Creating" << endl;
+		string x(GroupName);
+		x.insert(0,"/");
+		cout << x << endl;
+		group = Group(file.createGroup( x) );
+	}
+	
+	// Create DataSet
+	hsize_t dimsf[5];              // dataset dimensions
+	dimsf[0] = A.length(fifthDim);
+	dimsf[1] = A.length(fourthDim);
+	dimsf[2] = A.length(thirdDim);
+	dimsf[3] = A.length(secondDim);
+	dimsf[4] = A.length(firstDim);
+	DataSpace dataspace( 5, dimsf );
+	
+	/* Write Data*/
+	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_DOUBLE,dataspace));
+	dataset.write( A.data(),PredType::NATIVE_DOUBLE, dataspace);
+
+	return(0);
+}
+
+
+

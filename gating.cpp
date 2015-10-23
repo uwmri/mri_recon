@@ -192,9 +192,9 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 		cout << "Sorting Gate Data by Acquisition Time" << endl;
 		
 		// Use Aradillo Sort function
-		arma::fvec time(gate_times.numElements());
-		arma::fvec resp(gate_times.numElements());
-		arma::fvec time_linear_resp(gate_times.numElements());
+		arma::vec time(gate_times.numElements());
+		arma::vec resp(gate_times.numElements());
+		arma::vec time_linear_resp(gate_times.numElements());
 		
 		// Put into Matrix for Armadillo
 		int count = 0;
@@ -232,7 +232,7 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 				start = gate_times.numElements() - 1 - 2*fsize;
 			}
 			
-			float thresh = median(  time_linear_resp.rows( start,stop) );
+			double thresh = median(  time_linear_resp.rows( start,stop) );
 			resp(idx(i)) -= thresh;
 			
 		}
@@ -352,7 +352,7 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 				cout << "views_per_grid = " << views_per_grid << endl;
 
 				// Use Aradillo Sort function
-				arma::fvec time(resp_weight.numElements());
+				arma::vec time(resp_weight.numElements());
 				arma::cx_fvec signal(resp_weight.numElements());
 
 				// Put into Matrix for Armadillo
@@ -386,11 +386,11 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 						for(int i=start; i<=stop; i++){
 							filtered_time_linear_signal(pos) += time_linear_signal(i); 
 						}
-						filtered_time_linear_signal(pos) /= (float)(stop-start); 
+						filtered_time_linear_signal(pos) /= (double)(stop-start); 
 				}
 
 				// Put back into 
-				arma::fvec filtered_signal(resp_weight.numElements());
+				arma::vec filtered_signal(resp_weight.numElements());
 				for(int i=0; i< (int)resp_weight.numElements(); i++){
 					filtered_signal( idx(i) ) = abs(filtered_time_linear_signal(i));
 				}
@@ -420,11 +420,11 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 			  cout << "Time Sorting Data" << endl;
 
 			  // Use Aradillo Sort function
-			  arma::fvec time(resp_weight.numElements());
-			  arma::fvec resp(resp_weight.numElements());
-			  arma::fvec arma_resp_weight(resp_weight.numElements());
-			  arma::fvec time_linear_resp(resp_weight.numElements());
-			  arma::fvec time_sort_resp_weight(resp_weight.numElements());
+			  arma::vec time(resp_weight.numElements());
+			  arma::vec resp(resp_weight.numElements());
+			  arma::vec arma_resp_weight(resp_weight.numElements());
+			  arma::vec time_linear_resp(resp_weight.numElements());
+			  arma::vec time_sort_resp_weight(resp_weight.numElements());
 
 			  // Put into Matrix for Armadillo
 			  int count = 0;
@@ -469,9 +469,9 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 					  start = time_linear_resp.n_elem - 1 - 2*fsize;
 				  }
 
-				  arma::fvec temp = time_linear_resp.rows( start,stop);
-				  arma::fvec temp2= sort(temp);
-				  float thresh = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency )));
+				  arma::vec temp = time_linear_resp.rows( start,stop);
+				  arma::vec temp2= sort(temp);
+				  double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0- resp_gate_efficiency )));
 
 				  arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
 				  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
@@ -497,11 +497,11 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 			  cout << "Copying Resp Waveform" << endl;
 
 			  // Use Aradillo Sort function
-			  arma::fvec time(resp_weight.numElements());
-			  arma::fvec resp(resp_weight.numElements());
-			  arma::fvec arma_resp_weight(resp_weight.numElements());
-			  arma::fvec time_linear_resp(resp_weight.numElements());
-			  arma::fvec time_sort_resp_weight(resp_weight.numElements());
+			  arma::vec time(resp_weight.numElements());
+			  arma::vec resp(resp_weight.numElements());
+			  arma::vec arma_resp_weight(resp_weight.numElements());
+			  arma::vec time_linear_resp(resp_weight.numElements());
+			  arma::vec time_sort_resp_weight(resp_weight.numElements());
 
 			  // Put into Matrix for Armadillo
 			  int count = 0;
@@ -533,10 +533,10 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 			  // Now Filter
 			  cout << "Estimating median within " << resp_gate_efficiency*100 << "% efficiency window of first 10sec of data" << fsize << endl;
 							
-			  arma::fvec temp = time_linear_resp.rows( 100,100+2*fsize);
-			  arma::fvec temp2= sort(temp);
-			  float med_resp = temp2( (int)( (float)temp2.n_elem*( 1.0- resp_gate_efficiency/2.0 )));
-			  float sigma = temp2(temp2.n_elem-1) - temp2((int)((float)temp2.n_elem*(1.0 - resp_gate_efficiency )));
+			  arma::vec temp = time_linear_resp.rows( 100,100+2*fsize);
+			  arma::vec temp2= sort(temp);
+			  double med_resp = temp2( (int)( (double)temp2.n_elem*( 1.0- resp_gate_efficiency/2.0 )));
+			  double sigma = temp2(temp2.n_elem-1) - temp2((int)((double)temp2.n_elem*(1.0 - resp_gate_efficiency )));
 				 
         	for(int i=0; i< (int)time_linear_resp.n_elem; i++){
 				  arma_resp_weight(idx(i))= ( 1.0 / (abs(med_resp - time_linear_resp(i)) + sigma));
@@ -578,6 +578,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		return;
 	}
 			
+		
 	// Create Array and Fill with Base 
 	gate_times.setStorage(ColumnMajorArray<3>());
 	switch(gate_type){
@@ -604,6 +605,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		}break;
 		
 		case(PREP):{
+			cout << "Using Prep Timer" << endl;
 			gate_times.resize( data.time.shape());				  
 			gate_times = data.prep;
 		}break;
@@ -616,17 +618,17 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	
 		
 	// Get Range
-	float max_time =max(gate_times);
-	float min_time =min(gate_times);
+	double max_time =max(gate_times);
+	double min_time =min(gate_times);
 	
 	if(gate_type==RETRO_ECG){
 		gate_times -= min_time;
 		min_time = 0;
 				
 		// Use Median to set value
-		arma::fvec temp(gate_times.numElements());
+		arma::vec temp(gate_times.numElements());
 		int count=0;
-		for( Array<float,3>::iterator miter=gate_times.begin(); miter!=gate_times.end(); miter++,count++){
+		for( Array<double,3>::iterator miter=gate_times.begin(); miter!=gate_times.end(); miter++,count++){
 			temp(count) = *miter;
 		}
 		max_time = 2.0*median(temp);
@@ -634,12 +636,13 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	}
 		
 	// Rescale to Frames
-	scale_time= (frames)/(max_time-min_time)*(1+1e-9); // Extra factor is to map last point to < frames
+	scale_time= (frames)/(max_time-min_time)*(1-1e-9); // Extra factor is to map last point to < frames
 	offset_time = min_time;
 	
 	// Temporal resolution
 	actual_temporal_resolution = ( max_time -min_time ) / frames;
 	
+	cout << "Time Range :: " << min_time << " to " << max_time << endl;
 	cout << "Actual temporal resolution = " << actual_temporal_resolution << endl;
 	cout << " Gate offset = " << offset_time << endl;
 	cout << " Gate scale = " << scale_time << endl;
@@ -647,15 +650,18 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	gate_times -= offset_time;
 	gate_times *= scale_time;
 	
-	cout << "Time Range :: " << min_time << " to " << max_time << endl;
+	cout << "Min Time - Post scale = " << min(gate_times) << endl;
+	cout << "Max Time - Post scale = " << max(gate_times) << endl;
+	
+	
 	
 	/* Histogram*/
 	{
 		arma::vec temp(frames);
 		temp.fill(0);
-		for( Array<float,3>::iterator miter=gate_times.begin(); miter!=gate_times.end(); miter++){
+		for( Array<double,3>::iterator miter=gate_times.begin(); miter!=gate_times.end(); miter++){
 		
-			int pos = (int)floor( *miter);
+			int pos = (int)( *miter);
 			if( (pos < frames) && (pos >= 0) ){
 		 		temp(pos)++;
 			}
@@ -675,9 +681,9 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 
 	case(TORNADO ):{
 		// Set time points
-		gate_frames = new float[frames];
+		gate_frames = new double[frames];
 		for(int i=0; i < frames; i++){
-			gate_frames[i] = 0.5+(float)i;
+			gate_frames[i] = 0.5+(double)i;
 		}
 		switch(tornado_shape){
 			case(VIPR):{
@@ -706,7 +712,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	case(HIST_MODE):{
 		cout << "Sorting Data into Histogram" << endl;
 		// Use Aradillo Sort function
-		arma::fvec time_sort(gate_times.numElements());
+		arma::vec time_sort(gate_times.numElements());
 		
 		// Copy into array
 		int count = 0;
@@ -727,7 +733,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		for(int e=0; e< gate_times.length(thirdDim); e++){
 		 for(int slice=0; slice< gate_times.length(secondDim); slice++){
 		  for(int view=0; view< gate_times.length(firstDim); view++){
-		   int t_frame = (int)( (float)(sort_idx(count)*frames) / Ncount);  
+		   int t_frame = (int)( (double)(sort_idx(count)*frames) / Ncount);  
 		   gate_times(view,slice,e) = t_frame;
 		   count++;
 		}}}
@@ -805,13 +811,13 @@ void GATING::hist_weight( Array<float,3>&Tw,int e, int t){
 */
 void GATING::tornado_weight(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType w_type){
         
-	float current_time = gate_frames[t];
+	double current_time = gate_frames[t];
 	
 	for(int k=0; k<Tw.length(thirdDim); k++){
 	for(int j=0; j<Tw.length(secondDim); j++){
 	for(int i=0; i<Tw.length(firstDim); i++){
 		
-		float t_diff = abs( gate_times(j,k,e) - current_time );
+		double t_diff = abs( gate_times(j,k,e) - current_time );
 	
 		// Get K-space Radius
 		float kr=0;
@@ -835,7 +841,7 @@ void GATING::tornado_weight(Array<float,3>&Tw, int e, const Array<float,3> &kx, 
 		}
 		
 		
-		float wdth = 0.5*(  (wdth_high - wdth_low)*pow(kr/kmax,k_power) + wdth_low);
+		double wdth = 0.5*(  (wdth_high - wdth_low)*pow(kr/kmax,k_power) + wdth_low);
 		if(w_type == ITERATIVE){
 			Tw(i,j,k) *= ( t_diff < wdth)? ( 1.0) : ( 0.0); // Don't Divide
 		}else{
