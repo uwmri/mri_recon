@@ -42,8 +42,8 @@ void TRANSFORMS::get_wavelet_transform( cx_mat & A, cx_mat & Ai, int N){
 	for( int level = 0; level < levels; level++){
 		
 		// R is the center of the matrix
-		int R = (int)( 0.5*(float)N / pow(2.0,(float)level)); 
-		int span = pow(2,level);
+		int R = (int)( 0.5*(float)N / pow((float)2.0,(float)level)); 
+		int span = (int)pow(2.0f,(float)level);
 	
 		for(int i =0; i < R; i++){
 			

@@ -53,6 +53,9 @@ gridFFT::gridFFT(){
 	double_grid =0;
 	
 	pruned_fft= false;
+	
+	sms_flag = 0;
+	sms_factor =2;
 
 }
 
@@ -203,7 +206,9 @@ void gridFFT::read_commandline(int numarg, char **pstring){
 		int_flag("-fft_in_x",fft_in_x);
 		int_flag("-fft_in_y",fft_in_y);
 		int_flag("-fft_in_z",fft_in_z);
-						
+		
+		trig_flag(true,"-sms_flag",sms_flag);
+		int_flag("-sms_factor",sms_factor);				
 				
 		trig_flag(KAISER_KERNEL,"-kaiser",kernel_type);
 		trig_flag(TRIANGLE_KERNEL,"-triangle",kernel_type);

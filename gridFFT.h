@@ -55,6 +55,9 @@ class gridFFT{
 		float grid_scale_y;
 		float grid_scale_z;
 		
+		bool sms_flag;
+		float sms_factor;
+		
 		
 		// arma::matrix Size
 		int Nx;

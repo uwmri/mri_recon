@@ -52,7 +52,8 @@ class MRI_DATA{
 		int xres;
 		int yres;
 		int zres;
-						
+		
+		
 		// 2D/3D Cartesian/Non-Cartesian
 		TrajDim trajectory_dims;
 		TrajType trajectory_type;
@@ -77,7 +78,9 @@ class MRI_DATA{
 		void stats(void);
 		void dump_stats(const std::string, const NDarray::Array< NDarray::Array<float,3>,1> & in);
 		void dump_stats(const std::string, const NDarray::Array< NDarray::Array<complex<float>,3>,2> & in);
-			
+		
+		MRI_DATA subframe( int,int,int);
+					
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 	private:	

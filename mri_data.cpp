@@ -37,6 +37,44 @@ void MRI_DATA::dump_stats(const string name, const Array< Array<complex<float>,3
 }
 
 
+MRI_DATA MRI_DATA::subframe( int eStart, int eStop, int eStride ){
+
+	MRI_DATA data2;
+	
+	// Copy info
+	data2.Num_Encodings = floor( ( 1 + eStop - eStart)/eStride);
+	data2.Num_Readouts = this->Num_Readouts;
+	data2.Num_Slices = this->Num_Slices;
+	data2.Num_Pts = this->Num_Pts;
+	data2.Num_Coils = this->Num_Coils;
+	
+	data2.xres = this->xres;
+	data2.yres = this->yres;
+	data2.zres = this->zres;
+	
+	data2.trajectory_dims = this->trajectory_dims;
+	data2.trajectory_type = this->trajectory_type;
+	
+	data2.init_memory();
+	
+	int count = 0;
+	for( int ee = eStart; ee<= eStop; ee+= eStride){
+	
+		data2.kx(count) = this->kx(ee);
+		data2.ky(count) = this->ky(ee);
+		data2.kz(count) = this->kz(ee);
+		data2.kw(count) = this->kw(ee);
+		data2.kt(count) = this->kt(ee);
+			
+		for( int coil=0; coil< data2.Num_Coils; coil++){
+			data2.kdata(count,coil) = this->kdata(ee,coil);
+		}
+		count = count+1;
+	}
+
+	return(data2);
+}
+
 void MRI_DATA::stats(void){
 	
 

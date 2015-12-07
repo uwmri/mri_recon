@@ -19,6 +19,7 @@
 #include "wavelet3D.h"	
 #include "temporal_diff.h"	
 #include "gridFFT.h"
+#include "smsEncode.h"
 #include "DCFgridFFT.h"
 #include "mri_data.h"
 #include "threshold.h"
@@ -138,6 +139,8 @@ class RECON{
 	  bool prep_done;
 	  bool pregate_data_flag;
 	  
+	  void test_sms( MRI_DATA& data, int numarg, char **pstring);
+	  
 	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 
 	  static void help_message(void);
@@ -163,7 +166,8 @@ class RECON{
 	  void intensity_correct( NDarray::Array<float,3> &IC, NDarray::Array< NDarray::Array< complex<float>,3>,1 >&smaps );
 	  void pregate_data( MRI_DATA&);
 	  void single_coil_cg( NDarray::Array< complex<float>,3> & X, NDarray::Array< complex<float>,3> &kdata, NDarray::Array<float,3> &kx, NDarray::Array<float,3> &ky, NDarray::Array<float,3> &kz, NDarray::Array<float,3> &kw);
-
+	  void sos_normalize(  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >&);
+		
 	  void export_slice( NDarray::Array< complex<float>,3> &temp, const char * fname);
 	private:	
 		

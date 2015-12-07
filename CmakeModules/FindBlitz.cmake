@@ -9,7 +9,7 @@
 
 
 #Look for libraries
-SET(BLITZ_NAMES ${BLITZ_NAMES} blitz)
+SET(BLITZ_NAMES ${BLITZ_NAMES}  libblitz.a blitz)
 FIND_LIBRARY( BLITZ_LIBRARY  NAMES ${BLITZ_NAMES} )
 FIND_PATH( BLITZ_INCLUDE_DIR blitz/blitz.h )
 

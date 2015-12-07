@@ -346,9 +346,15 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 		
 	for(int iteration= 0; iteration < block_iter; iteration++){	
 		
+		
 	int shiftx = rand() % block_size_x - block_size_x/2;
 	int shifty = rand() % block_size_y - block_size_y/2;
 	int shiftz = rand() % block_size_z - block_size_z/2;
+	if( block_iter == 1){
+		shiftx = 0;
+		shifty = 0;
+		shiftz = 0;
+	}
 	
 	#pragma omp parallel for
 	for( int block = 0; block < total_blocks; block++){
@@ -368,10 +374,10 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 		A.zeros(Np,N); // Pixels x Coils
 	
 		cx_fmat U;
-		U.zeros(Np,Np); // Pixels x Pixels
+		U.zeros(Np,N); // Pixels x Pixels
 	    
 		fmat S;
-		S.zeros(Np,N); // Pixels x Coils
+		S.zeros(N,N); // Pixels x Coils
 	    		
 		cx_fmat V;
 		V.zeros(N,N); // Coils x Coils
@@ -418,7 +424,7 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 			// SVD Threshold
 			// -------------------------------------------------------- 
 			fvec s;
-  			arma::svd(U,s,V,A);
+  			arma::svd_econ(U,s,V,A);
 								
 			S.zeros();
 			for(int pos =0; pos< min(N,Np); pos++){
