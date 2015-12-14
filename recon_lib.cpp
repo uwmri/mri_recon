@@ -2146,6 +2146,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			Array< Array<complex<float>,3>,2> image_store;
 			int smap_num_encodes=1;
 			if( smap_use_all_encodes){
+				cout << "Using all encodes for coil maps" << endl;
 				Array< Array<complex<float>,3>,2> temp = Alloc5DContainer< complex<float> >(rcxres, rcyres, rczres, data.Num_Coils,data.Num_Encodings);
 				image_store.reference( temp);
 				smap_num_encodes = data.Num_Encodings;
