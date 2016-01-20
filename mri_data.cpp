@@ -349,6 +349,7 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 			Array< complex<float>,3>kdataC= kdata(e,c);
 			if(fid!=NULL){	
 				ArrayRead(kdataC,fname);
+				fclose(fid);
 			}
 	}}
 	

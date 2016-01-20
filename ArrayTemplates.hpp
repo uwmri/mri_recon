@@ -48,6 +48,7 @@ void ArrayRead( blitz::Array< T,N>& temp, const char *name){
 				cout << "Array3:Not enough data: only read " << j << "points of" <<  temp.numElements() << endl;
 				exit(1);
 			}
+			fclose(fid);
 		}
 }
 

@@ -332,7 +332,7 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 	
 	cout << " Low Rank threshold (N=" << N << ")(Np = " << Np << ")" << endl;
 	
-	float clear_alpha=0.0;
+	double clear_alpha=0.0;
 	switch(dim){
 		case(0):{ clear_alpha = clear_alpha_time; }break;
 		case(1):{ clear_alpha = clear_alpha_encode; }break;
@@ -356,66 +356,67 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 		shiftz = 0;
 	}
 	
-	#pragma omp parallel for
+	//cout << "Shift = " << shiftx << "," << shifty << "," << shiftz << endl << flush;
+	
+	#pragma omp parallel for 
 	for( int block = 0; block < total_blocks; block++){
 		
+			//cout << "Block = " << block << endl << flush;
+			
+			// Nested parallelism workaround
+			int i = (int)( block % block_Nx);
+			int temp = (int)( (float)block / (float)block_Nx);
+			int j = (int)(        temp % block_Ny );
+			int k = (int)( (float)temp / (float)(block_Ny) );
 		
-		// Nested parallelism workaround
-		int i = (int)( block % block_Nx);
-		int temp = (int)( (float)block / (float)block_Nx);
-		int j = (int)(        temp % block_Ny );
-		int k = (int)( (float)temp / (float)(block_Ny) );
-		
-		k*= block_size_z;
-		j*= block_size_y;
-		i*= block_size_x;
-		
-		cx_fmat A;
-		A.zeros(Np,N); // Pixels x Coils
+			k*= block_size_z;
+			j*= block_size_y;
+			i*= block_size_x;
+			
+			//cout << "Index = " << i << "," << j << "," << k << endl << flush;
+			//cout << "Allocating for " << Np << " x " << N << endl << flush;
+			
+			arma::cx_mat A;
+			A.zeros(Np,N); // Pixels x Coils
 	
-		cx_fmat U;
-		U.zeros(Np,N); // Pixels x Pixels
-	    
-		fmat S;
-		S.zeros(N,N); // Pixels x Coils
-	    		
-		cx_fmat V;
-		V.zeros(N,N); // Coils x Coils
-	    
-	    
-	    	
 			//-----------------------------------------------------
 			//   Block Gather
 			//-----------------------------------------------------
+			
+			//cout << "Gather (Block =" << i << "," << j << "," << k << ")" << endl<< flush<< flush;
+			//cout << "	    (Size  =" << block_size_x << "," << block_size_y << "," << block_size_z << ")" << endl<< flush;
+						
 			switch(dim){
 				case(0):{
 					for(int t=0; t < Nt; t++){
-					int count=0;
-					for(int e=0; e < Ne; e++){
-					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
-					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
-					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
-						int px = (ii + Nx)% Nx;
-						int py = (jj + Ny)% Ny;
-						int pz = (kk + Nz)% Nz;
-						A(count,t) = image(t,e)(px,py,pz);
-						count++;
-					}}}}}
+						int count=0;
+						for(int e=0; e < Ne; e++){
+						for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+						for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+						for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+							int px = (ii + Nx)% Nx;
+							int py = (jj + Ny)% Ny;
+							int pz = (kk + Nz)% Nz;
+							A(count,t) = image(t,e)(px,py,pz);
+							count++;
+						}}}}
+					}
 				}break;
 				
 				case(1):{
 					for(int e=0; e < Ne; e++){
-					int count=0;
-					for(int t=0; t < Nt; t++){
-					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
-					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
-					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
-						int px = (ii + Nx)% Nx;
-						int py = (jj + Ny)% Ny;
-						int pz = (kk + Nz)% Nz;
-						A(count,e) = image(t,e)(px,py,pz);
-						count++;
-					}}}}}
+						int count=0;
+						for(int t=0; t < Nt; t++){
+						for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+						for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+						for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+							int px = (ii + Nx)% Nx;
+							int py = (jj + Ny)% Ny;
+							int pz = (kk + Nz)% Nz;
+							A(count,e) = image(t,e)(px,py,pz);
+							count++;
+						}}}}
+					}
 				}break;
 			}// Switch Dim	
 			
@@ -423,17 +424,19 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 			// --------------------------------------------------------
 			// SVD Threshold
 			// -------------------------------------------------------- 
-			fvec s;
-  			arma::svd_econ(U,s,V,A);
-								
-			S.zeros();
-			for(int pos =0; pos< min(N,Np); pos++){
-				S(pos,pos)=   max( s(pos) - clear_alpha/block_iter, 0.0f );
-			}
-												
-			// Reconstruct 
-			cx_fmat X = U*S*trans(V);
 			
+			/* Do SVD*/
+			arma::cx_mat U;
+			arma::cx_mat V;
+			arma::vec s;
+  			arma::svd_econ(U,s,V,A,"both","dc");
+			
+			for(int pos =0; pos< N; pos++){
+				s(pos)= max( s(pos) - clear_alpha/block_iter, 0.0);
+			}
+														
+			// Reconstruct 
+			arma::cx_mat X = U*diagmat(s)*V.t();
 						
 			// --------------------------------------------------------
 			//  Block Scatter
@@ -442,37 +445,37 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 			switch(dim){
 				case(0):{
 					for(int t=0; t < Nt; t++){
-					int count=0;
-					for(int e=0; e < Ne; e++){
-					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
-					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
-					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
-						int px = (ii + Nx)% Nx;
-						int py = (jj + Ny)% Ny;
-						int pz = (kk + Nz)% Nz;
-						image(t,e)(px,py,pz) = X(count,t);
-						count++;
-					}}}}}
+						int count=0;
+						for(int e=0; e < Ne; e++){
+						for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+						for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+						for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+							int px = (ii + Nx)% Nx;
+							int py = (jj + Ny)% Ny;
+							int pz = (kk + Nz)% Nz;
+							image(t,e)(px,py,pz) = X(count,t);
+							count++;
+						}}}}
+					}
 				}break;
 				
 				case(1):{
 					for(int e=0; e < Ne; e++){
-					int count=0;
-					for(int t=0; t < Nt; t++){
-					for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
-					for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
-					for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
-						int px = (ii + Nx)% Nx;
-						int py = (jj + Ny)% Ny;
-						int pz = (kk + Nz)% Nz;
-						image(t,e)(px,py,pz) = X(count,e);
-						count++;
-					}}}}}
+					
+						int count=0;
+						for(int t=0; t < Nt; t++){
+						for(int kk=(k+shiftz); kk < (k+block_size_z+shiftz); kk++){
+						for(int jj=(j+shifty); jj < (j+block_size_y+shifty); jj++){
+						for(int ii=(i+shiftx); ii < (i+block_size_x+shiftx); ii++){
+							int px = (ii + Nx)% Nx;
+							int py = (jj + Ny)% Ny;
+							int pz = (kk + Nz)% Nz;
+							image(t,e)(px,py,pz) = X(count,e);
+							count++;
+						}}}}
+					}
 				}break;
 			}// Switch Dim	
-
-			
-			
 			
 		}// Block Loop
 	

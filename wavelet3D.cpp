@@ -106,12 +106,11 @@ void WAVELET3D::setup_wavelet_directions(void){
 	cout << "Setting up dimensions to do wavelet transform" << endl;
 	max_level = 0;
 	for( int dir=0; dir<3; dir++){
-		if(floor(N[dir]/pow(2.0,L[dir])) != (N[dir]/pow(2.0,L[dir]))){
-			int max_levels = (int)log2( (float)N[dir]/(float)(wN-1));
-			cout << "\tError: Can't perform " << L[dir] << "level wavelet for dir" << dir << " N=" << N[dir] << endl;
-			L[dir] = ( max_levels <= 0 ) ? ( 0 ) : ( max_levels);
-			cout << "\tUsing " << L[dir] << "levels instead" << endl;
+		
+		while(floor(N[dir]/pow(2.0,L[dir])) != (N[dir]/pow(2.0,L[dir]))){
+			L[dir]--;
 		}
+		cout << "\tUsing " << L[dir] << "levels for dir" << dir  << endl;
 		max_level = ( max_level > L[dir] ) ? ( max_level ) : ( L[dir] );
 	}
 	cout << "Max Level = " << max_level << endl;

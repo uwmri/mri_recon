@@ -48,7 +48,12 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 		}break;
 	}
 	
-
+	cout << "Sizes of Input Array" << endl;
+	cout << "Kx = " << kx.length(firstDim) << " x " << kx.length(secondDim) << "x" << kx.length(thirdDim) << endl;
+	cout << "Ky = " << ky.length(firstDim) << " x " << ky.length(secondDim) << "x" << ky.length(thirdDim) << endl;
+	cout << "Kz = " << kz.length(firstDim) << " x " << kz.length(secondDim) << "x" << kz.length(thirdDim) << endl;
+	cout << "Kw = " << kw.length(firstDim) << " x " << kw.length(secondDim) << "x" << kw.length(thirdDim) << endl;
+	
 
 	//float fermi_r = kmax - 6;
 	//float fermi_w = 1;
@@ -253,10 +258,11 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 		// cout << kw_calculated(count) << endl;
 		count++;
 	}while( vl.inc() && (count< unique_points) );
-	cout << "Counted " << count << " points in dcf calc" << endl;	
+	cout << endl << "Counted " << count << " points in dcf calc" << endl;	
 
 
 	// Convert to sorted index
+	cout << "Convert to Sorted" << endl;
 	arma::fvec kw_sorted( Npts );
 	for(int pos=0; pos < Npts; pos++){
 		if( kpos(pos) == -1){
@@ -269,8 +275,8 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 	// Unsort
 	cout << " Unsort " << endl;
 	arma::fvec kw_unsorted( Npts );
-	for(int pos=0; pos< (int)kxx.n_elem; pos++){
-		kw_unsorted(index(pos) )=kw_sorted(pos);
+	for(int pos=0; pos< (int)Npts; pos++){
+		kw_unsorted(index(pos))=kw_sorted(pos);
 	}
 		
 	// Unsort and put in array 
@@ -285,6 +291,8 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 				kw(i,j,k) = kww; //*(1 + exp( (r-fermi_r)/fermi_w));
 				count++;				
 	}}}
+	
+	cout << "Done with Copy" << endl;
 }
 
 

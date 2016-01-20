@@ -151,9 +151,9 @@ int main(int argc, char **argv){
 	for(int ee=0; ee<recon.rcencodes; ee++){
 		for(int tt=0; tt<recon.rcframes; tt++){
 			char fname[80];
-			sprintf(fname,"X_%d_%d.dat.complex",ee,tt);
+			sprintf(fname,"X_%03d_%03d.dat.complex",ee,tt);
 			ArrayWrite( X(tt,ee),fname);
-			sprintf(fname,"X_%d_%d.dat",ee,tt);
+			sprintf(fname,"X_%03d_%03d.dat",ee,tt);
 			ArrayWriteMag( X(tt,ee),fname);
 	}}
 

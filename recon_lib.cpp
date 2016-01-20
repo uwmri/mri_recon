@@ -615,7 +615,7 @@ void RECON::test_sms( MRI_DATA& data, int argc, char **argv){
 		smsCgrid.precalc_gridding(rczres,rcyres,rcxres,dataCal.Num_Encodings,(float)data.zres,dataCal.trajectory_dims,dataCal.trajectory_type);
 		smsCgrid.sms_factor = 1;
 	
-		rcencodes = dataCal.Num_Encodings + smsCgrid.sms_factor;
+		rcencodes = dataCal.Num_Encodings + smsCgrid.sms_factor - 1;
 	
 		cout << "Alloc Smap" <<endl << flush;
 		Array<complex<float>,3> smaptest;
@@ -650,7 +650,7 @@ void RECON::test_sms( MRI_DATA& data, int argc, char **argv){
 				smaps(coil) += xdf(e); 
 			}
 			
-			gaussian_blur(smaps(coil),1,1,2);
+			gaussian_blur(smaps(coil),2,2,3);
 			{
 				char name[1024];
 				sprintf(name,"PreNormSmap%03d.dat",coil);
@@ -1747,15 +1747,6 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					  // Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
 					  // ------------------------------------
 						
-					  // Previous Array for FISTA
-					  
-					  Array< Array< complex<float>,3>, 2>X_old;
-					  if( recon_type == FISTA){
-						  	cout << "Alloc Fista Matrix" << endl;
-							Array< Array< complex<float>,3>, 2>Temp =Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
-							X_old.reference(Temp);
-					  }
-
 					  // Residue 	
 					  Array< Array< complex<float>,3>, 2>R = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
 	
@@ -1770,12 +1761,6 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  tictoc iteration_timer;
 						  iteration_timer.tic();
 						  cout << "\nIteration = " << iteration << endl;
-
-						  // Update X based on FISTA 
-						  if(recon_type==FISTA){
-							  cout << "Fista update" << endl << flush;
-							  softthresh.fista_update(X, X_old, iteration);
-						  }
 
 						  // Zero this for Cauchy set size
 						  complex<double>scale_RhP(0,0);						  
@@ -1902,6 +1887,12 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  	export_slice( X(0,0), "X_mag.dat");
 						  }
 						  
+						  if(lranktime.clear_alpha_encode > 0.0){
+						  	lranktime.update_threshold(X,1);
+						  	lranktime.thresh(X,1);
+						  	export_slice( X(0,0), "X_mag.dat");
+						  }
+						  
 						  if( X.numElements() > 1){
 						  	int count=0;
 							for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
@@ -1943,10 +1934,6 @@ void RECON::export_slice( Array< complex<float>,3> &temp, const char *fname){
 	Array<complex<float>,2>Xslice=temp(Range::all(),Range::all(),slice);
 	ArrayWriteMagAppend(Xslice,fname);
 }
-
-
-
-
 
 
 
@@ -2304,7 +2291,7 @@ void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 	IC = sqrt(IC);
 	float max_IC = max(IC);
 	cout << "Max IC = " << max_IC << endl;
-	cout << "Thresh of " << max_IC*0.005 << endl;
+	cout << "Thresh of " << max_IC*0.025 << endl;
 	
 	for(int coil=0; coil< A.length(firstDim); coil++){
 				
@@ -2313,7 +2300,7 @@ void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 		for(int j=0; j<A(0).length(secondDim); j++){
 			for(int i=0; i<A(0).length(firstDim); i++){
 						
-					if( IC(i,j,k) < 0.005*max_IC ){
+					if( IC(i,j,k) < 0.025*max_IC ){
 						A(coil)(i,j,k) = 0.0;
 					}else{
 						A(coil)(i,j,k) /= IC(i,j,k);
