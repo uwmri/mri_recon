@@ -146,7 +146,9 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 		delete [] data_temp;
 	}
 	
-	float scale = 1./sqrt(N);
+	
+	float scale = 1./sqrt((float)N);
+	
 	switch(dim){
 		case(0):{
 			#pragma omp parallel for
@@ -177,7 +179,7 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 					}
 				}else{
 					for(int i=0;i<temp.extent(firstDim);i++){
-						temp(i,j,k)=data[i];
+						temp(i,j,k)=data[i]*scale;
 					}
 				}
 			}
@@ -214,7 +216,7 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 					}
 				}else{
 					for(int j=0;j<temp.extent(secondDim);j++){
-						temp(i,j,k) = data[j];
+						temp(i,j,k) = data[j]*scale;
 					}
 				}
 			}
@@ -253,7 +255,7 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 					}
 				}else{
 					for(int k=0;k<temp.extent(thirdDim);k++){
-						temp(i,j,k)= data[k];
+						temp(i,j,k)= data[k]*scale;
 					}
 				}
 				

@@ -34,6 +34,7 @@
 #include "polynomial_fitting.h"
 #include "voronoi_dcf.h"
 
+
 class RECON{
 	public:
 	  // Types of Recons
@@ -47,7 +48,6 @@ class RECON{
 	  
 	  // Enum Transform Types
 	  enum TransformType {NONE,WAVELET,DIFF,DFT,PCA,COMPOSITE_DIFF};
-	  
 	  enum TransformDirection {FORWARD,BACKWARD};
 	  	 
 	  // Recon Flags  
@@ -65,7 +65,8 @@ class RECON{
 	  THRESHOLD softthresh;
 	  LOWRANKCOIL lrankcoil;
 	  LOWRANKCOIL lranktime;
-	  L2REG l2reg;  
+	  L2REG l2reg;
+	  TRANSFORMS sparse_transform;  
 	  	  
 	  bool complex_diff;
 	  
@@ -121,6 +122,8 @@ class RECON{
 	  float blurY;
 	  float blurZ;
 	  
+	  bool reset_dens;
+	  
 	  
 	  bool smap_use_all_encodes;
 	  bool smap_nex_encodes;
@@ -139,7 +142,7 @@ class RECON{
 	  bool prep_done;
 	  bool pregate_data_flag;
 	  
-	  void test_sms( MRI_DATA& data, int numarg, char **pstring);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >  test_sms( MRI_DATA& data, int numarg, char **pstring);
 	  
 	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 
@@ -165,7 +168,6 @@ class RECON{
 	  void normalized_gaussian_blur( const  NDarray::Array< float, 3> & In,  NDarray::Array< float, 3> & out, float sigma);
 	  void intensity_correct( NDarray::Array<float,3> &IC, NDarray::Array< NDarray::Array< complex<float>,3>,1 >&smaps );
 	  void pregate_data( MRI_DATA&);
-	  void single_coil_cg( NDarray::Array< complex<float>,3> & X, NDarray::Array< complex<float>,3> &kdata, NDarray::Array<float,3> &kx, NDarray::Array<float,3> &ky, NDarray::Array<float,3> &kz, NDarray::Array<float,3> &kw);
 	  void sos_normalize(  NDarray::Array< NDarray::Array< complex<float>,3>, 1 >&);
 		
 	  void export_slice( NDarray::Array< complex<float>,3> &temp, const char * fname);

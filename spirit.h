@@ -57,8 +57,8 @@ class SPIRIT {
     void read_commandline(int numarg, char **pstring);
     void init(int, int, int, int);
     
-    void generateEigenCoils(NDarray::Array< NDarray::Array<complex<float>,3>, 1> &);
-    void calibrate_ellipsoid(NDarray::Array< NDarray::Array<complex<float>,3>, 1>&);
+    void generateEigenCoils(NDarray::Array< NDarray::Array<complex<float>,3>, 1> &,NDarray::Array< NDarray::Array<complex<float>,3>, 2> &);
+    void calibrate_ellipsoid(NDarray::Array< NDarray::Array<complex<float>,3>, 2> &);
     void prep();
     
     void getcoils( NDarray::Array< NDarray::Array<complex<float>,3>, 1>&);

@@ -255,7 +255,7 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 		
 		
 }
-void GATING::init( const MRI_DATA& data,int frames){
+void GATING::init( const MRI_DATA& data,int *frames){
 	
 	init_resp_gating(data,frames);
 	init_time_resolved(data,frames);
@@ -321,16 +321,14 @@ NDarray::Array< complex<float>,3> GATING::combine_kspace_channels(  const NDarra
 	
 
 
-void GATING::init_resp_gating( const MRI_DATA& data,int frames){
+void GATING::init_resp_gating( const MRI_DATA& data , int *frames){
 	
-	cout << "Initializing Respiratory Gating with " << frames << " frames " << endl;
-	
-
+	cout << "Initializing Respiratory Gating" << endl;
 	if (resp_gate_type != RESP_NONE) {
 		
 		resp_weight.resize(data.resp.shape());
 		
-	switch (resp_gate_signal) {
+		switch (resp_gate_signal) {
 			case(BELLOWS):{
 			    cout << "Respiratory gating using bellows belt waveform" << endl;
 			    resp_weight = resp_sign*data.resp;
@@ -559,26 +557,20 @@ void GATING::init_resp_gating( const MRI_DATA& data,int frames){
 		case(RESP_NONE):
 		default:{
 				return;
+				
 		}
 	}
 
 
 	}
-	ArrayWrite(resp_weight,"RespWeight.dat");
+
 }
 
 
-void GATING::init_time_resolved( const MRI_DATA& data,int frames){
+void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 	
-	cout << "Initializing Time resolved for" << frames << " frames" << endl;
+	cout << "Initializing Time resolved for" << (*frames) << " frames" << endl;
 	
-	// Don't run 
-	if( frames < 2 ){
-		gate_type = GATE_NONE;
-		return;
-	}
-			
-		
 	// Create Array and Fill with Base 
 	gate_times.setStorage(ColumnMajorArray<3>());
 	switch(gate_type){
@@ -612,6 +604,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		
 		default:{
 			gate_type = GATE_NONE;
+			*frames = 1;
 			return;
 		}
 	}
@@ -634,13 +627,19 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		max_time = 2.0*median(temp);
 		cout << "Retro ECG::RR is estimated to be " << max_time << endl;
 	}
+	
+	/* Bounds check*/
+	if(*frames == -1){
+		*frames= data.tres;
+		cout << "Using native number of time frames:" << (*frames) << endl;
+	}
 		
 	// Rescale to Frames
-	scale_time= (frames)/(max_time-min_time)*(1-1e-9); // Extra factor is to map last point to < frames
+	scale_time= (*frames)/(max_time-min_time)*(1-1e-9); // Extra factor is to map last point to < frames
 	offset_time = min_time;
 	
 	// Temporal resolution
-	actual_temporal_resolution = ( max_time -min_time ) / frames;
+	actual_temporal_resolution = ( max_time -min_time ) / (*frames);
 	
 	cout << "Time Range :: " << min_time << " to " << max_time << endl;
 	cout << "Actual temporal resolution = " << actual_temporal_resolution << endl;
@@ -652,24 +651,22 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 	
 	cout << "Min Time - Post scale = " << min(gate_times) << endl;
 	cout << "Max Time - Post scale = " << max(gate_times) << endl;
-	
-	
-	
+		
 	/* Histogram*/
 	{
-		arma::vec temp(frames);
+		arma::vec temp(*frames);
 		temp.fill(0);
 		for( Array<double,3>::iterator miter=gate_times.begin(); miter!=gate_times.end(); miter++){
 		
 			int pos = (int)( *miter);
-			if( (pos < frames) && (pos >= 0) ){
+			if( (pos < (*frames)) && (pos >= 0) ){
 		 		temp(pos)++;
 			}
 		}
 		
 		// Export
 		cout << "Values per frames" << endl;
-		for(int i=0; i < frames; i++){
+		for(int i=0; i < (*frames); i++){
 			cout << " Frame " << i << " ,count = " << temp(i) << endl;
 		}
 		
@@ -681,8 +678,8 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 
 	case(TORNADO ):{
 		// Set time points
-		gate_frames = new double[frames];
-		for(int i=0; i < frames; i++){
+		gate_frames = new double[ (*frames)];
+		for(int i=0; i < (*frames); i++){
 			gate_frames[i] = 0.5+(double)i;
 		}
 		switch(tornado_shape){
@@ -733,7 +730,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int frames){
 		for(int e=0; e< gate_times.length(thirdDim); e++){
 		 for(int slice=0; slice< gate_times.length(secondDim); slice++){
 		  for(int view=0; view< gate_times.length(firstDim); view++){
-		   int t_frame = (int)( (double)(sort_idx(count)*frames) / Ncount);  
+		   int t_frame = (int)( (double)(sort_idx(count)*(*frames)) / Ncount);  
 		   gate_times(view,slice,e) = t_frame;
 		   count++;
 		}}}

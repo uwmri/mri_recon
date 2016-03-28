@@ -1,9 +1,9 @@
 #include "clear.h"
 #include "io_templates.hpp"
 
-using arma::cx_fmat;
+using arma::cx_mat;
 using arma::fmat;
-using arma::fvec;
+using arma::vec;
 using arma::uvec;
 using namespace std;
 using namespace NDarray;
@@ -114,7 +114,7 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 	int total_blocks = block_Nx * block_Ny * block_Nz;
 	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
 	
-	fvec sblocks(total_blocks);
+	vec sblocks(total_blocks);
 		
 	#pragma omp parallel for
 	for( int block = 0; block < total_blocks; block++){
@@ -130,7 +130,7 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 		j*= block_size_y;
 		i*= block_size_x;
 				
-		cx_fmat A;
+		cx_mat A;
 		A.zeros(Np,N); // Pixels x N
 	
 		fmat S;
@@ -192,7 +192,7 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 			}// Switch Dim	
 				
 			// SVD
-			fvec s;
+			vec s;
   			arma::svd(s,A);
 			
 			sblocks(block)= s(0);
@@ -211,8 +211,7 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 //  Just estimate the max singular value over the matrix  
 //-----------------------------------------------------
 void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, int dim){
-	
-	
+		
 	// Shorthand
 	int Nt =image.extent(firstDim);
 	int Ne =image.extent(secondDim);
@@ -239,29 +238,38 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, i
 	int total_blocks = block_Nx * block_Ny * block_Nz;
 	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
 	
-	fvec sblocks(total_blocks);
+	vec sblocks(total_blocks);
+	
+	arma::Col<int> act_i(total_blocks);
+	arma::Col<int> act_j(total_blocks);
+	arma::Col<int> act_k(total_blocks);
+	{
+		int count =0;
+		for(int i=0; i < block_Nx;i++){
+		for(int j=0; j < block_Ny;j++){
+		for(int k=0; k < block_Nz;k++){
+			act_i(count) = i;
+			act_j(count) = j;
+			act_k(count) = k;
+			count++;
+		}}}
+	}
+	
 	
 	#pragma omp parallel for
 	for( int block = 0; block < total_blocks; block++){
-		
-		// Nested parallelism workaround
-		int i = (int)( block % block_Nx);
-		
-		int temp = (int)( (float)block / (float)block_Nx);
-		int j = (int)(        temp % block_Ny );
-		int k = (int)( (float)temp / (float)(block_Ny) );
-		
-		k*= block_size_z;
-		j*= block_size_y;
-		i*= block_size_x;
 				
-		cx_fmat A;
-		A.zeros(Np,N); // Pixels x N
+		// Nested parallelism workaround
+		int i = act_i(block)*block_size_x;
+		int j = act_j(block)*block_size_y;
+		int k = act_k(block)*block_size_z;
+		
+		//cout << "B = " << block << "(" << i << "," << j << "," << k << ")" << endl;
+		
+		// Set to one to prevent  downstream error				
+		cx_mat A;
+		A.ones(Np,N); // Pixels x N
 	
-		fmat S;
-		S.zeros(Np,N); // Pixels x N
-		
-		
 		
 			//-----------------------------------------------------
 			//   Block section
@@ -269,34 +277,37 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, i
 			switch(dim){
 				case(0):{
 					for(int t=0; t < Nt; t++){
-					int count=0;
-					for(int e=0; e < Ne; e++){
-					for(int kk=k; kk < k+block_size_z; kk++){
-					for(int jj=j; jj < j+block_size_y; jj++){
-					for(int ii=i; ii < i+block_size_x; ii++){
-						A(count,t) = image(t,e)(ii,jj,kk);
-						count++;
-					}}}}}
+						int count=0;
+						for(int e=0; e < Ne; e++){
+						for(int kk=k; kk < k+block_size_z; kk++){
+						for(int jj=j; jj < j+block_size_y; jj++){
+						for(int ii=i; ii < i+block_size_x; ii++){
+							A(count,t) = image(t,e)(ii,jj,kk);
+							count++;
+						}}}}
+					}
 				}break;
 				
 				case(1):{
 					for(int e=0; e < Ne; e++){
-					int count=0;
-					for(int t=0; t < Nt; t++){
-					for(int kk=k; kk < k+block_size_z; kk++){
-					for(int jj=j; jj < j+block_size_y; jj++){
-					for(int ii=i; ii < i+block_size_x; ii++){
-						A(count,e) = image(t,e)(ii,jj,kk);
-						count++;
-					}}}}}
+						int count=0;
+						for(int t=0; t < Nt; t++){
+						for(int kk=k; kk < k+block_size_z; kk++){
+						for(int jj=j; jj < j+block_size_y; jj++){
+						for(int ii=i; ii < i+block_size_x; ii++){
+							A(count,e) = image(t,e)(ii,jj,kk);
+							count++;
+						}}}}
+					}
 				}break;
 			}// Switch Dim	
-				
-			// SVD
-			fvec s;
-  			arma::svd(s,A);
 			
-			sblocks(block) = s(0);
+		
+		// SVD
+		vec s;
+  		arma::svd(s,A);
+			
+		sblocks(block) = s(0);
 		
 	}// Block (threaded)
 	
@@ -342,10 +353,23 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 		return;
 	}
 	clear_alpha*=smax;
+	cout << "Clear alpha " << clear_alpha << endl;
 	
+	int count =0;
+	arma::Col<int> act_i(total_blocks);
+	arma::Col<int> act_j(total_blocks);
+	arma::Col<int> act_k(total_blocks);
+	for(int i=0; i < block_Nx;i++){
+	for(int j=0; j < block_Ny;j++){
+	for(int k=0; k < block_Nz;k++){
+		act_i(count) = i;
+		act_j(count) = j;
+		act_k(count) = k;
+		count++;
+	}}}
 		
 	for(int iteration= 0; iteration < block_iter; iteration++){	
-		
+	cout << "Block iter =" << iteration << endl;	
 		
 	int shiftx = rand() % block_size_x - block_size_x/2;
 	int shifty = rand() % block_size_y - block_size_y/2;
@@ -356,23 +380,16 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 		shiftz = 0;
 	}
 	
-	//cout << "Shift = " << shiftx << "," << shifty << "," << shiftz << endl << flush;
-	
 	#pragma omp parallel for 
 	for( int block = 0; block < total_blocks; block++){
 		
 			//cout << "Block = " << block << endl << flush;
 			
 			// Nested parallelism workaround
-			int i = (int)( block % block_Nx);
-			int temp = (int)( (float)block / (float)block_Nx);
-			int j = (int)(        temp % block_Ny );
-			int k = (int)( (float)temp / (float)(block_Ny) );
+			int i = act_i(block)*block_size_x;
+			int j = act_j(block)*block_size_y;
+			int k = act_k(block)*block_size_z;
 		
-			k*= block_size_z;
-			j*= block_size_y;
-			i*= block_size_x;
-			
 			//cout << "Index = " << i << "," << j << "," << k << endl << flush;
 			//cout << "Allocating for " << Np << " x " << N << endl << flush;
 			
@@ -429,7 +446,7 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 			arma::cx_mat U;
 			arma::cx_mat V;
 			arma::vec s;
-  			arma::svd_econ(U,s,V,A,"both","dc");
+  			arma::svd_econ(U,s,V,A);
 			
 			for(int pos =0; pos< N; pos++){
 				s(pos)= max( s(pos) - clear_alpha/block_iter, 0.0);
@@ -506,7 +523,7 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, int dim){
 	
 	cout << " Low Rank threshold (N=" << N << ")(Np = " << Np << ")" << endl;
 	
-	float clear_alpha=0.0;
+	double clear_alpha=0.0;
 	switch(dim){
 		case(0):{ clear_alpha = clear_alpha_time; }break;
 		case(1):{ clear_alpha = clear_alpha_encode; }break;
@@ -521,10 +538,10 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, int dim){
 	
 	/*Pre allocate Matrices*/
 	int Nthreads = omp_get_max_threads( );
-	cx_fmat *AA = new cx_fmat[Nthreads];	
-	cx_fmat *UU = new cx_fmat[Nthreads];	
-	cx_fmat *SS = new cx_fmat[Nthreads];   
-	cx_fmat *VV = new cx_fmat[Nthreads];   
+	cx_mat *AA = new cx_mat[Nthreads];	
+	cx_mat *UU = new cx_mat[Nthreads];	
+	cx_mat *SS = new cx_mat[Nthreads];   
+	cx_mat *VV = new cx_mat[Nthreads];   
 	
 	for(int t = 0; t < Nthreads; t++){
 		AA[t].zeros(Np,N); // Pixels x Coils
@@ -622,11 +639,11 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, int dim){
 			// --------------------------------------------------------
 			// SVD Threshold
 			// -------------------------------------------------------- 
-			fvec s;
+			vec s;
   			arma::svd(UU[thread],s,VV[thread],AA[thread]);
 			
 			for(int pos =0; pos< min(N,Np); pos++){
-				SS[thread](pos,pos)=   max( s(pos) - clear_alpha/block_iter, 0.0f );
+				SS[thread](pos,pos)=   max( s(pos) - clear_alpha/block_iter, 0.0 );
 			}
 															
 			// Reconstruct 
@@ -747,16 +764,16 @@ void LOWRANKCOIL::combine( Array< Array<complex<float>,3>,3 > &image, Array< Arr
 		j*= block_size_y;
 		i*= block_size_x;
 		
-		cx_fmat A;
+		cx_mat A;
 		A.zeros(Np,N); // Pixels x Coils
 	
-		cx_fmat U;
+		cx_mat U;
 		U.zeros(Np,Np); // Pixels x Pixels
 	    
 		fmat S;
 		S.zeros(Np,N); // Pixels x Coils
 	    		
-		cx_fmat V;
+		cx_mat V;
 		V.zeros(N,N); // Coils x Coils
 	    
 	
@@ -781,11 +798,11 @@ void LOWRANKCOIL::combine( Array< Array<complex<float>,3>,3 > &image, Array< Arr
 			// --------------------------------------------------------
 			// SVD Threshold
 			// -------------------------------------------------------- 
-			fvec s;
+			vec s;
   			arma::svd(U,s,V,A);
 								
 			// Grab Largest Value
-			cx_fmat A2 = A*V.cols(0,0);
+			cx_mat A2 = A*V.cols(0,0);
 						
 						
 			// --------------------------------------------------------

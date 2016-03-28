@@ -359,13 +359,14 @@ void MRI_DATA::read_external_data( const char *folder, int read_kdata){
 
 void MRI_DATA::demod_kdata( float demod){
 	for(int c=0; c<Num_Coils;c++){
-	for(int e=0; e<Num_Encodings; e++){
-	 	for(int slice =0; slice< Num_Slices; slice++){
-  		#pragma omp parallel for
-  			for(int readout =0; readout< Num_Readouts; readout++){
-  			for(int i =0; i< Num_Pts; i++){
-  				kdata(e,c)(i,readout,slice) *= polar<float>(1.0,demod*2.0*arma::datum::pi*kt(e)(i,readout,slice));
-	}}}}}
+		for(int e=0; e<Num_Encodings; e++){
+	 		for(int slice =0; slice< Num_Slices; slice++){
+  				#pragma omp parallel for
+  				for(int readout =0; readout< Num_Readouts; readout++){
+  					for(int i =0; i< Num_Pts; i++){
+  						kdata(e,c)(i,readout,slice) *= polar<float>(1.0,demod*2.0*arma::datum::pi*kt(e)(i,readout,slice));
+				}}
+	}}}
 }
 
 
@@ -376,8 +377,35 @@ void MRI_DATA::demod_kdata( float demod){
 
 void MRI_DATA::write_external_data( const char *fname){
 		
-	HDF5 file = HDF5(fname);
+	HDF5 file = HDF5(fname,"w");
+	
+	cout << "Exporting Attributes" << endl;
+	
+	// Add dimensions
+	file.AddH5Scaler("Kdata","Num_Encodings",Num_Encodings);
+	file.AddH5Scaler("Kdata","Num_Readouts",Num_Readouts);
+	file.AddH5Scaler("Kdata","Num_Slices",Num_Slices);
+	file.AddH5Scaler("Kdata","Num_Pts",Num_Pts);
+	file.AddH5Scaler("Kdata","Num_Coils",Num_Coils);
+	
+	// 2D/3D Cartesian/Non-Cartesian
+	int temp1 = (int)trajectory_dims;
+	file.AddH5Scaler("Kdata","trajectory_dims",temp1);
+	
+	int temp2 = (int)trajectory_type;
+	file.AddH5Scaler("Kdata","trajectory_type",temp2);
+	
 	for(int encode = 0; encode < kdata.length(firstDim); encode++){
+		
+		cout << "Exporting " << encode << endl;
+		
+		{
+			stringstream ss;
+  			ss << "KT_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kt(encode));	
+		}
+		
 	
 		{
 			stringstream ss;
@@ -434,7 +462,77 @@ void MRI_DATA::write_external_data( const char *fname){
 	}
 }
 
-
+void MRI_DATA::read_external_data( const char *fname){
+		
+	HDF5 file = HDF5(fname,"r");
+	
+	
+	
+	
+	for(int encode = 0; encode < kdata.length(firstDim); encode++){
+	
+		{
+			stringstream ss;
+  			ss << "KT_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kt(encode));	
+		}
+		
+	
+		{
+			stringstream ss;
+  			ss << "KX_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kx(encode));	
+		}	
+				
+		{
+			stringstream ss;
+  			ss << "KY_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),ky(encode));	
+		}	
+			
+		{
+			stringstream ss;
+  			ss << "KZ_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kz(encode));	
+		}		
+	
+		{
+			stringstream ss;
+  			ss << "KW_E" << encode;	
+			string s = ss.str();
+			file.AddH5Array( "Kdata",s.c_str(),kw(encode));	
+		}	
+	
+		for(int coil = 0; coil < kdata.length(secondDim); coil++){
+			{
+				stringstream ss;
+  				ss << "KData_E" << encode << "_C" << coil;	
+				string s = ss.str();
+				file.AddH5Array( "Kdata",s.c_str(),kdata(encode,coil));	
+			}	
+			
+		}
+	}
+	
+	// Noise Samples
+	if( noise_samples.numElements()!=0){
+		file.AddH5Array( "Kdata","Noise",noise_samples);	
+	}
+	
+	// Gating
+	file.AddH5Array( "Gating","ecg",ecg);	
+	file.AddH5Array( "Gating","resp",resp);	
+	file.AddH5Array( "Gating","prep",prep);	
+	file.AddH5Array( "Gating","time",time);	
+	
+	if(kdata_gating.numElements() != 0){
+		file.AddH5Array( "Gating","kdata_gating",kdata_gating);	
+	}
+}
 
 /** Undersample the data by deleting argument 'us' readouts
 *

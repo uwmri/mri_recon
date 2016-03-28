@@ -1,9 +1,8 @@
 #include "spirit.h"
 #include "io_templates.hpp"
 
-using arma::cx_fmat;
-using arma::fvec;
-using arma::uvec;
+using arma::cx_mat;
+using arma::vec;
 using namespace std;
 using namespace NDarray;
 
@@ -20,7 +19,7 @@ SPIRIT::SPIRIT()
 	crx = 12;
 	cry = 12;
 	crz = 12;
-	svd_thresh = 0.001;
+	svd_thresh = 0.01;
 	
 	// Shape of Calibration Region
 	shape = SP_CIRCLE;
@@ -134,25 +133,27 @@ void SPIRIT::read_commandline(int numarg, char **pstring){
 //-----------------------------------------------------
 //  E-Spirit Call 
 //-----------------------------------------------------
-void SPIRIT::generateEigenCoils( Array< Array<complex<float>,3>,1 > &smaps){
+void SPIRIT::generateEigenCoils( Array< Array<complex<float>,3>,1 > &smaps,Array< Array<complex<float>,3>,2 > &image){
 
     if(debug){
-		//ArrayWriteMag(smaps,"InputSmaps.dat");
+		ArrayWriteMag(image(0,0),"InputSmaps.dat");
     }
 
     // FFT Smaps Back to K-Space
     cout<< "FFT back to K-space" << endl << flush;
-    for(int coil=0; coil< smaps.length(firstDim); coil++){
-		ifft(smaps(coil)); // In Place FFT
-    }
-
+    for(int e =0; e < image.length(firstDim); e++){
+		for(int coil=0; coil< image.length(secondDim); coil++){
+			ifft(image(e,coil)); // In Place FFT
+    	}
+	}
+	
     if(debug){
-		// ArrayWriteMag(smaps,"SmapKspace.dat");
+		ArrayWriteMag(image(0,0),"SmapKspace.dat");
     }
 
     // Array Reference for Low with Blitz		  
     cout<< "Calibrate" << endl << flush;
-    calibrate_ellipsoid(smaps);
+    calibrate_ellipsoid(image);
 
     // Code to get Sense maps from kernel		  
     prep(); // FFTs		  
@@ -176,15 +177,15 @@ void SPIRIT::generateEigenCoils( Array< Array<complex<float>,3>,1 > &smaps){
 //   Description:
 //		Does 
 //-----------------------------------------------------
-void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
+void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3>,2 > &kdata)
 {
     cout << "Calibrating..." << endl << flush;
     
 	// Centers of k-space
     int cx, cy, cz;
-    cx = kdata(0).length(firstDim)/2;
-    cy = kdata(0).length(secondDim)/2;
-    cz = kdata(0).length(thirdDim)/2;
+    cx = kdata(0,0).length(firstDim)/2;
+    cy = kdata(0,0).length(secondDim)/2;
+    cz = kdata(0,0).length(thirdDim)/2;
 	cout << "Calibration Centered on " << cx << "," << cy << "," << cz << endl;
 	
     // Subtract kernel borders from ACS size
@@ -196,6 +197,7 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
     int num_kernel = 0;
 
     if (shape==SP_CIRCLE) { // ellipse mode check
+		
 		// Figure out how many acs there are in the ellipse
 		for (int z = -crz; z <= crz; z++) {
 	    for (int y = -cry; y <= cry; y++) {
@@ -207,9 +209,11 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 		    }else{
 				rad = (float)(x*x)/(crx*crx) + (float)(y*y)/(cry*cry) + (float)(z*z)/(crz*crz);
 		    }
-			if (rad <= 1) {num_ACS++;}      
+			if (rad <= 1) {
+				num_ACS++;
+			}      
 		}}}
-
+		
 		// Figure out how many points are in the kernel
 		for (int z = -krz; z <= krz; z++) {
 	    for (int y = -kry; y <= kry; y++) {
@@ -220,20 +224,27 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 		    }else{
 				rad = (float)(x*x)/(krx_f*krx_f) + (float)(y*y)/(kry_f*kry_f) + (float)(z*z)/(krz_f*krz_f);
 		    }
-			if (rad <= 1) {num_kernel++;}      
+			if (rad <= 1) {
+				num_kernel++;
+			}      
 		}}}
 		num_kernel *= ncoils;
 	} else {
 		num_ACS = (2*crx+1)*(2*cry+1)*(2*crz+1);
 		num_kernel = (2*krx+1)*(2*kry+1)*(2*krz+1)*ncoils;
     }
+	
+	// Multiple by Kernel
+	num_ACS *= kdata.length(firstDim); 
+		
 	cout << "num_ACS: " << num_ACS << " num_kernel: " << num_kernel << endl;
 
     // Kernel Matrix
-    cx_fmat A(num_ACS,num_kernel);
+    cx_mat A(num_ACS,num_kernel);
     	
     cout << "Populating Kernel: " << endl << flush;
     int Arow = 0;
+	for (int ie = 0; ie < kdata.length(firstDim); ie++){
 	for (int iz = -crz; iz <= crz; iz++) { 
 	for (int iy = -cry; iy <= cry; iy++) {
 	for (int ix = -crx; ix <= crx; ix++) {
@@ -248,7 +259,6 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 			}
 		    if (rad > 1)
 			continue;
-
 		    
 		    // Get Neighborhood Values
 		    int Acol = 0;
@@ -265,6 +275,7 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 					}else{
 						krad =  (float)(jx*jx)/(krx_f*krx_f) + (float)(jy*jy)/(kry_f*kry_f) + (float)(jz*jz)/(krz_f*krz_f);
 					}
+					
 				    if (krad <= 1) {
 			
 						// Get New Coord
@@ -272,7 +283,7 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 						int kern_yy = jy+iy+cy;
 						int kern_zz = jz+iz+cz;
 
-						A(Arow,Acol) = (complex<float>)kdata(jc)(kern_xx,kern_yy,kern_zz);
+						A(Arow,Acol) = (complex<float>)kdata(ie,jc)(kern_xx,kern_yy,kern_zz);
 						Acol++;
 					
 				    }else{
@@ -285,7 +296,8 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 	} // ix
 	} // iy
 	} // iz
-
+	} // ie
+	
 	// -------------------------------
 	// Do SVD Decomposition
 	// -------------------------------  
@@ -293,10 +305,10 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 	cout << "A is " << A.n_rows << " x " << A.n_cols << endl;
 		
 	cout << "SVD on Kernel: "  << endl << flush;
-  	cx_fmat U;
-	fvec s;
-	cx_fmat V;
-	arma::svd_econ(U,s,V,A,'r');
+  	cx_mat U;
+	vec s;
+	cx_mat V;
+	arma::svd_econ(U,s,V,A,"r");
 	
 	cout << "U is " << U.n_rows << " x " << U.n_cols << endl;
 	cout << "S is " << s.n_rows << " x " << s.n_cols << endl;
@@ -307,11 +319,12 @@ void SPIRIT::calibrate_ellipsoid(Array< Array<complex<float>,3 >,1 > &kdata)
 		
 	cout << "Finding Number of Singular Values "  << endl << flush;
 	float thresh = s(0)*sqrt(svd_thresh);
-	nV=1; 
-	while( s(nV) > thresh ){
-		nV++;	
+	nV=0; 
+	for(int pos=0; pos < (int)s.n_rows; pos++){
+		if(s(pos) >= thresh){
+			nV++;
+		}
 	}
-	nV--;
 	cout << "Using " << nV << " singular values of kernel" << endl;
 	
 	cout << "Alloc Kernel: "  << endl << flush;
@@ -416,9 +429,7 @@ void SPIRIT::getcoils( Array< Array< complex<float>,3 >,1 > &LR)
     
 	// Kernel Size
     int kNx = im.length(firstDim);
-//    int kNy = im.length(secondDim);
-//    int kNz = im.length(thirdDim);
-    
+
 	int cx = (Nx/2);
 	int cy = (Ny/2);
 	
@@ -426,8 +437,6 @@ void SPIRIT::getcoils( Array< Array< complex<float>,3 >,1 > &LR)
 	T.tic();
     cout << "Starting eig" << endl;
 
-//    int count = 0;
-	
 	// Storage for Hybrid kx-y-coil-vector Kernel
 	Array< complex<float>,4>temp;
 	temp.setStorage( ColumnMajorArray<4>() );
@@ -465,44 +474,22 @@ void SPIRIT::getcoils( Array< Array< complex<float>,3 >,1 > &LR)
 	 	for(int ix = 0; ix < Nx; ix ++) {
 		    
 	 	   // Copy to A 
-		   cx_fmat A( ncoils ,nV);
+		   cx_mat A( ncoils ,nV);
 		   for(int v = 0; v < nV; v++) {
 			for(int coil = 0; coil < ncoils; coil++) {
 				A(coil,v) = x_line_full(ix,coil,v);
 		   }}
-		   
-		   // Compute AtA
-		   //cx_fmat AtA = A*A.t();
-		   
-		   /*
-		   fvec eigval;
-		   cx_fmat eigvec;
-		   eig_sym(eigval, eigvec, AtA); 
-		   
-		     Copy Back
-           for(int jj = 0; jj < ncoils; jj++) {
-                  LR(ix,iy,iz,jj)=conj( eigvec(jj,ncoils-1));
-           }
-           LR(ix,iy,iz,ncoils)=eigval(ncoils-1);
-		   */
-		   
+		   	   
 		   // SVD_econ is much faster than eig_sym and orthogonal iteration (but still slow). 
-		   cx_fmat U;
-		   fvec s;
-		   cx_fmat V;
-		   svd_econ(U, s, V, A, 'l');
+		   cx_mat U;
+		   vec s;
+		   cx_mat V;
+		   
+		   svd_econ(U, s, V, A,"left");
 		   for(int jj = 0; jj < ncoils; jj++) {
                   LR(jj)(ix,iy,iz)=conj( U(jj,0));
            }
-           //LR(ix,iy,iz,ncoils)=s(0);
-		
-			/*
-		   cx_fmat AtA = A*A.t();
-		   orthogonal_iteration(AtA);
-		   for(int jj = 0; jj < ncoils; jj++) {
-             LR(ix,iy,iz,jj)= conj( AtA(jj,0));
-           }*/
-		   
+
 		}}
 	  
 	 }// Slice

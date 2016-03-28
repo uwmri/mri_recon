@@ -52,7 +52,7 @@ class MRI_DATA{
 		int xres;
 		int yres;
 		int zres;
-		
+		int tres; 
 		
 		// 2D/3D Cartesian/Non-Cartesian
 		TrajDim trajectory_dims;
@@ -72,8 +72,11 @@ class MRI_DATA{
 		void init_gating_kdata(int);
 		void init_noise_samples(int);
 		void read_external_data(const char *folder,int);
-		void write_external_data(const char *fname);
 		void parse_external_header(const char *filename);
+		
+		void write_external_data(const char *fname);
+		void read_external_data( const char *fname);
+		
 		void load_pcvipr_gating_file(const char *full_filename); //Temp
 		void stats(void);
 		void dump_stats(const std::string, const NDarray::Array< NDarray::Array<float,3>,1> & in);

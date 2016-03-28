@@ -70,7 +70,7 @@ int main(int argc, char **argv){
 			GATING gate(argc,argv);
 			// Weighting Array for Time coding
 			Array< float, 3 >TimeWeight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-			gate.init(data,recon.rcframes);
+			gate.init(data,&(recon.rcframes));
 			
 			
 			/*-----------------------------

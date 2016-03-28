@@ -12,6 +12,11 @@ using namespace NDarray;
 using arma::cx_mat;
 using arma::cx_vec;
 
+TRANSFORMS::TRANSFORMS(){
+	reinit_pca = true;
+	pca_count = 0;
+}
+  
 
 void TRANSFORMS::get_difference_transform( cx_mat & A, cx_mat & Ai, int N){
 	
@@ -198,7 +203,148 @@ void TRANSFORMS::inv_ewave( Array< Array< complex<float>,3>,2>&temp){
 	 return;
 }
 
-
+//-----------------------------------------------------
+//  Clear Threshold Call 
+//-----------------------------------------------------
+void TRANSFORMS::eigen( Array< Array<complex<float>,3>,2 > &image, int dim, int direction){
+		
+		
+	pca_count++;
+		
+	if(reinit_pca && (direction==FORWARD) ){
+		if(pca_count > 5){
+			reinit_pca = false;
+		}	
+		
+		// Shorthand
+		int Nt =image.extent(firstDim);
+		int Ne =image.extent(secondDim);
+		int Nx =image(0,0).extent(firstDim);
+		int Ny =image(0,0).extent(secondDim);
+		int Nz =image(0,0).extent(thirdDim);
+	
+		int block_size_x = 8;
+		int block_size_y = 8;
+		int block_size_z = 8;
+		int block_Nx= (int)( Nx / block_size_x );
+		int block_Ny= (int)( Ny / block_size_y );
+		int block_Nz= (int)( Nz / block_size_z );
+		int total_blocks = block_Nx*block_Ny*block_Nz;
+	
+		/* Get Image Size*/
+		int N = image.extent(dim);
+		int Np = total_blocks; 
+	
+		cout << " Learning Eigen Mat (N=" << N << ")(Np = " << Np << ")" << endl;
+	
+		// For nested parallelism fix
+		int count =0;
+		arma::Col<int> act_i(total_blocks);
+		arma::Col<int> act_j(total_blocks);
+		arma::Col<int> act_k(total_blocks);
+		for(int i=0; i < block_Nx;i++){
+		for(int j=0; j < block_Ny;j++){
+		for(int k=0; k < block_Nz;k++){
+			act_i(count) = i;
+			act_j(count) = j;
+			act_k(count) = k;
+			count++;
+		}}}
+		
+		// Storage Block
+		arma::cx_mat A;
+		A.zeros(Np,N); 
+	
+		cout << "Collecting Blocks" << endl;	
+		#pragma omp parallel for 
+		for( int block = 0; block < total_blocks; block++){
+		
+			// Nested parallelism workaround
+			int i = act_i(block)*block_size_x;
+			int j = act_j(block)*block_size_y;
+			int k = act_k(block)*block_size_z;
+					
+			//-----------------------------------------------------
+			//   Block Gather
+			//-----------------------------------------------------
+			
+			switch(dim){
+				case(0):{
+					for(int t=0; t < Nt; t++){
+						for(int e=0; e < Ne; e++){
+						for(int kk=(k); kk < (k+block_size_z); kk++){
+						for(int jj=(j); jj < (j+block_size_y); jj++){
+						for(int ii=(i); ii < (i+block_size_x); ii++){
+							int px = (ii + Nx)% Nx;
+							int py = (jj + Ny)% Ny;
+							int pz = (kk + Nz)% Nz;
+							A(block,t) += image(t,e)(px,py,pz);
+						}}}}
+					}
+				}break;
+				
+				case(1):{
+					for(int e=0; e < Ne; e++){
+						for(int t=0; t < Nt; t++){
+						for(int kk=(k); kk < (k+block_size_z); kk++){
+						for(int jj=(j); jj < (j+block_size_y); jj++){
+						for(int ii=(i); ii < (i+block_size_x); ii++){
+							int px = (ii + Nx)% Nx;
+							int py = (jj + Ny)% Ny;
+							int pz = (kk + Nz)% Nz;
+							A(block,e) += image(t,e)(px,py,pz);
+						}}}}
+					}
+				}break;
+			}// Switch Dim	
+		}// Block Loop
+	
+	
+		cout << "Learning PCA " << endl;
+		arma::cx_mat U;
+		arma::cx_mat V;
+		arma::vec s;
+  		arma::svd_econ(U,s,V,A);
+		
+		cx_mat wV = diagmat(s)*V.t();
+		E = wV;
+		
+		Ei= wV.i();
+	
+	}/* Reinit PCA*/
+	
+		
+	if(dim==0){
+		if(direction==FORWARD){
+			multiply_in_time( image,E);
+		}else{
+			multiply_in_time( image,Ei);
+		}
+	}else{
+		if(direction==FORWARD){
+			multiply_in_encode( image,E);
+		}else{
+			multiply_in_encode( image,Ei);
+		}
+	}
+	
+	if(direction == FORWARD){
+		if( image.numElements() > 1){
+		 	int count=0;
+			for( Array< Array<complex<float>,3>,2>::iterator miter=image.begin(); miter!=image.end(); miter++){
+								
+					Array<complex<float>,2>Xf=(*miter)(Range::all(),Range::all(),image(0,0).length(2)/2);
+					if(count==0){
+						ArrayWriteMag(Xf,"Xtrans_frames.dat");
+					}else{
+						ArrayWriteMagAppend(Xf,"Xtrans_frames.dat");
+					}
+					count++;
+			}
+		}
+	}
+	
+}
 
 
 void TRANSFORMS::multiply_in_time( Array< Array< complex<float>,3>,2>&temp, cx_mat A){

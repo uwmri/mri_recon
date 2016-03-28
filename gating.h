@@ -34,9 +34,9 @@ class GATING {
 		
 		GATING();						
 		GATING(int numarg,char **pstring);
-		void init( const MRI_DATA &data,int);
-		void init_resp_gating(const MRI_DATA &data,int);
-		void init_time_resolved(const MRI_DATA &data,int);
+		void init( const MRI_DATA &data,int *);
+		void init_resp_gating(const MRI_DATA &data,int *);
+		void init_time_resolved(const MRI_DATA &data,int *);
 		
 		// Tornado Filter Parameters
         int wdth_low;	// k=0 width

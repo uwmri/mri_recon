@@ -560,6 +560,11 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
 
   	}
   	winx /= max(winx);
+  }else if(fft_in_x){
+   	for( int i = 0; i < Sx;i++){
+  		float fact =  ((float)( 2*(( i  )%2) - 1));
+		winx(i)= fact / Sx;
+	}
   }else{
   	winx = 1.0;
   }
@@ -582,6 +587,11 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
 	winy(i)*=( i > og_ey-1) ? ( 0.0 ) : ( 1.0);
   	}
   	winy /= max(winy);
+  }else if(fft_in_y){
+   	for( int i = 0; i < Sy;i++){
+  		float fact =  ((float)( 2*(( i  )%2) - 1));
+		winy(i)= fact / Sy;
+	}
   }else{
   	winy=1.0;
   }
@@ -602,6 +612,11 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
 		winz(i)*=( i > og_ez-1) ? ( 0.0 ) : ( 1.0);
  	}
   	winz /= max(winz);  
+  }else if(fft_in_z){
+   	for( int i = 0; i < Sz;i++){
+  		float fact =  ((float)( 2*(( i  )%2) - 1));
+		winz(i)= fact / Sz;
+	}
   }else{
   	winz = 1.0;
   }
