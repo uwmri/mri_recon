@@ -1359,7 +1359,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								// Temporal weighting 
 								if(reset_dens){
 								    TimeWeight = 1.0;								  
-								}else if(pregate_data_flag){
+									gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   								}else if(pregate_data_flag){
 					 				TimeWeight.reference( data.kw(e) );
 								}else{
 					 				TimeWeight = data.kw(e);
@@ -1415,8 +1416,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
  
 									// Temporal weighting 
 									if(reset_dens){
-								    	TimeWeight = 1.0;								  
-								    }else if(pregate_data_flag){
+								        TimeWeight = 1.0;								  
+										gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   									}else if(pregate_data_flag){
 					 					TimeWeight.reference( data.kw(e) );
 									}else{
 					 					TimeWeight = data.kw(e);
@@ -1589,7 +1591,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						// Temporal weighting 
 						if(reset_dens){
 						    TimeWeight = 1.0;								  
-						}else if(pregate_data_flag){
+							gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   						}else if(pregate_data_flag){
 					 		TimeWeight.reference( data.kw(e) );
 						}else{
 					 		TimeWeight = data.kw(e);
@@ -1626,8 +1629,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
  
 							  // Temporal weighting 
 							  if(reset_dens){
-								    TimeWeight = 1.0;								  
-							  }else if(pregate_data_flag){
+								TimeWeight = 1.0;								  
+								gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   							  }else if(pregate_data_flag){
 					 			TimeWeight.reference( data.kw(e) );
 							  }else{
 					 			TimeWeight = data.kw(e);
@@ -1809,7 +1813,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  // Temporal weighting 
 								  if(reset_dens){
 								    TimeWeight = 1.0;								  
-								  }else if(pregate_data_flag){
+									gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+   								  }else if(pregate_data_flag){
 					 				TimeWeight.reference( data.kw(e) );
 								  }else{
 					 				TimeWeight = data.kw(e);
