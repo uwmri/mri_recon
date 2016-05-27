@@ -40,6 +40,8 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 	threshold_type = TH_NONE;
 	noise_scale = 1.0;
 	noise_est_type = NOISE_FRAME;
+	imaginary_scale = 1.0;
+	independent = false;
 	
 #define trig_flag(num,name,val) }else if(strcmp(name,pstring[pos]) == 0){ val=num;
 #define bool_flag(name,val) }else if(strcmp(name,pstring[pos]) == 0){ val=true;
@@ -57,8 +59,9 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 			char_flag("-thmode",th_mode);
 			bool_flag("-thlow",thapp);
 			trig_flag(true,"-verbose",VERBOSE);
+			trig_flag(true,"-th_independent",independent);
 			float_flag("-noise_scale",noise_scale);
-			
+			float_flag("-th_imaginary_scale",imaginary_scale);
 		}else if(strcmp("-thmode",pstring[pos]) == 0) {
 			pos++;
 			if( pos==numarg){
@@ -76,7 +79,7 @@ THRESHOLD::THRESHOLD( int numarg, char **pstring) {
 				trig_flag(TH_BAYES,"bayes",threshold_type);
 				trig_flag(TH_SURE,"sure",threshold_type);
 			}
-		}else if(strcmp("-th_group_complex []",pstring[pos]) == 0) {
+		}else if(strcmp("-th_group_complex",pstring[pos]) == 0) {
 			pos++;
 			if (pos == numarg) {
 				cout << "Please specify setting for grouped complex thresholding..on/off (default is on)" << endl;
@@ -116,7 +119,9 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
 		case TH_FIXED:
 		case TH_FRACTION:
 		case TH_VISU:{
-				     thresholding(Coef,  global_threshold);
+				     
+					 
+					 thresholding(Coef,  global_threshold);
 		}break;
 				
 		case TH_BAYES:
@@ -146,8 +151,28 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
 		}break;
 
 		case TH_FRACTION:{
-			global_threshold = get_threshold( Coef, thresh); 
-			global_threshold *= scale; 
+			if( independent){
+				cout << "Using independent thresholds for each frame" << endl;
+				independent_thresholds.setStorage( ColumnMajorArray<2>());
+				independent_thresholds.resize(Coef.shape());
+				
+				Array< Array<complex<float>,3>,2 > TEMP(1,1);
+				for(int e=0; e< Coef.length(secondDim);e++){
+					for(int t=0; t< Coef.length(firstDim);t++){
+						TEMP(0,0).reference( Coef(t,e) );
+						independent_thresholds(t,e) = scale*get_threshold( TEMP, thresh);
+						
+						if(VERBOSE){
+		 					cout << "Thresh (" << t << "," << e << ") = " << independent_thresholds(t,e) << endl << flush;
+						}
+	
+
+					}
+				} 
+			
+			}else{
+				global_threshold = scale*get_threshold( Coef, thresh); 
+			}			
 		}break;
 		
 		case TH_VISU: {
@@ -192,7 +217,7 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 	float *min_wave_t = new float[Nz];
 	for(int k=0; k< Nz; k++){
 		max_wave_t[k] = 0.0;
-		min_wave_t[k] = 0.0;
+		min_wave_t[k] = abs(Coef(0,0)(0,0,0));
 	}
 		
 	if(VERBOSE) {
@@ -207,40 +232,39 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 			for(int k=0; k< XX.extent(thirdDim); k++){
 			for(int j=0; j< XX.extent(secondDim); j++){
 			for(int i=0; i< XX.extent(firstDim); i++){    
-			
 				if (group_complex) {
 					float v=abs( XX(i,j,k));
-					max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
-					min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
+					max_wave_t[k] = max( max_wave_t[k], v);
+					min_wave_t[k] = min( min_wave_t[k], v);
 				}else {
 					float v=abs( real(XX(i,j,k)));
-					max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
-					min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
-					v=abs( imag(XX(i,j,k)));
-					max_wave_t[k] = ( max_wave_t[k] > v ) ? ( max_wave_t[k] ) : ( v );
-					min_wave_t[k] = ( min_wave_t[k] < v ) ? ( min_wave_t[k] ) : ( v );
+					max_wave_t[k] = max( max_wave_t[k], v);
+					min_wave_t[k] = min( min_wave_t[k], v);
+					
+					v=imaginary_scale*abs( imag(XX(i,j,k)));
+					max_wave_t[k] = max( max_wave_t[k], v);
+					min_wave_t[k] = min( min_wave_t[k], v);
 				}
 			}}}	// Spatial			
 	}}
-	
+
+	// Take min over full range	
 	float max_wave= max_wave_t[0];
 	float min_wave= min_wave_t[0];
-	
 	for(int k=0; k< Nz; k++){
-		max_wave = ( max_wave_t[k] > max_wave ) ? ( max_wave_t[k] ) : ( max_wave );
-		min_wave = ( min_wave_t[k] < max_wave ) ? ( min_wave_t[k] ) : ( min_wave );	
+		max_wave = max( max_wave_t[k], max_wave ); 
+		min_wave = min( min_wave_t[k], min_wave ); 
 	}
 	
-	
-	
 	if(VERBOSE) cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
-
+	
 	// Estimate histogram (sort)
 	int total_points = Coef.numElements()*Coef(0,0).numElements() * (group_complex ? 1 : 2); // twice as many points without complex grouping
 	int points_found = total_points;
 	int target = (int)( fraction*(double)total_points);
 	int accuracy = (int)(0.001*(double)total_points);
 	if(VERBOSE) cout << "Thresh = " << fraction << " target points " << target << endl;
+	if(VERBOSE) cout << "Total points = " << total_points << endl;
 
 	if(target < 2){
 		return(0.0);
@@ -251,7 +275,8 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 	float max_t = thresh*max_wave;
 	float min_t = min_wave;
 	int iter = 0;
-	while( abs(points_found - target) > accuracy){
+	int max_iter = 64;
+	while( (abs(points_found - target) > accuracy) && (iter < max_iter) ){
 
 		// Update to midpoint of good compartment       
 		if(iter > 0){
@@ -287,7 +312,7 @@ float THRESHOLD::get_threshold(Array<Array< complex<float>,3>,2>&Coef, float fra
 					if( v < value){
 						points_found++;
 					}
-					v = abs(imag(XX(i,j,k)));
+					v = imaginary_scale*abs(imag(XX(i,j,k)));
 					if( v < value){
 						points_found++;
 					}
@@ -635,58 +660,28 @@ void THRESHOLD::robust_noise_estimate(Array<Array< complex<float>,3>,2>&Coef, WA
 // Option of thresh of appriximation wavelets or all wavelets, hard vs soft threshold
 void THRESHOLD::thresholding(Array<Array< complex<float>,3>,2>&Coef, float value){
 
-	// if(VERBOSE) cout << "Determined thresh = " << value <<endl;
-
-	// Apply theshold       
-	int count = 0;
-	
-	int Nx = Coef(0,0).length(firstDim);
-	int Ny = Coef(0,0).length(secondDim);
-	int Nz = Coef(0,0).length(thirdDim);
 	int Ne = Coef.length(secondDim);
 	int Nt = Coef.length(firstDim);
-		
+
+	if(!group_complex){
+		cout << " Using independent Threshold. Imaginary scale =" << imaginary_scale << endl;
+	}
+			
 	// Get Update
 	for(int e=0; e< Ne;e++){
 		for(int t=0; t< Nt;t++){
 			Array< complex<float>,3>XX = Coef(t,e);
-			#pragma omp parallel for reduction(+:count)
-			for(int k=0; k< Nz; k++){
-				for(int j=0; j< Ny; j++){
-					for(int i=0; i< Nx; i++){
-
-						if (group_complex) {
-							float cc = abs(XX(i,j,k));
-							if( cc <= value ){
-								XX(i,j,k) = complex<float>(0.0,0.0);
-							}else{
-								count++;
-								XX(i,j,k) *= (1.0f - value/cc);
-							}
-						} else {
-							float newR = max(0.0f,real(XX(i,j,k)) - value) - max(0.0f, -real(XX(i,j,k)) - value);
-							float newI = max(0.0f,imag(XX(i,j,k)) - value) - max(0.0f, -imag(XX(i,j,k)) - value);
-							if(soft==true){
-								XX(i,j,k) = complex<float>(newR,newI);
-							}else{
-								newR = (newR == 0.0) ? 0.0 : real(XX(i,j,k));
-								newI = (newI == 0.0) ? 0.0 : imag(XX(i,j,k));
-								XX(i,j,k) = complex<float>(newR,newI);
-							}
-
-
-						}
-
-				}}}
+			if(independent){
+				thresholding(XX, independent_thresholds(t,e) );
+			}else{
+				thresholding(XX, value);
+			}
 	}} 
-	// if(VERBOSE) cout << "Removed " << (float)((float)count/(float)Coef.numElements()) << " of the values" << endl;
 }
 
 
 // Option of thresh of appriximation wavelets or all wavelets, hard vs soft threshold
 void THRESHOLD::thresholding( Array< complex<float>,3> &XX, float value){
-
-	//if(VERBOSE) cout << "Determined thresh = " << value <<endl;
 
 	// Apply theshold       
 	int count = 0;
@@ -696,12 +691,12 @@ void THRESHOLD::thresholding( Array< complex<float>,3> &XX, float value){
 	int Nz = XX.length(thirdDim);
 		
 	// Get Update
+	
 	#pragma omp parallel for reduction(+:count)
 	for(int k=0; k< Nz; k++){
 		for(int j=0; j< Ny; j++){
 			for(int i=0; i< Nx; i++){
-				
-		
+
 				if (group_complex) {
 					float cc = abs(XX(i,j,k));
 					if( cc <= value ){
@@ -711,24 +706,32 @@ void THRESHOLD::thresholding( Array< complex<float>,3> &XX, float value){
 						XX(i,j,k) *= (1.0f - value/cc);
 					}
 				} else {
-					float newR = max(0.0f,real(XX(i,j,k)) - value) - max(0.0f, -real(XX(i,j,k)) - value);
-					float newI = max(0.0f,imag(XX(i,j,k)) - value) - max(0.0f, -imag(XX(i,j,k)) - value);
-					if(soft==true){
-						XX(i,j,k) = complex<float>(newR,newI);
+						
+					// Old Images
+					float oldR = real(XX(i,j,k));
+					float oldI = imaginary_scale*imag(XX(i,j,k));
+							
+					// Calculate real soft threshold
+					complex<float> newV;
+					if( abs(oldR) <= value ){
+						newV.real( 0.0 );
 					}else{
-						newR = (newR == 0.0) ? 0.0 : real(XX(i,j,k));
-						newI = (newI == 0.0) ? 0.0 : imag(XX(i,j,k));
-						XX(i,j,k) = complex<float>(newR,newI);
+						count++;
+						newV.real( oldR*(1.0f - value/abs(oldR)) );
 					}
+							
+					// Calculate imaginary soft thresh
+					if( abs(oldI) <= value ){
+						newV.imag( 0.0 );
+					}else{
+						count++;
+						newV.imag( oldI*(1.0f - value/abs(oldI))/imaginary_scale );
+					}
+					XX(i,j,k) = newV;
 				}
-				 
-			
-		
 	}}}
-	//if(VERBOSE) cout << "Removed " << (float)((float)count/(float)XX.numElements()) << " of the values" << endl;
+
 }
-
-
 
 
 void THRESHOLD::setThresholdMethod(int type) {
@@ -769,10 +772,6 @@ void THRESHOLD::fista_update(  Array<Array< complex<float>,3>,2>&X,Array<Array< 
 			for(int k=0; k< Nz; k++){
 				for(int j=0; j< Ny; j++){
 					for(int i=0; i< Nx; i++){
-						
-						// cout << "Pos = " << i << "," << j << "," << k << "," << t << "," << e << endl;
-	
-						
 						complex<float>Xn0 = XX_old(i,j,k);
 						complex<float>Xn1 = XX(i,j,k);
 						XX(i,j,k) = A*Xn1 + B*Xn0;

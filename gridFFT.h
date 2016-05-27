@@ -34,6 +34,7 @@ class gridFFT{
   		int grid_in_z;
   		
 		bool pruned_fft;
+		bool fast_fft_plan;
 		
 		// Grid Testing for Double 
 		int double_grid;

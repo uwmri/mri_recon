@@ -569,10 +569,18 @@ void smsEncode::set_image(  Array< Array< complex<float>, 3>,2>&X,  Array< compl
 }
 
 
+
 // -------------------------------------------------------
 //  This is the main function for Gridding.  Assumes data
 //  is already density compensated, etc.
 // -------------------------------------------------------
+void nested_workaround( long index, int *N,int *idx, int total){
+	long tempi = index;
+	for( int pos=0; pos < total; pos++){
+		idx[pos] = tempi % N[pos];
+		tempi = (tempi-idx[pos]) / N[pos];		
+	}
+}
 
 void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 					   Array< Array<float,3>,2>&kxA,\
@@ -595,42 +603,37 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 		
 	}
 
-	for( int sms_pos=0; sms_pos < sms_factor; sms_pos++){	
+	long total_images = Nt*Ne*sms_factor;
+	int *N = new int[3];
+	N[0] = Nt;
+	N[1] = Ne;
+	N[2] = sms_factor;
 	
-	float cz = Sz*0.5;
-	if( sms_factor ==2){
-		cz += ((float)sms_pos-0.5) * (float)sms_gap / (float)sms_factor;
-	}
-	
-	if(time_grid){
-		cout << "Sms Pos = " << sms_pos << "Cz = " << cz << endl;
-	}
-	
-	
-	for( int t=0; t < Nt; t++){
-	for( int e=0; e < Ne; e++){
-			
-		Array< complex<float>,3>dataA = data(t,e);
-		long Npts = dataA.numElements();
+	#pragma omp parallel for
+	for( int pos=0; pos < total_images; pos++){
 		
-		//long stride_x = 1;
-		long stride_y = dataA.length(firstDim);
-		long stride_z = dataA.length(secondDim);
+		// Get the actual position
+		int *I = new int[3];
+		nested_workaround(pos,N,I,3);
+		int t = I[0];
+		int e = I[1];
+		int sms_pos = I[2];
+		delete [] I;
 		
-		#pragma omp parallel for
-		for (long index=0; index < Npts; index++) {
-      			
-			// Nested parallelism workaround
-			int ii =   index % stride_y;
-			long tempi = (index-ii) / stride_y;
-			int jj =   tempi % stride_z;
-			int kk =  ( tempi - jj) / stride_z;
+		float cz = Sz*0.5;
+		if( sms_factor ==2){
+			cz += ((float)sms_pos-0.5) * (float)sms_gap / (float)sms_factor;
+		}
+		
+		for(int kk =0; kk < data(t,e).length(thirdDim); kk++){
+		for(int jj =0; jj < data(t,e).length(secondDim); jj++){
+		for(int ii =0; ii < data(t,e).length(firstDim); ii++){
 		
 			float kx = kxA(t,e)(ii,jj,kk);
 			float ky = kyA(t,e)(ii,jj,kk);
 			float kz = kzA(t,e)(ii,jj,kk)/(float)sms_factor;
 			float kw = kwA(t,e)(ii,jj,kk);
-			complex<float>temp =dataA(ii,jj,kk);
+			complex<float>temp =data(t,e)(ii,jj,kk);
 				
 			// Density Comp
 			temp *= kw;
@@ -726,18 +729,16 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 						#pragma omp atomic
 						*I+=ID;
 																	
-					/*This Memory Access is the Bottleneck - Also not thread safe!*/	 			 
-			 		// k3d_grid.vals[lz][ly][lx]+=temp2;
 					}/* end lz loop */
 	  	 		}/* end ly */
 		 	}/* end lx */
-		}/* end data loop */
+	
+		}}} // Data Loop
 	
 	
-	}/*Time*/
-	}/*Encode*/
-	}/*Sms Factor*/
+	}/* Time , Encode, Sms Factor */
 	
+	delete [] N;
 	return;
 }
 
@@ -755,10 +756,23 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 	float cx = Sx/2;
 	float cy = Sy/2;
 	
-	for( int t=0; t < Nt; t++){
-	for( int e=0; e < Ne; e++){
-	for( int sms_pos=0; sms_pos < sms_factor; sms_pos++){	
+	long total_images = Nt*Ne*sms_factor;
+	int *N = new int[3];
+	N[0] = Nt;
+	N[1] = Ne;
+	N[2] = sms_factor;
 	
+	#pragma omp parallel for
+	for( int pos=0; pos < total_images; pos++){
+		
+		// Get the actual position
+		int *I = new int[3];
+		nested_workaround(pos,N,I,3);
+		int t = I[0];
+		int e = I[1];
+		int sms_pos = I[2];
+		delete [] I;
+		
 		float cz = Sz*0.5;
 		if( sms_factor ==2){
 			cz += ((float)sms_pos-0.5) * (float)sms_gap / (float)sms_factor;
@@ -767,27 +781,14 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 		Array< complex<float>,3>dataA = data(t,e);
 		long Npts = dataA.numElements();
 		
-		//long stride_x = 1;
-		long stride_y = dataA.length(firstDim);
-		long stride_z = dataA.length(secondDim);
-	
-		#pragma omp parallel for
-		for (long index=0; index < Npts; index++) {
-      			
-			// Nested parallelism workaround
-			int ii =   index % stride_y;
-			long tempi = (index-ii) / stride_y;
-			int jj =   tempi % stride_z;
-			int kk =  ( tempi - jj) / stride_z;
+		for(int kk =0; kk < data(t,e).length(thirdDim); kk++){
+		for(int jj =0; jj < data(t,e).length(secondDim); jj++){
+		for(int ii =0; ii < data(t,e).length(firstDim); ii++){
 		
 			float kx = kxA(t,e)(ii,jj,kk);
 			float ky = kyA(t,e)(ii,jj,kk);
 			float kz = kzA(t,e)(ii,jj,kk)/(float)sms_factor;;
 			float kw = kwA(t,e)(ii,jj,kk);
-			
-			if(sms_pos==0){
-				dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-			}
 	
 			// Do not grid zeros
      		if( kw==0) continue;
@@ -840,12 +841,13 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 			complex<float>temp(0.0,0.0);
 			/*This is the main loop - most time is spent here*/
 			for(int lz =sz; lz<=ez; lz++){
-    			float delz = fabs(grid_modZ*(dkz -(float)lz));
+    			
+				float delz = fabs(grid_modZ*(dkz -(float)lz));
 				float dz = delz - (float)((int)delz);
-			float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
-			if(!grid_in_z){
-				wtz =1.0;
-			}
+				float wtz = grid_filterZ((int)delz)*( 1.0-dz) + grid_filterZ((int)delz +1)*dz;
+				if(!grid_in_z){
+					wtz =1.0;
+				}
 			
 			for(int ly =sy; ly<=ey; ly++){
         		
@@ -873,13 +875,10 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 		 }/* end lx */
 		 temp *= polar<float>(1.0,-sms_slice_phase*sms_pos); 
 		 dataA(ii,jj,kk) += temp;
-	}/* end data loop */
+	}}}/* end data loop */
 
-	
-	}/*Time*/
-	}/*Encode*/
-	}/*Sms Factor*/
-
+		
+	}
 
 	return;
 }	

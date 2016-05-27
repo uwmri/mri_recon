@@ -76,6 +76,12 @@ void RECON::set_defaults( void){
 	wavelet_levelsY=4; 
 	wavelet_levelsZ=4;
 	
+	// Code to rotate
+	phase_rotation = false;
+	phase_rotation_sX = 20;
+	phase_rotation_sY = 20;
+	phase_rotation_sZ = 20;
+		
 	pregate_data_flag = false;
 	
 	dcf_type = SUPPLIED;
@@ -278,6 +284,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-blurX",blurX);
 		float_flag("-blurY",blurY);
 		float_flag("-blurZ",blurZ);
+		trig_flag(true,"-phase_rotation",phase_rotation);
 						
 		// Coil Combination		
 		trig_flag(ESPIRIT,"-espirit",coil_combine_type);
@@ -592,6 +599,63 @@ void RECON::pregate_data( MRI_DATA &data){
 }	
 
 
+
+void vor_dcf2(Array< Array<float,3 >,2 >&Kw,Array< Array<float,3 >,2 > &Ky,Array< Array<float,3 >,2 > &Kz){
+	
+	
+	// Get total number of points
+	int total_points = Kz.numElements()*Kz(0,0).length(secondDim)*Kz(0,0).length(thirdDim);
+	
+	cout << "Redoing with new DCF" << endl;
+	Array< float, 3> ky(total_points,1,1,ColumnMajorArray<3>());
+	Array< float, 3> kz(total_points,1,1,ColumnMajorArray<3>());
+	Array< float, 3> kx(total_points,1,1,ColumnMajorArray<3>());
+	kx = 1.0;
+	Array< float, 3> kw(total_points,1,1,ColumnMajorArray<3>());	
+	
+	cout << "Copy points " << endl;
+	int count =0;
+	for( int e=0; e < Ky.length(firstDim); e++){
+		for( int t=0; t < Ky.length(secondDim); t++){
+			
+			
+			for(int jj = 0; jj < Ky(e,t).length(secondDim); jj++){
+				for(int kk = 0; kk < Ky(e,t).length(thirdDim); kk++){
+			
+					ky(count,0,0) = Ky(e,t)(0,jj,kk);
+					kz(count,0,0) = Kz(e,t)(0,jj,kk);
+					count++;
+			}}
+		}
+	}
+	
+	cout << "Compute Vor" << endl;
+	VORONOI_DCF::vor_dcf( kw,ky,kz,kx,VORONOI_DCF::CUBE);	
+	
+	ArrayWrite(kz,"NEW_Kz.dat");
+	ArrayWrite(ky,"NEW_Ky.dat");
+	ArrayWrite(kw,"NEW_Kw.dat");
+	
+	count =0;
+	for( int e=0; e < Ky.length(firstDim); e++){
+		for( int t=0; t < Ky.length(secondDim); t++){
+			
+			
+			for(int jj = 0; jj < Ky(e,t).length(secondDim); jj++){
+				for(int kk = 0; kk < Ky(e,t).length(thirdDim); kk++){
+					
+					for(int ii=0; ii< Ky(e,t).length(firstDim); ii++){
+						Kw(e,t)(ii,jj,kk) = kw(count,0,0);
+					}
+					count++;
+			}}
+		}
+	}
+
+
+}
+
+
 Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, char **argv){
 
 	int flex = 1;
@@ -639,7 +703,8 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 			}
 		}
 	}
-		
+	
+			
 	// Allocate Sensiticty Maps
 	Array< Array< complex<float>, 3>,1> temp =  Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,Ncoils);
 	smaps.reference(temp);
@@ -668,10 +733,13 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 				}
 			}
 		}
+		
+		vor_dcf2(CalKw,CalKy,CalKz);
 				
 		/* This is just to get sensitivty maps*/
 		smsEncode smsCgrid;
 		smsCgrid.read_commandline(argc,argv);
+		smsCgrid.sms_factor = 1;
 		smsCgrid.precalc_gridding(rczres,rcyres,rcxres,cal_frames,cal_encodes,zres,data.trajectory_dims,data.trajectory_type);
 		smsCgrid.sms_factor = 1;
 	
@@ -745,7 +813,7 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 				for(int coil = 0; coil < Ncoils; coil++){
 					smaps(coil) = scale*image_store(cal_encodes-1,coil);
 				}
-				//sos_normalize(smaps);
+				sos_normalize(smaps);
 			}
 		}
 	
@@ -870,6 +938,8 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 			complex<double>scale_RhP(0.0,0.0);
 			complex<double>scale_RhR(0.0,0.0);
 			
+			
+			cout << "Calc Scales" << endl;
 			for( int t=0; t< rcframes; t++){
 				for(int e =0; e< sms_encodes; e++){
 				
@@ -1264,7 +1334,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  // ---------------------------------
 						 
 						  iteration_timer.tic();
-						  lrankcoil.update_threshold( XX,2);
+						  lrankcoil.update_threshold( XX,2, iteration);
 						  cout << "Get thresh took " << iteration_timer << " s" << endl;
 						  
 						  iteration_timer.tic();
@@ -1812,7 +1882,18 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 																  								  
 								  // Temporal weighting 
 								  if(reset_dens){
-								    TimeWeight = 1.0;								  
+								    TimeWeight = 1.0;
+									Array< float,3>::iterator titer=TimeWeight.begin();
+									Array< float,3>::iterator kiter=data.kw(e).begin();
+									for( ; (titer!=TimeWeight.end()) && (kiter!=data.kw(e).end()); titer++,kiter++){
+										if( (*kiter) < 0.1 ){
+											*titer = *kiter;
+										}else{
+										
+										}	*titer = 0.1;
+									} 
+																	
+																	  
 									gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    								  }else if(pregate_data_flag){
 					 				TimeWeight.reference( data.kw(e) );
@@ -1883,8 +1964,6 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  
 						  // Error check
 						  if(iteration==0){
-							  l2reg.set_scale( (float)abs(scale_RhR), X);
-							  cout << "L2 Scale = " << l2reg.reg_scale << endl;
 							  error0 = abs(scale_RhR);
 						  }
 						  cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR)/error0) << " % )  " << endl;
@@ -1917,13 +1996,13 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  export_slice( X(0,0), "X_mag.dat");
 						  
 						  if(lranktime.clear_alpha_time > 0.0){
-						  	lranktime.update_threshold(X,0);
+						  	lranktime.update_threshold(X,0,iteration);
 						  	lranktime.thresh(X,0);
 						  	export_slice( X(0,0), "X_mag.dat");
 						  }
 						  
 						  if(lranktime.clear_alpha_encode > 0.0){
-						  	lranktime.update_threshold(X,1);
+						  	lranktime.update_threshold(X,1,iteration);
 						  	lranktime.thresh(X,1);
 						  	export_slice( X(0,0), "X_mag.dat");
 						  }
@@ -2077,7 +2156,68 @@ void RECON::transform_in_time( Array< Array< complex<float>,3>, 2>&X, TransformD
 
 
 void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
-
+	
+	// Use a matrix to rotate into low resolution phase
+	Array<complex<float>,3>Phase(rcxres,rcyres,rczres, ColumnMajorArray<3>());
+	if(phase_rotation){
+		cout << "Rotating to zero phase plane" << endl;
+		Phase = complex<float>(0.0,0.0);
+		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+			Phase += (*miter);
+		}
+		
+		// FFT to K-Space
+		ifft(Phase);		
+		
+		// Set Values to zero
+		int cx = rcxres /2;
+		int cy = rcyres /2;
+		int cz = rczres /2;
+		
+		// Calc windows
+		Array< float,1> Wx(Phase.length(firstDim));
+		for( int i=0; i< Phase.length(firstDim); i++){
+			float rx = abs( i - cx);
+			Wx(i) = 1./( 1.0 + exp( (rx - phase_rotation_sX ) / 6));
+		}
+		
+		
+		Array< float,1> Wy(Phase.length(secondDim));
+		for( int i=0; i< Phase.length(secondDim); i++){
+			float ry = abs( i - cy);
+			Wy(i) = 1./( 1.0 + exp( (ry - phase_rotation_sY ) / 6));
+		}
+				
+		Array< float,1> Wz(Phase.length(thirdDim));
+		for( int i=0; i< Phase.length(thirdDim); i++){
+			float rz = abs( i - cz);
+			Wz(i) = 1./( 1.0 + exp( (rz - phase_rotation_sZ ) / 6));
+		}
+					
+		
+		for(int k=0; k < Phase.length(thirdDim); k++){
+		for(int j=0; j < Phase.length(secondDim); j++){
+		for(int i=0; i < Phase.length(firstDim); i++){
+			Phase(i,j,k) *= (Wx(i)*Wy(j)*Wz(k));
+		}}}
+		
+		// FFT Back
+		fft(Phase);
+		
+		// Normalize
+		for(int k=0; k < Phase.length(thirdDim); k++){
+		for(int j=0; j < Phase.length(secondDim); j++){
+		for(int i=0; i < Phase.length(firstDim); i++){
+			Phase(i,j,k) /= abs( Phase(i,j,k));
+		}}}
+		
+		ArrayWritePhase(Phase,"PhaseCorr.dat");
+		
+		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+			*miter *= conj(Phase);
+		}
+	}
+	
 	int actual_cycle_spins=cycle_spins;
 	if(cs_spatial_transform != WAVELET){
 		actual_cycle_spins = 1;
@@ -2114,7 +2254,13 @@ void RECON::L1_threshold( Array< Array< complex<float>,3>, 2>&X){
 	transform_in_time( X , BACKWARD);
 	transform_in_encode( X, BACKWARD);
 
-
+	// Use a matrix to rotate into low resolution phase
+	if(phase_rotation){
+		cout << "Rotating to non-zero phase plane" << endl;
+		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
+			*miter *= Phase;
+		}
+	}
 }
 
 inline float sqr ( float x){ return(x*x);}
@@ -2252,30 +2398,22 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				}break;
 		
 				case(LOWRES):{ // E-spirit Code 
+					
 					// Sos Normalization 
 					cout << "Normalize Coils" << endl;
 					#pragma omp parallel for 
 					for(int k=0; k<smaps(0).length(thirdDim); k++){
 					for(int j=0; j<smaps(0).length(secondDim); j++){
 					for(int i=0; i<smaps(0).length(firstDim); i++){
-						
-						float sos=0.0;
-						for(int e=0; e< smap_num_encodes;e++){
-							for(int coil=0; coil< data.Num_Coils; coil++){
-								sos+= norm(image_store(e,coil)(i,j,k));
-							}
-						}	
-						
-						sos = 1./sqrtf(sos);
 						for(int coil=0; coil< data.Num_Coils; coil++){
-							
 							complex<float>s(0.0,0.0);
 							for(int e=0; e< smap_num_encodes;e++){
 								s += image_store(e,coil)(i,j,k);
 							}
-							smaps(coil)(i,j,k) = s*sos;
+							smaps(coil)(i,j,k) = s;
 						}
 					}}}
+					sos_normalize(smaps);
 					
 				}break;
 			} // Normalization
@@ -2340,23 +2478,65 @@ void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 	}
 	IC = sqrt(IC);
 	float max_IC = max(IC);
-	float smap_thresh = 0.001;
+	float smap_thresh = 0.05;
 	cout << "Max IC = " << max_IC << endl;
 	cout << "Thresh of " << max_IC*smap_thresh << endl;
+	ArrayWrite(IC,"Avg.dat");
 	
-	for(int coil=0; coil< A.length(firstDim); coil++){
-				
-	#pragma omp parallel for 
+	// Create a binary mask
+	Array<int,3>MASK(rcxres,rcyres,rczres, ColumnMajorArray<3>());
+	MASK = 0;
 	for(int k=0; k<A(0).length(thirdDim); k++){
 		for(int j=0; j<A(0).length(secondDim); j++){
 			for(int i=0; i<A(0).length(firstDim); i++){
-						
-					if( IC(i,j,k) < smap_thresh*max_IC ){
-						A(coil)(i,j,k) = 0.0;
-					}else{
-						A(coil)(i,j,k) /= IC(i,j,k);
-					}
+				if( IC(i,j,k) < smap_thresh*max_IC ){
+					MASK(i,j,k) = 0.0;
+				}else{
+					MASK(i,j,k) = 1.0;
+				}
 	}}}
+	ArrayWrite(MASK,"PreFill.dat");
+	
+	// Try to remove the holes
+	for(int k=0; k< MASK.length(thirdDim); k++){
+		for(int i=0; i< MASK.length(firstDim); i++){
+			
+			int leading_edge= -1;
+			for(int j=0; j < MASK.length(secondDim);  j++){
+				if( MASK(i,j,k) > 0 ){
+					leading_edge = j;
+					break;
+				}
+			}
+						
+			int trailing_edge= -1;
+			for(int j=MASK.length(secondDim)-1; j>=0; j--){
+				if( MASK(i,j,k) > 0 ){
+					trailing_edge = j;
+					break;
+				}
+			}
+			
+			if( leading_edge > -1){
+				for(int j=leading_edge; j <= trailing_edge; j++){
+					MASK(i,j,k) = 1;
+				}
+			}
+	}}
+	ArrayWrite(MASK,"PostFill.dat");
+	
+	
+	for(int coil=0; coil< A.length(firstDim); coil++){
+		#pragma omp parallel for 
+		for(int k=0; k<A(0).length(thirdDim); k++){
+			for(int j=0; j<A(0).length(secondDim); j++){
+				for(int i=0; i<A(0).length(firstDim); i++){
+					if( MASK(i,j,k) > 0){
+						A(coil)(i,j,k) /= IC(i,j,k);
+					}else{
+						A(coil)(i,j,k) = complex<float>(0.0,0.0);
+					}
+		}}}
 	}
 }
 

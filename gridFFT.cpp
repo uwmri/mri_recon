@@ -56,7 +56,7 @@ gridFFT::gridFFT(){
 	
 	sms_flag = 0;
 	sms_factor =2;
-
+	fast_fft_plan = false;
 }
 
 //----------------------------------------
@@ -118,13 +118,22 @@ void gridFFT::plan_fft( void ){
 	}	
 	
 	cout << "Test" << endl;
+	
 	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(k3d_grid.data());
 		
 	cout << " Planning FFT " << endl << flush; 
-	fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
+	if( fast_fft_plan ){
+		fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
+	}else{
+		fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
+	}
 	
 	cout << " Planning Inverse FFT" << endl << flush;
-	ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
+	if( fast_fft_plan ){
+		ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
+	}else{
+		ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
+	}
 		
 	/*In case New Knowledge Was Gained*/	
 	if( (fid2 = fopen(fft_name.c_str(), "w")) == NULL){
@@ -1078,7 +1087,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 			kr+=(kz*kz);
 		}
 		temp *= exp( -kr / (2.0*k_rad*k_rad) );
-
+		
 		/*This is the main loop - most time is spent here*/
 		for(int lz =sz; lz<=ez; lz++){
     			float delz = fabs(grid_modZ*(dkz -(float)lz));

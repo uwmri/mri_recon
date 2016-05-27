@@ -18,7 +18,7 @@ class LOWRANKCOIL {
 	
 	//Shift Blocks to block imprinting
 	int block_iter;
-			
+	
 	// Max Singular Value
 	float smax;
 		
@@ -26,6 +26,9 @@ class LOWRANKCOIL {
 	float clear_alpha_coil;
 	float clear_alpha_time;
 	float clear_alpha_encode;
+	
+	float clear_amp;
+	float clear_t2;
 	
 	bool clear_normalized;
 		
@@ -39,9 +42,9 @@ class LOWRANKCOIL {
 	LOWRANKCOIL();
     LOWRANKCOIL(int numarg, char **pstring);
 	
-	void update_threshold( NDarray::Array< NDarray::Array<complex<float>,3>, 2 > &, int);
+	void update_threshold( NDarray::Array< NDarray::Array<complex<float>,3>, 2 > &, int,int);
     void thresh( NDarray::Array< NDarray::Array<complex<float>,3>, 2 > &image,int);
-    void update_threshold( NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &, int);
+    void update_threshold( NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &, int,int);
     void thresh( NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &image,int);
     	
 	void combine( NDarray::Array< NDarray::Array<complex<float>,3>, 3 > &image, NDarray::Array< NDarray::Array<complex<float>,3>, 2 > &out);

@@ -27,10 +27,14 @@ class THRESHOLD{
         bool temporal;
         double thresh;
 		bool group_complex;
+		float imaginary_scale; 
         int waveL;
 		bool VERBOSE;
         float global_threshold;
         NDarray::Array<float,5> subband_threshold;
+		
+		NDarray::Array<float,2> independent_thresholds; 
+		bool independent; 
 		
 		float noise;
 		float noise_scale;

@@ -39,6 +39,9 @@ LOWRANKCOIL::LOWRANKCOIL(){
   debug =0;
   smax = 1.0;
   clear_normalized =false;
+  
+  clear_amp=4;
+  clear_t2=6;
 }
   
 
@@ -56,7 +59,9 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
   debug =0;
   smax = 1.0;
   clear_normalized =true;
-  
+  clear_amp=4;
+  clear_t2=6;
+
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
@@ -85,7 +90,7 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
 //-----------------------------------------------------
 
 
-void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, int dim){
+void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, int dim, int iter){
 		
 	// Shorthand
 	int Nt =image.extent(firstDim);
@@ -199,7 +204,9 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 			
 	}// Block (threaded)
 	
-	smax = max(sblocks);
+	float amp_scale = ( 1 + clear_amp*exp( -((float)iter)/clear_t2));
+	smax = max(sblocks) * amp_scale;
+	cout << "Amp scale " << amp_scale << endl;
 	cout << "Max singular value is " << max(sblocks) << endl;
 	cout << "Median singular value is" << smax << endl;
 }
@@ -210,7 +217,7 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 //
 //  Just estimate the max singular value over the matrix  
 //-----------------------------------------------------
-void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, int dim){
+void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, int dim, int iter){
 		
 	// Shorthand
 	int Nt =image.extent(firstDim);
@@ -310,8 +317,10 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, i
 		sblocks(block) = s(0);
 		
 	}// Block (threaded)
-	
-	smax = max(sblocks);
+
+	float amp_scale = ( 1 + clear_amp*exp( -((float)iter)/clear_t2));
+	smax = max(sblocks) * amp_scale;
+	cout << "Amp scale " << amp_scale << endl;
 	cout << "Max singular value is " << max(sblocks) << endl;
 	cout << "Median singular value is" << smax << endl;
 }
@@ -448,8 +457,8 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 			arma::vec s;
   			arma::svd_econ(U,s,V,A);
 			
-			for(int pos =0; pos< N; pos++){
-				s(pos)= max( s(pos) - clear_alpha/block_iter, 0.0);
+			for(vec::iterator miter=s.begin(); miter!=s.end(); miter++){ 
+				(*miter) =  max( (*miter) - clear_alpha/block_iter, 0.0);
 			}
 														
 			// Reconstruct 
@@ -642,8 +651,12 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, int dim){
 			vec s;
   			arma::svd(UU[thread],s,VV[thread],AA[thread]);
 			
+			for(vec::iterator miter=s.begin(); miter!=s.end(); miter++){ 
+				(*miter) =  max( (*miter) - clear_alpha/block_iter, 0.0);
+			}
+			
 			for(int pos =0; pos< min(N,Np); pos++){
-				SS[thread](pos,pos)=   max( s(pos) - clear_alpha/block_iter, 0.0 );
+				SS[thread](pos,pos)=   s(pos);
 			}
 															
 			// Reconstruct 

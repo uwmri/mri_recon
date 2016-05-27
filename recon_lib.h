@@ -84,7 +84,12 @@ class RECON{
   	  
 	  int rc_frame_start;
 	  
-  		
+	  // Code to rotate into low resolution images
+	  bool phase_rotation;
+  	  int phase_rotation_sX;
+	  int phase_rotation_sY;
+	  int phase_rotation_sZ;
+	  		
   	  // Gridding operators
 	  gridFFT gridding;
 	  
