@@ -36,20 +36,20 @@ GATING::GATING( int numarg, char **pstring) {
         wdth_low  = 1;
         wdth_high = 4;
         
-		vs_type = NONE;
-        tornado_shape = VIPR; // Kr^2 shape
-		kmax = 128; // TEMP
-		gate_type = GATE_NONE;;
+	vs_type = NONE;
+	tornado_shape = VIPR; // Kr^2 shape
+	kmax = 128; // TEMP
+	gate_type = GATE_NONE;;
 		
-		// Respiratory Efficiency
-		correct_resp_drift = 0;
-		resp_gate_efficiency = 0.5;
+	// Respiratory Efficiency
+	correct_resp_drift = 0;
+	resp_gate_efficiency = 0.5;
         resp_gate_type = RESP_NONE;
-		resp_gate_signal = BELLOWS;
+	resp_gate_signal = BELLOWS;
 		
-		resp_sign = 1.0;
+	resp_sign = 1.0;
 
-		// Catch command line switches
+// Catch command line switches
 #define trig_flag(num,name,val)   }else if(strcmp(name,pstring[pos]) == 0){ val = num; 
 #define float_flag(name,val)  }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atof(pstring[pos]); 
 #define int_flag(name,val)    }else if(strcmp(name,pstring[pos]) == 0){ pos++; val = atoi(pstring[pos]);
@@ -110,13 +110,12 @@ GATING::GATING( int numarg, char **pstring) {
 					exit(1);
 				}	
 				
-				int_flag("-vs_wdth_low",wdth_low);
-            	int_flag("-vs_wdth_high",wdth_high);
-     			trig_flag(1,"-correct_resp_drift",correct_resp_drift);
-				float_flag("-resp_gate_efficiency",resp_gate_efficiency);
-				float_flag("-resp_sign",resp_sign);
-				// trig_flag(1,"-external_weights",external_weights);
-				// char_flag("-external_weights_file",external_weights_filename);
+			int_flag("-vs_wdth_low",wdth_low);
+			int_flag("-vs_wdth_high",wdth_high);
+			trig_flag(1,"-correct_resp_drift",correct_resp_drift);
+			float_flag("-resp_gate_efficiency",resp_gate_efficiency);
+			float_flag("-resp_sign",resp_sign);
+			
 			}
 	}
 
@@ -126,58 +125,47 @@ GATING::GATING( int numarg, char **pstring) {
 		cout << "Using (fuzzy) weight based respiratory gating" << endl;
 	}
 
-/* KMJ This should be in wrapper
-	if ((external_weights == 1) && (strcmp("",external_weights_filename) == 0)) {
-		cout << "No external fuzzy weight file specified.  Specify with '-external_weights_file []' option (-h for usage)" << endl;
-		exit(1);
-	}
-*/
-
 }
 
 void GATING::help_message() {
-        cout << "----------------------------------------------" << endl;
-        cout << "   View Sharing Control " << endl;
-        cout << "----------------------------------------------" << endl;
-        cout << "Usage:" << endl;
-        help_flag("-viewshare_type []","view sharing method tornado/none/hist (defult=none)");
-		help_flag("","  tornado = variable width filter in kr");
-		help_flag("","  none = images at equal time intervals, no sharing between frames");
-		help_flag("","  hist = images with equal data points");
+	cout << "----------------------------------------------" << endl;
+	cout << "   View Sharing Control " << endl;
+	cout << "----------------------------------------------" << endl;
+	cout << "Usage:" << endl;
+	help_flag("-viewshare_type []","view sharing method tornado/none/hist (defult=none)");
+	help_flag("","  tornado = variable width filter in kr");
+	help_flag("","  none = images at equal time intervals, no sharing between frames");
+	help_flag("","  hist = images with equal data points");
 		
-		help_flag("-gating_type []","how to gate images");
-		help_flag("","  resp = respiratory phases");
-		help_flag("","  ecg = gate by cardiac");
-		help_flag("","  retro_ecg = retrospective gate by cardiac");
-		help_flag("","  time = bin by acquisition time");
-		help_flag("","  prep = bin by time from prep pulses");
+	help_flag("-gating_type []","how to gate images");
+	help_flag("","  resp = respiratory phases");
+	help_flag("","  ecg = gate by cardiac");
+	help_flag("","  retro_ecg = retrospective gate by cardiac");
+	help_flag("","  time = bin by acquisition time");
+	help_flag("","  prep = bin by time from prep pulses");
 		
-		help_flag("-resp_gate []","In addition to other gating, perform respiratory gating");
-		help_flag("","  thresh = threshold values");
-		help_flag("","  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
+	help_flag("-resp_gate []","In addition to other gating, perform respiratory gating");
+	help_flag("","  thresh = threshold values");
+	help_flag("","  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
 
-		help_flag("-resp_gate_signal","Specify source for the data used to estimate respiratory phase");
-		help_flag("","  bellows = signal from respiratory bellows belt in gating file (default)");
-		help_flag("","  internal = use dc/low spatial frequency information extracted from acquired data");
+	help_flag("-resp_gate_signal","Specify source for the data used to estimate respiratory phase");
+	help_flag("","  bellows = signal from respiratory bellows belt in gating file (default)");
+	help_flag("","  internal = use dc/low spatial frequency information extracted from acquired data");
 				
-		cout << "Filter parameters for tornado:" << endl;
-        help_flag("-vs_wdth_low []","width in the center of k-space in frames");
-        help_flag("-vs_wdth_high []","width in the periphery of k-space in frames");
-        help_flag("-vs_vipr_tornado","3D radial tornado (default)");
-		help_flag("-vs_radial_tornado","2D radial tornado");
-		
-		cout << "Control for Resp Data" << endl;
-		help_flag("-correct_resp_drift","Median filter with 10s interval");
-		help_flag("-resp_gate_efficiency","Fraction of data to accept");
-		help_flag("-adaptive_resp_window","Length of window to use for thresholding");
-		
-		cout << "Control for ECG Data" << endl;
-		help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
-		
-//		cout << "Control for external fuzzy weighting file (more generic functionality similar to '-resp_gate weight' option above)" << endl;
-//		help_flag("-external_weights","Read fuzzy weights from external file");
-//		help_flag("-external_weights_file []","Specify path to file with fuzzy weights (see Johnson et. al MRM 67(6):1600");
-		
+	cout << "Filter parameters for tornado:" << endl;
+	help_flag("-vs_wdth_low []","width in the center of k-space in frames");
+	help_flag("-vs_wdth_high []","width in the periphery of k-space in frames");
+	help_flag("-vs_vipr_tornado","3D radial tornado (default)");
+	help_flag("-vs_radial_tornado","2D radial tornado");
+	
+	cout << "Control for Resp Data" << endl;
+	help_flag("-correct_resp_drift","Median filter with 10s interval");
+	help_flag("-resp_gate_efficiency","Fraction of data to accept");
+	help_flag("-adaptive_resp_window","Length of window to use for thresholding");
+	
+	cout << "Control for ECG Data" << endl;
+	help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
+	
 }
 
 
@@ -272,12 +260,11 @@ NDarray::Array< complex<float>,3> GATING::combine_kspace_channels(  const NDarra
 	cout << "Combining k-space gating data" << endl;
 
 	int Num_Channels = kdata_gating.length(firstDim)*kdata_gating.length(fifthDim);
-    int Num_Times    = kdata_gating.numElements() / Num_Channels;
+	int Num_Times    = kdata_gating.numElements() / Num_Channels;
 	
 	arma::cx_fmat full_data;
   	full_data.zeros(Num_Times,Num_Channels);
-  	
-
+ 
 	cout << "Collect Data" << endl;
   	int channel=0;
   	for(int coil=0; coil< kdata_gating.length(fifthDim); coil++){
@@ -307,7 +294,7 @@ NDarray::Array< complex<float>,3> GATING::combine_kspace_channels(  const NDarra
   	full_data = full_data*VV;
   
   	cout << "Copy Back" << endl;
-  	Array< complex<float>,3>combined_kdata(kdata_gating.length(secondDim),kdata_gating.length(thirdDim),kdata_gating.length(fourthDim),ColumnMajorArray<3>() );
+  	Array<complex<float>,3>combined_kdata(kdata_gating.length(secondDim),kdata_gating.length(thirdDim),kdata_gating.length(fourthDim),ColumnMajorArray<3>() );
   	int pos = 0;
   	for(int k=0; k< kdata_gating.length(fourthDim); k++){
   	for(int j=0; j< kdata_gating.length(thirdDim); j++){
@@ -536,14 +523,14 @@ void GATING::init_resp_gating( const MRI_DATA& data , int *frames){
 			  double med_resp = temp2( (int)( (double)temp2.n_elem*( 1.0- resp_gate_efficiency/2.0 )));
 			  double sigma = temp2(temp2.n_elem-1) - temp2((int)((double)temp2.n_elem*(1.0 - resp_gate_efficiency )));
 				 
-        	for(int i=0; i< (int)time_linear_resp.n_elem; i++){
+			for(int i=0; i< (int)time_linear_resp.n_elem; i++){
 				  arma_resp_weight(idx(i))= ( 1.0 / (abs(med_resp - time_linear_resp(i)) + sigma));
 				  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
 			}
 			time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
 			arma_resp_weight.save("Weight.txt",arma::raw_ascii);
 
-            // Copy Back
+			// Copy Back
 			count = 0;
 			for(int e=0; e< resp_weight.length(thirdDim); e++){
 			  	for(int slice=0; slice< resp_weight.length(secondDim); slice++){
@@ -840,12 +827,12 @@ void GATING::tornado_weight(Array<float,3>&Tw, int e, const Array<float,3> &kx, 
 		
 		double wdth = 0.5*(  (wdth_high - wdth_low)*pow(kr/kmax,k_power) + wdth_low);
 		if(w_type == ITERATIVE){
-			Tw(i,j,k) *= ( t_diff < wdth)? ( 1.0) : ( 0.0); // Don't Divide
+			Tw(i,j,k) *= ( t_diff < wdth)? ( 1.0) : ( 0.0); // Don't Divide (i.e. perform density compensation)
 		}else{
 			Tw(i,j,k) *= ( t_diff < wdth)? ( 1./wdth) : ( 0.0);
 		}
 				
 	}}}
-	ArrayWrite(Tw,"TimeWeight.dat");
+	// ArrayWrite(Tw,"TimeWeight.dat");
 }
 

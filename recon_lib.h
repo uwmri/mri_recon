@@ -112,6 +112,7 @@ class RECON{
 	  float compress_coils;
 	  bool whiten;
 	  float smap_res;
+	  float smap_thresh;
 	  bool intensity_correction;
 	  char filename[1024];
 	  int cycle_spins;

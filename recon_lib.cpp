@@ -53,6 +53,7 @@ void RECON::set_defaults( void){
 	max_iter = 50;
 	smap_use_all_encodes = false;
 	smap_nex_encodes = false;
+	smap_thresh = 0.0;
 	
 	cycle_spins = 4;
 
@@ -2465,6 +2466,29 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 
 void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 
+	if(smap_thresh==0.0){
+		
+		#pragma omp parallel for 
+		for(int k=0; k<A(0).length(thirdDim); k++){
+			for(int j=0; j<A(0).length(secondDim); j++){
+				for(int i=0; i<A(0).length(firstDim); i++){
+					
+					// The sum of squares
+					float sos = 0.0;				
+					for(int coil=0; coil< A.length(firstDim); coil++){
+						sos +=  norm(A(coil)(i,j,k));
+					}
+					sos = sqrt(sos);
+					
+					// Normalize
+					for(int coil=0; coil< A.length(firstDim); coil++){
+						A(coil)(i,j,k) /= sos;
+					}
+		}}} // x,y,z
+	
+	}else{
+	
+	// Get the threshold
 	Array<float,3>IC(rcxres,rcyres,rczres, ColumnMajorArray<3>());
 	IC = 0.0;
 	for(int coil=0; coil< A.length(firstDim); coil++){
@@ -2478,11 +2502,9 @@ void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 	}
 	IC = sqrt(IC);
 	float max_IC = max(IC);
-	float smap_thresh = 0.05;
 	cout << "Max IC = " << max_IC << endl;
 	cout << "Thresh of " << max_IC*smap_thresh << endl;
-	ArrayWrite(IC,"Avg.dat");
-	
+			
 	// Create a binary mask
 	Array<int,3>MASK(rcxres,rcyres,rczres, ColumnMajorArray<3>());
 	MASK = 0;
@@ -2495,7 +2517,7 @@ void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 					MASK(i,j,k) = 1.0;
 				}
 	}}}
-	ArrayWrite(MASK,"PreFill.dat");
+	//ArrayWrite(MASK,"PreFill.dat");
 	
 	// Try to remove the holes
 	for(int k=0; k< MASK.length(thirdDim); k++){
@@ -2523,9 +2545,9 @@ void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 				}
 			}
 	}}
-	ArrayWrite(MASK,"PostFill.dat");
+	//ArrayWrite(MASK,"PostFill.dat");
 	
-	
+	// Now normalize
 	for(int coil=0; coil< A.length(firstDim); coil++){
 		#pragma omp parallel for 
 		for(int k=0; k<A(0).length(thirdDim); k++){
@@ -2537,6 +2559,8 @@ void RECON::sos_normalize( Array< Array<complex<float>,3>,1>&A){
 						A(coil)(i,j,k) = complex<float>(0.0,0.0);
 					}
 		}}}
+	}
+	
 	}
 }
 

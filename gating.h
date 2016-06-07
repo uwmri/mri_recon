@@ -26,7 +26,7 @@ class GATING {
         
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
-        enum WeightType { ITERATIVE,NON_ITERATIVE};
+		enum WeightType { ITERATIVE,NON_ITERATIVE};
 		enum FrameType { COMPOSITE, TIME_FRAME};
 		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
@@ -39,7 +39,7 @@ class GATING {
 		void init_time_resolved(const MRI_DATA &data,int *);
 		
 		// Tornado Filter Parameters
-        int wdth_low;	// k=0 width
+		int wdth_low;	// k=0 width
 		int wdth_high; 	// k=kmax width
 		float kmax;
 		TornadoType tornado_shape; // kr^2 vs kr                         
@@ -71,7 +71,7 @@ class GATING {
 		
 		// Function Calls		
 		static void help_message(void);
-        void weight_data(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3>&kz,int t,WeightType, FrameType );
+		void weight_data(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3>&kz,int t,WeightType, FrameType );
 		float temporal_resolution(void);
 	   	void hist_weight( NDarray::Array<float,3>&Tw, int e, int t);
 		void tornado_weight(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);
