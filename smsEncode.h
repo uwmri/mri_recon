@@ -51,12 +51,9 @@ class smsEncode{
 		float grid_scale_y;
 		float grid_scale_z;
 		
-		bool sms_flag;
-		int sms_factor;
 		float sms_slice_phase;
-		float sms_gap;
-		float sms_scale;
-				
+		int sms_factor;
+						
 		// arma::matrix Size
 		int Nx;
 		int Ny;
@@ -90,6 +87,9 @@ class smsEncode{
   		NDarray::Array<float,1> grid_filterY;
   		NDarray::Array<float,1> grid_filterZ;
   		
+		NDarray::Array<float,1> z_position;
+  		
+		
 		// FFT
   		fftwf_plan fft_plan;
 		fftwf_plan ifft_plan;
@@ -114,7 +114,8 @@ class smsEncode{
 					  NDarray::Array< NDarray::Array<float,3>,2>&kx,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&ky,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&kz,\
-					  NDarray::Array< NDarray::Array<float,3>,2>&kw);
+					  NDarray::Array< NDarray::Array<float,3>,2>&kw,\
+					  NDarray::Array< NDarray::Array<float,3>,3>&z);
 		
 		void backward(NDarray::Array< NDarray::Array<complex<float>,3>,2>&X,\
 					  NDarray::Array< complex<float>,3>&smap,\
@@ -122,7 +123,8 @@ class smsEncode{
 					  NDarray::Array< NDarray::Array<float,3>,2>&kx,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&ky,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&kz,\
-					  NDarray::Array< NDarray::Array<float,3>,2>&kw);
+					  NDarray::Array< NDarray::Array<float,3>,2>&kw,\
+					  NDarray::Array< NDarray::Array<float,3>,3>&z);
 					   
 					   
 		// For accumulating images
@@ -135,14 +137,15 @@ class smsEncode{
 					  NDarray::Array< NDarray::Array<float,3>,2>&kx,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&ky,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&kz,\
-					  NDarray::Array< NDarray::Array<float,3>,2>&kw);
-		
+					  NDarray::Array< NDarray::Array<float,3>,2>&kw,\
+					  NDarray::Array< NDarray::Array<float,3>,3>&z);
+					  
 		void chop_grid_backward( NDarray::Array< NDarray::Array<complex<float>,3>,2>&data,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&kx,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&ky,\
 					  NDarray::Array< NDarray::Array<float,3>,2>&kz,\
-					  NDarray::Array< NDarray::Array<float,3>,2>&kw);
-		
+					  NDarray::Array< NDarray::Array<float,3>,2>&kw,\
+					  NDarray::Array< NDarray::Array<float,3>,3>&z);
 				
 		static float bessi0(float);
 		static void loadKernelTable(NDarray::Array<float,1> & out);

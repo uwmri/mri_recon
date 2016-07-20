@@ -12,6 +12,7 @@
 #include <omp.h>
 
 // External Libraries
+#define ARMA_FAKE_GCC
 #include <armadillo>
 
 // Local Libraries
@@ -74,6 +75,8 @@ class RECON{
 	  float zoom_x;
 	  float zoom_y;
 	  float zoom_z;
+	  
+	  int threads;
 	  
 	  // Reconstructed Images
 	  int rcxres;
@@ -148,7 +151,7 @@ class RECON{
 	  bool prep_done;
 	  bool pregate_data_flag;
 	  
-	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >  test_sms( MRI_DATA& data, int numarg, char **pstring);
+	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 >  test_sms( MRI_DATA&,MRI_DATA&,int numarg,char **pstring);
 	  
 	  RECON(void); 	  
 	  RECON(int numarg, char **pstring); 

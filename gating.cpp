@@ -245,7 +245,7 @@ void GATING::filter_resp(  const MRI_DATA &data ){
 }
 void GATING::init( const MRI_DATA& data,int *frames){
 	
-	init_resp_gating(data,frames);
+	init_resp_gating(data);
 	init_time_resolved(data,frames);
 }
 
@@ -308,7 +308,7 @@ NDarray::Array< complex<float>,3> GATING::combine_kspace_channels(  const NDarra
 	
 
 
-void GATING::init_resp_gating( const MRI_DATA& data , int *frames){
+void GATING::init_resp_gating( const MRI_DATA& data ){
 	
 	cout << "Initializing Respiratory Gating" << endl;
 	if (resp_gate_type != RESP_NONE) {

@@ -12,6 +12,9 @@ int main(int argc, char **argv){
 	// Initialize Recon - reading the command line
 	// ------------------------------------
 	RECON recon(argc,argv);
+	if(	recon.threads != -1){
+		omp_set_num_threads( recon.threads );
+	}
 		
 	// ------------------------------------
 	// Read Data - 
@@ -34,8 +37,7 @@ int main(int argc, char **argv){
 		
 		case(RECON::PSF):{
 			// Use external Kx,Ky,Kz 
-			data.parse_external_header(recon.filename);
-			data.read_external_data("./",0);
+			data.read_external_data(recon.filename);
 			for(Array< Array<complex<float>,3>,2>::iterator miter=data.kdata.begin(); miter!=data.kdata.end(); miter++){
 				*miter = complex<float>(1.0,0.0);
 			}
@@ -43,8 +45,7 @@ int main(int argc, char **argv){
 		
 		case(RECON::PHANTOM):{
 			// Use external Kx,Ky,Kz 
-			data.parse_external_header(recon.filename);
-			data.read_external_data("./",0);
+			data.read_external_data(recon.filename);
 			for(Array< Array<complex<float>,3>,2>::iterator miter=data.kdata.begin(); miter!=data.kdata.end(); miter++){
 				*miter = complex<float>(0.0,0.0);
 			}
@@ -120,20 +121,11 @@ int main(int argc, char **argv){
 		default:
 		case(RECON::EXTERNAL):{
 			// Read in External Data Format
-			data.parse_external_header(recon.filename);
-			data.read_external_data("./",1);
+			data.read_external_data(recon.filename);
+			data.scale_fov(recon.zoom_x,recon.zoom_y,recon.zoom_z);
 		}break;
 	}
 
-	cout << "----Geometry Modification-----" << endl;	
-	
-	// Geometry Modification by Recon
-	for(int e =0; e< data.Num_Encodings; e++){ 
-		data.kx(e) *= ((float)(1.0/recon.zoom_x));
-		data.ky(e) *= ((float)(1.0/recon.zoom_y));
-		data.kz(e) *= ((float)(1.0/recon.zoom_z));
-	}
-	
 	if (recon.acc > 1){
 		data.undersample(recon.acc);
 	}

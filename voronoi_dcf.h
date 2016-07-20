@@ -10,6 +10,7 @@
 #include <cstring>
 #include <complex>
 #include <omp.h>
+#define ARMA_FAKE_GCC
 #include <armadillo>
 #include "ArrayTemplates.hpp"
 

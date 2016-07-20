@@ -45,13 +45,10 @@ smsEncode::smsEncode(){
 	time_grid =0 ;
 	double_grid =0;
 	
-	sms_flag = 0;
 	sms_factor =2;
 	sms_slice_phase = 0.0;
-	sms_gap = -1;
-	sms_scale = 1.0;
 	sms_fwhm = 2.0;
-
+	
 }
 
 //----------------------------------------
@@ -127,9 +124,7 @@ void smsEncode::read_commandline(int numarg, char **pstring){
 		int_flag("-fft_in_x",fft_in_x);
 		int_flag("-fft_in_y",fft_in_y);
 		
-		int_flag("-sms_factor",sms_factor);		
 		float_flag("-sms_slice_phase",sms_slice_phase);		
-		float_flag("-sms_gap",sms_gap);
 				
 		trig_flag(KAISER_KERNEL,"-kaiser",kernel_type);
 		trig_flag(TRIANGLE_KERNEL,"-triangle",kernel_type);
@@ -293,17 +288,15 @@ void smsEncode::precalc_kernel(void){
 }
 
 
-void smsEncode::precalc_gridding(int NzT,int NyT,int NxT, int NtT, int NeT, float sms_gapT,TrajDim trajectory_dims, TrajType trajectory_type ){
+void smsEncode::precalc_gridding(int NzT,int NyT,int NxT, int NtT, int NeT, float sms_factorT,TrajDim trajectory_dims, TrajType trajectory_type ){
   
   Nx = NxT;
   Ny = NyT;
   Nz = NzT;
   Ne = NeT;
   Nt = NtT;
-  sms_gap = sms_gapT;
+  sms_factor = sms_factorT;
   
-  cout << "SMS Gap = " << sms_gap << endl;
-        
   // ---------------------------------------------
   // Determine what needs to be grid
   // ---------------------------------------------
@@ -464,7 +457,8 @@ void smsEncode::forward( Array<Array<complex<float>,3>,2>&xdf,\
 					    Array< Array<float,3>,2>&kx,\
 					    Array< Array<float,3>,2>&ky,\
 					    Array< Array<float,3>,2>&kz,\
-					    Array< Array<float,3>,2>&kw){
+					    Array< Array<float,3>,2>&kw,\
+						Array< Array<float,3>,3>&z){
 	
 	
 	tictoc T;
@@ -476,7 +470,7 @@ void smsEncode::forward( Array<Array<complex<float>,3>,2>&xdf,\
 	if(time_grid) cout << "Forward::zero:" << T << flush;
 	
 	if(time_grid) T.tic(); 
-	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
+	chop_grid_forward(data,kx,ky,kz,kw,z); // Grid data to K-Space
 	if(time_grid)cout << ",grid:"<< T << flush;
 	
 	if(time_grid) T.tic(); 
@@ -505,7 +499,8 @@ void smsEncode::backward( Array<Array<complex<float>,3>,2>&X,\
 					   Array< Array<float,3>,2>&kx,\
 					   Array< Array<float,3>,2>&ky,\
 					   Array< Array<float,3>,2>&kz,\
-					   Array< Array<float,3>,2>&kw){
+					   Array< Array<float,3>,2>&kw,\
+					   Array< Array<float,3>,3>&z){
 	
 	tictoc T;
 	
@@ -525,7 +520,7 @@ void smsEncode::backward( Array<Array<complex<float>,3>,2>&X,\
 	if(time_grid)cout << ",ifft:"<< T << flush;
 	
 	if(time_grid) T.tic(); 
-	chop_grid_backward(data,kx,ky,kz,kw);
+	chop_grid_backward(data,kx,ky,kz,kw,z);
 	if(time_grid)cout << ",igrid:"<< T << endl << flush;
 	
 }
@@ -546,7 +541,7 @@ void smsEncode::accumulate( Array< Array< complex<float>, 3>,2>&X,  Array< compl
 	  			float wty = winy(j+og_sy);
 	  			for(int i=0; i<Nx; i++){
 					float wt = wty*winx(i+og_sx);
-					X(t,e)(i,j,k) += sms_scale*wt*k3d_grid(t,e)(i+og_sx,j+og_sy,k)*conj(smap(i,j,k));
+					X(t,e)(i,j,k) += wt*k3d_grid(t,e)(i+og_sx,j+og_sy,k)*conj(smap(i,j,k));
 		}}}
 	}}
 }
@@ -563,7 +558,7 @@ void smsEncode::set_image(  Array< Array< complex<float>, 3>,2>&X,  Array< compl
 	  			float wty = winy(j+og_sy);
 				for(int i=0; i<Nx; i++){
 					float wt = wty*winx(i+og_sx);
-					k3d_grid(t,e)(i+og_sx,j+og_sy,k)= sms_scale*wt*X(t,e)(i,j,k)*smap(i,j,k);
+					k3d_grid(t,e)(i+og_sx,j+og_sy,k)= wt*X(t,e)(i,j,k)*smap(i,j,k);
 		}}}
 	}}
 }
@@ -586,7 +581,8 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 					   Array< Array<float,3>,2>&kxA,\
 					   Array< Array<float,3>,2>&kyA,\
 					   Array< Array<float,3>,2>&kzA,\
-					   Array< Array<float,3>,2>&kwA){
+					   Array< Array<float,3>,2>&kwA,\
+					   Array< Array<float,3>,3>&zA){
 
 	
 	float cx = Sx/2;
@@ -596,13 +592,14 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 		cout << "Range Kx = " << min(kxA(0)) << " to " << max(kxA(0)) << endl;
 		cout << "Range Ky = " << min(kyA(0)) << " to " << max(kyA(0)) << endl;
 		cout << "Range Kz = " << min(kzA(0)) << " to " << max(kzA(0)) << endl;
+		cout << "Range Z =  " << min(zA(0)) << " to " << max(zA(0)) << endl;
 		cout << "Range Kw = " << min(kwA(0)) << " to " << max(kwA(0)) << endl;
 		cout << "Max Kdata = " << max(abs(data(0))) << endl;
 		cout << "Encodes = " << Ne << endl;
 		cout << "Nt =      " << Nt << endl;
-		
 	}
 
+	
 	long total_images = Nt*Ne*sms_factor;
 	int *N = new int[3];
 	N[0] = Nt;
@@ -621,9 +618,6 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 		delete [] I;
 		
 		float cz = Sz*0.5;
-		if( sms_factor ==2){
-			cz += ((float)sms_pos-0.5) * (float)sms_gap / (float)sms_factor;
-		}
 		
 		for(int kk =0; kk < data(t,e).length(thirdDim); kk++){
 		for(int jj =0; jj < data(t,e).length(secondDim); jj++){
@@ -631,7 +625,8 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 		
 			float kx = kxA(t,e)(ii,jj,kk);
 			float ky = kyA(t,e)(ii,jj,kk);
-			float kz = kzA(t,e)(ii,jj,kk)/(float)sms_factor;
+			float kz = kzA(t,e)(ii,jj,kk);
+			float zz = zA(t,e,sms_pos)(ii,jj,kk);
 			float kw = kwA(t,e)(ii,jj,kk);
 			complex<float>temp =data(t,e)(ii,jj,kk);
 				
@@ -647,7 +642,7 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 			// dimension flag->grid* kspace that this point (i,j)
 			// is contributing too.
 	   		
-			// Compute Coordinates + Check
+			// X position
 			float dkx = kx*grid_x + cx;
 			int sx;
 			int ex;
@@ -661,6 +656,7 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 			if(sx >= Sx) continue;
 			if(ex < 0) continue;  
 				
+			// Y position	
 			float dky = ky*grid_y + cy;
 			int sy;
 			int ey;
@@ -674,8 +670,8 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 			if(sy >= Sy) continue;
 			if(ey < 0) continue;  
 			
-		
-			float dkz = kz + cz;
+			// Z position
+			float dkz = zz + cz;
 			int sz;
 			int ez;
 			if(grid_in_z){
@@ -689,7 +685,7 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 			if(ez < 0) continue;  
 			
 			
-			/*This is the main loop - most time is spent here*/
+			// Now loop to put in the data
 			for(int lz =sz; lz<=ez; lz++){
     			float delz = fabs(grid_modZ*(dkz -(float)lz));
 				float dz = delz - (float)((int)delz);
@@ -698,11 +694,14 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 					wtz =1.0;
 				}
 			
+				// Combined Kz - z phase
+				complex<float> Cwtz = polar<float>(wtz,-2.0*PI*zz*kz);
+							
 				for(int ly =sy; ly<=ey; ly++){
         		
 					float dely = fabs(grid_modY*(dky -(float)ly));
 					float dy = dely - (float)((int)dely);
-					float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
+					complex<float> wty = Cwtz*((float)( grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy ));
 			 		if(fft_in_y){
 						wty *=( (float)(2*(ly%2) -1 ));
 					}
@@ -710,7 +709,7 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 					for(int lx =sx; lx<=ex; lx++){
 			 			float delx = fabs(grid_modX*(dkx -(float)lx));
 			 			float dx = delx - (float)((int)delx);
-						float wtx =wty*(  grid_filterX( (int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
+						complex<float> wtx = wty*((float)(  grid_filterX( (int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx ));
 			 		
 						if(fft_in_x){
 							wtx *=( (float)(2*(lx%2) -1 ));
@@ -750,7 +749,8 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 					   Array< Array<float,3>,2>&kxA,\
 					   Array< Array<float,3>,2>&kyA,\
 					   Array< Array<float,3>,2>&kzA,\
-					   Array< Array<float,3>,2>&kwA){
+					   Array< Array<float,3>,2>&kwA,\
+					   Array< Array<float,3>,3>&zA){
 
 
 	float cx = Sx/2;
@@ -774,12 +774,8 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 		delete [] I;
 		
 		float cz = Sz*0.5;
-		if( sms_factor ==2){
-			cz += ((float)sms_pos-0.5) * (float)sms_gap / (float)sms_factor;
-		}
-		
+				
 		Array< complex<float>,3>dataA = data(t,e);
-		long Npts = dataA.numElements();
 		
 		for(int kk =0; kk < data(t,e).length(thirdDim); kk++){
 		for(int jj =0; jj < data(t,e).length(secondDim); jj++){
@@ -787,9 +783,10 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 		
 			float kx = kxA(t,e)(ii,jj,kk);
 			float ky = kyA(t,e)(ii,jj,kk);
-			float kz = kzA(t,e)(ii,jj,kk)/(float)sms_factor;;
+			float kz = kzA(t,e)(ii,jj,kk);
+			float zz = zA(t,e,sms_pos)(ii,jj,kk);
 			float kw = kwA(t,e)(ii,jj,kk);
-	
+			
 			// Do not grid zeros
      		if( kw==0) continue;
 		
@@ -825,7 +822,7 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 			if(ey < 0) continue;  
 			
 		
-			float dkz = kz + cz;
+			float dkz = zz + cz;
 			int sz;
 			int ez;
 			if(grid_in_z){
@@ -848,38 +845,42 @@ void smsEncode::chop_grid_backward( Array< Array<complex<float>,3>,2>&data,\
 				if(!grid_in_z){
 					wtz =1.0;
 				}
+				
+				complex<float> Cwtz = polar<float>(wtz,2*PI*kz*zz);
 			
-			for(int ly =sy; ly<=ey; ly++){
+				for(int ly =sy; ly<=ey; ly++){
         		
-				float dely = fabs(grid_modY*(dky -(float)ly));
-				float dy = dely - (float)((int)dely);
-				float wty =wtz*(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy );
-			 	if(fft_in_y){
-					wty *=( (float)(2*(ly%2) -1 ));
-				}
-				 
-				for(int lx =sx; lx<=ex; lx++){
-			 		float delx = fabs(grid_modX*(dkx -(float)lx));
-			 		float dx = delx - (float)((int)delx);
-					float wtx =wty*(  grid_filterX( (int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx );
-			 		
-					if(fft_in_x){
-						wtx *=( (float)(2*(lx%2) -1 ));
+					float dely = fabs(grid_modY*(dky -(float)ly));
+					float dy = dely - (float)((int)dely);
+					complex<float> wty = Cwtz*((float)(  grid_filterY((int)dely)*( 1.0-dy) + grid_filterY((int)dely +1)*dy ));
+			 		if(fft_in_y){
+						wty *=( (float)(2*(ly%2) -1 ));
 					}
+				 	
+					for(int lx =sx; lx<=ex; lx++){
+			 			float delx = fabs(grid_modX*(dkx -(float)lx));
+			 			float dx = delx - (float)((int)delx);
+						complex<float> wtx =wty*((float)(  grid_filterX( (int)delx)*( 1.0-dx) + grid_filterX((int)delx +1)*dx ));
+			 		
+						if(fft_in_x){
+							wtx *=( (float)(2*(lx%2) -1 ));
+						}
 										
-					temp += wtx*k3d_grid(t+sms_pos,e)(lx,ly,lz);
+						temp += wtx*k3d_grid(t+sms_pos,e)(lx,ly,lz);
 					
 										
-				}/* end lz loop */
-	  	 	}/* end ly */
-		 }/* end lx */
-		 temp *= polar<float>(1.0,-sms_slice_phase*sms_pos); 
-		 dataA(ii,jj,kk) += temp;
-	}}}/* end data loop */
+					}/* end lx loop */
+	  	 		}/* end ly */
+		 	}/* end lx */
+		 	temp *= polar<float>(1.0,-sms_slice_phase*sms_pos); 
+		 	dataA(ii,jj,kk) += temp;
+		}}}/* end data loop */
 
 		
-	}
+	}// Nested loop
 
+	delete [] N;
+	
 	return;
 }	
 	

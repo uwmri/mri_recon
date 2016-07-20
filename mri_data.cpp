@@ -36,25 +36,47 @@ void MRI_DATA::dump_stats(const string name, const Array< Array<complex<float>,3
 	cout << "\tRange = " << low << " to " << high << endl;
 }
 
+void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z){
+	
+	if( (scale_x ==1.0) && (scale_y==1.0) && (scale_z==1.0) ){
+		return;
+	}
+	
+	cout << "Scaling the fov by" << scale_x << "," << scale_y << "," << scale_z << endl;
+	
+	// Multiply kspace by inverse
+	for( Array< Array<float,3>,1>::iterator miter=kx.begin();   miter !=kx.end(); miter++){
+		(*miter) *= ( 1./scale_x);
+	}
+
+	for( Array< Array<float,3>,1>::iterator miter=ky.begin();   miter !=ky.end(); miter++){
+		(*miter) *= ( 1./scale_y);
+	}
+	
+	for( Array< Array<float,3>,1>::iterator miter=kz.begin();   miter !=kz.end(); miter++){
+		(*miter) *= ( 1./scale_z);
+	}
+		
+	// Multiple image by scale
+	zfov *= scale_z;
+	yfov *= scale_y;
+	xfov *= scale_x;
+	
+	if( sms_type == SMSon){
+		for( Array< Array<float,3>,2>::iterator miter=z.begin();   miter !=z.end(); miter++){
+			(*miter) *= scale_z;
+		}
+	}
+
+}
 
 MRI_DATA MRI_DATA::subframe( int eStart, int eStop, int eStride ){
 
 	MRI_DATA data2;
+	data2.clone_attributes(*this);
 	
 	// Copy info
 	data2.Num_Encodings = floor( ( 1 + eStop - eStart)/eStride);
-	data2.Num_Readouts = this->Num_Readouts;
-	data2.Num_Slices = this->Num_Slices;
-	data2.Num_Pts = this->Num_Pts;
-	data2.Num_Coils = this->Num_Coils;
-	
-	data2.xres = this->xres;
-	data2.yres = this->yres;
-	data2.zres = this->zres;
-	
-	data2.trajectory_dims = this->trajectory_dims;
-	data2.trajectory_type = this->trajectory_type;
-	
 	data2.init_memory();
 	
 	int count = 0;
@@ -65,7 +87,15 @@ MRI_DATA MRI_DATA::subframe( int eStart, int eStop, int eStride ){
 		data2.kz(count) = this->kz(ee);
 		data2.kw(count) = this->kw(ee);
 		data2.kt(count) = this->kt(ee);
+		
+		// SMS need z positions
+		if(data2.sms_type == SMSon){
+			for(int sms_pos=0; sms_pos < sms_factor; sms_pos++){
+				data2.z(sms_pos,count) = this->z(sms_pos,ee);
+			}
+		}
 			
+		// Copy the data	
 		for( int coil=0; coil< data2.Num_Coils; coil++){
 			data2.kdata(count,coil) = this->kdata(ee,coil);
 		}
@@ -76,9 +106,7 @@ MRI_DATA MRI_DATA::subframe( int eStart, int eStop, int eStride ){
 }
 
 void MRI_DATA::stats(void){
-	
 
-	
 	if( kx.numElements()==0){
 		cout << "Kspace does not exist" << endl;
 	}else{
@@ -107,64 +135,37 @@ void MRI_DATA::stats(void){
 
 }
 
-
-
-//--------------------------------------------------
-//  Read external header
-//--------------------------------------------------
-
-void MRI_DATA::parse_external_header(const char *filename){
-	
-	char parameter[1024];
-	char cvalue[1024];
-	float value;
-	FILE *fid;
-	char line[1024];
-	
-	cout << "Reading External Header: " << endl;
-	
-	fid = fopen(filename,"r");
-	while( fgets(line, sizeof(line),fid) != NULL ) {
-    	// Float Reads
-		if(sscanf(line,"%s\t%f",parameter,&value) < 2){
-		}else if(strcmp("acq_bw",parameter) == 0){ 
-		}else if(strcmp("xres",parameter) == 0){  Num_Pts = (int)value;
-		}else if(strcmp("numrecv",parameter) == 0){ Num_Coils = (int)value;
-		}else if(strcmp("slices",parameter) == 0){ Num_Slices = (int)value;
-		}else if(strcmp("2d_flag",parameter) == 0){ 
-			if( (int)value ==1){
-				trajectory_dims = TWOD;
-			}else{
-				trajectory_dims = THREED;
-			}		
-		}else if(strcmp("nproj",parameter) == 0){  Num_Readouts = (int)value;
-		}else if(strcmp("rcxres",parameter) == 0){ 
-			xres = (int)value;
-		}else if(strcmp("rcyres",parameter) == 0){ 
-			yres = (int)value;
-		}else if(strcmp("rczres",parameter) == 0){ 
-			zres = (int)value;
-		}else if(strcmp("num_encodes",parameter) == 0){ 
-			Num_Encodings = (int)value;
-		}
-		
-		// Text Reads
-		if(sscanf(line,"%s\t%s",parameter,cvalue) < 2){
-		}else if(strcmp("gate_name",parameter) == 0){ 
-			strcpy(gate_name,cvalue);
-			printf("Gate name = %s\n",gate_name);
-		}
-	}
-	fclose(fid);
-}
-
-
 // Data for Whitening
 void MRI_DATA::init_noise_samples(int total_samples){
 	noise_samples.setStorage( ColumnMajorArray<2>());
 	noise_samples.resize(total_samples,Num_Coils);
 	noise_samples = complex<float>(0,0);
 }
+
+void MRI_DATA::clone_attributes( MRI_DATA &data){
+
+	Num_Encodings= data.Num_Encodings;;
+	Num_Readouts=data.Num_Readouts;
+	Num_Slices=data.Num_Slices;
+	Num_Pts= data.Num_Pts;
+	Num_Coils=data.Num_Coils;
+	
+	trajectory_dims=data.trajectory_dims;
+	trajectory_type=data.trajectory_type;
+	
+	xres = data.xres;
+	yres = data.yres;
+	zres = data.zres;
+	tres = data.tres;
+	
+	sms_factor = data.sms_factor;
+	sms_type = data.sms_type;
+	
+	zfov = data.xfov;
+	yfov = data.yfov;
+	zfov = data.zfov;
+}
+
 
 
 // Constructer for MRI data type
@@ -190,10 +191,14 @@ void MRI_DATA::init_memory(void){
 	}
 
 	{
+		Array< Array< float,3>,2> temp = Alloc5DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings,sms_factor);
+		z.reference(temp);
+	}
+
+	{
 		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
 		kw.reference(temp);
 	}
-	
 	
 	{
 		Array< Array< float,3>,1> temp = Alloc4DContainer<float>(Num_Pts,Num_Readouts,Num_Slices,Num_Encodings);
@@ -235,127 +240,13 @@ MRI_DATA::MRI_DATA( void){
 	Num_Slices =  1; 
 	trajectory_dims = THREED;
 	trajectory_type = THREEDNONCARTESIAN;
+	sms_type = SMSoff;
+	sms_factor = 1;
 }
-
-
 
 //---------------------------------------------------
 //    This function allocates and reads all data into memory
 //---------------------------------------------------
-
-void MRI_DATA::read_external_data( const char *folder, int read_kdata){
-
-	FILE *fid;
-	char fname[1024];
-	
-	cout << "Data size= " << Num_Coils << " coils x " << Num_Encodings << " encodings x "<< Num_Slices<< " slices x "<<  Num_Readouts << " readouts x" << Num_Pts << " pts" << endl;
-	init_memory();
-		
-	cout << "Read  Kx " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKMAPX_VD_%d.dat",folder,e);
-			if( (fid=fopen(fname,"r")) == NULL){
-				cout << "Can't Open " << fname << endl;
-				cout << "Exiting" << endl;
-				exit(1);
-			}else{	
-				ArrayRead(kx(e),fname);
-				fclose(fid);
-			}
-	}
-		
-	cout << "Read  Ky " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKMAPY_VD_%d.dat",folder,e);
-			if( (fid=fopen(fname,"r")) == NULL){
-				cout << "Can't Open " << fname << endl;
-				cout << "Exiting" << endl;
-				exit(1);
-			}else{	
-				ArrayRead(ky(e),fname);
-				fclose(fid);
-			}
-	}
-
-	cout << "Read  Kz " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKMAPZ_VD_%d.dat",folder,e);
-			if( (fid=fopen(fname,"r")) == NULL){
-				cout << "Can't Open " << fname << endl;
-				cout << "Assume 2D" << endl;
-			}else{	
-				ArrayRead(kz(e),fname);
-				fclose(fid);
-			}
-	}
-	
-	cout << "Read  Kw " << endl;
-	for(int e=0; e<Num_Encodings; e++){
-			sprintf(fname,"%sKWEIGHT_VD_%d.dat",folder,e);
-			if( (fid=fopen(fname,"r")) == NULL){
-				cout << "Can't Open " << fname << endl;
-				cout << "Trying Other Name" << endl;
-				sprintf(fname,"%sKWEIGHT.dat",folder);
-				if((fid=fopen(fname,"r")) == NULL){	
-					cout << "Can't Open " << fname << " either " << endl;
-					exit(1);
-				}
-			}
-			
-			if(fid!=NULL){
-				cout << "Read Kw "  << endl;
-				ArrayRead(kw(e),fname);
-				fclose(fid);
-			}
-	}
-	cout << "Completed Reading Kspace Sampling" << endl;
-	
-	// Now Read Physiologic Data
-	MRI_DATA::load_pcvipr_gating_file(gate_name); // TEMP	
-	
-	
-	cout << "Reading Kdata" << endl;
-	if(read_kdata==1){
-	
-	for(int c=0; c<Num_Coils;c++){
-		cout << "Reading CoilL: " << c << endl;
-		for(int e=0; e<Num_Encodings; e++){
-		
-			while(1==1){
-			 
-			sprintf(fname,"%sKDATA_C%02d_VD_%d.dat",folder,c,e);
-			if( (fid=fopen(fname,"r")) != NULL){
-				cout << "\tUsing name " << fname << endl;
-				break;
-			}
-			
-			sprintf(fname,"%sKDATA_C%02d_V%02d.dat",folder,c,e);
-			if( (fid=fopen(fname,"r")) != NULL){
-				cout << "\tUsing name " << fname << endl;
-				break;
-			}
-			
-			sprintf(fname,"%sKDATA_C%02d.dat",folder,c);
-			if( (fid=fopen(fname,"r")) != NULL){
-				cout << "\tUsing name " << fname << endl;
-				break;
-			}
-			
-			cout << "Can't Open " << fname << " or other forms " << endl;
-			exit(1);
-			
-			}
-			
-			Array< complex<float>,3>kdataC= kdata(e,c);
-			if(fid!=NULL){	
-				ArrayRead(kdataC,fname);
-				fclose(fid);
-			}
-	}}
-	
-	}// Read Kdata 
-}
-
 
 void MRI_DATA::demod_kdata( float demod){
 	for(int c=0; c<Num_Coils;c++){
@@ -368,8 +259,6 @@ void MRI_DATA::demod_kdata( float demod){
 				}}
 	}}}
 }
-
-
 
 //---------------------------------------------------
 //  Temporary Function to Write Data ( will be replaced by ismrmd ) 
@@ -428,6 +317,15 @@ void MRI_DATA::write_external_data( const char *fname){
 			file.AddH5Array( "Kdata",s.c_str(),kz(encode));	
 		}		
 	
+		if(sms_type == SMSon){
+			for( int sms_pos=0; sms_pos < sms_factor; sms_pos++){
+				stringstream ss;
+  				ss << "Z_E" << encode << "_S" << sms_pos;	
+				string s = ss.str();
+				file.AddH5Array( "Kdata",s.c_str(),z(encode,sms_pos));
+			}	
+		}
+	
 		{
 			stringstream ss;
   			ss << "KW_E" << encode;	
@@ -452,10 +350,12 @@ void MRI_DATA::write_external_data( const char *fname){
 	}
 	
 	// Gating
-	file.AddH5Array( "Gating","ecg",ecg);	
-	file.AddH5Array( "Gating","resp",resp);	
-	file.AddH5Array( "Gating","prep",prep);	
-	file.AddH5Array( "Gating","time",time);	
+	if(ecg.numElements() != 0){
+		file.AddH5Array( "Gating","ecg",ecg);	
+		file.AddH5Array( "Gating","resp",resp);	
+		file.AddH5Array( "Gating","prep",prep);	
+		file.AddH5Array( "Gating","time",time);	
+	}
 	
 	if(kdata_gating.numElements() != 0){
 		file.AddH5Array( "Gating","kdata_gating",kdata_gating);	
@@ -466,16 +366,34 @@ void MRI_DATA::read_external_data( const char *fname){
 		
 	HDF5 file = HDF5(fname,"r");
 	
+	cout << "Reading External File " << fname  << endl;
 	
+	// Read atrributes common to all
+	file.ReadH5Scaler("Kdata","Num_Encodings",&Num_Encodings);
+	file.ReadH5Scaler("Kdata","Num_Readouts",&Num_Readouts);
+	file.ReadH5Scaler("Kdata","Num_Slices",&Num_Slices);
+	file.ReadH5Scaler("Kdata","Num_Pts",&Num_Pts);
+	file.ReadH5Scaler("Kdata","Num_Coils",&Num_Coils);
 	
+	init_memory():
+		
+	// 2D/3D Cartesian/Non-Cartesian
+	int temp1;
+	file.ReadH5Scaler("Kdata","trajectory_dims",&temp1);
+	trajectory_dims = static_cast<TrajDim>(temp1);
 	
+	file.ReadH5Scaler("Kdata","trajectory_type",&temp1);
+	trajectory_type = static_cast<TrajType>(temp1);
+		
 	for(int encode = 0; encode < kdata.length(firstDim); encode++){
-	
+		
+		cout << "Importing " << encode << endl;
+		
 		{
 			stringstream ss;
   			ss << "KT_E" << encode;	
 			string s = ss.str();
-			file.AddH5Array( "Kdata",s.c_str(),kt(encode));	
+			file.ReadH5Array( "Kdata", s, kt(encode));	
 		}
 		
 	
@@ -483,28 +401,37 @@ void MRI_DATA::read_external_data( const char *fname){
 			stringstream ss;
   			ss << "KX_E" << encode;	
 			string s = ss.str();
-			file.AddH5Array( "Kdata",s.c_str(),kx(encode));	
+			file.ReadH5Array( "Kdata",s, kx(encode));	
 		}	
 				
 		{
 			stringstream ss;
   			ss << "KY_E" << encode;	
 			string s = ss.str();
-			file.AddH5Array( "Kdata",s.c_str(),ky(encode));	
+			file.ReadH5Array( "Kdata",s, ky(encode));	
 		}	
 			
 		{
 			stringstream ss;
   			ss << "KZ_E" << encode;	
 			string s = ss.str();
-			file.AddH5Array( "Kdata",s.c_str(),kz(encode));	
+			file.ReadH5Array( "Kdata",s, kz(encode));	
 		}		
+	
+		if(sms_type == SMSon){
+			for( int sms_pos=0; sms_pos < sms_factor; sms_pos++){
+				stringstream ss;
+  				ss << "Z_E" << encode << "_S" << sms_pos;	
+				string s = ss.str();
+				file.ReadH5Array( "Kdata",s,z(encode,sms_pos));
+			}	
+		}
 	
 		{
 			stringstream ss;
   			ss << "KW_E" << encode;	
 			string s = ss.str();
-			file.AddH5Array( "Kdata",s.c_str(),kw(encode));	
+			file.ReadH5Array( "Kdata",s,kw(encode));	
 		}	
 	
 		for(int coil = 0; coil < kdata.length(secondDim); coil++){
@@ -512,26 +439,23 @@ void MRI_DATA::read_external_data( const char *fname){
 				stringstream ss;
   				ss << "KData_E" << encode << "_C" << coil;	
 				string s = ss.str();
-				file.AddH5Array( "Kdata",s.c_str(),kdata(encode,coil));	
+				file.ReadH5Array( "Kdata",s, kdata(encode,coil));	
 			}	
 			
 		}
 	}
 	
 	// Noise Samples
-	if( noise_samples.numElements()!=0){
-		file.AddH5Array( "Kdata","Noise",noise_samples);	
-	}
+	file.ReadH5Array( "Kdata","Noise",noise_samples);	
 	
 	// Gating
-	file.AddH5Array( "Gating","ecg",ecg);	
-	file.AddH5Array( "Gating","resp",resp);	
-	file.AddH5Array( "Gating","prep",prep);	
-	file.AddH5Array( "Gating","time",time);	
+	file.ReadH5Array( "Gating","ecg",ecg);	
+	file.ReadH5Array( "Gating","resp",resp);	
+	file.ReadH5Array( "Gating","prep",prep);	
+	file.ReadH5Array( "Gating","time",time);	
 	
-	if(kdata_gating.numElements() != 0){
-		file.AddH5Array( "Gating","kdata_gating",kdata_gating);	
-	}
+	file.ReadH5Array( "Gating","kdata_gating",kdata_gating);	
+	
 }
 
 /** Undersample the data by deleting argument 'us' readouts
@@ -547,49 +471,47 @@ void MRI_DATA::undersample(int us){
   	printf("Retrospectively undersampling by: %d (%d -> %d)\n", us, Num_Readouts, Num_Readouts/us); 
     
   	int Num_Readouts_us = Num_Readouts/us;
-  	Array<float,3>temp_us(Num_Pts, Num_Readouts, Num_Slices);
-  	Array<complex<float>,3>temp_data_us(Num_Pts, Num_Readouts, Num_Slices);
   	
 	// Undersampled arrays use resize to ensure contigous memory
 	for(int e = 0; e< Num_Encodings; e++){
 		
 		cout<< "\t Kx" << endl;
 		{
-		temp_us = kx(e);
+		Array<float,3> temp_us = kx(e);
 		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
-		kx(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		kx(e).resize(Num_Pts,Num_Readouts_us,Num_Slices);
 		kx(e) = temp;
 		}
 		
 		{	
 		cout<< "\t Ky" << endl;
-		temp_us = ky(e);
+		Array<float,3> temp_us = ky(e);
 		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
-		ky(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		ky(e).resize(Num_Pts,Num_Readouts_us,Num_Slices);
 		ky(e) = temp;
 		}
 		
 		{
 		cout<< "\t Kz" << endl;
-		temp_us = kz(e);
+		Array<float,3> temp_us = kz(e);
 		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
-		kz(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		kz(e).resize(Num_Pts,Num_Readouts_us,Num_Slices);
 		kz(e) = temp;
 		}
 		
 		
 		{
 		cout<< "\t Kw" << endl;
-		temp_us = kw(e);
+		Array<float,3> temp_us = kw(e);
 		Array<float,3> temp = temp_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range(fromStart,toEnd,1));
-		kw(e).resize(Num_Pts,Num_Readouts_us,Num_Slices,Num_Encodings);
+		kw(e).resize(Num_Pts,Num_Readouts_us,Num_Slices);
 		kw(e) = temp;
 		}
 		
 		for( int coil=0; coil < Num_Coils; coil++){
 			{
 			cout<< "\t Kdata" << endl;
-			temp_data_us = kdata(e,coil);
+			Array<complex<float>,3> temp_data_us = kdata(e,coil);
 			Array<complex<float>,3> temp_data = temp_data_us(Range(fromStart,toEnd,1),Range(fromStart,toEnd,us),Range::all());
 			kdata(e,coil).resize(Num_Pts,Num_Readouts_us,Num_Slices);
 			kdata(e,coil) = temp_data;
@@ -601,114 +523,6 @@ void MRI_DATA::undersample(int us){
 }
 
 
-
-
-
-#ifdef FAST_COMPRESS
-/** Coil compress data with a cutoff of thresh*max(SV)
-*
-*/
-void MRI_DATA::coilcompress(float thresh)
-{ 
-
-  int Nthreads = omp_get_max_threads();
-
-  arma::cx_mat *all = new arma::cx_mat [Nthreads];
-  for(int j =0; j< Nthreads; j++){
- 	all[j].zeros(Num_Coils,Num_Coils);
-  }
-
-    
-  for(int e =0; e< Num_Encodings; e++){
-  for(int slice =0; slice< Num_Slices; slice++){
-  #pragma omp parallel for
-  for(int readout =0; readout< Num_Readouts; readout++){
-  	
-	int thr = omp_get_thread_num();
-	
-	// Collect chunk to reduce memory thrashing
-  	arma::cx_mat Atemp(Num_Pts,Num_Coils);
-  	for(int coil=0; coil< Num_Coils; coil++){
-  	for(int i =0; i< Num_Pts; i++){
-  		Atemp(i,coil) = kdata(e,coil)(i,readout,slice);
-  	}}
-  
-  	// Calc
-  	arma::cx_mat AtA = Atemp.t()*Atemp;
-  	all[thr] += AtA;
-  
-  }
-  
-  }}
-  
-  
-  arma::cx_mat A(Num_Coils,Num_Coils);
-  A.fill(complex<float>(0.0,0.0));
-  for(int j =0; j< Nthreads; j++){
-  	A += all[j];
-  }
-  delete [] all;
- 
- 
-  // cout << "A is " << A.n_rows << " by " << A.n_cols << " total = " << A.n_elem << endl;
-  
- // ofstream ofs("CorrMat.dat", ios_base::binary);
- // for(int i=0; i< 32; i++){
- //	for(int j=0; j< 32; j++){
- // 		complex<double> val=A(i,j);
- //	ofs.write( (char *)&val,sizeof(complex<double>));
- // 	}
- // }
-  
-  
-  // cout << "Eig" << endl << flush;
-  arma::vec eigval;
-  arma::cx_mat eigvec;
-  eig_sym(eigval,eigvec,A);  
-  arma::cx_mat V = eigvec.cols(Num_Coils-(int)thresh-1,Num_Coils-1);
-  
-  //V.print("V");
-  // eigval.print("Eig-Val");
-  
-  cout << "Multiple by Eigen" << endl; 
-  for(int e =0; e< Num_Encodings; e++){
-  for(int k =0; k< Num_Slices; k++){
-  #pragma omp parallel for
-  for(int j =0; j< Num_Readouts; j++){
-  	
-	arma::cx_mat AA;
-  	AA.zeros( Num_Pts,Num_Coils); // Working memory
-    	
-	// Copy into memory
-	for(int coil = 0; coil < Num_Coils; coil++) {
-		for(int i =0; i< Num_Pts; i++){
-			AA(i,coil) =  kdata(e,coil)(i,j,k);
-		}
-	}
-		
-	// Transform to matrix
-	arma::cx_mat temp2 = AA*V; 
-		
-	// Copy Back
-	for(int coil = 0; coil < thresh; coil++) {
- 	for(int i =0; i< Num_Pts; i++){
-			kdata(e,coil)(i,j,k) = temp2(i,coil);
-	}}
-  }}}
-  
-  cout << "Resize to " << thresh << endl << flush;
-  Array< Array<complex<float>,3>,2>kdata2(kdata.length(firstDim),(int)thresh,ColumnMajorArray<2>());
-  for(int e =0; e< Num_Encodings; e++){
-  for(int c =0; c< thresh; c++){
-  	kdata2(e,c).reference(kdata(e,c));
-  }}
-  kdata.reference(kdata2); 
-  Num_Coils = (int)thresh;
-  
-  cout << "done" << endl;
-  
-}
-#else
 /** Coil compress data with a cutoff of thresh*max(SV)
 *
 */
@@ -774,10 +588,6 @@ void MRI_DATA::coilcompress(float thresh)
   cout << "done" << endl;
   
 }
-
-
-#endif
-
 
 //--------------------------------------------------
 //  Whiten Data

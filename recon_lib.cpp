@@ -45,7 +45,8 @@ void RECON::set_defaults( void){
 	intensity_correction = false;
 	iterative_smaps = false;
 	reset_dens=false;
-		
+	
+	threads = -1;	
 	acc = 1;
 	compress_coils = 0.0;
 	whiten = false;
@@ -136,9 +137,9 @@ void RECON::help_message(void){
 	help_flag("-rcyres []","matrix size in y");
 	help_flag("-rczres []","matrix size in z");
 	help_flag("-rcframes []","reconstructed temporal frames");
-	help_flag("-zoom_x []","zoom factor in x");
-	help_flag("-zoom_y []","zoom factor in x");
-	help_flag("-zoom_z []","zoom factor in x");
+	help_flag("-zoom_x []","zoom factor in x (external data)");
+	help_flag("-zoom_y []","zoom factor in y (external data)");
+	help_flag("-zoom_z []","zoom factor in z (external data)");
 	
 	cout << "Recon Types:" << endl;
 	help_flag("-sos","sum of squares");
@@ -303,6 +304,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-extra_blurZ",extra_blurZ);
 		trig_flag(true,"-smap_use_all_encodes",smap_use_all_encodes);
 		trig_flag(true,"-smap_nex_encodes",smap_nex_encodes);
+		float_flag("-smap_thresh",smap_thresh);
 						
 		// Source of data
 		trig_flag(EXTERNAL,"-external_data",data_type);
@@ -327,6 +329,8 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-admm_rho",admm_rho);
 		
 		trig_flag(true,"-pregate_data",pregate_data_flag);
+		
+		int_flag("-threads",threads);
 	}
   }
 } 
@@ -657,22 +661,30 @@ void vor_dcf2(Array< Array<float,3 >,2 >&Kw,Array< Array<float,3 >,2 > &Ky,Array
 }
 
 
-Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, char **argv){
-
+Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DATA& data, int argc, char **argv){
+	
+	
+	// Input should be:
+	//  data_cal     - A dataset without sms used to calc sensitvity maps
+	//  data	 	 - A dataset with sms reconed in dynamic fashion
+	//  passthrough for arguments
+	
 	int flex = 1;
-	int cal_frames = data.Num_Encodings/2/(flex+1);
-	int sms_frames = data.Num_Encodings/2/(flex+1);
+	int cal_frames = data_cal.Num_Encodings/(flex+1);
+	int sms_frames = data.Num_Encodings/(flex+1);
 	int cal_encodes = flex + 1;
 	int sms_encodes = flex + 1;
 	int Ncoils = data.Num_Coils;
-	float zres = data.zres;
 	int zpad = 16;  // Pad the slice to account for edge effect.
+	int sms_factor = data.sms_factor;
 		
 	cout <<"Starting SMS " << endl;
 	cout <<"Flex = " << flex << endl;
-	cout <<"Input Frames = " << data.Num_Encodings << endl;
+	cout <<"Input Frames (cal) = " << data_cal.Num_Encodings << endl;
+	cout <<"Input Frames (dynamic) = " << data.Num_Encodings << endl;
 	cout <<"Cal Frames = " << cal_frames << endl;
 	cout <<"Sms Frames = " << sms_frames << endl;
+	cout <<"Sms Factor = " << sms_factor << endl;
 		
 	// Use Native Resultion 
 	rcxres = (rcxres == -1) ? ( data.xres ) : ( rcxres );
@@ -681,31 +693,7 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 	
 	typedef Array<complex<float>,3> Complex3D;
 	typedef Array< float,3> Float3D;
-	
-	
-	// Get the Dynamic Data
-	cout << "Copying Dynamic Data" << endl;
-	Array< Complex3D,3> SmsData = Alloc6DContainer< complex<float> >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes,Ncoils);
-	Array< Float3D,2> SmsKx = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
-	Array< Float3D,2> SmsKy = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes); 
-	Array< Float3D,2> SmsKz = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
-	Array< Float3D,2> SmsKw = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
-	for( int e=0; e < sms_encodes; e++){
-		for( int t=0; t < sms_frames; t++){
-			int offset = cal_frames*cal_encodes + t*sms_encodes + e;
-		
-			SmsKx(t,e) = data.kx(offset);
-			SmsKy(t,e) = data.ky(offset);
-			SmsKz(t,e) = data.kz(offset);
-			SmsKw(t,e) = data.kw(offset);
-			for(int coil =0; coil < Ncoils; coil++){
-				SmsData(t,e,coil) = data.kdata(offset,coil);
-				data.kdata(offset,coil).resize(1,1,1);
-			}
-		}
-	}
-	
-			
+					
 	// Allocate Sensiticty Maps
 	Array< Array< complex<float>, 3>,1> temp =  Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,Ncoils);
 	smaps.reference(temp);
@@ -717,32 +705,35 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 		
 		// Get the Calibration
 		cout << "Copying Cal Data" << endl;
-		Array< Complex3D,3> CalData = Alloc6DContainer< complex<float> >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,cal_frames,cal_encodes,Ncoils);
-		Array< Float3D,2> CalKx = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,cal_frames,cal_encodes);
-		Array< Float3D,2> CalKy = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,cal_frames,cal_encodes); 
-		Array< Float3D,2> CalKz = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,cal_frames,cal_encodes);
-		Array< Float3D,2> CalKw = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,cal_frames,cal_encodes);
+		Array< Complex3D,3> CalData = Alloc6DContainer< complex<float> >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes,Ncoils);
+		Array< Float3D,2> CalKx = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes);
+		Array< Float3D,2> CalKy = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes); 
+		Array< Float3D,2> CalKz = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes);
+		Array< Float3D,2> CalKw = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes);
+		Array< Float3D,3> CalZ  = Alloc6DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes,1);
+		
 		for( int e=0; e < cal_encodes; e++){
 			for( int t=0; t < cal_frames; t++){
-				CalKx(t,e) = data.kx(t*cal_encodes + e);
-				CalKy(t,e) = data.ky(t*cal_encodes + e);
-				CalKz(t,e) = data.kz(t*cal_encodes + e);
-				CalKw(t,e) = data.kw(t*cal_encodes + e);
+				CalKx(t,e) = data_cal.kx(t*cal_encodes + e);
+				CalKy(t,e) = data_cal.ky(t*cal_encodes + e);
+				CalKz(t,e) = data_cal.kz(t*cal_encodes + e);
+				CalKw(t,e) = data_cal.kw(t*cal_encodes + e);
+				CalZ(t,e,0)= data_cal.z(t*cal_encodes + e,0);
+				
 				for(int coil =0; coil < Ncoils; coil++){
-					CalData(t,e,coil) = data.kdata(t*cal_encodes + e,coil);
-					data.kdata(t*cal_encodes + e,coil).resize(1,1,1);
+					CalData(t,e,coil) = data_cal.kdata(t*cal_encodes + e,coil);
+					data_cal.kdata(t*cal_encodes + e,coil).resize(1,1,1);
 				}
 			}
 		}
 		
-		vor_dcf2(CalKw,CalKy,CalKz);
+		// vor_dcf2(CalKw,CalKy,CalKz);
 				
-		/* This is just to get sensitivty maps*/
+		//  This is just to get sensitivty maps 
 		smsEncode smsCgrid;
 		smsCgrid.read_commandline(argc,argv);
 		smsCgrid.sms_factor = 1;
-		smsCgrid.precalc_gridding(rczres,rcyres,rcxres,cal_frames,cal_encodes,zres,data.trajectory_dims,data.trajectory_type);
-		smsCgrid.sms_factor = 1;
+		smsCgrid.precalc_gridding(rczres,rcyres,rcxres,cal_frames,cal_encodes,1,data.trajectory_dims,data.trajectory_type);
 	
 		cout << "Alloc Image" << endl << flush;
 		Array< Array< complex<float>,3>,2> image_store =  Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,cal_encodes,Ncoils);
@@ -764,8 +755,9 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 				}
 			}
 			
+			// Grid the data
 			Array< Complex3D ,2> temp = CalData(Range::all(),Range::all(),coil);			 
-			smsCgrid.forward( xdf, smaptest, temp,CalKx,CalKy,CalKz,CalKw);
+			smsCgrid.forward( xdf, smaptest, temp,CalKx,CalKy,CalKz,CalKw,CalZ);
 			
 			// Sum over the coils
 			for(int e = 0; e< cal_encodes; e++){
@@ -826,7 +818,35 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 		}
 	}
 	
-
+	// Get the Dynamic Data
+	cout << "Alloc Dynamic Data" << endl;
+	Array< Complex3D,3> SmsData = Alloc6DContainer< complex<float> >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes,Ncoils);
+	Array< Float3D,2> SmsKx = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
+	Array< Float3D,2> SmsKy = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes); 
+	Array< Float3D,2> SmsKz = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
+	Array< Float3D,2> SmsKw = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
+	Array< Float3D,3> SmsZ  = Alloc6DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes,sms_factor);
+	
+	cout << "Copy Dynamic Data (sms_factor = " << data.sms_factor << ", coils = " << Ncoils << ")" << endl;
+	for( int e=0; e < sms_encodes; e++){
+		for( int t=0; t < sms_frames; t++){
+			int offset = t*sms_encodes + e;
+		
+			SmsKx(t,e) = data.kx(offset);
+			SmsKy(t,e) = data.ky(offset);
+			SmsKz(t,e) = data.kz(offset);
+			SmsKw(t,e) = data.kw(offset);
+			
+			for(int sms_pos=0; sms_pos < data.sms_factor; sms_pos++){			
+				SmsZ(t,e,sms_pos) = data.z(offset,sms_pos);
+			}
+			
+			for(int coil =0; coil < Ncoils; coil++){
+				SmsData(t,e,coil) = data.kdata(offset,coil);
+				data.kdata(offset,coil).resize(1,1,1);
+			}
+		}
+	}
 
 	cout << "Prep Thresholds" << endl << flush;
 	{
@@ -847,7 +867,8 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 	// Setup Gridding + FFT Structure
 	smsEncode smsgrid;
 	smsgrid.read_commandline(argc,argv);
-	smsgrid.precalc_gridding(rczres,rcyres,rcxres,sms_frames,sms_encodes,zres,data.trajectory_dims,data.trajectory_type);
+	smsgrid.sms_factor = 1;
+	smsgrid.precalc_gridding(rczres,rcyres,rcxres,sms_frames,sms_encodes,2,data.trajectory_dims,data.trajectory_type);
 	int rcframes = sms_frames + smsgrid.sms_factor -1;
 	cout << "Recon for " << rcframes << " frames " << endl;
 	
@@ -891,7 +912,7 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 				// Ex
 				if(iteration > 0){
 					// cout << "Backward " << endl << flush;
-					smsgrid.backward( X, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw);
+					smsgrid.backward( X, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
 				}
 				
 				//Ex-d
@@ -901,7 +922,7 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 				}}
 				
 				// E'Ex
-				smsgrid.forward( R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw);
+				smsgrid.forward( R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
 			}//Coils
 													  
 			
@@ -922,10 +943,10 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data, int argc, c
 				}}		
 										  
 				// EE'(Ex-d)
-				smsgrid.backward( R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw);
+				smsgrid.backward( R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
 				
 				//E'EE'(Ex-d)
-				smsgrid.forward( P, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw);
+				smsgrid.forward( P, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
 			}//Coils
 			
 			for(int t =0; t< rcframes; t++){
@@ -1480,7 +1501,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 							for(int e=0; e< rcencodes; e++){
 								for(int t=0; t< Nt; t++){
 									int act_t = times(t);
-									int store_t = times_store(t);
+									//int store_t = times_store(t);
 							  
 									LHS(t,e ) = complex<float>(0.0,0.0);
 									T.tic();

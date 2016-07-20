@@ -10,6 +10,7 @@
 #include <complex>
 #include <omp.h>
 #include "ArrayTemplates.hpp"
+#define ARMA_FAKE_GCC
 #include <armadillo>
 #include <sys/stat.h>
 #include "hdf5_interface.h"
@@ -17,11 +18,14 @@
 // Data Types
 enum TrajDim { THREED, TWOD };
 enum TrajType { CARTESIAN, NONCARTESIAN, THREEDNONCARTESIAN};
+enum SmsType { SMSoff, SMSon};
 
 class MRI_DATA{
 	public:
-		// Raw Data
-		//  readout x phase encode x slice x encoding x coil 
+		
+		//
+		//	Variables
+		// 
 		
 		// Sizes for shorthand
 		int Num_Encodings;
@@ -30,6 +34,10 @@ class MRI_DATA{
 		int Num_Pts;
 		int Num_Coils;
 		
+		// Special code required for simultaneous multi-slice 
+		int sms_factor;
+		NDarray::Array< NDarray::Array<float,3>,2> z;	  // Z coordinate for multi-slice with overlapped slices
+				
 		// Non-Cartesian Trajectory
 		NDarray::Array< NDarray::Array<float,3>,1> kx;	// Fov = 1 unit, delta k =1
 		NDarray::Array< NDarray::Array<float,3>,1> ky;
@@ -54,10 +62,22 @@ class MRI_DATA{
 		int zres;
 		int tres; 
 		
+		// Image Size in each dimension
+		float zfov;
+		float yfov;
+		float xfov;
+		
 		// 2D/3D Cartesian/Non-Cartesian
 		TrajDim trajectory_dims;
 		TrajType trajectory_type;
+		SmsType sms_type;
 		
+		
+		//
+		//	Functions
+		// 
+		
+				
 		//Temp
 		char gate_name[1024];
 		
@@ -68,11 +88,10 @@ class MRI_DATA{
 		void demod_kdata( float);
 		
 		// Initialization Filling Operations				
+		void clone_attributes( MRI_DATA &);
 		void init_memory();
 		void init_gating_kdata(int);
 		void init_noise_samples(int);
-		void read_external_data(const char *folder,int);
-		void parse_external_header(const char *filename);
 		
 		void write_external_data(const char *fname);
 		void read_external_data( const char *fname);
@@ -81,6 +100,8 @@ class MRI_DATA{
 		void stats(void);
 		void dump_stats(const std::string, const NDarray::Array< NDarray::Array<float,3>,1> & in);
 		void dump_stats(const std::string, const NDarray::Array< NDarray::Array<complex<float>,3>,2> & in);
+		
+		void scale_fov( float,float,float);
 		
 		MRI_DATA subframe( int,int,int);
 					

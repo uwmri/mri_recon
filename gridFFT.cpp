@@ -733,19 +733,19 @@ void gridFFT::forward_sos( Array<complex<float>,3>&X,\
 	tictoc T;
 	if(time_grid) T.tic(); 
 	k3d_grid=0; // Zero K-Space
-	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
+	if(time_grid) cout << "Forward::zero:"<< T;
 	
 	if(time_grid) T.tic(); 
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
-	if(time_grid)cout << ",grid:"<< T << endl << flush;
+	if(time_grid)cout << ",grid:"<< T;
 	
 	if(time_grid) T.tic(); 
 	do_fft();
-	if(time_grid)cout << ",fft:"<< T << endl << flush;
+	if(time_grid)cout << ",fft:"<< T;
 	
 	if(time_grid) T.tic(); 
 	deapp(); // Deapp and multiply by sensitivity map
-	if(time_grid)cout << ",deapp:"<< T << endl<< flush;
+	if(time_grid)cout << ",deapp:"<< T;
 	
 	if(time_grid) T.tic(); 
 	accumulate_sos(X); // Deapp,multiply by sensitivity map, and copy
@@ -772,19 +772,19 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	tictoc T;
 	if(time_grid) T.tic(); 
 	k3d_grid=0; // Zero K-Space
-	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
+	if(time_grid) cout << "Forward::zero:"<< T;
 	
 	if(time_grid) T.tic(); 
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
-	if(time_grid)cout << ",grid:"<< T << endl << flush;
+	if(time_grid)cout << ",grid:"<< T;
 	
 	if(time_grid) T.tic(); 
 	do_fft();
-	if(time_grid)cout << ",fft:"<< T << endl << flush;
+	if(time_grid)cout << ",fft:"<< T;
 	
 	if(time_grid) T.tic(); 
 	accumulate(X); // Deapp,multiply by sensitivity map, and copy
-	if(time_grid)cout << ",accumulate:"<< T << endl<< flush;			   
+	if(time_grid)cout << ",accumulate:"<< T << endl;			   
 
 }
 
@@ -808,19 +808,19 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	tictoc T;
 	if(time_grid) T.tic(); 
 	k3d_grid=0; // Zero K-Space
-	if(time_grid) cout << "Forward::zero:"<< T << endl << flush;
+	if(time_grid) cout << "Forward::zero:"<< T;
 	
 	if(time_grid) T.tic(); 
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
-	if(time_grid)cout << ",grid:"<< T << endl << flush;
+	if(time_grid)cout << ",grid:"<< T;
 	
 	if(time_grid) T.tic(); 
 	do_fft();
-	if(time_grid)cout << ",fft:"<< T << endl << flush;
+	if(time_grid)cout << ",fft:"<< T;
 	
 	if(time_grid) T.tic(); 
 	accumulate(X,smap); // Deapp,multiply by sensitivity map, and copy
-	if(time_grid)cout << ",accumulate:"<< T << endl<< flush;
+	if(time_grid)cout << ",accumulate:"<< T << endl;
 }
 
 /**

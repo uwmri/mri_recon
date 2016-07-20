@@ -8,6 +8,8 @@
 #include <string>
 #include <complex>
 #include <omp.h>
+
+#define ARMA_FAKE_GCC
 #include <armadillo>
 #include "ArrayTemplates.hpp"
 #include "gridFFT.h"
@@ -35,7 +37,7 @@ class GATING {
 		GATING();						
 		GATING(int numarg,char **pstring);
 		void init( const MRI_DATA &data,int *);
-		void init_resp_gating(const MRI_DATA &data,int *);
+		void init_resp_gating(const MRI_DATA &data);
 		void init_time_resolved(const MRI_DATA &data,int *);
 		
 		// Tornado Filter Parameters

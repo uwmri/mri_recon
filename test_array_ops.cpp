@@ -3,7 +3,7 @@
 using namespace NDarray;
 using namespace std;
 
-int main(int argc, char **argv){
+int main(void){
 	
 	int N = 512;
 	Array< complex<float>,3> X(N,N,N);
