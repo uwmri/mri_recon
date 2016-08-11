@@ -475,7 +475,7 @@ void gridFFT::precalc_kernel(void){
 
 
 
-void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims, TrajType trajectory_type ){
+void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, MRI_DATA &data){
   
   Nx = NxT;
   Ny = NyT;
@@ -486,20 +486,15 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   // Determine what needs to be grid
   // ---------------------------------------------
   
-  if( (trajectory_dims==TWOD) || (trajectory_type!= THREEDNONCARTESIAN) ){
-  	if(grid_in_z ==-1){
-		grid_in_z = 0;	
-	}
-  }
-  if(grid_in_z == -1){
-  	grid_in_z =1;
-  }
+  grid_in_x = ( data.trajectory_type(0) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
+  grid_in_y = ( data.trajectory_type(1) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
+  grid_in_z = ( data.trajectory_type(2) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
   
-  if(trajectory_type==CARTESIAN){
-  	grid_in_y = 0;
-  }
-  
-   // Get rounded Gridding ratio*
+  fft_in_x = data.dft_needed(0); 
+  fft_in_y = data.dft_needed(1); 
+  fft_in_z = data.dft_needed(2); 
+   
+  // Get rounded Gridding ratio*
   if(grid_in_x ==1){
   	if(grid_x==-1){
 		grid_x =  16.0*ceil( ( overgrid * (float)Nx )/16.0	) / (float)Nx;
@@ -548,6 +543,7 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, TrajDim trajectory_dims,
   printf("Mod 		%f %f %f\n",grid_modX,grid_modY,grid_modZ); 
   printf("Og %d-%d x %d-%d x %d-%d\n",og_sx,og_ex,og_sy,og_ey,og_sz,og_ez);  
   printf("Grid in x=%d, y=%d, z=%d\n",grid_in_x,grid_in_y,grid_in_z);
+  printf("FFT in x=%d, y=%d, z=%d\n",fft_in_x,fft_in_y,fft_in_z);
   
   // Deapp Windows
   winx.resize(Sx);

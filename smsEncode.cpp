@@ -17,6 +17,14 @@ Usage Example:
 #include "tictoc.hpp"
 using namespace NDarray;
 
+void nested_workaround( long index, int *N,int *idx, int total){
+	long tempi = index;
+	for( int pos=0; pos < total; pos++){
+		idx[pos] = tempi % N[pos];
+		tempi = (tempi-idx[pos]) / N[pos];		
+	}
+}
+
 
 //----------------------------------------
 // Constructor - Sets Default Vals
@@ -288,7 +296,7 @@ void smsEncode::precalc_kernel(void){
 }
 
 
-void smsEncode::precalc_gridding(int NzT,int NyT,int NxT, int NtT, int NeT, float sms_factorT,TrajDim trajectory_dims, TrajType trajectory_type ){
+void smsEncode::precalc_gridding(int NzT,int NyT,int NxT, int NtT, int NeT, float sms_factorT,MRI_DATA &data ){
   
   Nx = NxT;
   Ny = NyT;
@@ -301,20 +309,13 @@ void smsEncode::precalc_gridding(int NzT,int NyT,int NxT, int NtT, int NeT, floa
   // Determine what needs to be grid
   // ---------------------------------------------
   
-  if( (trajectory_dims==TWOD) || (trajectory_type!= THREEDNONCARTESIAN) ){
-  	if(grid_in_z ==-1){
-		grid_in_z = 0;	
-	}
-  }
+  grid_in_x = ( data.trajectory_type(0) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
+  grid_in_y = ( data.trajectory_type(1) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
+  grid_in_z = ( data.trajectory_type(2) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
   
-  if(grid_in_z == -1){
-  	grid_in_z =1;
-  }
-  
-  if(trajectory_type==CARTESIAN){
-  	grid_in_y = 0;
-  }
-  
+  fft_in_x = data.dft_needed(0); 
+  fft_in_y = data.dft_needed(1); 
+    
    // Get rounded Gridding ratio*
   if(grid_in_x ==1){
   	if(grid_x == -1){
@@ -412,7 +413,6 @@ void smsEncode::precalc_gridding(int NzT,int NyT,int NxT, int NtT, int NeT, floa
 void smsEncode::do_fft( void ){
 	for(int t =0; t < k3d_grid.length(firstDim); t++){
 		for(int e =0; e < k3d_grid.length(secondDim); e++){
-	
 			Array< complex<float>,3> temp = k3d_grid(t,e);
 			if(fft_in_x){
 				fft3(temp, 0, FFTW_FORWARD, 0);
@@ -463,10 +463,25 @@ void smsEncode::forward( Array<Array<complex<float>,3>,2>&xdf,\
 	
 	tictoc T;
 	if(time_grid) T.tic(); 
-	for(int t =0; t < k3d_grid.length(firstDim); t++){
-		for(int e =0; e < k3d_grid.length(secondDim); e++){
-			k3d_grid(t,e)=complex<float>(0.0,0.0); // Zero K-Space
-	}}
+	int total_images = k3d_grid.numElements();
+	int *N = new int[2];
+	N[0] = k3d_grid.length(firstDim);
+	N[1] =  k3d_grid.length(secondDim);
+	
+	#pragma omp parallel for
+	for( int pos=0; pos < total_images; pos++){
+	
+		// Get the actual position
+		int *I = new int[2];
+		nested_workaround(pos,N,I,2);
+		int t = I[0];
+		int e = I[1];
+		delete [] I;
+		
+		// Zero
+		k3d_grid(t,e)=complex<float>(0.0,0.0); // Zero K-Space
+	}
+	
 	if(time_grid) cout << "Forward::zero:" << T << flush;
 	
 	if(time_grid) T.tic(); 
@@ -505,10 +520,24 @@ void smsEncode::backward( Array<Array<complex<float>,3>,2>&X,\
 	tictoc T;
 	
 	if(time_grid) T.tic(); 
-	for(int t =0; t < k3d_grid.length(firstDim); t++){
-		for(int e =0; e < k3d_grid.length(secondDim); e++){
-			k3d_grid(e)=0; // Zero K-Space
-	}}
+	int total_images = k3d_grid.numElements();
+	int *N = new int[2];
+	N[0] = k3d_grid.length(firstDim);
+	N[1] =  k3d_grid.length(secondDim);
+	
+	#pragma omp parallel for
+	for( int pos=0; pos < total_images; pos++){
+	
+		// Get the actual position
+		int *I = new int[2];
+		nested_workaround(pos,N,I,2);
+		int t = I[0];
+		int e = I[1];
+		delete [] I;
+		memset( (void)k3d_grid(t,e).data(), 
+		
+		k3d_grid(t,e) = complex<float>(0.0,0.0);
+	}
 	if(time_grid) cout << "Backward::zero:"<< T << flush;
 		
 	if(time_grid) T.tic(); 
@@ -569,13 +598,6 @@ void smsEncode::set_image(  Array< Array< complex<float>, 3>,2>&X,  Array< compl
 //  This is the main function for Gridding.  Assumes data
 //  is already density compensated, etc.
 // -------------------------------------------------------
-void nested_workaround( long index, int *N,int *idx, int total){
-	long tempi = index;
-	for( int pos=0; pos < total; pos++){
-		idx[pos] = tempi % N[pos];
-		tempi = (tempi-idx[pos]) / N[pos];		
-	}
-}
 
 void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 					   Array< Array<float,3>,2>&kxA,\
@@ -587,18 +609,6 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 	
 	float cx = Sx/2;
 	float cy = Sy/2;
-	
-	if(time_grid){
-		cout << "Range Kx = " << min(kxA(0)) << " to " << max(kxA(0)) << endl;
-		cout << "Range Ky = " << min(kyA(0)) << " to " << max(kyA(0)) << endl;
-		cout << "Range Kz = " << min(kzA(0)) << " to " << max(kzA(0)) << endl;
-		cout << "Range Z =  " << min(zA(0)) << " to " << max(zA(0)) << endl;
-		cout << "Range Kw = " << min(kwA(0)) << " to " << max(kwA(0)) << endl;
-		cout << "Max Kdata = " << max(abs(data(0))) << endl;
-		cout << "Encodes = " << Ne << endl;
-		cout << "Nt =      " << Nt << endl;
-	}
-
 	
 	long total_images = Nt*Ne*sms_factor;
 	int *N = new int[3];
@@ -622,7 +632,7 @@ void smsEncode::chop_grid_forward( Array< Array<complex<float>,3>,2>&data,\
 		for(int kk =0; kk < data(t,e).length(thirdDim); kk++){
 		for(int jj =0; jj < data(t,e).length(secondDim); jj++){
 		for(int ii =0; ii < data(t,e).length(firstDim); ii++){
-		
+			
 			float kx = kxA(t,e)(ii,jj,kk);
 			float ky = kyA(t,e)(ii,jj,kk);
 			float kz = kzA(t,e)(ii,jj,kk);

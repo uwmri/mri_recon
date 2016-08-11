@@ -55,9 +55,10 @@ class GATING {
 		ViewshareType vs_type;	
 		GateType gate_type;
 		
-		NDarray::Array< double, 3>gate_times;
-		NDarray::Array< float, 3>resp_weight;
-
+		NDarray::Array< NDarray::Array<double,2>,1>gate_times;
+		NDarray::Array< NDarray::Array<double,2>,1>resp_times;
+		NDarray::Array< NDarray::Array<double,2>,1>resp_weight;
+		
 		// Control of Retrospective Respiratory Gating
 		RespGateType resp_gate_type;
 		int correct_resp_drift;
@@ -78,7 +79,7 @@ class GATING {
 	   	void hist_weight( NDarray::Array<float,3>&Tw, int e, int t);
 		void tornado_weight(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3> &kz,int t,WeightType);
 		void filter_resp(  const MRI_DATA &data );
-		NDarray::Array< complex<float>,3> combine_kspace_channels(  const NDarray::Array< complex<float>,5> &kdata_gating );
+		NDarray::Array< NDarray::Array<complex<float>,2>,1> combine_kspace_channels(  const NDarray::Array< NDarray::Array<complex<float>,2>,2> &kdata_gating );
     private:
 
 };

@@ -379,7 +379,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	
 	// Setup Gridding + FFT Structure
 	gridding.read_commandline(argc,argv);
-	gridding.precalc_gridding(rczres,rcyres,rcxres,data.trajectory_dims,data.trajectory_type);
+	gridding.precalc_gridding(rczres,rcyres,rcxres,data);
 			
 	// Recalculate the Density compensation
 	switch(dcf_type){
@@ -393,7 +393,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		}break;
 		
 		case(RECALC_VOR):{
-			if( data.trajectory_type == THREEDNONCARTESIAN){
+			if( data.trajectory_type(2) == MRI_DATA::NONCARTESIAN){
 				VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::SPHERE);
 			}else{
 				VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::CYLINDER);
@@ -429,10 +429,10 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		
 		
 		/* Need to resize Gating*/
-		data.time.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
-		data.resp.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
-		data.prep.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
-		data.ecg.resizeAndPreserve(data.Num_Readouts,data.Num_Slices,data.Num_Encodings); 
+		data.time.resizeAndPreserve(data.Num_Encodings); 
+		data.resp.resizeAndPreserve(data.Num_Encodings); 
+		data.prep.resizeAndPreserve(data.Num_Encodings); 
+		data.ecg.resizeAndPreserve(data.Num_Encodings); 
 		
 	}
 		
@@ -522,10 +522,14 @@ void RECON::pregate_data( MRI_DATA &data){
 	data2.kdata.resize(data2.Num_Encodings,data2.Num_Coils);
 	
 	
-	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
 	
 	int count = 0;
 	for( int e=0; e<data.Num_Encodings; e++){
+		
+		Array< float, 3 >Kweight;
+		Kweight.setStorage( ColumnMajorArray<3>());
+		Kweight.resize( data.kx(e).shape());
+			
 		for( int t= 0; t < rcframes; t++){
 		
 			// First count th number of points required
@@ -594,10 +598,6 @@ void RECON::pregate_data( MRI_DATA &data){
 	cycleArrays( data.kdata, data2.kdata);
 	
 	data.Num_Encodings = data2.Num_Encodings;
-	data.Num_Readouts = -1;
-	data.Num_Slices = -1;
-	data.Num_Pts = -1;
-	
 	// data.stats();
 		
 	cout << "Done gating data" << endl << flush;
@@ -675,7 +675,7 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 	int cal_encodes = flex + 1;
 	int sms_encodes = flex + 1;
 	int Ncoils = data.Num_Coils;
-	int zpad = 16;  // Pad the slice to account for edge effect.
+	int zpad = 8;  // Pad the slice to account for edge effect.
 	int sms_factor = data.sms_factor;
 		
 	cout <<"Starting SMS " << endl;
@@ -703,14 +703,18 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 		smaps(0) = complex<float>(1.0,0.0);
 	}else{
 		
+		int Num_Pts = data_cal.kx(0).length(firstDim);
+		int Num_Readouts = data_cal.kx(0).length(secondDim);
+		int Num_Slices = data_cal.kx(0).length(thirdDim);
+				
 		// Get the Calibration
 		cout << "Copying Cal Data" << endl;
-		Array< Complex3D,3> CalData = Alloc6DContainer< complex<float> >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes,Ncoils);
-		Array< Float3D,2> CalKx = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes);
-		Array< Float3D,2> CalKy = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes); 
-		Array< Float3D,2> CalKz = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes);
-		Array< Float3D,2> CalKw = Alloc5DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes);
-		Array< Float3D,3> CalZ  = Alloc6DContainer< float >(data_cal.Num_Pts,data_cal.Num_Readouts,data_cal.Num_Slices,cal_frames,cal_encodes,1);
+		Array< Complex3D,3> CalData = Alloc6DContainer< complex<float> >(Num_Pts,Num_Readouts,Num_Slices,cal_frames,cal_encodes,Ncoils);
+		Array< Float3D,2> CalKx = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,cal_frames,cal_encodes);
+		Array< Float3D,2> CalKy = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,cal_frames,cal_encodes); 
+		Array< Float3D,2> CalKz = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,cal_frames,cal_encodes);
+		Array< Float3D,2> CalKw = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,cal_frames,cal_encodes);
+		Array< Float3D,3> CalZ  = Alloc6DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,cal_frames,cal_encodes,1);
 		
 		for( int e=0; e < cal_encodes; e++){
 			for( int t=0; t < cal_frames; t++){
@@ -727,13 +731,14 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 			}
 		}
 		
-		// vor_dcf2(CalKw,CalKy,CalKz);
+		// This calculates the weighting based on voronoi diagram
+		vor_dcf2(CalKw,CalKy,CalKz);
 				
 		//  This is just to get sensitivty maps 
 		smsEncode smsCgrid;
 		smsCgrid.read_commandline(argc,argv);
 		smsCgrid.sms_factor = 1;
-		smsCgrid.precalc_gridding(rczres,rcyres,rcxres,cal_frames,cal_encodes,1,data.trajectory_dims,data.trajectory_type);
+		smsCgrid.precalc_gridding(rczres,rcyres,rcxres,cal_frames,cal_encodes,1,data);
 	
 		cout << "Alloc Image" << endl << flush;
 		Array< Array< complex<float>,3>,2> image_store =  Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,cal_encodes,Ncoils);
@@ -818,14 +823,18 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 		}
 	}
 	
+	int Num_Pts = data.kx(0).length(firstDim);
+	int Num_Readouts = data.kx(0).length(secondDim);
+	int Num_Slices = data.kx(0).length(thirdDim);
+	
 	// Get the Dynamic Data
 	cout << "Alloc Dynamic Data" << endl;
-	Array< Complex3D,3> SmsData = Alloc6DContainer< complex<float> >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes,Ncoils);
-	Array< Float3D,2> SmsKx = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
-	Array< Float3D,2> SmsKy = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes); 
-	Array< Float3D,2> SmsKz = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
-	Array< Float3D,2> SmsKw = Alloc5DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes);
-	Array< Float3D,3> SmsZ  = Alloc6DContainer< float >(data.Num_Pts,data.Num_Readouts,data.Num_Slices,sms_frames,sms_encodes,sms_factor);
+	Array< Complex3D,3> SmsData = Alloc6DContainer< complex<float> >(Num_Pts,Num_Readouts,Num_Slices,sms_frames,sms_encodes,Ncoils);
+	Array< Float3D,2> SmsKx = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,sms_frames,sms_encodes);
+	Array< Float3D,2> SmsKy = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,sms_frames,sms_encodes); 
+	Array< Float3D,2> SmsKz = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,sms_frames,sms_encodes);
+	Array< Float3D,2> SmsKw = Alloc5DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,sms_frames,sms_encodes);
+	Array< Float3D,3> SmsZ  = Alloc6DContainer< float >(Num_Pts,Num_Readouts,Num_Slices,sms_frames,sms_encodes,sms_factor);
 	
 	cout << "Copy Dynamic Data (sms_factor = " << data.sms_factor << ", coils = " << Ncoils << ")" << endl;
 	for( int e=0; e < sms_encodes; e++){
@@ -868,7 +877,7 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 	smsEncode smsgrid;
 	smsgrid.read_commandline(argc,argv);
 	smsgrid.sms_factor = 1;
-	smsgrid.precalc_gridding(rczres,rcyres,rcxres,sms_frames,sms_encodes,2,data.trajectory_dims,data.trajectory_type);
+	smsgrid.precalc_gridding(rczres,rcyres,rcxres,sms_frames,sms_encodes,2,data);
 	int rcframes = sms_frames + smsgrid.sms_factor -1;
 	cout << "Recon for " << rcframes << " frames " << endl;
 	
@@ -882,6 +891,8 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 	
 	{ 
 	
+		tictoc timer;
+		
 		cout << "Iterate" << endl;
 		double error0=0.0;
 		for(int iteration =0; iteration< max_iter; iteration++){
@@ -891,62 +902,89 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 			cout << "\nIteration = " << iteration << endl;
 
 			// Set R to Zero
-			cout << "Zero R " << endl;
+			cout << "\tZero R " << flush;
+			timer.tic();
 			for( int t=0; t< rcframes; t++){
 				for(int e =0; e< sms_encodes; e++){
 					R(t,e) = complex<float>(0.0,0.0);
 				}
 			}
+			cout << "(took " << timer << ")" << endl << flush;
+		
 									  
-			cout << "\tGradient Calculation" << endl << flush;
-				  
-			// Images
+			cout << "\tGradient Calculation" << flush;
 			for(int coil=0; coil< Ncoils; coil++){
 				
-				//cout << "Zeroing" << endl << flush;
+				cout << "\t\tZeroing" << flush;
+				timer.tic();
 				for( int e =0; e < sms_encodes; e++){
 					for( int t=0; t< sms_frames; t++){
 						diff_data(t,e) = complex<float>(0.0,0.0);
 				}}				
-				
+				cout << "(took " << timer << ")" << endl << flush;
+		
 				// Ex
 				if(iteration > 0){
-					// cout << "Backward " << endl << flush;
+					cout << "\t\tBackwards" << flush;
+					timer.tic();
 					smsgrid.backward( X, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
+					cout << "(took " << timer << ")" << endl << flush;
 				}
 				
 				//Ex-d
+				cout << "\t\tSubtract" << flush;
+					cout << "(took " << timer << ")" << endl << flush;
+				
 				for( int e =0; e < sms_encodes; e++){
 					for( int t=0; t< sms_frames; t++){
 						diff_data(t,e) -= SmsData(t,e,coil);
 				}}
+				cout << "(took " << timer << ")" << endl << flush;
+				
 				
 				// E'Ex
+				cout << "\t\tForward" << flush;
+				timer.tic();
 				smsgrid.forward( R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
+				cout << "(took " << timer << ")" << endl << flush;
+				
 			}//Coils
 													  
 			
 			// Set P to Zero
-			cout << "Zero P " << endl;
+			cout << "\tZero P " << flush;
+			timer.tic();
 			for( int t=0; t< rcframes; t++){
 				for(int e =0; e< sms_encodes; e++){
 					P(t,e) = complex<float>(0.0,0.0);
 				}
 			}
-			
+			cout << "(took " << timer << ")" << endl << flush;
+				
+				
 			for(int coil=0; coil< Ncoils; coil++){
 				
-				// cout << "Zeroing" << endl << flush;
+				cout << "\t\tZeroing"  << flush;
+				timer.tic();
 				for( int e =0; e < sms_encodes; e++){
 					for( int t=0; t< sms_frames; t++){
 						diff_data(t,e) = complex<float>(0.0,0.0);
 				}}		
+				cout << "(took " << timer << ")" << endl << flush;
 										  
 				// EE'(Ex-d)
+				cout << "\t\tBackwards"  << flush;
+				timer.tic();
 				smsgrid.backward( R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
+				cout << "(took " << timer << ")" << endl << flush;
+				
 				
 				//E'EE'(Ex-d)
+				cout << "\t\tForward"  << flush;
+				timer.tic();
 				smsgrid.forward( P, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,SmsZ);
+				cout << "(took " << timer << ")" << endl << flush;
+				
 			}//Coils
 			
 			for(int t =0; t< rcframes; t++){
@@ -961,7 +999,8 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 			complex<double>scale_RhR(0.0,0.0);
 			
 			
-			cout << "Calc Scales" << endl;
+			cout << "Calc Scales" << flush;
+			timer.tic();
 			for( int t=0; t< rcframes; t++){
 				for(int e =0; e< sms_encodes; e++){
 				
@@ -973,6 +1012,8 @@ Array< Array<complex<float>,3 >,2 > RECON::test_sms( MRI_DATA& data_cal, MRI_DAT
 					scale_RhR += complex<double>( ArrayEnergy( R(t,e)), 0.0);
 				}
 			}
+			cout << "(took " << timer << ")" << endl << flush;
+				
 			
 			if(iteration ==0){
 				error0 = abs(scale_RhR);
@@ -1058,13 +1099,13 @@ void RECON::dcf_calc( MRI_DATA& data){
 	//dcf_gridding.precalc_gridding(rczres+16,rcyres+16,rcxres+16,data.trajectory_dims,data.trajectory_type);
   
 	 // Weighting Array for Time coding
-	Array< float, 3 >Kweight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-	Array< float, 3 >Kweight2(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-	
 	Array<float,3> X(dcf_overgrid*rczres+16,dcf_overgrid*rcyres+16,dcf_overgrid*rcxres+16,ColumnMajorArray<3>());
 	
 	for(int e=0; e< rcencodes; e++){
 		
+		Array< float, 3 >Kweight(data.kx(e).shape(),ColumnMajorArray<3>());
+		Array< float, 3 >Kweight2(data.kx(e).shape(),ColumnMajorArray<3>());
+	
 		data.kx(e)*= dcf_scale;
 		data.ky(e)*= dcf_scale;
 		data.kz(e)*= dcf_scale;
@@ -1143,10 +1184,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 	// Weighting Array for Time coding
 	Array< float, 3 >TimeWeight;
 	TimeWeight.setStorage( ColumnMajorArray<3>() );
-	if(!pregate_data_flag){
-		TimeWeight.resize(data.Num_Pts,data.Num_Readouts,data.Num_Slices);
-	}
-	
+
 	cout << "Full recon for " << rcencodes << " encodes, " << Nt << "frames " << endl;
 	
 	switch(recon_type){
@@ -1167,7 +1205,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					if(pregate_data_flag){
 					 	TimeWeight.reference( data.kw(e) );
 					}else{
-					 	TimeWeight = data.kw(e);
+					 	TimeWeight.resize(data.kw(e).shape());
+						TimeWeight = data.kw(e);
 					 	gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::NON_ITERATIVE,frame_type);
    					}
 					
@@ -1208,9 +1247,6 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					// Temp variable for E'ER 
 					Complex3D P(rcxres,rcyres,rczres,ColumnMajorArray<3>());
 
-					// Storage for (Ex-d)
-					Complex3D diff_data(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
-					
 					cout << "Iterate" << endl;
 					double error0=0.0;
 					for(int iteration =0; iteration< max_iter; iteration++){
@@ -1228,6 +1264,11 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  
 						  cout << "\tGradient Calculation" << endl;
 						  for(int e=0; e< rcencodes; e++){
+							  
+							  // Storage for (Ex-d)
+							  Complex3D diff_data(data.kx(e).shape(),ColumnMajorArray<3>());
+					
+	
 							  for(int t=0; t< Nt; t++){
 							 	  int act_t   = times(t);
 							 	  int store_t = times_store(t);
@@ -1241,6 +1282,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								  Array< float,3 >kwE = data.kw(e); 
 								  
 								  // Temporal weighting
+								  
+								  TimeWeight.resize(kwE.shape());
 								  TimeWeight = kwE;
 								  gate.weight_data( TimeWeight,e, kxE, kyE,kzE,act_t,GATING::ITERATIVE, frame_type);
    							 	  
@@ -1450,12 +1493,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 																
 								// Temporal weighting 
 								if(reset_dens){
-								    TimeWeight = 1.0;								  
+								    TimeWeight.resize(data.kw(e).shape());
+									TimeWeight = 1.0;								  
 									gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    								}else if(pregate_data_flag){
 					 				TimeWeight.reference( data.kw(e) );
 								}else{
-					 				TimeWeight = data.kw(e);
+					 				TimeWeight.resize(data.kw(e).shape());
+									TimeWeight = data.kw(e);
 					 				gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    								}
 						 								
@@ -1508,12 +1553,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
  
 									// Temporal weighting 
 									if(reset_dens){
-								        TimeWeight = 1.0;								  
+								        TimeWeight.resize(data.kw(e).shape());
+										TimeWeight = 1.0;								  
 										gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    									}else if(pregate_data_flag){
 					 					TimeWeight.reference( data.kw(e) );
 									}else{
-					 					TimeWeight = data.kw(e);
+					 					TimeWeight.resize(data.kw(e).shape());
+										TimeWeight = data.kw(e);
 					 					gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    									}
 							  
@@ -1682,12 +1729,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						
 						// Temporal weighting 
 						if(reset_dens){
-						    TimeWeight = 1.0;								  
+						    TimeWeight.resize(data.kw(e).shape());
+							TimeWeight = 1.0;								  
 							gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    						}else if(pregate_data_flag){
 					 		TimeWeight.reference( data.kw(e) );
 						}else{
-					 		TimeWeight = data.kw(e);
+					 		TimeWeight.resize(data.kw(e).shape());
+							TimeWeight = data.kw(e);
 					 		gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    						}
 						
@@ -1721,12 +1770,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
  
 							  // Temporal weighting 
 							  if(reset_dens){
+								TimeWeight.resize(data.kw(e).shape());
 								TimeWeight = 1.0;								  
 								gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    							  }else if(pregate_data_flag){
 					 			TimeWeight.reference( data.kw(e) );
 							  }else{
-					 			TimeWeight = data.kw(e);
+					 			TimeWeight.resize(data.kw(e).shape());
+								TimeWeight = data.kw(e);
 					 			gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    							  }
 							  
@@ -1904,7 +1955,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 																  								  
 								  // Temporal weighting 
 								  if(reset_dens){
-								    TimeWeight = 1.0;
+								    TimeWeight.resize(data.kw(e).shape());
+									TimeWeight = 1.0;
 									Array< float,3>::iterator titer=TimeWeight.begin();
 									Array< float,3>::iterator kiter=data.kw(e).begin();
 									for( ; (titer!=TimeWeight.end()) && (kiter!=data.kw(e).end()); titer++,kiter++){
@@ -1920,7 +1972,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
    								  }else if(pregate_data_flag){
 					 				TimeWeight.reference( data.kw(e) );
 								  }else{
-					 				TimeWeight = data.kw(e);
+					 				TimeWeight.resize(data.kw(e).shape());
+									TimeWeight = data.kw(e);
 					 				gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
    								  }
 								  

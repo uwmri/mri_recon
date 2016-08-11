@@ -102,7 +102,7 @@ class gridFFT{
 		
 		void alloc_grid();
 		void read_commandline(int numarg, char **pstring);
-		void precalc_gridding(int Nz,int Ny,int Nx,TrajDim trajectory_dims,TrajType trajectory_type);
+		void precalc_gridding(int Nz,int Ny,int Nx,MRI_DATA &);
 		void precalc_kernel(void);
 		
 		void plan_fft( void );

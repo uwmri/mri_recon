@@ -190,6 +190,10 @@ Array< Array<T,3>, 2> Alloc5DContainer( int x, int y, int z, int d1, int d2){
 	return(temp);
 }
 
+double Dmax( const Array< Array<double,2>,1> &A);
+double Dmin( const Array< Array<double,2>,1> &A);
+
+
 
 }// Namespace
 

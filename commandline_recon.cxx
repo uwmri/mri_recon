@@ -65,12 +65,12 @@ int main(int argc, char **argv){
 			phantom_gridding.dwinX = 6;
 			phantom_gridding.dwinY = 6;
 			phantom_gridding.dwinZ = 6;
-			phantom_gridding.precalc_gridding(phantom.IMAGE.length(firstDim),phantom.IMAGE.length(secondDim),phantom.IMAGE.length(thirdDim),data.trajectory_dims,data.trajectory_type);
+			phantom_gridding.precalc_gridding(phantom.IMAGE.length(firstDim),phantom.IMAGE.length(secondDim),phantom.IMAGE.length(thirdDim),data);
 			
 			
 			GATING gate(argc,argv);
 			// Weighting Array for Time coding
-			Array< float, 3 >TimeWeight(data.Num_Pts,data.Num_Readouts,data.Num_Slices,ColumnMajorArray<3>());
+			Array< float, 3 >TimeWeight(data.kx(0).shape(),ColumnMajorArray<3>());
 			gate.init(data,&(recon.rcframes));
 			
 			
@@ -124,10 +124,6 @@ int main(int argc, char **argv){
 			data.read_external_data(recon.filename);
 			data.scale_fov(recon.zoom_x,recon.zoom_y,recon.zoom_z);
 		}break;
-	}
-
-	if (recon.acc > 1){
-		data.undersample(recon.acc);
 	}
 
 	// --------------------------------------------------
