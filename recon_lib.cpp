@@ -428,12 +428,12 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		data.Num_Encodings -= 1;
 		
 		
-		/* Need to resize Gating*/
+		/* Need to resize Gating
 		data.time.resizeAndPreserve(data.Num_Encodings); 
 		data.resp.resizeAndPreserve(data.Num_Encodings); 
 		data.prep.resizeAndPreserve(data.Num_Encodings); 
 		data.ecg.resizeAndPreserve(data.Num_Encodings); 
-		
+		*/
 	}
 		
 	// -------------------------------------
@@ -2949,7 +2949,7 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 			max_sig = sig;
 		}
 	}
-	cout << "Refernce coil = " << ref_coil << endl;
+	cout << "Reference coil = " << ref_coil << endl;
 	
 	int block_size_x = walsh_block_sizeX;
 	int block_size_y = walsh_block_sizeY;
@@ -2973,24 +2973,26 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 	int total_blocks = block_Nx * block_Ny * block_Nz;
 	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
 	
+	int *N = new int[3];
+	N[0] = block_Nx;
+	N[1] = block_Ny;
+	N[2] = block_Nz;
+	
+	return; 
 		
 	#pragma omp parallel for
 	for( int block = 0; block < total_blocks; block++){
 		
 		//cout << "Block " << block << " of " << total_blocks << endl;
-			
-		// Nested parallelism workaround
-		int i = (int)( block % block_Nx);
 		
-		int temp = (int)( (float)block / (float)block_Nx);
-		int j = (int)(        temp % block_Ny );
-		int k = (int)( (float)temp / (float)(block_Ny) );
-		
-		k*= block_size_z;
-		j*= block_size_y;
-		i*= block_size_x;
+		// Get the actual position
+		int *I = new int[3];
+		nested_workaround(block,N,I,2);
+		int i = I[0]*block_size_x;
+		int j = I[1]*block_size_y;
+		int k = I[2]*block_size_z;
+		delete [] I;
 				
-		
 		//-----------------------------------------------------
 		//   Block section
 		//-----------------------------------------------------
@@ -3026,6 +3028,7 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 		}
 		
 	}// Block (threaded)
+	
 }
 
 

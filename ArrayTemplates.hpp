@@ -194,6 +194,7 @@ double Dmax( const Array< Array<double,2>,1> &A);
 double Dmin( const Array< Array<double,2>,1> &A);
 
 
+void nested_workaround( long index, int *N,int *idx, int total);
 
 }// Namespace
 

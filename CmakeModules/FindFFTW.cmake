@@ -44,13 +44,13 @@ SET(FFTW3_POSSIBLE_LIBRARY_PATH
 )
 
 FIND_LIBRARY(FFTW3_FFTWF_LIBRARY
-  NAMES fftw3f libfftw3f 
+  NAMES libfftw3f.a fftw3f libfftw3f 
   PATHS 
   ${FFTW3_POSSIBLE_LIBRARY_PATH}
 )
 
 FIND_LIBRARY(FFTW3_FFTWF_OPENMP_LIBRARY
-  NAMES fftw3f_omp libfftw3f_omp
+  NAMES libfftw3f_omp.a fftw3f_omp libfftw3f_omp
   PATHS 
   ${FFTW3_POSSIBLE_LIBRARY_PATH}
 )

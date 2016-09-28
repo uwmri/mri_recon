@@ -17,14 +17,6 @@ Usage Example:
 #include "tictoc.hpp"
 using namespace NDarray;
 
-void nested_workaround( long index, int *N,int *idx, int total){
-	long tempi = index;
-	for( int pos=0; pos < total; pos++){
-		idx[pos] = tempi % N[pos];
-		tempi = (tempi-idx[pos]) / N[pos];		
-	}
-}
-
 
 //----------------------------------------
 // Constructor - Sets Default Vals
@@ -534,7 +526,6 @@ void smsEncode::backward( Array<Array<complex<float>,3>,2>&X,\
 		int t = I[0];
 		int e = I[1];
 		delete [] I;
-		memset( (void)k3d_grid(t,e).data(), 
 		
 		k3d_grid(t,e) = complex<float>(0.0,0.0);
 	}

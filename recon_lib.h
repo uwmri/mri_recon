@@ -42,7 +42,7 @@ class RECON{
 	  enum ReconType { SOS, PILS, CG, IST, FISTA, CLEAR, ADMM};
 	   
 	  // Data Types
-	  enum DataType { PFILE, EXTERNAL, SIMULATE, PSF, PHANTOM };
+	  enum DataType { PFILE, EXTERNAL, SIMULATE, PSF, PHANTOM, BENCHMARK};
 
 	  // Coil Combine Type
 	  enum CoilCombineType { LOWRES, ESPIRIT, WALSH };

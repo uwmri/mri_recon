@@ -567,7 +567,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 	switch(gate_type){
 		case(RESP):{
 			cout << "Using Resp gate" << endl;
-			for( int e =0; e<data.resp.length(firstDim); e++){
+			for( int e =0; e<data.Num_Encodings; e++){
 				gate_times(e).resize( data.resp(e).shape());
 				gate_times(e) = data.resp(e);
 			}				  
@@ -581,7 +581,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 		case(RETRO_ECG):
 		case(ECG):{
 			cout << "Using ECG " << endl;
-			for( int e =0; e<data.ecg.length(firstDim); e++){
+			for( int e =0; e<data.Num_Encodings; e++){
 				gate_times(e).resize( data.ecg(e).shape());
 				gate_times(e) = data.ecg(e);
 			}
@@ -590,7 +590,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 		
 		case(TIME):{
 			cout << "Using Time Resolved" << endl;
-			for( int e =0; e<data.ecg.length(firstDim); e++){
+			for( int e =0; e<data.Num_Encodings; e++){
 				gate_times(e).resize( data.time(e).shape());
 				gate_times(e) = data.time(e);
 			}
@@ -598,7 +598,7 @@ void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 		
 		case(PREP):{
 			cout << "Using Prep Timer" << endl;
-			for( int e =0; e<data.prep.length(firstDim); e++){
+			for( int e =0; e<data.Num_Encodings; e++){
 				gate_times(e).resize( data.prep(e).shape());
 				gate_times(e) = data.prep(e);
 			}
@@ -801,10 +801,11 @@ void GATING::hist_weight( Array<float,3>&Tw,int e, int t){
 	
 	for(int k=0; k<Tw.length(thirdDim); k++){
 	for(int j=0; j<Tw.length(secondDim); j++){
-	for(int i=0; i<Tw.length(firstDim); i++){
-		// Get K-space Radius
-		Tw(i,j,k) *= ( floor(gate_times(e)(j,k)) == t ) ? ( 1.0 ) : ( 0.0 );
-	}}}
+		for(int i=0; i<Tw.length(firstDim); i++){
+			// Get K-space Radius
+			Tw(i,j,k) *= ( floor(gate_times(e)(j,k)) == t ) ? ( 1.0 ) : ( 0.0 );
+		}
+	}}
 }
 
 /* Tornado-like filter in k-space in rcframe units

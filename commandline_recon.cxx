@@ -30,6 +30,12 @@ int main(int argc, char **argv){
 			//pfile.read_data(0);
 		}break;
 		
+		case(RECON::BENCHMARK):{
+			// This runs a system benchmark
+		
+		
+		}break;
+		
 		case(RECON::SIMULATE):{
 			// Use completely made up data
 			
@@ -78,7 +84,6 @@ int main(int argc, char **argv){
 			   Collect Data
 			 ------------------------------*/
 			int e= 0;
-			Range all=Range::all();
 			Array< float,3 >kxE = data.kx(e); 
 			Array< float,3 >kyE = data.ky(e); 
 			Array< float,3 >kzE = data.kz(e); 

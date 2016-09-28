@@ -9,6 +9,15 @@ void NDarray::fftshift( Array< complex<float>,3>& temp){
 			}}}	
 }
 
+
+void NDarray::nested_workaround( long index, int *N,int *idx, int total){
+	long tempi = index;
+	for( int pos=0; pos < total; pos++){
+		idx[pos] = tempi % N[pos];
+		tempi = (tempi-idx[pos]) / N[pos];		
+	}
+}
+
 void NDarray::ifft( Array< complex<float>,3>& temp){
 	// Shift to Center of K-space
 	fftshift( temp);
