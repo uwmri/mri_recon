@@ -74,6 +74,8 @@ GATING::GATING( int numarg, char **pstring) {
 	resp_gate_efficiency = 0.5;
         resp_gate_type = RESP_NONE;
 	resp_gate_signal = BELLOWS;
+	limits_low = 0;
+	limits_high = 0;
 		
 	resp_sign = 1.0;
 
@@ -120,9 +122,10 @@ GATING::GATING( int numarg, char **pstring) {
 					exit(1);
 				trig_flag(RESP_THRESH,"thresh",resp_gate_type);
 				trig_flag(RESP_WEIGHT,"weight",resp_gate_type);
+				trig_flag(RESP_LIMITS,"limits",resp_gate_type);
 								
 				}else{
-					cout << "Please provide respiratory gating type..thresh/weight (-h for usage)" << endl;
+					cout << "Please provide respiratory gating type..thresh/weight/limits (-h for usage)" << endl;
 					exit(1);
 				}			
 			}else if(strcmp("-resp_gate_signal",pstring[pos]) == 0) {
@@ -143,6 +146,8 @@ GATING::GATING( int numarg, char **pstring) {
 			trig_flag(1,"-correct_resp_drift",correct_resp_drift);
 			float_flag("-resp_gate_efficiency",resp_gate_efficiency);
 			float_flag("-resp_sign",resp_sign);
+			float_flag("-limits_low",limits_low);
+			float_flag("-limits_high",limits_high);
 			
 			}
 	}
@@ -151,6 +156,8 @@ GATING::GATING( int numarg, char **pstring) {
 		cout << "Using threshold based respiratory gating" << endl;
 	} else if (resp_gate_type == RESP_WEIGHT) {
 		cout << "Using (fuzzy) weight based respiratory gating" << endl;
+	} else if (resp_gate_type == RESP_LIMITS) {
+		cout << "Using manual threshold based respiratory gating" << endl;
 	}
 
 }
@@ -175,6 +182,7 @@ void GATING::help_message() {
 	help_flag("-resp_gate []","In addition to other gating, perform respiratory gating");
 	help_flag("","  thresh = threshold values");
 	help_flag("","  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
+	help_flag("","  limits = set manual threshold limits");
 
 	help_flag("-resp_gate_signal","Specify source for the data used to estimate respiratory phase");
 	help_flag("","  bellows = signal from respiratory bellows belt in gating file (default)");
@@ -190,6 +198,8 @@ void GATING::help_message() {
 	help_flag("-correct_resp_drift","Median filter with 10s interval");
 	help_flag("-resp_gate_efficiency","Fraction of data to accept");
 	help_flag("-adaptive_resp_window","Length of window to use for thresholding");
+	help_flag("-limits_low","Lower limit for manual threshold input");
+	help_flag("-limits_high","Upper limit for manual threshold input");
 	
 	cout << "Control for ECG Data" << endl;
 	help_flag("-bad_ecg_filter","Filter Bad ECG Vals (>10,000ms)");
@@ -481,6 +491,52 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 			  
 		}break;
 		
+		case(RESP_LIMITS):{
+
+			  cout << "Time Sorting Data" << endl;
+
+			  // Use Aradillo Sort function
+			  arma::vec time = array_to_vec( data.time );
+			  arma::vec resp = array_to_vec( data.resp );
+			  arma::vec arma_resp_weight(resp);
+			  arma::vec time_linear_resp(resp);
+			  arma::vec time_sort_resp_weight(resp);
+			
+			  time.save("Time.txt",arma::raw_ascii);
+			  resp.save("Resp.txt",arma::raw_ascii);
+
+			  // Sort
+			  arma::uvec idx = arma::sort_index(time); 
+
+			  // Copy Resp
+			  idx.save("Sorted.dat", arma::raw_ascii);
+			  for(int i=0; i< (int)resp_weight.numElements(); i++){
+				  time_linear_resp( i )= resp( idx(i));
+			  }
+			  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
+
+
+			  // Size of histogram
+			  cout << "Time range = " << ( Dmax(data.time)-Dmin(data.time) ) << endl;
+			  int fsize = (int)( 5.0 / (  ( Dmax(data.time)-Dmin(data.time) ) / resp.n_elem ) ); // 10s filter / delta time
+
+			  // Now Filter
+			  cout << "Comparing Data to Limits "<< endl;
+			  for(int i=0; i< (int)time_linear_resp.n_elem; i++){
+				  arma::vec temp = time_linear_resp.rows(start,stop);
+				  arma::vec temp2= sort(temp);
+				  double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0- resp_gate_efficiency )));
+
+				  arma_resp_weight(idx(i))= ( time_linear_resp(i) >= limits_low && time_linear_resp(i) <= limits_hi ) ? ( 1.0 ) : ( 0.0);
+				  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
+			  }
+			  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
+			  arma_resp_weight.save("Weight.txt",arma::raw_ascii);
+
+			  // Copy Back
+			  vec_to_array( resp_weight, arma_resp_weight);
+		}break;
+		
 		case(RESP_WEIGHT):{
 
 			  cout << "Copying Resp Waveform" << endl;
@@ -757,6 +813,15 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 		
 		case(RESP_WEIGHT):
 		case(RESP_THRESH):{
+			cout << "Resp weighting" << endl << flush;	
+			for(int k=0; k<Tw.length(thirdDim); k++){
+			for(int j=0; j<Tw.length(secondDim); j++){
+			for(int i=0; i<Tw.length(firstDim); i++){
+				Tw(i,j,k) *= resp_weight(e)(j,k);
+			}}}
+			cout << "Resp weighting done" << endl << flush;	
+		}break;
+		case(RESP_LIMITS):{
 			cout << "Resp weighting" << endl << flush;	
 			for(int k=0; k<Tw.length(thirdDim); k++){
 			for(int j=0; j<Tw.length(secondDim); j++){
