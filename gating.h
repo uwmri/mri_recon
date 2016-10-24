@@ -31,7 +31,7 @@ class GATING {
 		enum WeightType { ITERATIVE,NON_ITERATIVE};
 		enum FrameType { COMPOSITE, TIME_FRAME};
 		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
-		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
+		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT,RESP_LIMITS};
 		
 		
 		GATING();						
@@ -63,6 +63,8 @@ class GATING {
 		RespGateType resp_gate_type;
 		int correct_resp_drift;
 		float resp_gate_efficiency;
+		int limits_low;
+		int limits_high;
 
 		// Respiratory Signal 
 		enum RespGateSignal{BELLOWS,DC_DATA};
