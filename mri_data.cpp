@@ -247,10 +247,9 @@ void MRI_DATA::init_encode(int e, int readouts, int shots, int slices) {
 }
 
 
-
-
 void MRI_DATA::init_gating_kdata(int gating_samples) {
-
+	
+	cout << "Gating samples = " << gating_samples << endl;
 	/*kdata_gating.setStorage( ColumnMajorArray<5>());
 	kdata_gating.resize(gating_samples,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
 	*/

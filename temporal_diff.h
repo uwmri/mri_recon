@@ -11,7 +11,8 @@
 #include <omp.h>
 #include "ArrayTemplates.hpp"
 #include <fftw3.h>
-#define ARMA_FAKE_GCC
+
+ 
 #include <armadillo>
 
 

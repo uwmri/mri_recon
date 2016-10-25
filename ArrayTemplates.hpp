@@ -178,15 +178,25 @@ Array< Array<T,3>, 3> Alloc6DContainer( int x, int y, int z, int d1, int d2, int
 
 template < typename T > 
 Array< Array<T,3>, 2> Alloc5DContainer( int x, int y, int z, int d1, int d2){
+	
 	Array< Array<T,3>,2> temp;
 	temp.setStorage(ColumnMajorArray<2>());
 	temp.resize( d1,d2);
 	
+	for(int i = 0; i < d1; i++){
+	for(int j = 0; j < d2; j++){
+		temp(i,j).setStorage(ColumnMajorArray<3>());
+		temp(i,j).resize(x,y,z);
+		temp(i,j)= (T )0;
+	}}
+	
+	/* This leads to errors for no real reason
 	for( typename Array< Array<T,3>,2>::iterator miter=temp.begin();   miter !=temp.end(); miter++){
 		(*miter).setStorage(ColumnMajorArray<3>());
 		(*miter).resize(x,y,z);
 		(*miter)= (T )0;
 	}
+	*/
 	return(temp);
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <iostream>
-#define ARMA_FAKE_GCC
+ 
 #include <armadillo>
 #include <cmath>
 #include <omp.h>

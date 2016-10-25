@@ -2,7 +2,7 @@
 #define hPOLYFIT
 
 /**Code to Fit image data to a polynomial*/
-#define ARMA_FAKE_GCC
+ 
 #include <armadillo>
 #include <omp.h>
 

@@ -101,10 +101,10 @@ else()
   include(ARMA_FindMKL)
   include(ARMA_FindACMLMP)
   include(ARMA_FindACML)
-  #include(ARMA_FindOpenBLAS)
-  #include(ARMA_FindATLAS)
-  #include(ARMA_FindBLAS)
-  #include(ARMA_FindLAPACK)
+  include(ARMA_FindOpenBLAS)
+  include(ARMA_FindATLAS)
+  include(ARMA_FindBLAS)
+  include(ARMA_FindLAPACK)
   
   message(STATUS "     MKL_FOUND = ${MKL_FOUND}"     )
   message(STATUS "  ACMLMP_FOUND = ${ACMLMP_FOUND}"  )
@@ -113,11 +113,7 @@ else()
   message(STATUS "   ATLAS_FOUND = ${ATLAS_FOUND}"   )
   message(STATUS "    BLAS_FOUND = ${BLAS_FOUND}"    )
   message(STATUS "  LAPACK_FOUND = ${LAPACK_FOUND}"  )
-  
-  set(ACMLMP_FOUND false)
-  set(ACML_FOUND false)
-  set(ATLAS_FOUND false)
-   
+     
   if(MKL_FOUND OR ACMLMP_FOUND OR ACML_FOUND)
     
     set(ARMA_USE_LAPACK true)

@@ -8,7 +8,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
 file(GLOB LOCAL_INCS ${CMAKE_SOURCE_DIR}/*.h)
 
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O3 -march=native -fopenmp ")
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O2 -fopenmp ")
 set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} )
 
 # Find Required Libraries
@@ -16,8 +16,10 @@ message( STATUS "Check for required libraries ")
 include(FindBlitz)
 include(FindFFTW)
 include(FindHDF5)
-include(FindARMADILLO)
+#include(FindARMADILLO)
 include(FindVORO)
+
+find_package(Armadillo REQUIRED)
 
 #Set include directories
 include_directories( BEFORE ${ARMADILLO_INCLUDE_DIR}  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR} ${VORO_INCLUDE_DIR} )

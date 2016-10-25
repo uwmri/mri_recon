@@ -46,6 +46,10 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
    			cout << "Add Sphere" << endl;
 			con.add_wall(ksphere);
 		}break;
+		
+		case(CUBE):{
+			// Cube
+		}break;
 	}
 	
 	cout << "Sizes of Input Array" << endl;
@@ -227,6 +231,10 @@ void VORONOI_DCF::vor_dcf( Array<float,3> &kw,Array<float,3> &kx,Array<float,3> 
 		
 		}
 		cout << "Actually added " << extra_points << endl;
+	}break;
+	
+	case(CUBE):{
+		// Don't add extra points
 	}break;
 	
 	}

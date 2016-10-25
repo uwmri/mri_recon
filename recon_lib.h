@@ -12,7 +12,7 @@
 #include <omp.h>
 
 // External Libraries
-#define ARMA_FAKE_GCC
+ 
 #include <armadillo>
 
 // Local Libraries

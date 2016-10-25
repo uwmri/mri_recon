@@ -1150,6 +1150,7 @@ void RECON::dcf_calc( MRI_DATA& data){
 
 Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range times, Range times_store, bool composite){
 	
+	cout << "Starting Recon" << endl << flush;
 			
 	// Shorthand for Blitz++
 	Range all=Range::all();
@@ -1174,18 +1175,14 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 	}
 	
 	// Final Image Solution
+	cout << "Alloc Container for Solution ( " << rcxres << "," << rcyres << "," << rczres << ") x (" << Nt << "," << rcencodes << ")" << endl << flush;
 	Array< Array<complex<float>,3>,2>X = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
-	if( cs_temporal_transform==COMPOSITE_DIFF){
-		for( Array< Array<complex<float>,3>,2>::iterator miter=X.begin(); miter!=X.end(); miter++){
-			(*miter)=composite_image;
-		}
-	}
 	
 	// Weighting Array for Time coding
 	Array< float, 3 >TimeWeight;
 	TimeWeight.setStorage( ColumnMajorArray<3>() );
 
-	cout << "Full recon for " << rcencodes << " encodes, " << Nt << "frames " << endl;
+	cout << "Full recon for " << rcencodes << " encodes, " << Nt << "frames " << endl << flush;
 	
 	switch(recon_type){
 		default:
