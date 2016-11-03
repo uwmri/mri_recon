@@ -87,6 +87,9 @@ class MRI_DATA{
 		MRI_DATA( MRI_DATA *);
 		MRI_DATA( void );
 		
+		// Combiners 
+		void convert_encodes_to_coils(void);
+		
 		// Data Operations (move?)
 		void coilcompress(float);
 		void whiten();
@@ -100,7 +103,7 @@ class MRI_DATA{
 		void init_gating_kdata(int);
 		void init_noise_samples(int);
 		void init_encode(int,int,int,int);
-		
+					
 		// HDF5 Data 
 		void write_external_data(const char *fname);
 		void read_external_data( const char *fname);

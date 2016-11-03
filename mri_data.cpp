@@ -71,6 +71,50 @@ void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z) {
 
 }
 
+void MRI_DATA::convert_encodes_to_coils( void){
+	
+	// This function treats encodes as sperate coils
+	// Only works if encodes are identical
+	int new_Num_Coils = Num_Encodings*Num_Coils;
+	
+	/*
+	this->kx.resizeAndPreserve(1);
+	this->ky.resizeAndPreserve(1);
+	this->kz.resizeAndPreserve(1);
+	this->kw.resizeAndPreserve(1);
+	this->kt.resizeAndPreserve(1);
+	*/
+	
+	cout << "Create temp array" << endl;
+	Array< Array<complex<float>,3>, 2> kdata_temp;
+	kdata_temp.setStorage(ColumnMajorArray<2>());
+	kdata_temp.resize(1, new_Num_Coils);
+			
+	cout << "Copy array" << endl;	
+	int count= 0;
+	for (int ee = 0; ee < this->Num_Encodings; ee ++) {
+		for (int coil = 0; coil < this->Num_Coils; coil++) {
+			kdata_temp(0,count).setStorage(ColumnMajorArray<3>());
+			kdata_temp(0,count).resize(this->kdata(ee,coil).shape());
+			kdata_temp(0,count) = this->kdata(ee,coil);
+			count++;
+		}
+	}
+
+	cout << "Copy Back" << endl;
+	this->kdata.resize(1,new_Num_Coils);
+	for( int pos=0; pos <  new_Num_Coils; pos++){
+			this->kdata(0,pos).setStorage(ColumnMajorArray<3>());
+			this->kdata(0,pos).resize(kdata_temp(0,pos).shape());
+			this->kdata(0,pos) = kdata_temp(0,pos);
+	}
+	
+	// Reset size
+	this->Num_Encodings = 1;
+	this->Num_Coils = new_Num_Coils;
+	
+}
+
 MRI_DATA MRI_DATA::subframe(int eStart, int eStop, int eStride) {
 
 	MRI_DATA data2;

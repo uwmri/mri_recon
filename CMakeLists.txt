@@ -9,7 +9,10 @@ file(GLOB LOCAL_INCS ${CMAKE_SOURCE_DIR}/*.h)
 
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O2 -fopenmp ")
-set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} )
+set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
+
+# Find static libraries for portability
+#SET(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
 
 # Find Required Libraries
 message( STATUS "Check for required libraries ")
@@ -24,6 +27,8 @@ find_package(Armadillo REQUIRED)
 #Set include directories
 include_directories( BEFORE ${ARMADILLO_INCLUDE_DIR}  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR} ${VORO_INCLUDE_DIR} )
 set(LOCAL_LIBS ${VORO_LIBRARIES} ${FFTW3_LIBRARIES} ${ARMADILLO_LIBRARIES} ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
+
+set( LOCAL_LIBS ${LOCAL_LIBS})
 
 MESSAGE(STATUS "   Local Libraries = ${LOCAL_LIBS}")
 
