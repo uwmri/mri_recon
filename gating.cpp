@@ -429,20 +429,23 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 			  // Use Aradillo Sort function
 			  arma::vec time = array_to_vec( data.time );
 			  arma::vec resp = array_to_vec( data.resp );
-			  arma::vec arma_resp_weight(resp);
-			  arma::vec time_linear_resp(resp);
-			  arma::vec time_sort_resp_weight(resp);
-			
 			  time.save("Time.txt",arma::raw_ascii);
 			  resp.save("Resp.txt",arma::raw_ascii);
 
-			  // Sort
-			  arma::uvec idx = arma::sort_index(time); 
-
+			  // Vectors for working on data
+			  int N = resp.n_elem;
+			  arma::vec arma_resp_weight = arma::zeros<arma::vec>(N);
+			  arma::vec time_linear_resp  = arma::zeros<arma::vec>(N);
+			  arma::vec time_sort_resp_weight = arma::zeros<arma::vec>(N);
+			  
+			   // Sort
+			  arma::uvec time_idx = arma::sort_index(time); 
+			  time_idx.save("Sorted.txt", arma::raw_ascii);
+			  
 			  // Copy Resp
-			  idx.save("Sorted.dat", arma::raw_ascii);
-			  for(int i=0; i< (int)resp_weight.numElements(); i++){
-				  time_linear_resp( i )= resp( idx(i));
+			  for(int i=0; i< N; i++){
+				  time_linear_resp( i )= resp( time_idx(i));
+				  
 			  }
 			  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
 
@@ -453,7 +456,7 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 
 			  // Now Filter
 			  cout << "Thresholding Data Frame Size = " << fsize << endl;
-			  for(int i=0; i< (int)time_linear_resp.n_elem; i++){
+			  for(int i=0; i< N; i++){
 				  int start = i - fsize;
 				  int stop  = i + fsize;
 				  if(start < 0){
@@ -461,8 +464,8 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 					  start = 0; 
 				  }
 
-				  if(stop >=  (int)time_linear_resp.n_elem){
-					  stop  = time_linear_resp.n_elem -1;
+				  if(stop >=  N){
+					  stop  = N -1;
 					  start = time_linear_resp.n_elem - 1 - 2*fsize;
 				  }
 
@@ -470,8 +473,8 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 				  arma::vec temp2= sort(temp);
 				  double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0- resp_gate_efficiency )));
 
-				  arma_resp_weight(idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
-				  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
+				  arma_resp_weight(time_idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
+				  time_sort_resp_weight(i) =arma_resp_weight(time_idx(i));
 			  }
 			  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
 			  arma_resp_weight.save("Weight.txt",arma::raw_ascii);

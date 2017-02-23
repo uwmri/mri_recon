@@ -2405,6 +2405,10 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				Array< Array<complex<float>,3>,2> temp = Alloc5DContainer< complex<float> >(rcxres, rcyres, rczres, data.Num_Encodings,data.Num_Coils);
 				image_store.reference( temp);
 				smap_num_encodes = data.Num_Encodings;
+			}else if( coil_combine_type == WALSH){	
+				cout << "Using one encodes for coil maps" << endl;
+				Array< Array<complex<float>,3>,2> temp = Alloc5DContainer< complex<float> >(rcxres, rcyres, rczres, 1,data.Num_Coils);
+				image_store.reference( temp);
 			}else{
 				// Point to Smaps
 				image_store.setStorage( ColumnMajorArray<2>() );
@@ -2957,6 +2961,10 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 	block_size_y = ( block_size_y > Ny) ? ( Ny ) : ( block_size_y );
 	block_size_z = ( block_size_z > Nz) ? ( Nz ) : ( block_size_z );
 	
+	int block_hsize_x = block_size_x/2;
+	int block_hsize_y = block_size_y/2;
+	int block_hsize_z = block_size_z/2;
+			
 	int Np = block_size_x*block_size_y*block_size_z*Nencodes;
 	
 	cout << "Eigen Coil ( " << Nx << " x " << Ny << " x " << Nz << " x " << Ncoils << " x " << Nencodes << endl;
@@ -2970,39 +2978,92 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 	int total_blocks = block_Nx * block_Ny * block_Nz;
 	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
 	
-	int *N = new int[3];
-	N[0] = block_Nx;
-	N[1] = block_Ny;
-	N[2] = block_Nz;
+	// This code is for accelerating the calculation
+	int EaccX = 2;
+	int EaccY = 2;
+	int EaccZ = 2;
 	
-	return; 
-		
+	cout << "Eigen Acceleration ( " << EaccX << " x " << EaccY  << " x " << EaccZ << " ) " << endl;
+	
+	int NNx = max( Nx/EaccX,1);
+	int NNy = max( Ny/EaccY,1);
+	int NNz = max( Nz/EaccZ,1);
+	
+	cout << "Eigen Size ( " << NNx << " x " << NNy  << " x " << NNz << " ) " << endl;
+				
+	int *N = new int[3];
+	N[0] = NNx;
+	N[1] = NNy;
+	N[2] = NNz;
+	
+	tictoc T;
+	T.tic(); 
+	
 	#pragma omp parallel for
-	for( int block = 0; block < total_blocks; block++){
+	for( int block = 0; block < (NNx*NNy*NNz); block++){
 		
 		//cout << "Block " << block << " of " << total_blocks << endl;
 		
 		// Get the actual position
 		int *I = new int[3];
-		nested_workaround(block,N,I,2);
-		int i = I[0]*block_size_x;
-		int j = I[1]*block_size_y;
-		int k = I[2]*block_size_z;
+		nested_workaround(block,N,I,3);
+		int i = I[0]*EaccX;
+		int j = I[1]*EaccY;
+		int k = I[2]*EaccZ;
 		delete [] I;
-				
+		
 		//-----------------------------------------------------
-		//   Block section
+		//   Block coordinates
+		//-----------------------------------------------------
+		int kstart = k - block_hsize_z;
+		int kstop = k - block_hsize_z + block_size_z;
+		if( kstart < 0){
+			kstart =0;
+			kstart = k + block_size_z;
+		}
+		
+		if(kstop > Nz){
+			kstop = Nz;
+			kstart = Nz - block_size_z;
+		}
+		
+		
+		int jstart = j - block_hsize_y;
+		int jstop = j - block_hsize_y + block_size_y;
+		if( jstart < 0){
+			jstart =0;
+			jstart = j + block_size_y;
+		}
+		
+		if(jstop > Ny){
+			jstop = Ny;
+			jstart = Ny - block_size_y;
+		}
+		
+		int istart = i - block_hsize_x;
+		int istop = i - block_hsize_x + block_size_x;
+		if( istart < 0){
+			istart =0;
+			istart = i + block_size_x;
+		}
+		
+		if(istop > Nx){
+			istop = Nx;
+			istart = Nx - block_size_x;
+		}
+		
+		//-----------------------------------------------------
+		//   Collect a Block 
 		//-----------------------------------------------------
 		
-		// Collect a block
 		arma::cx_mat R;
 		R.zeros(Ncoils,Np);
 		for(int c=0; c< Ncoils; c++){
 			int count = 0;
 			for(int e=0; e< Nencodes; e++){
-				for(int kk=k; kk < k+block_size_z; kk++){
-					for(int jj=j; jj < j+block_size_y; jj++){
-						for(int ii=i; ii < i+block_size_x; ii++){
+				for(int kk=kstart; kk < kstop; kk++){
+					for(int jj=jstart; jj < jstop; jj++){
+						for(int ii=istart; ii < istop; ii++){
 							R(c,count) = image(e,c)(ii,jj,kk);
 							count++;
 			}}}}
@@ -3013,21 +3074,88 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 		arma::cx_mat V;
 		arma::vec s;
   		arma::svd_econ(U, s, V, R,"left");
-		
+								
 		for(int c=0; c< Ncoils; c++){
-			complex<double>temp = U(c,0)*polar<double>(1.0,-arg(U(ref_coil,0)));
-			
-			for(int kk=k; kk < k+block_size_z; kk++){
-			for(int jj=j; jj < j+block_size_y; jj++){
-			for(int ii=i; ii < i+block_size_x; ii++){
-				smaps(c)(ii,jj,kk) = complex<float>((float)real(temp),(float)imag(temp));
-			}}}
+			complex<double>temp = sqrt(s(0))*U(c,0)*polar<double>(1.0,-arg(U(ref_coil,0)));
+			smaps(c)(i,j,k) = complex<float>((float)real(temp),(float)imag(temp));
 		}
 		
 	}// Block (threaded)
+	cout << "(eigen coil took " << T << ")" << endl << flush;
 	
+	//-----------------------------------------------------
+	//   Interpolate for acclerated calculation
+	//-----------------------------------------------------
+	T.tic(); 
+	if( (EaccX != 1) || (EaccY != 1) || (EaccZ != 1) ){
+		cout << "Interpolating Smaps" << endl; 
+		
+		// Actually do the convolution
+		#pragma omp parallel for
+		for( int k=0; k < Nz; k++){
+		for( int j=0; j < Ny; j++){
+		for( int i=0; i < Nx; i++){
+				
+			// Skip points already computed
+			if( ((i%EaccX)==0) && ((j%EaccY)==0) && ((k%EaccZ)==0) ){
+				continue;
+			}
+				
+			// Grab nearest 8 points
+			int i0 = i - i%EaccX;
+			int j0 = j - j%EaccY;
+			int k0 = k - k%EaccZ;
+			
+			int i1 = (i + EaccX + Nx)% Nx;
+			int j1 = (j + EaccY + Ny)% Ny;
+			int k1 = (k + EaccZ + Nz)% Nz;
+						
+			// Create the matrix
+			arma::cx_mat C;
+			C.zeros(Ncoils,8);
+			for( int c=0; c < Ncoils; c++){
+				C(c,0) = smaps(c)(i0,j0,k0);
+				C(c,1) = smaps(c)(i1,j0,k0);
+				C(c,2) = smaps(c)(i0,j0,k0);
+				C(c,3) = smaps(c)(i1,j0,k0);
+				C(c,4) = smaps(c)(i0,j1,k1);
+				C(c,5) = smaps(c)(i1,j1,k1);
+				C(c,6) = smaps(c)(i0,j1,k1);
+				C(c,7) = smaps(c)(i1,j1,k1);
+			}	
+			
+			// Phase the matrix via SVD
+			arma::cx_mat U;
+			arma::cx_mat V;
+			arma::vec s;
+  			arma::svd_econ(U, s, V, C,"left");	
+			
+			// Copy back
+			for(int c=0; c< Ncoils; c++){
+				smaps(c)(i,j,k) = complex<float>((float)real(C(c,0)),(float)imag(C(c,0)));
+			}
+			
+		}}} // i,j,k
+		cout << "Interpolation took " << T << endl;
+	}
+	
+	// Normalize the maps
+	#pragma omp parallel for
+	for( int k=0; k < Nz; k++){
+	for( int j=0; j < Ny; j++){
+	for( int i=0; i < Nx; i++){
+		
+		double SS = 0;
+		for(int c=0; c< Ncoils; c++){
+			SS += norm( smaps(c)(i,j,k));
+		}
+		SS = 1./sqrt(SS);
+		
+		for(int c=0; c< Ncoils; c++){
+			smaps(c)(i,j,k) *= SS;
+		}
+	}}}
 }
-
 
 
 
