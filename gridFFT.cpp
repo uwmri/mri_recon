@@ -996,25 +996,28 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	
 	long Npts = dataA.numElements();
 		
-	//long stride_x = 1;
-	long stride_y = dataA.length(firstDim);
-	long stride_z = dataA.length(secondDim);
-		
+	// nested 	
+	int *N = new int[3];
+	N[0] = dataA.length(firstDim);
+	N[1] = dataA.length(secondDim);
+	N[2] = dataA.length(thirdDim);
 	
 	#pragma omp parallel for
 	for (long index=0; index < Npts; index++) {
       	
-		
-		// Nested parallelism workaround
-		int ii =   index % stride_y;
-		long tempi = (index-ii) / stride_y;
-		int jj =   tempi % stride_z;
-		int kk =  ( tempi - jj) / stride_z;
-		
-		float kx = kxA(ii,jj,kk);
-		float ky = kyA(ii,jj,kk);
-		float kz = kzA(ii,jj,kk);
+		// Get the actual position
+		int *I = new int[3];
+		nested_workaround(index,N,I,3);
+		int ii = I[0];
+		int jj = I[1];
+		int kk = I[2];
+		delete [] I;		
+
 		float kw = kwA(ii,jj,kk);
+		if( kw == 0){
+			continue;
+		}
+		
 		complex<float>temp =dataA(ii,jj,kk);
 				
 		// Density Comp
@@ -1023,7 +1026,10 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 		// Do not grid zeros
      	if( temp==complex<float>(0,0)) continue;
 		
-				
+		float kx = kxA(ii,jj,kk);
+		float ky = kyA(ii,jj,kk);
+		float kz = kzA(ii,jj,kk);
+						
 	 	// Calculate the exact kspace sample point in 
 		// dimension flag->grid* kspace that this point (i,j)
 		// is contributing too.
@@ -1152,29 +1158,36 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	float cz = Sz/2;
 	
 	long Npts = dataA.numElements();
-	//long stride_x = 1;
-	long stride_y = dataA.length(firstDim);
-	long stride_z = dataA.length(secondDim);
 	
+	// nested 	
+	int *N = new int[3];
+	N[0] = dataA.length(firstDim);
+	N[1] = dataA.length(secondDim);
+	N[2] = dataA.length(thirdDim);
+
 	#pragma omp parallel for 
 	for (int index=0; index < Npts; index++) {
       	
-		// Nested parallelism workaround
-		int ii =  index % stride_y;
-		long tempi = (index-ii) / stride_y;
-		int jj =  tempi % stride_z;
-		int kk =  ( tempi - jj) / stride_z;
-				
+		// Get the actual position
+		int *I = new int[3];
+		nested_workaround(index,N,I,3);
+		int ii = I[0];
+		int jj = I[1];
+		int kk = I[2];
+		delete [] I;		
+		
+		// Do not grid zeros
+		float kw = kwA(ii,jj,kk);
+     	if( kw==0.0){
+			continue;
+		}
+		
 		float kx = kxA(ii,jj,kk);
 		float ky = kyA(ii,jj,kk);
 		float kz = kzA(ii,jj,kk);
-		float kw = kwA(ii,jj,kk);
 		
 		dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-		
-		// Do not grid zeros
-     	if( kw==0.0) continue;
-					
+							
 	    // Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
 	    // is contributing too.
