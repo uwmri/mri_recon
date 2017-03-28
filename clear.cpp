@@ -455,7 +455,7 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,2 > &image, int dim){
 			arma::cx_mat U;
 			arma::cx_mat V;
 			arma::vec s;
-  			arma::svd_econ(U,s,V,A);
+  			arma::svd_econ(U,s,V,A,"both","std");
 			
 			for(vec::iterator miter=s.begin(); miter!=s.end(); miter++){ 
 				(*miter) =  max( (*miter) - clear_alpha/block_iter, 0.0);
@@ -649,7 +649,7 @@ void LOWRANKCOIL::thresh( Array< Array<complex<float>,3>,3 > &image, int dim){
 			// SVD Threshold
 			// -------------------------------------------------------- 
 			vec s;
-  			arma::svd(UU[thread],s,VV[thread],AA[thread]);
+  			arma::svd(UU[thread],s,VV[thread],AA[thread],"std");
 			
 			for(vec::iterator miter=s.begin(); miter!=s.end(); miter++){ 
 				(*miter) =  max( (*miter) - clear_alpha/block_iter, 0.0);
@@ -812,7 +812,7 @@ void LOWRANKCOIL::combine( Array< Array<complex<float>,3>,3 > &image, Array< Arr
 			// SVD Threshold
 			// -------------------------------------------------------- 
 			vec s;
-  			arma::svd(U,s,V,A);
+  			arma::svd(U,s,V,A,"std");
 								
 			// Grab Largest Value
 			cx_mat A2 = A*V.cols(0,0);

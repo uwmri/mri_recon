@@ -1,3 +1,4 @@
+
 #include "recon_lib.h"
 #include "io_templates.hpp"
 
@@ -520,9 +521,7 @@ void RECON::pregate_data( MRI_DATA &data){
 	data2.kw.resize( data2.Num_Encodings);
 	data2.kdata.setStorage( ColumnMajorArray<2>());
 	data2.kdata.resize(data2.Num_Encodings,data2.Num_Coils);
-	
-	
-	
+		
 	int count = 0;
 	for( int e=0; e<data.Num_Encodings; e++){
 		
@@ -543,9 +542,8 @@ void RECON::pregate_data( MRI_DATA &data){
 					number_of_points++;
 				}
 			}
-			cout << "Total number of point = " << number_of_points << endl;
+			cout << "Frame " << t << ", Total number of point = " << number_of_points << endl;
 			
-			cout << "Allocate an array" << endl;
 			data2.kx(count).setStorage( ColumnMajorArray<3>());
 			data2.kx(count).resize(number_of_points,1,1);
 			
@@ -563,7 +561,6 @@ void RECON::pregate_data( MRI_DATA &data){
 				data2.kdata(count,coil).resize(number_of_points,1,1);
 			}
 			
-			cout << "Copy the data" << endl;
 			int point_number=0;
 			for( int k=0; k< Kweight.length(thirdDim); k++){
 				for( int j=0; j< Kweight.length(secondDim); j++){
@@ -588,9 +585,6 @@ void RECON::pregate_data( MRI_DATA &data){
 	}
 	
 	cout << "Swap" << endl << flush;
-	rcframes =1;
-	rcencodes = data2.Num_Encodings;
-	
 	cycleArrays( data.kx, data2.kx);
 	cycleArrays( data.ky, data2.ky);
 	cycleArrays( data.kz, data2.kz);
@@ -1194,26 +1188,27 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 				for(int t=0; t< Nt; t++){
 					int act_t   = times(t);
 					int store_t = times_store(t);
-							 
+					int act_e = ( pregate_data_flag) ? ( e*Nt + act_t ) : ( e);
+									 
 					cout << "Recon Encode" << e << " Frame " << t << endl;
 					T.tic();
 					
 					// Temporal weighting 
 					if(pregate_data_flag){
-					 	TimeWeight.reference( data.kw(e) );
+					 	TimeWeight.reference( data.kw(act_e) );
 					}else{
-					 	TimeWeight.resize(data.kw(e).shape());
-						TimeWeight = data.kw(e);
-					 	gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::NON_ITERATIVE,frame_type);
+					 	TimeWeight.resize(data.kw(act_e).shape());
+						TimeWeight = data.kw(act_e);
+					 	gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::NON_ITERATIVE,frame_type);
    					}
 					
 					// cout << "\tForward Gridding Coil ";
 					for(int coil=0; coil< data.Num_Coils; coil++){
 						// K-space to Image
 						if(recon_type==PILS){
-							gridding.forward(X(store_t,e),smaps(coil),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+							gridding.forward(X(store_t,e),smaps(coil),data.kdata(act_e,coil),data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
 						}else{
-							gridding.forward_sos(X(store_t,e),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+							gridding.forward_sos(X(store_t,e),data.kdata(act_e,coil),data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
 						}
 						
 					}
@@ -1723,23 +1718,24 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					for(int t=0; t< Nt; t++){
 						int act_t = times(t);
 						int store_t = times_store(t);
-						
+						int act_e = ( pregate_data_flag) ? ( e*Nt + act_t ) : ( e);
+								
 						// Temporal weighting 
 						if(reset_dens){
-						    TimeWeight.resize(data.kw(e).shape());
+						    TimeWeight.resize(data.kw(act_e).shape());
 							TimeWeight = 1.0;								  
-							gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+							gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
    						}else if(pregate_data_flag){
-					 		TimeWeight.reference( data.kw(e) );
+					 		TimeWeight.reference( data.kw(act_e) );
 						}else{
-					 		TimeWeight.resize(data.kw(e).shape());
-							TimeWeight = data.kw(e);
-					 		gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+					 		TimeWeight.resize(data.kw(act_e).shape());
+							TimeWeight = data.kw(act_e);
+					 		gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
    						}
 						
 						// E'd
 						for(int coil=0; coil< data.Num_Coils; coil++){
-							gridding.forward( R(store_t,e),smaps(coil),data.kdata(e,coil),data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+							gridding.forward( R(store_t,e),smaps(coil),data.kdata(act_e,coil),data.kx(act_e),data.ky(act_e),data.kz(e),TimeWeight);
 						} 
 						
 				 	}
@@ -1761,32 +1757,33 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  for(int t=0; t< Nt; t++){
 							  int act_t = times(t);
 							  int store_t = times_store(t);
-							  
+							  int act_e = ( pregate_data_flag) ? ( e*Nt + act_t ) : ( e);
+						
 							  LHS(t,e ) = complex<float>(0.0,0.0);
 							  T.tic();
  
 							  // Temporal weighting 
 							  if(reset_dens){
-								TimeWeight.resize(data.kw(e).shape());
+								TimeWeight.resize(data.kw(act_e).shape());
 								TimeWeight = 1.0;								  
-								gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+								gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
    							  }else if(pregate_data_flag){
-					 			TimeWeight.reference( data.kw(e) );
+					 			TimeWeight.reference( data.kw(act_e) );
 							  }else{
-					 			TimeWeight.resize(data.kw(e).shape());
-								TimeWeight = data.kw(e);
-					 			gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
+					 			TimeWeight.resize(data.kw(act_e).shape());
+								TimeWeight = data.kw(act_e);
+					 			gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
    							  }
 							  
 							  for(int coil=0; coil< data.Num_Coils; coil++){
 										  
 								  // Storage for (Ex-d) - dynamic for variable size
-			  		  			  Array< complex<float>,3 >diff_data( data.kx(e).shape(),ColumnMajorArray<3>());
+			  		  			  Array< complex<float>,3 >diff_data( data.kx(act_e).shape(),ColumnMajorArray<3>());
 								  diff_data=0;
 
 								  // E'Ex
-								  gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
-								  gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(e),data.ky(e),data.kz(e),TimeWeight);
+								  gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
+								  gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
 							  }//Coils
 							  
 							  // L2 R'R 
@@ -1937,98 +1934,98 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  cout << "\tGradient Calculation" << endl;
 						  
 						  for(int e=0; e< rcencodes; e++){
-							  
-							  // Get Sub-Arrays for Encoding
-							  Array< float,3 >kxE = data.kx(e); 
-							  Array< float,3 >kyE = data.ky(e); 
-							  Array< float,3 >kzE = data.kz(e);
-							  
-							  
 							  for(int t=0; t< Nt; t++){
-							  	int act_t = times(t);
+							  	
+								int act_t = times(t);
 								int store_t = times_store(t);
-							  							  	 
-								  T.tic();
+							  	int act_e = ( pregate_data_flag) ? ( e*Nt + act_t ) : ( e);
+									
+								// Get Sub-Arrays for Encoding
+							  	Array< float,3 >kxE = data.kx(act_e); 
+							  	Array< float,3 >kyE = data.ky(act_e); 
+							  	Array< float,3 >kzE = data.kz(act_e);
+							  	Array< float,3 >kwE = data.kw(act_e);
+							  	
+								T.tic();
 																  								  
-								  // Temporal weighting 
-								  if(reset_dens){
-								    TimeWeight.resize(data.kw(e).shape());
+								// Temporal weighting 
+								if(reset_dens){
+									TimeWeight.resize(kwE.shape());
 									TimeWeight = 1.0;
 									Array< float,3>::iterator titer=TimeWeight.begin();
-									Array< float,3>::iterator kiter=data.kw(e).begin();
-									for( ; (titer!=TimeWeight.end()) && (kiter!=data.kw(e).end()); titer++,kiter++){
+									Array< float,3>::iterator kiter=kwE.begin();
+									for( ; (titer!=TimeWeight.end()) && (kiter!=kwE.end()); titer++,kiter++){
 										if( (*kiter) < 0.1 ){
 											*titer = *kiter;
 										}else{
 										
 										}	*titer = 0.1;
 									} 
-																	
-																	  
-									gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
-   								  }else if(pregate_data_flag){
-					 				TimeWeight.reference( data.kw(e) );
-								  }else{
-					 				TimeWeight.resize(data.kw(e).shape());
-									TimeWeight = data.kw(e);
-					 				gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
-   								  }
-								  
-								  // Images
-								  for(int coil=0; coil< data.Num_Coils; coil++){
+									gate.weight_data( TimeWeight, e,kxE,kyE,kzE,act_t,GATING::ITERATIVE,frame_type);
+   								}else if(pregate_data_flag){
+					 				TimeWeight.reference( kwE );
+								}else{
+					 				TimeWeight.resize(kwE.shape());
+									TimeWeight = kwE;
+					 				gate.weight_data( TimeWeight, e, kxE,kwE,kzE,act_t,GATING::ITERATIVE,frame_type);
+   								}
+								 								 								  
+								// Images
+								for(int coil=0; coil< data.Num_Coils; coil++){
 									 
-									      Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
+									 Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
 								
-										  // Ex
-										  gridding.backward(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									// Ex
+									gridding.backward(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
 
-										  //Ex-d
-										  diff_data -= data.kdata(e,coil);
-
-										  //E'(Ex-d)
-										  gridding.forward(R(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									//Ex-d
+									diff_data -= data.kdata(act_e,coil);
+									  
+									//E'(Ex-d)
+									gridding.forward(R(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
 										  
-								  }//Coils
+								}//Coils
 													  
 								  // L2 
-								  if(iteration > 0){
+								if(iteration > 0){
 								  	l2reg.regularize(R(store_t,e),X(store_t,e) );
-								  }
+								}
 								    
 									
-								  //Now Get Scale factor (for Cauchy-Step Size)
-								  P=0;
-								  for(int coil=0; coil< data.Num_Coils; coil++){
+								//Now Get Scale factor (for Cauchy-Step Size)
+								P=0;
+								for(int coil=0; coil< data.Num_Coils; coil++){
 										  
-										  // Storage for (Ex-d)
-					  		  			  Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
+									// Storage for (Ex-d)
+					  		  		Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
 								
-										  // this is in backward diff_data=0;
+									// this is in backward diff_data=0;
 
-										  // EE'(Ex-d)
-										  gridding.backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
+									// EE'(Ex-d)
+									gridding.backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
 
-										  //E'EE'(Ex-d)
-										  gridding.forward(            P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
-								  }//Coils
+									//E'EE'(Ex-d)
+									 gridding.forward(            P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+								}//Coils
 								  
 								  
-								  // TV of Image
-								  if(iteration > 0){
-								  	l2reg.regularize(P,R(store_t,e));
-								  }
+								// TV of Image
+								if(iteration > 0){
+									l2reg.regularize(P,R(store_t,e));
+								}
 								 
-								  P*=conj(R(store_t,e));
+								P*=conj(R(store_t,e));
 								  
-								  for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
-								    	scale_RhP += complex< double>( real(*riter),imag(*riter)); 
-								  }
-								  cout << e << "," << t << "took " << T << "s" << endl;
+								for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
+									scale_RhP += complex< double>( real(*riter),imag(*riter)); 
+								}
+								
+								  cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 							  }//Time
 						  }//Encode
 						  
 						  // Get Scaling Factor R'P / R'R 
-						  cout << "Calc residue" << endl << flush;
+						  cout << endl << "Calc residue" << endl << flush;
 						  complex<double>scale_RhR = 0.0;
 						  for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
 						  		scale_RhR += complex<double>( ArrayEnergy( *riter ), 0.0);
