@@ -71,12 +71,12 @@ void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z) {
 
 }
 
-void MRI_DATA::convert_encodes_to_coils( void){
+void MRI_DATA::convert_encodes_to_coils( int passes ){
 	
 	// This function treats encodes as sperate coils
 	// Only works if encodes are identical
-	int new_Num_Coils = Num_Encodings*Num_Coils;
-	
+	int new_Num_Coils = (Num_Encodings/passes)*Num_Coils;
+	int new_Num_Encodings =  passes;
 	/*
 	this->kx.resizeAndPreserve(1);
 	this->ky.resizeAndPreserve(1);
@@ -362,37 +362,54 @@ void MRI_DATA::write_external_data(const char *fname) {
 	for (int encode = 0; encode < kdata.length(firstDim); encode++) {
 
 		cout << "Exporting " << encode << endl;
-
 		{
-			stringstream ss;
-			ss << "KT_E" << encode;
-			string s = ss.str();
-			file.AddH5Array("Kdata", s.c_str(), kt(encode));
+			try{
+				stringstream ss;
+				ss << "KT_E" << encode;
+				string s = ss.str();
+				file.AddH5Array("Kdata", s.c_str(), kt(encode));
+			}catch(...){
+				cout << "Can't export KT for encode " << encode << endl;
+			}
 		}
 
 
 		{
-			stringstream ss;
-			ss << "KX_E" << encode;
-			string s = ss.str();
-			file.AddH5Array("Kdata", s.c_str(), kx(encode));
+			try{
+				stringstream ss;
+				ss << "KX_E" << encode;
+				string s = ss.str();
+				file.AddH5Array("Kdata", s.c_str(), kx(encode));
+			}catch(...){
+				cout << "Can't export KX for encode " << encode << endl;
+			}
 		}
 
 		{
-			stringstream ss;
-			ss << "KY_E" << encode;
-			string s = ss.str();
-			file.AddH5Array("Kdata", s.c_str(), ky(encode));
+			try{
+				stringstream ss;
+				ss << "KY_E" << encode;
+				string s = ss.str();
+				file.AddH5Array("Kdata", s.c_str(), ky(encode));
+			}catch(...){
+				cout << "Can't export KY for encode " << encode << endl;
+			}
 		}
 
 		{
-			stringstream ss;
-			ss << "KZ_E" << encode;
-			string s = ss.str();
-			file.AddH5Array("Kdata", s.c_str(), kz(encode));
+			try{
+				stringstream ss;
+				ss << "KZ_E" << encode;
+				string s = ss.str();
+				file.AddH5Array("Kdata", s.c_str(), kz(encode));
+			}catch(...){
+				cout << "Can't export KZ for encode " << encode << endl;
+			}
+			
 		}
 
 		if (sms_type == SMSon) {
+			cout << "Export SMS Z2" << endl << flush;
 			for (int sms_pos = 0; sms_pos < sms_factor; sms_pos++) {
 				stringstream ss;
 				ss << "Z_E" << encode << "_S" << sms_pos;
@@ -402,51 +419,81 @@ void MRI_DATA::write_external_data(const char *fname) {
 		}
 
 		{
-			stringstream ss;
-			ss << "KW_E" << encode;
-			string s = ss.str();
-			file.AddH5Array("Kdata", s.c_str(), kw(encode));
+			try{
+				stringstream ss;
+				ss << "KW_E" << encode;
+				string s = ss.str();
+				file.AddH5Array("Kdata", s.c_str(), kw(encode));
+			}catch(...){
+				cout << "Can't export KW for encode " << encode << endl;
+			}
 		}
-
+		
+		cout << "Exporting data" << endl << flush;
 		for (int coil = 0; coil < kdata.length(secondDim); coil++) {
 			{
-				stringstream ss;
-				ss << "KData_E" << encode << "_C" << coil;
-				string s = ss.str();
-				file.AddH5Array("Kdata", s.c_str(), kdata(encode, coil));
+				try{
+					stringstream ss;
+					ss << "KData_E" << encode << "_C" << coil;
+					string s = ss.str();
+					file.AddH5Array("Kdata", s.c_str(), kdata(encode, coil));
+				}catch(...){
+					cout << "Can't export Kdata for encode " << encode << ", coil " << coil << endl;
+				}
 			}
 
 		}
 
 		// Gating
 		if (ecg.numElements() != 0) {
+			
+			cout << "Exporting Gating " << endl << flush;
+			
 			{
-				stringstream ss;
-				ss << "ECG_E" << encode;
-				string s = ss.str();
-				file.AddH5Array("Gating", s.c_str(), ecg(encode));
+				try{ 
+					stringstream ss;
+					ss << "ECG_E" << encode;
+					string s = ss.str();
+					file.AddH5Array("Gating", s.c_str(), ecg(encode));
+				}catch(...){
+					cout << "Can't export ECG data" << endl;
+				}
 			}
 
 			{
+				try{
 				stringstream ss;
 				ss << "RESP_E" << encode;
 				string s = ss.str();
 				file.AddH5Array("Gating", s.c_str(), resp(encode));
+				}catch(...){
+					cout << "Can't export Resp data" << endl;
+				}
+
 			}
 
 
 			{
+				try{
 				stringstream ss;
 				ss << "PREP_E" << encode;
 				string s = ss.str();
 				file.AddH5Array("Gating", s.c_str(), prep(encode));
+				}catch(...){
+					cout << "Can't export PREP data" << endl;
+				}
 			}
 
 			{
+				try{
 				stringstream ss;
 				ss << "TIME_E" << encode;
 				string s = ss.str();
 				file.AddH5Array("Gating", s.c_str(), time(encode));
+				}catch(...){
+						cout << "Can't export TIME data" << endl;
+			
+				}
 			}
 
 		}
