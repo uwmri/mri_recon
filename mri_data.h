@@ -88,7 +88,7 @@ class MRI_DATA{
 		MRI_DATA( void );
 		
 		// Combiners 
-		void convert_encodes_to_coils(void);
+		void convert_encodes_to_coils(int);
 				
 		// Data Operations (move?)
 		void coilcompress(float);
