@@ -601,6 +601,7 @@ void MRI_DATA::read_external_data(const char *fname) {
 			}
 		}
 
+		cout << "Read Gating " << endl << flush;
 		{
 			stringstream ss;
 			ss << "ECG_E" << encode;
@@ -632,6 +633,7 @@ void MRI_DATA::read_external_data(const char *fname) {
 	}
 
 	// Noise Samples
+	cout << "Read Noise Samples" << endl << flush;
 	file.ReadH5Array("Kdata", "Noise", noise_samples);
 
 	//file.ReadH5Array( "Gating","kdata_gating",kdata_gating);	

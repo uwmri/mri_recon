@@ -61,7 +61,13 @@ int HDF5::ReadH5Scaler( string GroupName, string Name, int *out){
 	Exception::dontPrint();
 	
 	// Open Group
-	Group group = open_group(file,GroupName);
+	Group group;
+	try{
+		group = open_group(file,GroupName);
+	}catch(...){ 
+		cout << "HDF5 Read :  " << GroupName << " does not exist" << endl;
+		return(1);
+	}
 	
 	// Now open attribute
 	Attribute att;
@@ -299,11 +305,25 @@ template< typename T, int N>
 void H5ArrayRead(H5::H5File &file, string GroupName, string Name, blitz::Array<T,N>& A){
 	
 	// Open the file
-	H5::Group group = HDF5::open_group(file,GroupName);
+	H5::Group group;
+	try{
+		group = HDF5::open_group(file,GroupName);
+	}catch( H5::FileIException ){
+		cout << "Can open " << GroupName << " : File Exception" << endl;
+		return;
+	}catch( H5::GroupIException ){
+		cout << "Can open " << GroupName << " : Group Exception" << endl;	
+		return;
+	}
 	
 	// Get the dataset
-	DataSet dataset = group.openDataSet( Name );
-	
+	DataSet dataset;
+	try{
+		dataset = group.openDataSet( Name );
+	}catch( ... ){
+		cout << "Can't open Group " << GroupName << " / " << Name << endl;
+		return;
+	}
 	// Get the dataspace
 	DataSpace dataspace = dataset.getSpace();
 	
