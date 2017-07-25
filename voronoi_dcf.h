@@ -33,7 +33,9 @@ class VORONOI_DCF{
 		
 		enum KShape{ SPHERE, CYLINDER,CUBE};
 		static void vor_dcf( NDarray::Array< float,3> &,NDarray::Array< float,3> &,NDarray::Array< float,3> &,NDarray::Array< float,3> &,KShape);
-						
+		
+		
+		static void vor_sphere( NDarray::Array< float,1> &,NDarray::Array< float,1> &,NDarray::Array<float,1> &,NDarray::Array< float,1> &);				
 	private:
 
 

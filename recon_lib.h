@@ -42,7 +42,7 @@ class RECON{
 	  enum ReconType { SOS, PILS, CG, IST, FISTA, CLEAR, ADMM};
 	   
 	  // Data Types
-	  enum DataType { PFILE, EXTERNAL, SIMULATE, PSF, PHANTOM, BENCHMARK};
+	  enum DataType { EXTERNAL, SIMULATE, PSF, PHANTOM, BENCHMARK};
 
 	  // Coil Combine Type
 	  enum CoilCombineType { LOWRES, ESPIRIT, WALSH };
@@ -50,7 +50,11 @@ class RECON{
 	  // Enum Transform Types
 	  enum TransformType {NONE,WAVELET,DIFF,DFT,PCA,COMPOSITE_DIFF};
 	  enum TransformDirection {FORWARD,BACKWARD};
-	  	 
+	  
+	  // Enum Sensitivity Maps
+	  enum SmapMaskType {SMAPMASK_NONE,SMAPMASK_CIRCLE,SMAPMASK_SPHERE};
+	  SmapMaskType smap_mask;
+	 	  	 
 	  // Recon Flags  
 	  ReconType recon_type;
 	  DataType data_type;
@@ -114,6 +118,10 @@ class RECON{
 	  int acc;
 	  float compress_coils;
 	  bool whiten;
+      bool coil_rejection_flag;
+      float coil_rejection_radius;
+      int coil_rejection_shape;
+
 	  float smap_res;
 	  float smap_thresh;
 	  bool intensity_correction;
@@ -161,7 +169,7 @@ class RECON{
 	  void parse_commandline(int numarg, char **pstring);
 	  void init_recon(int argc, char **argv, MRI_DATA& data );
 	  void calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data);
-	  
+	
 	  void L1_threshold( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&);
 	  void transform_in_time( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);
 	  void transform_in_encode( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);

@@ -58,6 +58,10 @@ target_link_libraries(ops_test ${LOCAL_LIBS} RECONLIB)
 add_executable(hdf5_test test_hdf5.cpp ${LOCAL_INCS})
 target_link_libraries(hdf5_test ${LOCAL_LIBS} RECONLIB)
 
+add_executable(voronoi_test test_voronoi.cpp ${LOCAL_INCS})
+target_link_libraries(voronoi_test ${LOCAL_LIBS} RECONLIB)
+
+
 #--------------------------------------
 # Install 
 #--------------------------------------

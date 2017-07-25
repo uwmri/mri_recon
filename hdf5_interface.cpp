@@ -2,7 +2,6 @@
 
 using namespace std; 
 using namespace NDarray;
-using namespace H5;
 
 HDF5::HDF5( string FileName, const string operation){
 	
@@ -10,11 +9,11 @@ HDF5::HDF5( string FileName, const string operation){
 	
 	// OPen the file
 	if(operation.compare("r") == 0){
-		file =  H5File(FileName,H5F_ACC_RDONLY);	
+		file =  H5::H5File(FileName,H5F_ACC_RDONLY);	
 	}else if( (operation.compare("rw") ==0) || (operation.compare("rw")==0) ){
-		file =  H5File(FileName,H5F_ACC_RDWR);	
+		file =  H5::H5File(FileName,H5F_ACC_RDWR);	
 	}else{
-		file =  H5File(FileName,H5F_ACC_TRUNC);	
+		file =  H5::H5File(FileName,H5F_ACC_TRUNC);	
 	}
 }
 
@@ -25,16 +24,16 @@ HDF5::HDF5( void  ){
 H5::Group HDF5::create_group( H5::H5File &act_file, string GroupName ){
 	
 	// Create Group
-	Group group;
+	H5::Group group;
 	try{
 		//cout << "Trying to Open: " << GroupName << endl;
-		group = Group(act_file.openGroup( GroupName ) ); 
-	}catch(FileIException error){
+		group = H5::Group(act_file.openGroup( GroupName ) ); 
+	}catch(H5::FileIException error){
 		//cout << "Group does not exist-Creating" << endl;
 		string x(GroupName);
 		x.insert(0,"/");
 		cout << x << endl;
-		group = Group(act_file.createGroup( x) );
+		group = H5::Group(act_file.createGroup( x) );
 	}
 	
 	return(group);
@@ -43,10 +42,10 @@ H5::Group HDF5::create_group( H5::H5File &act_file, string GroupName ){
 H5::Group HDF5::open_group( H5::H5File &act_file, string GroupName ){
 	
 	// Open Group
-	Group group;
+	H5::Group group;
 	try{
-		group = Group(act_file.openGroup( GroupName ) ); 
-	}catch(FileIException error){
+		group = H5::Group(act_file.openGroup( GroupName ) ); 
+	}catch(H5::FileIException error){
 		//cout << "Group does not exist-Creating" << endl;
 		string x(GroupName);
 		x.insert(0,"/");
@@ -58,28 +57,22 @@ H5::Group HDF5::open_group( H5::H5File &act_file, string GroupName ){
 
 int HDF5::ReadH5Scaler( string GroupName, string Name, int *out){
 	
-	Exception::dontPrint();
+	H5::Exception::dontPrint();
 	
 	// Open Group
-	Group group;
-	try{
-		group = open_group(file,GroupName);
-	}catch(...){ 
-		cout << "HDF5 Read :  " << GroupName << " does not exist" << endl;
-		return(1);
-	}
+	H5::Group group = open_group(file,GroupName);
 	
 	// Now open attribute
-	Attribute att;
+	H5::Attribute att;
 	try{
 		att = group.openAttribute( Name );
-	}catch(FileIException error){
+	}catch(H5::FileIException error){
 		cout << "HDF5 Read :  " << GroupName << " attribute " << Name << " does not exist" << endl;
 	}
 	
 	// Get the data type
-	DataType data_type = DataType(att.getDataType());
-	DataType int_type(PredType::STD_I32LE); 
+	H5::DataType data_type = H5::DataType(att.getDataType());
+	H5::DataType int_type(H5::PredType::STD_I32LE); 
 	
 	if( int_type==data_type){
 		att.read( data_type, out ); 
@@ -93,14 +86,14 @@ int HDF5::ReadH5Scaler( string GroupName, string Name, int *out){
 
 int HDF5::AddH5Scaler( string GroupName, string Name, int A){
 	
-	Exception::dontPrint();
+	H5::Exception::dontPrint();
 	
 	// Create Group
-	Group group = create_group(file,GroupName);
+	H5::Group group = create_group(file,GroupName);
 	
-	IntType int_type(PredType::STD_I32LE);
-	DataSpace att_space(H5S_SCALAR);
-	Attribute att = group.createAttribute( Name , int_type, att_space );
+	H5::IntType int_type(H5::PredType::STD_I32LE);
+	H5::DataSpace att_space(H5S_SCALAR);
+	H5::Attribute att = group.createAttribute( Name , int_type, att_space );
 	att.write( int_type, &A );
 		
 	return(0);
@@ -108,22 +101,22 @@ int HDF5::AddH5Scaler( string GroupName, string Name, int A){
 
 int HDF5::ReadH5Scaler( string GroupName, string Name, float *out){
 	
-	Exception::dontPrint();
+	H5::Exception::dontPrint();
 	
 	// Open Group
-	Group group = open_group(file,GroupName);
+	H5::Group group = open_group(file,GroupName);
 	
 	// Now open attribute
-	Attribute att;
+	H5::Attribute att;
 	try{
 		att = group.openAttribute( Name );
-	}catch(FileIException error){
+	}catch(H5::FileIException error){
 		cout << "HDF5 Read :  " << GroupName << " attribute " << Name << " does not exist" << endl;
 	}
 	
 	// Get the data type
-	DataType data_type = DataType(att.getDataType());
-	DataType int_type(PredType::NATIVE_FLOAT); 
+	H5::DataType data_type = H5::DataType(att.getDataType());
+	H5::DataType int_type(H5::PredType::NATIVE_FLOAT); 
 	
 	if( int_type==data_type){
 		att.read( data_type, out ); 
@@ -138,14 +131,14 @@ int HDF5::ReadH5Scaler( string GroupName, string Name, float *out){
 
 int HDF5::AddH5Scaler( string GroupName, string Name, float A){
 	
-	Exception::dontPrint();
+	H5::Exception::dontPrint();
 	
 	// Create Group
-	Group group = create_group(file,GroupName);
+	H5::Group group = create_group(file,GroupName);
 		
-	FloatType float_type(PredType::NATIVE_FLOAT);
-	DataSpace att_space(H5S_SCALAR);
-	Attribute att = group.createAttribute( Name , float_type, att_space );
+	H5::FloatType float_type(H5::PredType::NATIVE_FLOAT);
+	H5::DataSpace att_space(H5S_SCALAR);
+	H5::Attribute att = group.createAttribute( Name , float_type, att_space );
 	att.write( float_type, &A );
 		
 	return(0);
@@ -154,22 +147,22 @@ int HDF5::AddH5Scaler( string GroupName, string Name, float A){
 
 int HDF5::ReadH5Char( string GroupName, string Name, string & out){
 	
-	Exception::dontPrint();
+	H5::Exception::dontPrint();
 	
 	// Open Group
-	Group group = open_group(file,GroupName);
+	H5::Group group = open_group(file,GroupName);
 		
 	// Now open attribute
-	Attribute att;
+	H5::Attribute att;
 	try{
 		att = group.openAttribute( Name );
-	}catch(FileIException error){
+	}catch(H5::FileIException error){
 		cout << "HDF5 Read :  " << GroupName << " attribute " << Name << " does not exist" << endl;
 	}
 	
 	// Get the data type
-	H5std_string strreadbuf ("");
-	StrType str_type(PredType::C_S1,512);
+	H5std_string strreadbuf("");
+	H5::StrType str_type(H5::PredType::C_S1,512);
 	att.read( str_type, strreadbuf ); 
 	
 	out = strreadbuf;
@@ -179,15 +172,15 @@ int HDF5::ReadH5Char( string GroupName, string Name, string & out){
 
 int HDF5::AddH5Char( string GroupName, string Name, string S){
 	
-	Exception::dontPrint();
+	H5::Exception::dontPrint();
 	
 	// Create Group
-	Group group = create_group(file,GroupName);
+	H5::Group group = create_group(file,GroupName);
 		
-	StrType str_type(PredType::C_S1,512);
-	DataSpace att_space(H5S_SCALAR);
+	H5::StrType str_type(H5::PredType::C_S1,512);
+	H5::DataSpace att_space(H5S_SCALAR);
 	
-	Attribute att = group.createAttribute( Name, str_type, att_space );
+	H5::Attribute att = group.createAttribute( Name, str_type, att_space );
 	att.write( str_type, S );
 		
 	return(0);
@@ -195,9 +188,9 @@ int HDF5::AddH5Char( string GroupName, string Name, string S){
 
 // Template to write a float
 template< int N>
-void H5ArrayWrite(H5::H5File &file, string GroupName, string Name, blitz::Array< float,N>& A){
+void H5ArrayWrite(H5::H5File &file, string GroupName, string Name, NDarray::Array< float,N>& A){
 	
-	Exception::dontPrint();
+	H5::Exception::dontPrint();
 	H5::Group group = HDF5::create_group(file,GroupName);
 	
 	// Create DataSet
@@ -205,10 +198,10 @@ void H5ArrayWrite(H5::H5File &file, string GroupName, string Name, blitz::Array<
 	for( int i=0; i < N; i++){
 		dimsf[i] = A.length(N-i-1);
 	}
-	DataSpace dataspace( N, dimsf );
+	H5::DataSpace dataspace( N, dimsf );
 
-	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_FLOAT,dataspace));
-	dataset.write( A.data(),PredType::NATIVE_FLOAT, dataspace);
+	H5::DataSet dataset( group.createDataSet(Name, H5::PredType::NATIVE_FLOAT,dataspace));
+	dataset.write( A.data(),H5::PredType::NATIVE_FLOAT, dataspace);
 }
 
 int HDF5::AddH5Array( string GroupName,string Name, Array<float,1> & A){ 	H5ArrayWrite<1>(file,GroupName,Name,A);	return(0); }
@@ -222,18 +215,18 @@ int HDF5::AddH5Array( string GroupName,string Name, Array<float,6> & A){ 	H5Arra
 template< int N>
 void H5ArrayWrite(H5::H5File &file, string GroupName, string Name, blitz::Array< double,N>& A){
 	
-	Exception::dontPrint();
-	Group group = HDF5::create_group(file,GroupName);
+	H5::Exception::dontPrint();
+	H5::Group group = HDF5::create_group(file,GroupName);
 	
 	// Create DataSet
 	hsize_t dimsf[N];              // dataset dimensions
 	for( int i=0; i < N; i++){
 		dimsf[i] = A.length(N-i-1);
 	}
-	DataSpace dataspace( N, dimsf );
+	H5::DataSpace dataspace( N, dimsf );
 
-	DataSet dataset( group.createDataSet(Name, PredType::NATIVE_DOUBLE,dataspace));
-	dataset.write( A.data(),PredType::NATIVE_DOUBLE, dataspace);
+	H5::DataSet dataset( group.createDataSet(Name, H5::PredType::NATIVE_DOUBLE,dataspace));
+	dataset.write( A.data(),H5::PredType::NATIVE_DOUBLE, dataspace);
 }
 int HDF5::AddH5Array( string GroupName,string Name, Array<double,1> & A){ 	H5ArrayWrite<1>(file,GroupName,Name,A);	return(0); }
 int HDF5::AddH5Array( string GroupName,string Name, Array<double,2> & A){ 	H5ArrayWrite<2>(file,GroupName,Name,A);	return(0); }
@@ -246,22 +239,22 @@ int HDF5::AddH5Array( string GroupName,string Name, Array<double,6> & A){ 	H5Arr
 template< int N>
 void H5ArrayWrite(H5::H5File &file, string GroupName, string Name, blitz::Array< complex<float>,N>& A){
 	
-	Exception::dontPrint();
-	Group group = HDF5::create_group(file,GroupName);
+	H5::Exception::dontPrint();
+	H5::Group group = HDF5::create_group(file,GroupName);
 	
 	// Create DataSet
 	hsize_t dimsf[N];              // dataset dimensions
 	for( int i=0; i < N; i++){
 		dimsf[i] = A.length(N-i-1);
 	}
-	DataSpace dataspace( N, dimsf );
+	H5::DataSpace dataspace( N, dimsf );
 	
 	/*DataType Needed for Complex<float>*/
-	CompType datatype(sizeof(complex<float>));
-	datatype.insertMember( "real", 0, PredType::NATIVE_FLOAT);
-	datatype.insertMember( "imag", sizeof(float), PredType::NATIVE_FLOAT);
+	H5::CompType datatype(sizeof(complex<float>));
+	datatype.insertMember( "real", 0, H5::PredType::NATIVE_FLOAT);
+	datatype.insertMember( "imag", sizeof(float), H5::PredType::NATIVE_FLOAT);
 		
-	DataSet dataset( group.createDataSet(Name,datatype,dataspace));
+	H5::DataSet dataset( group.createDataSet(Name,datatype,dataspace));
 	dataset.write( A.data(),datatype, dataspace);
 }
 int HDF5::AddH5Array( string GroupName,string Name, Array<complex<float>,1> & A){ 	H5ArrayWrite<1>(file,GroupName,Name,A);	return(0); }
@@ -275,30 +268,30 @@ int HDF5::AddH5Array( string GroupName,string Name, Array<complex<float>,6> & A)
 template< int N>
 void H5ArrayWrite(H5::H5File &file, string GroupName, string Name, blitz::Array< complex<double>,N>& A){
 	
-	Exception::dontPrint();
-	Group group = HDF5::create_group(file,GroupName);
+	H5::Exception::dontPrint();
+	H5::Group group = HDF5::create_group(file,GroupName);
 	
 	// Create DataSet
 	hsize_t dimsf[N];              // dataset dimensions
 	for( int i=0; i < N; i++){
 		dimsf[i] = A.length(N-i-1);
 	}
-	DataSpace dataspace( N, dimsf );
+	H5::DataSpace dataspace( N, dimsf );
 	
 	/*DataType Needed for Complex<float>*/
-	CompType datatype(sizeof(complex<float>));
-	datatype.insertMember( "real", 0, PredType::NATIVE_DOUBLE);
-	datatype.insertMember( "imag", sizeof(float), PredType::NATIVE_DOUBLE);
+	H5::CompType datatype(sizeof(complex<float>));
+	datatype.insertMember( "real", 0, H5::PredType::NATIVE_DOUBLE);
+	datatype.insertMember( "imag", sizeof(float), H5::PredType::NATIVE_DOUBLE);
 		
-	DataSet dataset( group.createDataSet(Name,datatype,dataspace));
+	H5::DataSet dataset( group.createDataSet(Name,datatype,dataspace));
 	dataset.write( A.data(),datatype, dataspace);
 }
-int HDF5::AddH5Array( string GroupName,string Name, Array<complex<double>,1> & A){ 	H5ArrayWrite<1>(file,GroupName,Name,A);	return(0); }
-int HDF5::AddH5Array( string GroupName,string Name, Array<complex<double>,2> & A){ 	H5ArrayWrite<2>(file,GroupName,Name,A);	return(0); }
-int HDF5::AddH5Array( string GroupName,string Name, Array<complex<double>,3> & A){ 	H5ArrayWrite<3>(file,GroupName,Name,A);	return(0); }
-int HDF5::AddH5Array( string GroupName,string Name, Array<complex<double>,4> & A){ 	H5ArrayWrite<4>(file,GroupName,Name,A);	return(0); }
-int HDF5::AddH5Array( string GroupName,string Name, Array<complex<double>,5> & A){ 	H5ArrayWrite<5>(file,GroupName,Name,A);	return(0); }
-int HDF5::AddH5Array( string GroupName,string Name, Array<complex<double>,6> & A){ 	H5ArrayWrite<6>(file,GroupName,Name,A);	return(0); }
+int HDF5::AddH5Array( string GroupName,string Name, NDarray::Array<complex<double>,1> & A){ 	H5ArrayWrite<1>(file,GroupName,Name,A);	return(0); }
+int HDF5::AddH5Array( string GroupName,string Name, NDarray::Array<complex<double>,2> & A){ 	H5ArrayWrite<2>(file,GroupName,Name,A);	return(0); }
+int HDF5::AddH5Array( string GroupName,string Name, NDarray::Array<complex<double>,3> & A){ 	H5ArrayWrite<3>(file,GroupName,Name,A);	return(0); }
+int HDF5::AddH5Array( string GroupName,string Name, NDarray::Array<complex<double>,4> & A){ 	H5ArrayWrite<4>(file,GroupName,Name,A);	return(0); }
+int HDF5::AddH5Array( string GroupName,string Name, NDarray::Array<complex<double>,5> & A){ 	H5ArrayWrite<5>(file,GroupName,Name,A);	return(0); }
+int HDF5::AddH5Array( string GroupName,string Name, NDarray::Array<complex<double>,6> & A){ 	H5ArrayWrite<6>(file,GroupName,Name,A);	return(0); }
 
 // Template to read a float
 template< typename T, int N>
@@ -317,7 +310,7 @@ void H5ArrayRead(H5::H5File &file, string GroupName, string Name, blitz::Array<T
 	}
 	
 	// Get the dataset
-	DataSet dataset;
+	H5::DataSet dataset;
 	try{
 		dataset = group.openDataSet( Name );
 	}catch( ... ){
@@ -325,7 +318,7 @@ void H5ArrayRead(H5::H5File &file, string GroupName, string Name, blitz::Array<T
 		return;
 	}
 	// Get the dataspace
-	DataSpace dataspace = dataset.getSpace();
+    H5::DataSpace dataspace = dataset.getSpace();
 	
 	// Get the number of dimensions
 	int rank = dataspace.getSimpleExtentNdims();
@@ -349,7 +342,7 @@ void H5ArrayRead(H5::H5File &file, string GroupName, string Name, blitz::Array<T
 		A.resize( dims );
 	}
 	
-	DataType data_type = DataType(dataset.getDataType());	
+	H5::DataType data_type = H5::DataType(dataset.getDataType());	
 		
 	// Read the data
 	dataset.read( A.data(),data_type);

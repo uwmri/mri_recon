@@ -226,6 +226,11 @@ void TRANSFORMS::eigen( Array< Array<complex<float>,3>,2 > &image, int dim, int 
 		int block_size_x = 8;
 		int block_size_y = 8;
 		int block_size_z = 8;
+        
+        block_size_x = ( block_size_x > Nx ) ? ( Nx ) : ( block_size_x);
+        block_size_y = ( block_size_y > Ny ) ? ( Ny ) : ( block_size_y);
+        block_size_z = ( block_size_z > Nz ) ? ( Nz ) : ( block_size_z);
+                
 		int block_Nx= (int)( Nx / block_size_x );
 		int block_Ny= (int)( Ny / block_size_y );
 		int block_Nz= (int)( Nz / block_size_z );

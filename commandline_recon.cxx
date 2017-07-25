@@ -23,13 +23,6 @@ int main(int argc, char **argv){
 	MRI_DATA data;
 	cout << "----Read Data-----" << endl;	
 	switch(recon.data_type){
-		case(RECON::PFILE):{	
-			// Read in P-File (doesn't work)
-			//PFILE pfile;
-			//pfile.read_header(recon.filename);
-			//pfile.read_data(0);
-		}break;
-		
 		case(RECON::BENCHMARK):{
 			// This runs a system benchmark
 		

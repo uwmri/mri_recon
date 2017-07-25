@@ -56,7 +56,12 @@ void RECON::set_defaults( void){
 	smap_use_all_encodes = false;
 	smap_nex_encodes = false;
 	smap_thresh = 0.0;
+	smap_mask = SMAPMASK_NONE;
 	
+    coil_rejection_flag = false;
+    coil_rejection_radius = 0.5;
+    coil_rejection_shape = 1; 
+
 	cycle_spins = 4;
 
 	walsh_block_sizeX = 8;
@@ -306,10 +311,26 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(true,"-smap_use_all_encodes",smap_use_all_encodes);
 		trig_flag(true,"-smap_nex_encodes",smap_nex_encodes);
 		float_flag("-smap_thresh",smap_thresh);
-						
+        trig_flag(true,"-coil_rejection",coil_rejection_flag);
+        float_flag("-coil_rejection_radius", coil_rejection_radius);
+        int_flag("-coil_rejection_shape", coil_rejection_shape);
+	
+		// Encode Transforms
+		}else if(strcmp("-smap_mask",pstring[pos]) == 0) {
+			pos++;
+			if( pos==numarg){
+				cout << "Please provide sensitivty map..none/circle/sphere" << endl;
+				exit(1);
+				trig_flag(SMAPMASK_NONE,"none",smap_mask);
+				trig_flag(SMAPMASK_CIRCLE,"circle",smap_mask);
+				trig_flag(SMAPMASK_SPHERE,"sphere",smap_mask);
+			}else{
+				cout << "Please provide sensitivty map..none/circle/sphere" << endl;
+				exit(1);
+			}
+								
 		// Source of data
 		trig_flag(EXTERNAL,"-external_data",data_type);
-		trig_flag(PFILE,"-pfile",data_type);
 		trig_flag(PHANTOM,"-phantom",data_type);
 		trig_flag(SIMULATE,"-simulate",data_type);
 		trig_flag(PSF,"-psf",data_type);
@@ -2453,6 +2474,64 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				intensity_correct( IC, smaps);
 			}
 		
+            if (this->coil_rejection_flag) {
+                
+                for (int coil = 0; coil< data.Num_Coils; coil++) {
+                    double sumI=0;
+                    double sumIX = 0;
+                    double sumIY = 0;
+                    double sumIZ = 0;
+                    double cx = 0.5*(double)smaps(0).length(firstDim) - 0.5;
+                    double cy = 0.5*(double)smaps(0).length(secondDim) - 0.5;
+                    double cz = 0.5*(double)smaps(0).length(thirdDim) - 0.5;
+                    
+                    // Get the coil center
+                    for (int e = 0; e < image_store.length(firstDim); e++) {
+                        for (int k = 0; k<smaps(0).length(thirdDim); k++) {
+                            for (int j = 0; j<smaps(0).length(secondDim); j++) {
+                                for (int i = 0; i<smaps(0).length(firstDim); i++) {
+                                    double val = norm( image_store(e,coil)(i, j, k) );
+                                    val *= val;
+                                    sumI += val;
+                                    sumIX+= (val)*( (double)i - cx);
+                                    sumIY+= (val)*( (double)j - cy);
+                                    sumIZ+= (val)*( (double)k - cz);
+                                }
+                            }
+                        }
+                    }
+
+                    double coil_cx = 2.0*sumIX / sumI / (double)smaps(0).length(firstDim);
+                    double coil_cy = 2.0*sumIY / sumI / (double)smaps(0).length(secondDim);
+                    double coil_cz = 2.0*sumIZ / sumI / (double)smaps(0).length(thirdDim);
+
+                    std::cout << "Coil = " << coil << "center=" << coil_cx << "," << coil_cy << "," << coil_cz << std::endl;
+                    
+                    double coil_radius;
+                    switch (this->coil_rejection_shape) {
+                        default:
+                        case(0): {
+                            coil_radius = sqrt(coil_cx*coil_cx + coil_cy*coil_cy + coil_cz*coil_cz);
+                        }break;
+
+                        case(1): {
+                            coil_radius = sqrt(coil_cx*coil_cx + coil_cy*coil_cy );
+                        }break;
+                    }
+                                      
+                    if (coil_radius > this->coil_rejection_radius ) {
+                        std::cout << "REJECTING COIL " << coil << std::endl;
+                        for (int e = 0; e < image_store.length(firstDim); e++) {
+                            image_store(e, coil) = complex<float>(0.0,0.0);
+                        }
+                    }
+
+                }
+            }
+
+
+
+
 			// Spirit Code
 			switch(coil_combine_type){
 		
@@ -2531,6 +2610,43 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			}	
 		
 		}break;
+	}
+	
+	
+	if(smap_mask != SMAPMASK_NONE){
+	
+		for(int coil=0; coil< data.Num_Coils; coil++){
+			#pragma omp parallel for 
+			for(int k=0; k<smaps(0).length(thirdDim); k++){
+				for(int j=0; j<smaps(0).length(secondDim); j++){
+					for(int i=0; i<smaps(0).length(firstDim); i++){
+						
+						float r = 0.0;
+						switch(smap_mask){
+							case(SMAPMASK_CIRCLE):{
+								float x = 2.0*( i - 0.5*((float)smaps(0).length(firstDim)) )/((float)smaps(0).length(firstDim)); 
+								float y = 2.0*( j - 0.5*((float)smaps(0).length(secondDim)) )/((float)smaps(0).length(secondDim));
+								r = sqrt( x*x + y*y ); 
+														
+							}break;
+							
+							case(SMAPMASK_SPHERE):{
+								float x = 2.0*( i - 0.5*((float)smaps(0).length(firstDim)) )/((float)smaps(0).length(firstDim)); 
+								float y = 2.0*( j - 0.5*((float)smaps(0).length(secondDim)) )/((float)smaps(0).length(secondDim));
+								float z = 2.0*( k - 0.5*((float)smaps(0).length(thirdDim)) )/((float)smaps(0).length(thirdDim));
+								r = sqrt( x*x + y*y + z*z ); 
+							}break;
+							
+							default:{
+								r = 0.0;
+							}break;
+						}
+							
+						if( r > 1){
+							smaps(coil)(i,j,k) = 0.0;
+						}
+			}}}
+		}
 	}
 
 }
