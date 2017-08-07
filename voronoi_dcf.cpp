@@ -52,7 +52,7 @@ bool wall_sphere2::cut_cell_base(v_cell &c,double x,double y,double z) {
 	double yd=y-yc;
 	double zd=z-zc;
 	double dq=xd*xd+yd*yd+zd*zd; // Distance ^2
-	double rq=sqrt(dq); // Distance
+	// double rq=sqrt(dq); // Distance
 	
 	if (dq>1e-5) {
 		dq=2*(sqrt(dq)*rc-dq);
@@ -409,7 +409,7 @@ void VORONOI_DCF::vor_sphere( Array<float,1> &kw,Array<float,1> &kx,Array<float,
 	arma::fvec kzz (Npts);
 	arma::fvec krr (Npts);
 	int count= 0;
-	for(int i =0; i< kx.numElements(); i++){
+	for(int i =0; i< (int)kx.numElements(); i++){
 		
 		double radius = sqrt( kx(i)*kx(i) + ky(i)*ky(i) + kz(i)*kz(i));
 		

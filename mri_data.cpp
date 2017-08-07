@@ -76,7 +76,7 @@ void MRI_DATA::convert_encodes_to_coils( int passes ){
 	// This function treats encodes as sperate coils
 	// Only works if encodes are identical
 	int new_Num_Coils = (Num_Encodings/passes)*Num_Coils;
-	int new_Num_Encodings =  passes;
+	// int new_Num_Encodings =  passes;
 	/*
 	this->kx.resizeAndPreserve(1);
 	this->ky.resizeAndPreserve(1);

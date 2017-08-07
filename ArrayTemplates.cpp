@@ -174,8 +174,8 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 	#pragma omp critical
 	{
 		//  FFT planning is not thread safe
-		fftwf_init_threads();
-		fftwf_plan_with_nthreads(1);
+		//fftwf_init_threads();
+		//fftwf_plan_with_nthreads(1);
 	
 		// Get a plan but never use
 		complex<float> *data_temp = new complex<float>[N];

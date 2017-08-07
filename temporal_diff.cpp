@@ -433,8 +433,8 @@ void TRANSFORMS::fft_t(Array< Array< complex<float>,3>,2>&temp){
     
 	complex<float> *in = new complex<float>[Nt];
     
-	fftwf_init_threads();
-    fftwf_plan_with_nthreads(1);
+	//fftwf_init_threads();
+    	//fftwf_plan_with_nthreads(1);
 	p = fftwf_plan_dft_1d(Nt, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_FORWARD, FFTW_MEASURE);
     
 	float fft_scale = 1/ sqrt(Nt);
@@ -475,8 +475,8 @@ void TRANSFORMS::ifft_t(Array< Array< complex<float>,3>,2>&temp){
     
 	complex<float> *in = new complex<float>[Nt];
     
-	fftwf_init_threads();
-    fftwf_plan_with_nthreads(1);
+	//fftwf_init_threads();
+    	//fftwf_plan_with_nthreads(1);
 	p = fftwf_plan_dft_1d(Nt, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_BACKWARD, FFTW_MEASURE);
     
 	float fft_scale = 1/ sqrt(Nt);
@@ -517,8 +517,8 @@ void TRANSFORMS::fft_e(Array< Array< complex<float>,3>,2>&temp){
     
 	complex<float> *in = new complex<float>[Ne];
     
-	fftwf_init_threads();
-    fftwf_plan_with_nthreads(1);
+	//fftwf_init_threads();
+    	//fftwf_plan_with_nthreads(1);
 	p = fftwf_plan_dft_1d(Ne, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_FORWARD, FFTW_MEASURE);
     
 	float fft_scale = 1/ sqrt(Ne);
@@ -560,8 +560,8 @@ void TRANSFORMS::ifft_e(Array< Array< complex<float>,3>,2>&temp){
     
 	complex<float> *in = new complex<float>[Ne];
     
-	fftwf_init_threads();
-    fftwf_plan_with_nthreads(1);
+	//fftwf_init_threads();
+    	//fftwf_plan_with_nthreads(1);
 	p = fftwf_plan_dft_1d(Ne, (fftwf_complex*)in, (fftwf_complex*)in, FFTW_BACKWARD, FFTW_MEASURE);
     
 	float fft_scale = 1/ sqrt(Ne);

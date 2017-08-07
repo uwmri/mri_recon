@@ -1,11 +1,64 @@
-
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.6)
 
 project(MRI_RECON)
 set(PROGNAME recon_binary)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
 file(GLOB LOCAL_INCS ${CMAKE_SOURCE_DIR}/*.h)
+
+set(CMAKE_FIND_STATIC FIRST) 
+set(BUILD_SHARED_LIBS ON)
+set(STATIC_LIBS ON)
+
+
+if (DEFINED ENABLE_ORCHESTRA )
+
+#--------------------------------------
+# Orchestra (GE Recon Library)
+#--------------------------------------
+
+# TOPDIR is the root of the source tree
+set(OX_INSTALL_DIRECTORY "/usr/local/orchestra16/" CACHE PATH "Install directory of the GE Orchestra SDK")
+set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
+set(LARGE_LIBRARY_TYPE STATIC)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
+
+message("Configuring GE SDK Recon Build")
+set(PRODUCT EXTERNAL_SDK)
+
+# Include recon libraries exported from the SDK CMake build
+set(RECON_LIBRARIES_INCLUDE_FILE ${OX_INSTALL_DIRECTORY}/lib/ReconLibraries.cmake)
+if(EXISTS ${RECON_LIBRARIES_INCLUDE_FILE})
+    include (${RECON_LIBRARIES_INCLUDE_FILE})
+else()
+    message("Could not find ${RECON_LIBRARIES_INCLUDE_FILE}")
+    message(FATAL_ERROR "Verify that the CMake OX_INSTALL_DIRECTORY option is set correctly")
+endif()
+
+# Include SDK build configuration
+include (${TOPDIR}/recon/SDK/product.cmake)
+
+
+set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Hdf5 Common)
+
+else ()
+
+#--------------------------------------
+# Non-Orchestra
+#--------------------------------------
+
+include(FindBlitz)
+include(FindFFTW)
+include(FindHDF5)
+
+#Set include directories
+include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
+set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
+
+endif()
+
+
+
 
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
 set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O3 -fopenmp ")
@@ -16,27 +69,55 @@ set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
 # Find Required Libraries
 message( STATUS "Check for required libraries ")
-include(FindBlitz)
-include(FindFFTW)
-include(FindHDF5)
-#include(FindARMADILLO)
+
+
+# Find Voro++
 include(FindVORO)
+include_directories( BEFORE ${VORO_INCLUDE_DIR} )
+set(LOCAL_LIBS ${LOCAL_LIBS} ${VORO_LIBRARIES} )
 
+#Find Armadillo
 find_package(Armadillo REQUIRED)
+include_directories( BEFORE ${ARMADILLO_INCLUDE_DIR} )
+set(LOCAL_LIBS ${LOCAL_LIBS} ${ARMADILLO_LIBRARIES} )
 
-#Set include directories
-include_directories( BEFORE ${ARMADILLO_INCLUDE_DIR}  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR} ${VORO_INCLUDE_DIR} )
-set(LOCAL_LIBS ${VORO_LIBRARIES} ${FFTW3_LIBRARIES} ${ARMADILLO_LIBRARIES} ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
-set( LOCAL_LIBS ${LOCAL_LIBS})
 
 MESSAGE(STATUS "   Local Libraries = ${LOCAL_LIBS}")
 
-set(CMAKE_FIND_STATIC FIRST) 
-set(BUILD_SHARED_LIBS ON)
-set(STATIC_LIBS ON)
 
 link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #--------------------------------------
 # Target Library 

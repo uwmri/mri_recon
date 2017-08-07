@@ -52,7 +52,7 @@ gridFFT::gridFFT(){
 	time_grid =0 ;
 	double_grid =0;
 	
-	pruned_fft= false;
+	pruned_fft= true;
 	
 	sms_flag = 0;
 	sms_factor =2;
@@ -80,9 +80,9 @@ void gridFFT::alloc_grid(){
 
 void gridFFT::plan_fft( void ){
     
-	fftwf_init_threads();
-	fftwf_plan_with_nthreads(omp_get_max_threads());
-    cout << "FFT Planning with " << omp_get_max_threads() << " threads"<< endl;
+	// fftwf_init_threads();
+	// fftwf_plan_with_nthreads(omp_get_max_threads());
+    	// cout << "FFT Planning with " << omp_get_max_threads() << " threads"<< endl;
 		
 	//- Load old Plan if Possible
 	FILE *fid;
