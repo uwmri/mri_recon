@@ -10,6 +10,8 @@ set(CMAKE_FIND_STATIC FIRST)
 set(BUILD_SHARED_LIBS ON)
 set(STATIC_LIBS ON)
 
+link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
+
 
 if (DEFINED ENABLE_ORCHESTRA )
 
@@ -38,8 +40,13 @@ endif()
 # Include SDK build configuration
 include (${TOPDIR}/recon/SDK/product.cmake)
 
+# Override 3P libs to include only those libs required by SDK executables
+# Original set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${Z_LIBS})
+set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${Z_LIBS})
 
+# This code only requires a few libraries
 set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Hdf5 Common)
+
 
 else ()
 
@@ -58,10 +65,8 @@ set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRA
 endif()
 
 
-
-
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O3 -fopenmp ")
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O2 -fopenmp ")
 set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
 # Find static libraries for portability
@@ -70,53 +75,29 @@ set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 # Find Required Libraries
 message( STATUS "Check for required libraries ")
 
-
 # Find Voro++
 include(FindVORO)
 include_directories( BEFORE ${VORO_INCLUDE_DIR} )
 set(LOCAL_LIBS ${LOCAL_LIBS} ${VORO_LIBRARIES} )
 
 #Find Armadillo
-find_package(Armadillo REQUIRED)
-include_directories( BEFORE ${ARMADILLO_INCLUDE_DIR} )
-set(LOCAL_LIBS ${LOCAL_LIBS} ${ARMADILLO_LIBRARIES} )
-
-
+#find_package(Armadillo REQUIRED)
+include(FindARMADILLO)
+set( ARMADILLO_LIBRARIES ${ARMADILLO_LIBRARIES} "-lgfortran")
+include_directories( BEFORE ${ARMADILLO_INCLUDE_DIRS} )
 
 MESSAGE(STATUS "   Local Libraries = ${LOCAL_LIBS}")
 
 
-link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+message(STATUS " ARMADILLO_FOUND  = ${ARMADILLO_FOUND}") 
+message(STATUS " ARMADILLO_INCLUDE_DIRS  = ${ARMADILLO_INCLUDE_DIRS}") 
+message(STATUS " ARMADILLO_LIBRARIES  = ${ARMADILLO_LIBRARIES}") 
+message(STATUS " ARMADILLO_VERSION_MAJOR  = ${ARMADILLO_VERSION_MAJOR}") 
+message(STATUS " ARMADILLO_VERSION_MINOR  = ${ARMADILLO_VERSION_MINOR}") 
+message(STATUS " ARMADILLO_VERSION_PATCH  = ${ARMADILLO_VERSION_PATCH}") 
+message(STATUS " ARMADILLO_VERSION_STRING  = ${ARMADILLO_VERSION_STRING}") 
+message(STATUS " ARMADILLO_VERSION_NAME  = ${ARMADILLO_VERSION_NAME}") 
 
 
 #--------------------------------------
@@ -125,22 +106,22 @@ link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 
 #Main Recon
 add_library(RECONLIB STATIC polynomial_fitting.cpp hdf5_interface.cpp ArrayTemplates.cpp voronoi_dcf.cpp l2reg.cpp clear.cpp gating.cpp recon_lib.cpp threshold.cpp temporal_diff.cpp mri_data.cpp spirit.cpp smsEncode.cpp DCFgridFFT.cpp gridFFT.cpp wavelet3D.cpp phantom.cpp)
-target_link_libraries(RECONLIB ${LOCAL_LIBS})
+target_link_libraries(RECONLIB ${LOCAL_LIBS} ${ARMADILLO_LIBRARIES})
 
 #--------------------------------------
 # Support for Command Line Binary
 #--------------------------------------
 add_executable(recon_binary commandline_recon.cxx ${LOCAL_INCS})
-target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB)
+target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
 add_executable(ops_test test_array_ops.cpp ${LOCAL_INCS})
-target_link_libraries(ops_test ${LOCAL_LIBS} RECONLIB)
+target_link_libraries(ops_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
 add_executable(hdf5_test test_hdf5.cpp ${LOCAL_INCS})
-target_link_libraries(hdf5_test ${LOCAL_LIBS} RECONLIB)
+target_link_libraries(hdf5_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
 add_executable(voronoi_test test_voronoi.cpp ${LOCAL_INCS})
-target_link_libraries(voronoi_test ${LOCAL_LIBS} RECONLIB)
+target_link_libraries(voronoi_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
 
 #--------------------------------------

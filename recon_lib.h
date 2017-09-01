@@ -12,7 +12,6 @@
 #include <omp.h>
 
 // External Libraries
- 
 #include <armadillo>
 
 // Local Libraries

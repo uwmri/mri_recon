@@ -160,7 +160,12 @@ else()
     endif()
     
   else()
-    
+    if(LAPACK_FOUND)
+      set(ARMA_USE_LAPACK true)
+      set(ARMA_LIBS ${ARMA_LIBS} ${LAPACK_LIBRARIES})
+    endif()
+      
+      
     if(OpenBLAS_FOUND AND ATLAS_FOUND)
       message(STATUS "")
       message(STATUS "*** WARNING: found both OpenBLAS and ATLAS; ATLAS will not be used")
@@ -201,11 +206,7 @@ else()
       
     endif()
     
-    if(LAPACK_FOUND)
-      set(ARMA_USE_LAPACK true)
-      set(ARMA_LIBS ${ARMA_LIBS} ${LAPACK_LIBRARIES})
-    endif()
-      
+
   endif()
   
 endif()
