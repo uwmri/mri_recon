@@ -114,6 +114,9 @@ target_link_libraries(RECONLIB ${LOCAL_LIBS} ${ARMADILLO_LIBRARIES})
 add_executable(recon_binary commandline_recon.cxx ${LOCAL_INCS})
 target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
+add_executable(fractal_binary commandline_fractal.cpp ${LOCAL_INCS})
+target_link_libraries(fractal_binary ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
+
 add_executable(ops_test test_array_ops.cpp ${LOCAL_INCS})
 target_link_libraries(ops_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
@@ -130,7 +133,7 @@ target_link_libraries(voronoi_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES}
 
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
-install( TARGETS recon_binary DESTINATION bin)
+install( TARGETS recon_binary fractal_binary DESTINATION bin)
 install( TARGETS RECONLIB DESTINATION lib)
 install( DIRECTORY ./ DESTINATION include 
 	FILES_MATCHING PATTERN "*.h" 

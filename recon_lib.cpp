@@ -3092,9 +3092,9 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 	cout << "Total Block Size" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
 	
 	// This code is for accelerating the calculation
-	int EaccX = 2;
-	int EaccY = 2;
-	int EaccZ = 2;
+	int EaccX = 1;
+	int EaccY = 1;
+	int EaccZ = 1;
 	
 	cout << "Eigen Acceleration ( " << EaccX << " x " << EaccY  << " x " << EaccZ << " ) " << endl;
 	
