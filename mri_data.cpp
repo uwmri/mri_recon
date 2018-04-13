@@ -731,7 +731,6 @@ void MRI_DATA::whiten(void) {
 		}
 	}
 
-
 	cout << "Calc Cov" << endl << flush;
 	arma::cx_fmat CV = NoiseData*NoiseData.t();
 	CV.save("CovMatrix.dat", arma::raw_binary);

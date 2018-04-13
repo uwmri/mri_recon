@@ -39,9 +39,9 @@ gridFFT::gridFFT(){
 	dwinZ=-1;
 	fft_plan=NULL;
 	ifft_plan=NULL;
-	fft_in_x=1;
-  	fft_in_y=1;
-  	fft_in_z=1;
+	fft_in_x=-1;
+  	fft_in_y=-1;
+  	fft_in_z=-1;
   	grid_in_x=1;
   	grid_in_y=1;
   	grid_in_z=-1;
@@ -490,9 +490,18 @@ void gridFFT::precalc_gridding(int NzT,int NyT,int NxT, MRI_DATA &data){
   grid_in_y = ( data.trajectory_type(1) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
   grid_in_z = ( data.trajectory_type(2) == MRI_DATA::NONCARTESIAN ) ? ( 1 ) : ( 0 );
   
-  fft_in_x = data.dft_needed(0); 
-  fft_in_y = data.dft_needed(1); 
-  fft_in_z = data.dft_needed(2); 
+  if( fft_in_x == -1){
+  	fft_in_x = data.dft_needed(0);
+  }
+  
+  if( fft_in_y == -1){
+  	fft_in_y = data.dft_needed(1); 
+  }
+  
+  if( fft_in_z == -1){
+  	fft_in_z = data.dft_needed(2); 
+  }
+  
    
   // Get rounded Gridding ratio*
   if(grid_in_x ==1){
