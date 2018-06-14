@@ -127,6 +127,15 @@ class gridFFT{
 					   const NDarray::Array<float,3>&kz,\
 					   const NDarray::Array<float,3>&kw);
 		
+		void backward_residual(const NDarray::Array<complex<float>,3>&X,\
+					   const NDarray::Array<complex<float>,3>&smap,\
+					         NDarray::Array<complex<float>,3>&data,\
+					   const NDarray::Array<float,3>&kx,\
+					   const NDarray::Array<float,3>&ky,\
+					   const NDarray::Array<float,3>&kz,\
+					   const NDarray::Array<float,3>&kw,\
+					   const NDarray::Array<complex<float>,3>&dataSub);
+		
 		// Main Calls without sensitivity map
 		void forward( NDarray::Array<complex<float>,3>&X,\
 					   const NDarray::Array<complex<float>,3>&data,\
@@ -162,7 +171,8 @@ class gridFFT{
 		
 				
 		void chop_grid_forward( const NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
-		void chop_grid_backward( NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
+		void chop_grid_backward( NDarray::Array< complex<float>,3 >&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw,const
+		NDarray::Array< complex<float>,3 >&diff_data, bool);
 		static float bessi0(float);
 						
 		

@@ -29,7 +29,7 @@ gridFFT::gridFFT(){
 	grid_x= -1;
   	grid_y= -1;
   	grid_z= -1;
-	overgrid = 1.375;
+	overgrid = 1.5;
 	kernel_type = KAISER_KERNEL;
   	betaX=12;
 	betaY=12;
@@ -656,33 +656,25 @@ void gridFFT::do_fft( void ){
 		fftwf_execute(fft_plan); //FFT 
 	}else{ 
 		
-		Array< complex<float>,3> temp = k3d_grid(Range::all(),Range::all(),Range::all());
-
-		// Biggest
-		if(fft_in_x==1){
-			fft3(temp, 0, FFTW_FORWARD, 0);
-			
-			//Trim in X
-			//Array< complex<float>,3> temp2 = temp(Range(og_sx,og_ex),Range::all(),Range::all());
-			//temp.reference(temp2);
-		}
-		
-		// Medium
-		if(fft_in_y==1){
-			fft3(temp, 1, FFTW_FORWARD, 0);
-			
-			//Trim in Y
-			//Array< complex<float>,3> temp2 = temp(Range::all(),Range(og_sy,og_ey),Range::all() );
-			//temp.reference(temp2);
-		}
-		
-		// Small
+		// Smallest array
 		if(fft_in_z==1){
+			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range(og_sy,og_ey),Range::all());
+
+			// Already expanded in z
 			fft3(temp, 2, FFTW_FORWARD, 0);
 			
-			//Trim in Z
-			//Array< complex<float>,3> temp2 = temp(Range::all(),Range::all(),Range(og_sz,og_ez));
-			//temp.reference(temp2);
+		}
+		
+		// Bigger
+		if(fft_in_y==1){
+			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range::all(),Range::all());
+			fft3(temp, 1, FFTW_FORWARD, 0);
+			
+		}
+		
+		// Biggest
+		if(fft_in_x==1){
+			fft3(k3d_grid, 0, FFTW_FORWARD, 0);
 		}
 	}
 }
@@ -692,30 +684,34 @@ void gridFFT::do_ifft( void ){
 	 if( (fft_in_z==1) && (fft_in_y==1) && (fft_in_x==1) && (pruned_fft==0) ){
   		fftwf_execute(ifft_plan); //FFT 
 	}else{
-		
-		
-		// Smallest array
-		if(fft_in_z==1){
-			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range(og_sy,og_ey),Range::all());
+		Array< complex<float>,3> temp = k3d_grid(Range::all(),Range::all(),Range::all());
 
-			// Already expanded in z
-			fft3(temp, 2, FFTW_BACKWARD, 0);
-			
-		}
-		
-		// Bigger
-		if(fft_in_y==1){
-			Array< complex<float>,3> temp = k3d_grid(Range(og_sx,og_ex),Range::all(),Range::all());
-			fft3(temp, 1, FFTW_BACKWARD, 0);
-			
-		}
-		
 		// Biggest
 		if(fft_in_x==1){
-			fft3(k3d_grid, 0, FFTW_BACKWARD, 0);
+			fft3(temp, 0, FFTW_BACKWARD, 0);
+			
+			//Trim in X
+			//Array< complex<float>,3> temp2 = temp(Range(og_sx,og_ex),Range::all(),Range::all());
+			//temp.reference(temp2);
 		}
 		
-
+		// Medium
+		if(fft_in_y==1){
+			fft3(temp, 1, FFTW_BACKWARD, 0);
+			
+			//Trim in Y
+			//Array< complex<float>,3> temp2 = temp(Range::all(),Range(og_sy,og_ey),Range::all() );
+			//temp.reference(temp2);
+		}
+		
+		// Small
+		if(fft_in_z==1){
+			fft3(temp, 2, FFTW_BACKWARD, 0);
+			
+			//Trim in Z
+			//Array< complex<float>,3> temp2 = temp(Range::all(),Range::all(),Range(og_sz,og_ez));
+			//temp.reference(temp2);
+		}
 	}
 }
 
@@ -745,7 +741,7 @@ void gridFFT::forward_sos( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",grid:"<< T;
 	
 	if(time_grid) T.tic(); 
-	do_fft();
+	do_ifft();
 	if(time_grid)cout << ",fft:"<< T;
 	
 	if(time_grid) T.tic(); 
@@ -784,7 +780,7 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",grid:"<< T;
 	
 	if(time_grid) T.tic(); 
-	do_fft();
+	do_ifft();
 	if(time_grid)cout << ",fft:"<< T;
 	
 	if(time_grid) T.tic(); 
@@ -820,7 +816,7 @@ void gridFFT::forward( Array<complex<float>,3>&X,\
 	if(time_grid)cout << ",grid:"<< T;
 	
 	if(time_grid) T.tic(); 
-	do_fft();
+	do_ifft();
 	if(time_grid)cout << ",fft:"<< T;
 	
 	if(time_grid) T.tic(); 
@@ -854,14 +850,52 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	if(time_grid) cout << "Backward::copy:"<< T;
 		
 	if(time_grid) T.tic(); 
-	do_ifft();
+	do_fft();
 	if(time_grid)cout << ",ifft:"<< T;
 	
-	if(time_grid) T.tic(); 
-	chop_grid_backward(data,kx,ky,kz,kw); // Inverse gridding
+	if(time_grid) T.tic();
+	Array<complex<float>,3> temp;
+	chop_grid_backward(data,kx,ky,kz,kw,temp,false); // Inverse gridding
 	if(time_grid)cout << ",igrid:"<< T << endl;
 	
 }
+
+/**
+ * Backward gridding with sensitivity map
+ * @param X image to be accumulated
+ * @param sensitivity map
+ * @param data raw k-space data
+ * @param kx corrdinate in x
+ * @param ky corrdinate in y
+ * @param kz corrdinate in z
+ * @param kw k-space weight
+ */					   
+void gridFFT::backward_residual(const Array<complex<float>,3>&X,\
+					   const Array<complex<float>,3>&smap,\
+					   Array<complex<float>,3>&data,\
+					   const Array<float,3>&kx,\
+					   const Array<float,3>&ky,\
+					   const Array<float,3>&kz,\
+					   const Array<float,3>&kw,\
+					   const Array<complex<float>,3>&diff_data){
+	
+	k3d_grid=0; // Zero K-Space
+	
+	tictoc T;
+	if(time_grid) T.tic(); 
+	set_image(X,smap); // Copy image to gridding 
+	if(time_grid) cout << "Backward::copy:"<< T;
+		
+	if(time_grid) T.tic(); 
+	do_fft();
+	if(time_grid)cout << ",ifft:"<< T;
+	
+	if(time_grid) T.tic(); 
+	chop_grid_backward(data,kx,ky,kz,kw,diff_data,true); // Inverse gridding
+	if(time_grid)cout << ",igrid:"<< T << endl;
+	
+}
+
 
 /**
  * Backward gridding without sensitivity map
@@ -887,14 +921,17 @@ void gridFFT::backward(const Array<complex<float>,3>&X,\
 	if(time_grid) cout << "Backward::copy:"<< T;
 
 	if(time_grid) T.tic(); 
-	do_ifft();
+	do_fft();
 	if(time_grid)cout << ",ifft:"<< T;
 	
-	if(time_grid) T.tic(); 
-	chop_grid_backward(data,kx,ky,kz,kw); // Inverse gridding
+	if(time_grid) T.tic();
+	Array<complex<float>,3> temp; 
+	chop_grid_backward(data,kx,ky,kz,kw,temp,false); // Inverse gridding
 	if(time_grid)cout << ",igrid:"<< T << endl;
 	
 }
+
+
 
 //----------------------------------------
 //    Crop from Gridding Matrix to Image
@@ -1160,7 +1197,7 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 
 
 	
-void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA){
+void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<float,3>&kxA,const Array<float,3>&kyA,const Array<float,3>&kzA,const Array<float,3>&kwA, const Array<complex<float>,3>&diff_dataA,bool sub_data_flag){
 
 	float cx = Sx/2;
 	float cy = Sy/2;
@@ -1188,14 +1225,13 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 		// Do not grid zeros
 		float kw = kwA(ii,jj,kk);
      	if( kw==0.0){
+			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
 			continue;
 		}
 		
 		float kx = kxA(ii,jj,kk);
 		float ky = kyA(ii,jj,kk);
 		float kz = kzA(ii,jj,kk);
-		
-		dataA(ii,jj,kk) = complex<float>(0.0,0.0);
 							
 	    // Calculate the exact kspace sample point in 
 	    // dimension flag->grid* kspace that this point (i,j)
@@ -1212,9 +1248,16 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 			sx = (int)( dkx);
 			ex = sx;
 		}
-		if(sx >= Sx) continue;
-		if(ex < 0) continue;  
 		
+		if(sx >= Sx){
+			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
+		 	continue;
+		}
+		
+		if(ex < 0){
+			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
+			continue;  
+		}
 		
 		float dky = ky*grid_y + cy;
 		int sy;
@@ -1226,9 +1269,16 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 			sy = (int)(dky);
 			ey = sy;
 		}
-		if(sy >= Sy) continue;
-		if(ey < 0) continue;  
-			
+		
+		if(sy >= Sy){
+			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
+			continue;
+		}
+		
+		if(ey < 0){
+			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
+			continue;  
+		}	
 		
 		float dkz = kz*grid_z + cz;
 		int sz;
@@ -1240,9 +1290,16 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 			sz = (int)(dkz);
 			ez = sz;
 		}
-		if(sz >= Sz) continue;
-		if(ez < 0) continue;  
-
+		if(sz >= Sz){
+			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
+			continue;
+		}
+		
+		if(ez < 0){
+			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
+			continue;  
+		}
+		
 		complex<float>temp(0,0);
 					
 		/*This is the main loop - most time is spent here*/
@@ -1282,12 +1339,15 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	    	}/* end lz loop */
 	  	  }/* end ly */
 		 }/* end lx */
-		 dataA(ii,jj,kk) = temp;
-	
+		 
+		 if(sub_data_flag){
+		 	dataA(ii,jj,kk) = temp - diff_dataA(ii,jj,kk);
+		 }else{
+		 	dataA(ii,jj,kk) = temp;
+		 }
 	}/* end data loop */
 	return;
 }	
-	
 
 
 // For Kaiser Bessel Window

@@ -44,7 +44,8 @@ class GATING {
 		int wdth_low;	// k=0 width
 		int wdth_high; 	// k=kmax width
 		float kmax;
-		TornadoType tornado_shape; // kr^2 vs kr                         
+		TornadoType tornado_shape; // kr^2 vs kr
+		                      
         
 		// Scaling for Waveform
 		double scale_time;

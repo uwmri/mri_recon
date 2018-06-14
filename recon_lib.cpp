@@ -102,6 +102,8 @@ void RECON::set_defaults( void){
 	admm_gamma = 0.1;
 	admm_max_iter = 20;
 	admm_rho = 0.5;
+	
+	step_update_frequency = 1;
 }
 
 // ----------------------
@@ -314,6 +316,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
         trig_flag(true,"-coil_rejection",coil_rejection_flag);
         float_flag("-coil_rejection_radius", coil_rejection_radius);
         int_flag("-coil_rejection_shape", coil_rejection_shape);
+		int_flag("-step_update_frequency",step_update_frequency);
 	
 		// Encode Transforms
 		}else if(strcmp("-smap_mask",pstring[pos]) == 0) {
@@ -563,7 +566,8 @@ void RECON::pregate_data( MRI_DATA &data){
 					number_of_points++;
 				}
 			}
-			cout << "Frame " << t << ", Total number of point = " << number_of_points << endl;
+			float Kw_Scale = (1e6/((float)number_of_points));
+			cout << "Frame " << t << ", Total number of point = " << number_of_points << "Kw_scale = " << Kw_Scale << endl;
 			
 			data2.kx(count).setStorage( ColumnMajorArray<3>());
 			data2.kx(count).resize(number_of_points,1,1);
@@ -592,7 +596,12 @@ void RECON::pregate_data( MRI_DATA &data){
 							data2.kx(count)(point_number,0,0) = data.kx(e)(i,j,k);
 							data2.ky(count)(point_number,0,0) = data.ky(e)(i,j,k);
 							data2.kz(count)(point_number,0,0) = data.kz(e)(i,j,k);
-							data2.kw(count)(point_number,0,0) = data.kw(e)(i,j,k);
+							if(reset_dens){
+								data2.kw(count)(point_number,0,0) = 1.0;
+							}else{
+								data2.kw(count)(point_number,0,0) = Kw_Scale*data.kw(e)(i,j,k);
+							}
+							
 							for(int coil=0; coil<data2.Num_Coils; coil++){
 								data2.kdata(count,coil)(point_number,0,0) = data.kdata(e,coil)(i,j,k);
 							}
@@ -1505,13 +1514,13 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								int store_t = times_store(t);
 																
 								// Temporal weighting 
-								if(reset_dens){
+								if(pregate_data_flag){
+					 				TimeWeight.reference( data.kw(e) );
+								}else if(reset_dens){
 								    TimeWeight.resize(data.kw(e).shape());
 									TimeWeight = 1.0;								  
 									gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
-   								}else if(pregate_data_flag){
-					 				TimeWeight.reference( data.kw(e) );
-								}else{
+   								}else{
 					 				TimeWeight.resize(data.kw(e).shape());
 									TimeWeight = data.kw(e);
 					 				gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
@@ -1565,13 +1574,13 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 									T.tic();
  
 									// Temporal weighting 
-									if(reset_dens){
+									if(pregate_data_flag){
+					 					TimeWeight.reference( data.kw(e) );
+									}else if(reset_dens){
 								        TimeWeight.resize(data.kw(e).shape());
 										TimeWeight = 1.0;								  
 										gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
-   									}else if(pregate_data_flag){
-					 					TimeWeight.reference( data.kw(e) );
-									}else{
+   									}else{
 					 					TimeWeight.resize(data.kw(e).shape());
 										TimeWeight = data.kw(e);
 					 					gate.weight_data( TimeWeight, e, data.kx(e),data.ky(e),data.kz(e),act_t,GATING::ITERATIVE,frame_type);
@@ -1742,13 +1751,13 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						int act_e = ( pregate_data_flag) ? ( e*Nt + act_t ) : ( e);
 								
 						// Temporal weighting 
-						if(reset_dens){
+						if(pregate_data_flag){
+					 		TimeWeight.reference( data.kw(act_e) );
+						}else if(reset_dens){
 						    TimeWeight.resize(data.kw(act_e).shape());
 							TimeWeight = 1.0;								  
 							gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
-   						}else if(pregate_data_flag){
-					 		TimeWeight.reference( data.kw(act_e) );
-						}else{
+   						}else{
 					 		TimeWeight.resize(data.kw(act_e).shape());
 							TimeWeight = data.kw(act_e);
 					 		gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
@@ -1784,13 +1793,13 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 							  T.tic();
  
 							  // Temporal weighting 
-							  if(reset_dens){
+							  if(pregate_data_flag){
+					 			TimeWeight.reference( data.kw(act_e) );
+							  }else if(reset_dens){	
 								TimeWeight.resize(data.kw(act_e).shape());
 								TimeWeight = 1.0;								  
 								gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
-   							  }else if(pregate_data_flag){
-					 			TimeWeight.reference( data.kw(act_e) );
-							  }else{
+   							  }else{
 					 			TimeWeight.resize(data.kw(act_e).shape());
 								TimeWeight = data.kw(act_e);
 					 			gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
@@ -1935,7 +1944,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					  // Temp variable for E'ER 
 					  Array< complex<float>,3 >P(rcxres,rcyres,rczres,ColumnMajorArray<3>());
 
-					  
+					  // Class for gradient descent step size
+					  complex<float>step_size; 
+					    
 					  cout << "Iterate" << endl;
 					  double error0=0.0;
 					  for(int iteration =0; iteration< max_iter; iteration++){
@@ -1970,7 +1981,9 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								T.tic();
 																  								  
 								// Temporal weighting 
-								if(reset_dens){
+								if(pregate_data_flag){
+					 				TimeWeight.reference( kwE );
+								}else if(reset_dens){
 									TimeWeight.resize(kwE.shape());
 									TimeWeight = 1.0;
 									Array< float,3>::iterator titer=TimeWeight.begin();
@@ -1979,29 +1992,24 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 										if( (*kiter) < 0.1 ){
 											*titer = *kiter;
 										}else{
-										
-										}	*titer = 0.1;
+											*titer = 0.1;
+										}	
 									} 
 									gate.weight_data( TimeWeight, e,kxE,kyE,kzE,act_t,GATING::ITERATIVE,frame_type);
-   								}else if(pregate_data_flag){
-					 				TimeWeight.reference( kwE );
-								}else{
+   								}else{
 					 				TimeWeight.resize(kwE.shape());
 									TimeWeight = kwE;
 					 				gate.weight_data( TimeWeight, e, kxE,kwE,kzE,act_t,GATING::ITERATIVE,frame_type);
    								}
 								 								 								  
-								// Images
-								for(int coil=0; coil< data.Num_Coils; coil++){
-									 
-									 Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
+								// Differences (Ex-d)
+								Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
 								
-									// Ex
-									gridding.backward(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+								for(int coil=0; coil< data.Num_Coils; coil++){
+									
+									// Ex - d
+									gridding.backward_residual(X(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight,data.kdata(act_e,coil));
 
-									//Ex-d
-									diff_data -= data.kdata(act_e,coil);
-									  
 									//E'(Ex-d)
 									gridding.forward(R(store_t,e),smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
 										  
@@ -2011,37 +2019,33 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								if(iteration > 0){
 								  	l2reg.regularize(R(store_t,e),X(store_t,e) );
 								}
-								    
-									
-								//Now Get Scale factor (for Cauchy-Step Size)
-								P=0;
-								for(int coil=0; coil< data.Num_Coils; coil++){
-										  
-									// Storage for (Ex-d)
-					  		  		Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
-								
-									// this is in backward diff_data=0;
-
-									// EE'(Ex-d)
-									gridding.backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
-
-									//E'EE'(Ex-d)
-									 gridding.forward(            P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
-								}//Coils
-								  
-								  
-								// TV of Image
-								if(iteration > 0){
-									l2reg.regularize(P,R(store_t,e));
-								}
+								   									
+								// Now Get Scale factor (for Cauchy-Step Size)
+								if( (iteration % this->step_update_frequency) == 0){
 								 
-								P*=conj(R(store_t,e));
+									P=0;
+									for(int coil=0; coil< data.Num_Coils; coil++){
+										  
+										// EE'(Ex-d)
+										gridding.backward(R(store_t,e),smaps(coil), diff_data,kxE,kyE,kzE,TimeWeight);
+
+										//E'EE'(Ex-d)
+										gridding.forward(            P,smaps(coil),diff_data,kxE,kyE,kzE,TimeWeight);
+									}//Coils
 								  
-								for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
-									scale_RhP += complex< double>( real(*riter),imag(*riter)); 
+								  
+									// TV of Image
+									if(iteration > 0){
+										l2reg.regularize(P,R(store_t,e));
+									}
+								 
+									P*=conj(R(store_t,e));
+								  
+									for( Array<complex<float>,3>::iterator riter=P.begin(); riter != P.end(); riter++){
+										scale_RhP += complex< double>( real(*riter),imag(*riter)); 
+									}
 								}
-								
-								  cout << "\r" << e << "," << t << "took " << T << "s" << flush;
+								cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 							  }//Time
 						  }//Encode
 						  
@@ -2063,13 +2067,15 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  export_slice( R(0,0),"R.dat");
 						  
 						  // Step in direction
-						  complex<double>scale_double = (scale_RhR/scale_RhP);
-						  complex<float>scale( real(scale_double),imag(scale_double) );
+						  if( (iteration % this->step_update_frequency) == 0){
+						  	complex<double>scale_double = (scale_RhR/scale_RhP);
+						  	step_size = complex<float>( real(scale_double),imag(scale_double) );
+						  } 
 						  
-						  cout << "Scale = " << scale << endl << flush;
+						  cout << "Scale = " << step_size << endl << flush;
 						  for(int e=0; e< rcencodes; e++){
 							  for(int t=0; t< Nt; t++){
-						  		R(t,e) *= scale;
+						  		R(t,e) *= step_size;
 						  		X(t,e) -= R(t,e);
 							}
 						  }
@@ -2131,6 +2137,112 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 	cout << "Recon was completed successfully " << endl;	
 	return(X);
 }
+
+
+double RECON::kspace_residual( MRI_DATA& data){
+	
+	// Matlab like timer (openmp code base)
+	tictoc T; 
+	
+	// Setup Gridding + FFT Structure
+	gridFFT Kgridding;
+	Kgridding.overgrid = 1.0;
+	Kgridding.kernel_type = TRIANGLE_KERNEL;
+	Kgridding.dwinX = 1.0;
+	Kgridding.dwinY = 1.0;
+	Kgridding.dwinZ = 1.0;
+	Kgridding.precalc_gridding(32,32,32,data);
+
+	// Class for gradient descent step size
+	complex<float>step_size; 
+					    
+	double residual = 0.0;
+	for(int e=0; e< data.kx.length(firstDim); e++){
+	  					  	
+						
+		// Get Sub-Arrays for Encoding
+		Array< float,3 >kxE = data.kx(e); 
+		Array< float,3 >kyE = data.ky(e); 
+		Array< float,3 >kzE = data.kz(e);
+		Array< float,3 >kwE = data.kw(e);
+								 								 								  
+		// Differences (Ex-d)
+		Array< complex<float>,3 >diff_data( kxE.shape(),ColumnMajorArray<3>());
+		
+		for(int coil=0; coil< data.Num_Coils; coil++){
+			
+			// Grid data
+			T.tic();
+			Kgridding.k3d_grid=0; // Zero K-Space
+			Kgridding.chop_grid_forward(data.kdata(e,coil),kxE,kyE,kzE,kwE); // Grid data to K-Space
+			//cout << "Forward took " << T << endl;
+			
+			// Inverse
+			T.tic(); 
+			Array<complex<float>,3> temp;
+			Kgridding.chop_grid_backward(diff_data,kxE,kyE,kzE,kwE,temp,false);
+			//cout << "Backward took " << T << endl;
+			
+			T.tic();
+			
+			// Residual
+			complex<double> DhD(0.0,0.0);
+			complex<double> DhR(0.,0.);
+	
+			#pragma omp parallel for
+			for(int j=0; j < diff_data.length(secondDim); j++){
+			
+				complex<double> DhD_temp(0.0,0.0);
+				complex<double> DhR_temp(0.0,0.0);
+			
+				for(int k=0; k < diff_data.length(thirdDim); k++){
+				for(int i=0; i < diff_data.length(firstDim); i++){
+				
+					// Energy in D'*D			
+					DhD_temp +=  data.kdata(e,coil)(i,j,k)*conj( data.kdata(e,coil)(i,j,k) );
+			
+					// Energy in D'*R
+					DhR_temp +=  conj( data.kdata(e,coil)(i,j,k))*diff_data(i,j,k);
+				}}
+			
+				// Prevent Race conditions in multi-threaded
+				#pragma omp critical
+				{
+					DhD +=DhD_temp;
+					DhR +=DhR_temp;
+				}
+			}			
+			
+			// Scale D*'D/(D'*R)		
+			complex<double> scale = DhD/DhR;		
+			complex<float> scaleF( real(scale),imag(scale));		
+			
+			#pragma omp parallel for
+			for(int j=0; j < diff_data.length(secondDim); j++){
+				
+				double residual_temp=0.0;
+				for(int k=0; k < diff_data.length(thirdDim); k++){
+				for(int i=0; i < diff_data.length(firstDim); i++){
+				
+					// Energy in D'*D			
+					residual_temp +=  norm( data.kdata(e,coil)(i,j,k)-scaleF*diff_data(i,j,k));
+				}}
+			
+				// Prevent Race conditions in multi-threaded
+				#pragma omp critical
+				{
+					residual += residual_temp;
+				}
+			}			
+			//cout << "Residual took " << T << endl;
+			
+		}//Coils
+	}// Encode
+													  
+	
+	return(residual);
+}
+
 
 void RECON::export_slice( Array< complex<float>,3> &temp, const char *fname){
 	

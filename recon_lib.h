@@ -34,7 +34,6 @@
 #include "polynomial_fitting.h"
 #include "voronoi_dcf.h"
 
-
 class RECON{
 	public:
 	  // Types of Recons
@@ -89,6 +88,7 @@ class RECON{
 	  int rcencodes;
   	  
 	  int rc_frame_start;
+	  int step_update_frequency;
 	  
 	  // Code to rotate into low resolution images
 	  bool phase_rotation;
@@ -98,7 +98,7 @@ class RECON{
 	  		
   	  // Gridding operators
 	  gridFFT gridding;
-	  
+	  	  
 	  // Arrays for calculations
 	  NDarray::Array< NDarray::Array< complex<float>,3>,1 >smaps; // Array of arrays
 	  NDarray::Array< complex<float>,3>composite_image;
@@ -172,6 +172,8 @@ class RECON{
 	  void L1_threshold( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&);
 	  void transform_in_time( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);
 	  void transform_in_encode( NDarray::Array< NDarray::Array< complex<float>,3>, 2 >&, TransformDirection);
+	  
+	  static double kspace_residual( MRI_DATA& data);
 	  
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 2 > full_recon( MRI_DATA& data, NDarray::Range, NDarray::Range,bool);
 	  NDarray::Array< NDarray::Array< complex<float>,3>, 1 > reconstruct_one_frame( MRI_DATA& data, int);
