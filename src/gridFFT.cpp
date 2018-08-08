@@ -1052,12 +1052,11 @@ void gridFFT::chop_grid_forward( const Array<complex<float>,3>&dataA, const Arra
 	for (long index=0; index < Npts; index++) {
       	
 		// Get the actual position
-		int *I = new int[3];
-		nested_workaround(index,N,I,3);
-		int ii = I[0];
-		int jj = I[1];
-		int kk = I[2];
-		delete [] I;		
+		int stride[3];
+		nested_workaround(index,N,stride,3);
+		int ii = stride[0];
+		int jj = stride[1];
+		int kk = stride[2];
 
 		float kw = kwA(ii,jj,kk);
 		if( kw == 0){
@@ -1215,12 +1214,11 @@ void gridFFT::chop_grid_backward(Array<complex<float>,3>&dataA, const Array<floa
 	for (int index=0; index < Npts; index++) {
       	
 		// Get the actual position
-		int *I = new int[3];
-		nested_workaround(index,N,I,3);
-		int ii = I[0];
-		int jj = I[1];
-		int kk = I[2];
-		delete [] I;		
+		int stride[3];
+		nested_workaround(index,N,stride,3);
+		int ii = stride[0];
+		int jj = stride[1];
+		int kk = stride[2];
 		
 		// Do not grid zeros
 		float kw = kwA(ii,jj,kk);

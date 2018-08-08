@@ -2521,6 +2521,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			}
 
 			if(data.Num_Coils ==1){
+				cout << "One coil - assuming senitivity map is 1"  << endl<< flush; 
 				smaps(0)=complex<float>(1.0,0.0);
 				break;
 			}
@@ -2711,7 +2712,7 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 		
 		case(SOS):{
 			// Allocate Storage for Map	and zero	
-			cout << "Allocate Sense Maps"  << endl << flush;
+			cout << "Allocate Sense Maps (SOS)"  << endl << flush;
 			{
 				Array< Array< complex<float>, 3>,1> temp =  Alloc4DContainer< complex<float> >(rcxres,rcyres,rczres,data.Num_Coils);
 				smaps.reference(temp);

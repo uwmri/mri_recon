@@ -66,7 +66,7 @@ endif()
 
 
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O2 -fopenmp ")
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-g -Wall -Wextra -m64 -O3 -fopenmp ")
 set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
 # Find static libraries for portability
@@ -105,25 +105,42 @@ message(STATUS " ARMADILLO_VERSION_NAME  = ${ARMADILLO_VERSION_NAME}")
 #--------------------------------------
 
 #Main Recon
-add_library(RECONLIB STATIC polynomial_fitting.cpp hdf5_interface.cpp ArrayTemplates.cpp voronoi_dcf.cpp l2reg.cpp clear.cpp gating.cpp recon_lib.cpp threshold.cpp temporal_diff.cpp mri_data.cpp spirit.cpp smsEncode.cpp DCFgridFFT.cpp gridFFT.cpp wavelet3D.cpp phantom.cpp)
+add_library(RECONLIB STATIC 
+	src/polynomial_fitting.cpp 
+	src/hdf5_interface.cpp 
+	src/ArrayTemplates.cpp 
+	src/voronoi_dcf.cpp 
+	src/l2reg.cpp 
+	src/clear.cpp 
+	src/gating.cpp 
+	src/recon_lib.cpp 
+	src/threshold.cpp 
+	src/temporal_diff.cpp 
+	src/mri_data.cpp 
+	src/spirit.cpp 
+	src/smsEncode.cpp 
+	src/DCFgridFFT.cpp 
+	src/gridFFT.cpp 
+	src/wavelet3D.cpp 
+	src/phantom.cpp)
 target_link_libraries(RECONLIB ${LOCAL_LIBS} ${ARMADILLO_LIBRARIES})
 
 #--------------------------------------
 # Support for Command Line Binary
 #--------------------------------------
-add_executable(recon_binary commandline_recon.cxx ${LOCAL_INCS})
+add_executable(recon_binary src/commandline_recon.cxx ${LOCAL_INCS})
 target_link_libraries(recon_binary ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
-add_executable(fractal_binary commandline_fractal.cpp ${LOCAL_INCS})
+add_executable(fractal_binary src/commandline_fractal.cpp ${LOCAL_INCS})
 target_link_libraries(fractal_binary ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
-add_executable(ops_test test_array_ops.cpp ${LOCAL_INCS})
+add_executable(ops_test src/test_array_ops.cpp ${LOCAL_INCS})
 target_link_libraries(ops_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
-add_executable(hdf5_test test_hdf5.cpp ${LOCAL_INCS})
+add_executable(hdf5_test src/test_hdf5.cpp ${LOCAL_INCS})
 target_link_libraries(hdf5_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
-add_executable(voronoi_test test_voronoi.cpp ${LOCAL_INCS})
+add_executable(voronoi_test src/test_voronoi.cpp ${LOCAL_INCS})
 target_link_libraries(voronoi_test ${LOCAL_LIBS} RECONLIB ${ARMADILLO_LIBRARIES})
 
 
@@ -136,8 +153,8 @@ message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 install( TARGETS recon_binary fractal_binary DESTINATION bin)
 install( TARGETS RECONLIB DESTINATION lib)
 install( DIRECTORY ./ DESTINATION include 
-	FILES_MATCHING PATTERN "*.h" 
-	PATTERN "*.hpp" 
+	FILES_MATCHING PATTERN "src/*.h" 
+	PATTERN "src/*.hpp" 
 	PATTERN "html" EXCLUDE 
 	PATTERN ".git" EXCLUDE
 	PATTERN "Cmake*" EXCLUDE
