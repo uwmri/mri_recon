@@ -152,7 +152,7 @@ message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
 install( TARGETS recon_binary fractal_binary DESTINATION bin)
 install( TARGETS RECONLIB DESTINATION lib)
-install( DIRECTORY ./ DESTINATION include 
+install( DIRECTORY ./src/ DESTINATION include 
 	FILES_MATCHING PATTERN "src/*.h" 
 	PATTERN "src/*.hpp" 
 	PATTERN "html" EXCLUDE 
