@@ -12,8 +12,12 @@ set(STATIC_LIBS ON)
 
 link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 
+set(ENABLE_ORCHESTRA "YES")
 
 if (DEFINED ENABLE_ORCHESTRA )
+
+message( STATUS "Using orchestra libraries")
+
 
 #--------------------------------------
 # Orchestra (GE Recon Library)
