@@ -20,6 +20,23 @@ int main(void){
 	
 	
 	T.tic();
+	{
+	cout << "Check BART Export" << endl;
+	Array< Array<complex<float>,3>, 2> TEMP = Alloc5DContainer< complex<float> >( 3, 4, 5, 6, 7);
+	WriteCFL( TEMP, "BART_CFL");
+	cout << "Took " << T << endl;
+	}
+	
+	T.tic();
+	{
+	cout << "Check BART Export" << endl;
+	Array< float, 3> TEMP( 3, 4, 5, ColumnMajorArray<3>());
+	WriteCFL( TEMP, "BART_CFL_FLOAT");
+	cout << "Took " << T << endl;
+	}
+	
+	
+	T.tic();
 	ArrayWriteMag(X,"X_OF.dat");
 	cout << "Tool " << T << endl;
 	

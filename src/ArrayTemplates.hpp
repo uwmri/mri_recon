@@ -76,6 +76,29 @@ void ArrayWriteAppend( Array< T ,N_rank>& temp, const char *name){
 	 
 }
 
+template< typename T, const int N_rank>
+void ArrayWriteAppendAsComplexFloat( Array< T ,N_rank>& temp, const char *name){
+	 
+	 ofstream ofs(name, ios_base::binary | ios_base::app);
+	 
+	 for(typename Array< T ,N_rank>::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+		complex<float> val =  *miter;
+		ofs.write( (char *)&val,sizeof(complex<float>));
+     }	
+	 
+}
+
+template< typename T>
+void ArrayWriteAppendZeros( int number, const char *name){
+	 	 
+	 ofstream ofs(name, ios_base::binary | ios_base::app);
+	 
+	 for( int i=0; i < number; i++){
+		T val = (T)0.0; // Zero is zero for all types!
+		ofs.write( (char *)&val,sizeof(T));
+     }	
+}
+
 
 template< typename T, const int N_rank>
 void ArrayWrite( Array< T , N_rank>& temp, const char *name){
@@ -147,6 +170,113 @@ void ArrayWritePhaseAppend( Array<complex<T>,N_rank>& temp, const char *name){
      }	
 	 
 }
+
+
+template< typename T, const int N_rank, const int M_rank >
+void WriteCFL( Array< Array< T, N_rank>, M_rank >& temp, const char *name){
+	
+	// Create names for header and binary
+	char name_hdr[2048];
+	char name_bin[2048];
+	
+	sprintf(name_hdr,"%s.hdr",name);
+	sprintf(name_bin,"%s.cfl",name);
+	
+	// Now determine the size of the ND array
+	TinyVector<int, M_rank> Dim1 = temp.shape();
+	
+	// Loop over all sub-arrays to get the max
+	typename Array< Array< T,N_rank>,M_rank >::iterator miter=temp.begin();
+	
+	TinyVector<int, N_rank> Dim2 = (*miter).shape();
+	for(; miter!=temp.end(); miter++){
+		TinyVector<int, N_rank> Dim2_temp = (*miter).shape(); 
+		for( int i = 0; i < N_rank; i++){
+			Dim2(i) = max( Dim2(i), Dim2_temp(i));
+		}
+	}
+	
+	// Combine the Size to get the total size
+	TinyVector<int, N_rank+M_rank> Dim;
+	for(int i=0; i< N_rank; i++){
+		Dim(i) = Dim2(i);
+	}
+	for(int i=0; i< M_rank; i++){
+		Dim(i+N_rank) = Dim1(i);
+	}
+	
+		
+	// Debug info (temp)
+	cout << "File Name = " << name_bin << endl;
+	cout << "Header Name = " << name_hdr << endl;
+	cout << "Output Size = " << Dim << endl;
+	
+	// Write the header
+	FILE *fid;
+	fid = fopen( name_hdr,"w");
+	fprintf(fid,"# Dimensions\n");
+	for( int i=0; i < M_rank+N_rank; i++){
+		fprintf(fid,"%d ",Dim(i));
+ 	}
+	if( (N_rank+M_rank) < 5 ){
+		for( int i=0; i < (5-(M_rank+N_rank)); i++){
+			fprintf(fid,"%d ",1);
+		}
+	}
+	fclose(fid);
+	
+	// Write the binary data
+	remove(name_bin);
+	int inner_size = product(Dim2);
+	for(typename Array< Array< T, N_rank>,M_rank >::iterator miter=temp.begin(); miter!=temp.end(); miter++){
+		ArrayWriteAppendAsComplexFloat( (*miter), name_bin);		
+		
+		// Bart doesn't support container sizes. Just pad with zeros
+		if( (*miter).numElements() < inner_size ){
+			ArrayWriteAppendZeros< complex<float> >( inner_size - (*miter).numElements(),  name_bin);				
+		} 
+	}
+}
+
+template< typename T, const int N_rank >
+void WriteCFL(  Array< T, N_rank>& temp, const char *name){
+	
+	// Create names for header and binary
+	char name_hdr[2048];
+	char name_bin[2048];
+	
+	sprintf(name_hdr,"%s.hdr",name);
+	sprintf(name_bin,"%s.cfl",name);
+	
+	// Now determine the size of the ND array
+	TinyVector<int, N_rank> Dim = temp.shape();
+		
+	// Debug info (temp)
+	cout << "File Name = " << name_bin << endl;
+	cout << "Header Name = " << name_hdr << endl;
+	cout << "Output Size = " << Dim << endl;
+	
+	// Write the header
+	FILE *fid;
+	fid = fopen( name_hdr,"w");
+	fprintf(fid,"# Dimensions\n");
+	for( int i=0; i < N_rank; i++){
+		fprintf(fid,"%d ",Dim(i));
+ 	}
+	if( (N_rank) < 5 ){
+		for( int i=0; i < (5-(N_rank)); i++){
+			fprintf(fid,"%d ",1);
+		}
+	}
+	fclose(fid);
+	
+	// Write the binary data
+	remove(name_bin);
+	ArrayWriteAppendAsComplexFloat( temp, name_bin);		
+	
+}
+
+
 
 template < typename T > 
 Array< Array<T,3>, 1> Alloc4DContainer( int x, int y, int z, int t){
