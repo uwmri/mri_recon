@@ -173,7 +173,7 @@ void ArrayWritePhaseAppend( Array<complex<T>,N_rank>& temp, const char *name){
 
 
 template< typename T, const int N_rank, const int M_rank >
-void WriteCFL( Array< Array< T, N_rank>, M_rank >& temp, const char *name){
+void WriteCFL( Array< Array< T, N_rank>, M_rank >& temp, const char *name, int pad_dim1 = 0){
 	
 	// Create names for header and binary
 	char name_hdr[2048];
@@ -197,12 +197,19 @@ void WriteCFL( Array< Array< T, N_rank>, M_rank >& temp, const char *name){
 	}
 	
 	// Combine the Size to get the total size
-	TinyVector<int, N_rank+M_rank> Dim;
+	Array<int,1> Dim(N_rank+M_rank+pad_dim1);
+	int count =0;
+	for(int i=0; i< pad_dim1; i++){
+		Dim(count) = 1;
+		count++;
+	}
 	for(int i=0; i< N_rank; i++){
-		Dim(i) = Dim2(i);
+		Dim(count) = Dim2(i);
+		count++;
 	}
 	for(int i=0; i< M_rank; i++){
-		Dim(i+N_rank) = Dim1(i);
+		Dim(count) = Dim1(i);
+		count++;
 	}
 	
 		
@@ -277,6 +284,103 @@ void WriteCFL(  Array< T, N_rank>& temp, const char *name){
 }
 
 
+template< typename T, const int N_rank, const int M_rank >
+void WriteCFL_triplet( Array< Array< T, N_rank>, M_rank >& temp,Array< Array< T, N_rank>, M_rank >& temp2, Array< Array< T, N_rank>, M_rank >& temp3, const char *name){
+	
+	// Create names for header and binary
+	char name_hdr[2048];
+	char name_bin[2048];
+	
+	sprintf(name_hdr,"%s.hdr",name);
+	sprintf(name_bin,"%s.cfl",name);
+	
+	// Now determine the size of the ND array
+	TinyVector<int, M_rank> Dim1 = temp.shape();
+	
+	// Loop over all sub-arrays to get the max
+	typename Array< Array< T,N_rank>,M_rank >::iterator miter=temp.begin();
+	
+	TinyVector<int, N_rank> Dim2 = (*miter).shape();
+	for(; miter!=temp.end(); miter++){
+		TinyVector<int, N_rank> Dim2_temp = (*miter).shape(); 
+		for( int i = 0; i < N_rank; i++){
+			Dim2(i) = max( Dim2(i), Dim2_temp(i));
+		}
+	}
+	
+	// Combine the Size to get the total size
+	TinyVector<int, N_rank+M_rank> Dim;
+	for(int i=0; i< N_rank; i++){
+		Dim(i) = Dim2(i);
+	}
+	for(int i=0; i< M_rank; i++){
+		Dim(i+N_rank) = Dim1(i);
+	}
+	
+	TinyVector<int, N_rank+M_rank+1> DimTriple;
+	DimTriple(0) = 3;
+	for( int i=0; i < (N_rank+M_rank); i++){
+		DimTriple(i+1) = Dim(i);
+	}
+			
+	// Debug info (temp)
+	cout << "File Name = " << name_bin << endl;
+	cout << "Header Name = " << name_hdr << endl;
+	cout << "Output Size = " << Dim << endl;
+	
+	// Write the header
+	FILE *fid;
+	fid = fopen( name_hdr,"w");
+	fprintf(fid,"# Dimensions\n");
+	for( int i=0; i < M_rank+N_rank+1; i++){
+		fprintf(fid,"%d ",DimTriple(i));
+ 	}
+	if( (N_rank+M_rank+1) < 5 ){
+		for( int i=0; i < (5-(M_rank+N_rank+1)); i++){
+			fprintf(fid,"%d ",1);
+		}
+	}
+	fclose(fid);
+	
+	// Write the binary data
+	remove(name_bin);
+	int inner_size = product(Dim2);
+	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
+	
+	// Three input arrays 
+	typename Array< Array< T, N_rank>,M_rank >::iterator miter1=temp.begin();
+	typename Array< Array< T, N_rank>,M_rank >::iterator miter2=temp2.begin();
+	typename Array< Array< T, N_rank>,M_rank >::iterator miter3=temp3.begin();
+	for(; (miter1!=temp.end()); miter1++,miter2++,miter3++){
+		
+		
+		// Pointers to the the inner array
+		typename Array< T ,N_rank>::iterator niter1=(*miter1).begin();	
+		typename Array< T ,N_rank>::iterator niter2=(*miter2).begin();	
+		typename Array< T ,N_rank>::iterator niter3=(*miter3).begin();	
+					
+				
+	 	for(; (niter1!=(*miter1).end()); niter1++,niter2++,niter3++){
+			{
+				complex<float> val =  *niter1;
+				ofs.write( (char *)&val,sizeof(complex<float>));
+			}
+			{
+				complex<float> val =  *niter2;
+				ofs.write( (char *)&val,sizeof(complex<float>));
+			}
+			{
+				complex<float> val =  *niter3;
+				ofs.write( (char *)&val,sizeof(complex<float>));
+			}
+		}	
+		
+		// Bart doesn't support container sizes. Just pad with zeros
+		if( (*miter1).numElements() < inner_size ){
+			ArrayWriteAppendZeros< complex<float> >( 3*(inner_size - (*miter1).numElements()),  name_bin);				
+		} 
+	}
+}
 
 template < typename T > 
 Array< Array<T,3>, 1> Alloc4DContainer( int x, int y, int z, int t){

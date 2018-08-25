@@ -336,6 +336,173 @@ void MRI_DATA::demod_kdata(float demod) {
 	}
 }
 
+
+
+//
+//  Export for Berkely Advanced Reconstruction Tools
+// 
+void MRI_DATA::write_bart_data(const char *fname){
+
+	// Now determine the size of the ND array
+	int total_shots = 0;
+	int xres = this->kx(0).length(firstDim);
+	for( int pos=0; pos < this->kx.length(firstDim); pos++){
+		total_shots = max( (int)this->kx(pos).numElements(), total_shots);
+	}
+	total_shots /= this->kx(0).length(firstDim);
+	cout << "Bart export setting total shots to " << total_shots << endl;
+	
+	{
+	
+	// Export kdata
+	Array< int,1> Dims(5);
+	Dims(0) = 1;
+	Dims(1) = xres;
+	Dims(2) = total_shots;
+	Dims(3) = this->Num_Coils;
+	Dims(4) = this->Num_Encodings; // Encodes? Encodes*Frames
+	
+	// Header for kdata
+	char name_hdr[1024];
+	sprintf(name_hdr,"%s_data.hdr",fname);
+
+	// Write the header
+	FILE *fid;
+	fid = fopen( name_hdr,"w");
+	fprintf(fid,"# Dimensions\n");
+	for( int i=0; i < Dims.length(firstDim); i++){
+		fprintf(fid,"%d ",Dims(i));
+ 	}
+	fclose(fid);
+	
+	// Write the binary data
+	char name_bin[1024];
+	sprintf(name_bin,"%s_data.cfl",fname);
+
+	remove(name_bin);
+	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
+	for( int encode=0; encode < this->Num_Encodings; encode++){
+		for( int coil=0; coil < this->Num_Coils; coil++){
+			
+			//int subframe_shots = this->kdata(encode,coil).numElements();
+			Array< complex<float>,3 >::iterator miter=this->kdata(encode,coil).begin();
+			Array< complex<float>,3 >::iterator miter_stop=this->kdata(encode,coil).end();
+			for(; (miter !=miter_stop); miter++){
+				complex<float>val = (*miter);
+				ofs.write( (char *)&val,sizeof(complex<float>));
+			}
+		}
+	}
+	ofs.close();
+	}
+	
+	
+	{
+	
+	// Export kx,ky,kz
+	Array< int,1> Dims(5);
+	Dims(0) = 3;
+	Dims(1) = xres;
+	Dims(2) = total_shots;
+	Dims(3) = 1;
+	Dims(4) = this->Num_Encodings; // Encodes? Encodes*Frames
+	
+	// Header for kdata
+	char name_hdr[1024];
+	sprintf(name_hdr,"%s_traj.hdr",fname);
+
+	// Write the header
+	FILE *fid;
+	fid = fopen( name_hdr,"w");
+	fprintf(fid,"# Dimensions\n");
+	for( int i=0; i < Dims.length(firstDim); i++){
+		fprintf(fid,"%d ",Dims(i));
+ 	}
+	fclose(fid);
+	
+	// Write the binary data
+	char name_bin[1024];
+	sprintf(name_bin,"%s_traj.cfl",fname);
+
+	remove(name_bin);
+	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
+	for( int encode=0; encode < this->Num_Encodings; encode++){
+		
+			//int subframe_shots = this->kdata(encode,coil).numElements();
+			
+			Array< float,3 >::iterator kx_iter=this->kx(encode).begin();
+			Array< float,3 >::iterator ky_iter=this->ky(encode).begin();
+			Array< float,3 >::iterator kz_iter=this->kz(encode).begin();
+			
+			Array< float,3 >::iterator kx_iter_stop=this->kx(encode).end();
+			Array< float,3 >::iterator ky_iter_stop=this->ky(encode).end();
+			Array< float,3 >::iterator kz_iter_stop=this->kz(encode).end();
+			
+			for(; (kx_iter!=kx_iter_stop); kx_iter++,ky_iter++,kz_iter++){
+				complex<float>val = complex<float>(*kx_iter,0);
+				ofs.write( (char *)&val,sizeof(complex<float>));
+				val = complex<float>(*ky_iter,0);
+				ofs.write( (char *)&val,sizeof(complex<float>));
+				val = complex<float>(*kz_iter,0);
+				ofs.write( (char *)&val,sizeof(complex<float>));
+			}
+	}
+	ofs.close();
+	}
+
+
+	
+	{
+	
+	// Export kw
+	Array< int,1> Dims(5);
+	Dims(0) = 1;
+	Dims(1) = xres;
+	Dims(2) = total_shots;
+	Dims(3) = 1;
+	Dims(4) = this->Num_Encodings; // Encodes? Encodes*Frames
+	
+	// Header for kdata
+	char name_hdr[1024];
+	sprintf(name_hdr,"%s_dcf.hdr",fname);
+
+	// Write the header
+	FILE *fid;
+	fid = fopen( name_hdr,"w");
+	fprintf(fid,"# Dimensions\n");
+	for( int i=0; i < Dims.length(firstDim); i++){
+		fprintf(fid,"%d ",Dims(i));
+ 	}
+	fclose(fid);
+	
+	// Write the binary data
+	char name_bin[1024];
+	sprintf(name_bin,"%s_dcf.cfl",fname);
+
+	remove(name_bin);
+	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
+	for( int encode=0; encode < this->Num_Encodings; encode++){
+			
+			//int subframe_shots = this->kdata(encode,coil).numElements();
+			
+			Array< float,3 >::iterator kw_iter=this->kw(encode).begin();
+			Array< float,3 >::iterator kw_iter_stop=this->kw(encode).end();
+			
+			for(; (kw_iter!=kw_iter_stop); kw_iter++){
+				complex<float>val = complex<float>(*kw_iter,0);
+				ofs.write( (char *)&val,sizeof(complex<float>));
+			}
+		
+	}
+	ofs.close();
+	}
+
+	
+	
+}
+
+
+
 //---------------------------------------------------
 //  Temporary Function to Write Data ( will be replaced by ismrmd ) 
 //---------------------------------------------------
