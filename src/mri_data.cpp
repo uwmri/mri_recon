@@ -345,22 +345,28 @@ void MRI_DATA::write_bart_data(const char *fname){
 
 	// Now determine the size of the ND array
 	int total_shots = 0;
-	int xres = this->kx(0).length(firstDim);
+	int total_elements = 0;
+	int xres = 1; 
+	// this->kx(0).length(firstDim);
 	for( int pos=0; pos < this->kx.length(firstDim); pos++){
 		total_shots = max( (int)this->kx(pos).numElements(), total_shots);
+		cout << "Encode " << pos << " elements = " << total_shots << " Shape = " <<  this->kx(pos).shape() << endl;
 	}
-	total_shots /= this->kx(0).length(firstDim);
+	total_elements = total_shots;
+	total_shots /= xres;
 	cout << "Bart export setting total shots to " << total_shots << endl;
 	
+		
 	{
 	
 	// Export kdata
-	Array< int,1> Dims(5);
+	Array< int,1> Dims(11);
+	Dims = 1;
 	Dims(0) = 1;
 	Dims(1) = xres;
 	Dims(2) = total_shots;
 	Dims(3) = this->Num_Coils;
-	Dims(4) = this->Num_Encodings; // Encodes? Encodes*Frames
+	Dims(10) = this->Num_Encodings; // Encodes? Encodes*Frames
 	
 	// Header for kdata
 	char name_hdr[1024];
@@ -391,6 +397,15 @@ void MRI_DATA::write_bart_data(const char *fname){
 				complex<float>val = (*miter);
 				ofs.write( (char *)&val,sizeof(complex<float>));
 			}
+			
+			// If the subframe is smaller, pad with zeros to make bart happy
+			if( (int)this->kdata(encode,coil).numElements() < total_elements ){
+				complex<float>val(0.0,0.0);	
+				for(int i=0; i < ( total_elements - (int)this->kdata(encode,coil).numElements() ); i++){
+						ofs.write( (char *)&val,sizeof(complex<float>));
+				}
+			}
+			
 		}
 	}
 	ofs.close();
@@ -400,12 +415,13 @@ void MRI_DATA::write_bart_data(const char *fname){
 	{
 	
 	// Export kx,ky,kz
-	Array< int,1> Dims(5);
+	Array< int,1> Dims(11);
+	Dims = 1;
 	Dims(0) = 3;
 	Dims(1) = xres;
 	Dims(2) = total_shots;
 	Dims(3) = 1;
-	Dims(4) = this->Num_Encodings; // Encodes? Encodes*Frames
+	Dims(10) = this->Num_Encodings; // Encodes? Encodes*Frames
 	
 	// Header for kdata
 	char name_hdr[1024];
@@ -446,6 +462,14 @@ void MRI_DATA::write_bart_data(const char *fname){
 				val = complex<float>(*kz_iter,0);
 				ofs.write( (char *)&val,sizeof(complex<float>));
 			}
+			
+			// If the subframe is smaller, pad with zeros to make bart happy
+			if( (int)this->kx(encode).numElements() < total_elements ){
+				complex<float>val(0.0,0.0);	
+				for(int i=0; i < 3*( total_elements - (int)this->kx(encode).numElements() ); i++){
+						ofs.write( (char *)&val,sizeof(complex<float>));
+				}
+			}
 	}
 	ofs.close();
 	}
@@ -455,12 +479,13 @@ void MRI_DATA::write_bart_data(const char *fname){
 	{
 	
 	// Export kw
-	Array< int,1> Dims(5);
+	Array< int,1> Dims(11);
+	Dims = 1;
 	Dims(0) = 1;
 	Dims(1) = xres;
 	Dims(2) = total_shots;
 	Dims(3) = 1;
-	Dims(4) = this->Num_Encodings; // Encodes? Encodes*Frames
+	Dims(10) = this->Num_Encodings; // Encodes? Encodes*Frames
 	
 	// Header for kdata
 	char name_hdr[1024];
@@ -491,6 +516,14 @@ void MRI_DATA::write_bart_data(const char *fname){
 			for(; (kw_iter!=kw_iter_stop); kw_iter++){
 				complex<float>val = complex<float>(*kw_iter,0);
 				ofs.write( (char *)&val,sizeof(complex<float>));
+			}
+			
+			// If the subframe is smaller, pad with zeros to make bart happy
+			if( (int)this->kw(encode).numElements() < total_elements ){
+				complex<float>val(0.0,0.0);	
+				for(int i=0; i < ( total_elements - (int)this->kw(encode).numElements() ); i++){
+						ofs.write( (char *)&val,sizeof(complex<float>));
+				}
 			}
 		
 	}
