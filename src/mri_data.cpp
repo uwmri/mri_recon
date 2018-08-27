@@ -194,7 +194,8 @@ void MRI_DATA::clone_attributes(MRI_DATA &data) {
 
 	Num_Encodings = data.Num_Encodings;;
 	Num_Coils = data.Num_Coils;
-
+	Num_Frames = data.Num_Frames;
+	
 	dft_needed = data.dft_needed;
 	trajectory_type = data.trajectory_type;
 
@@ -305,6 +306,7 @@ MRI_DATA::MRI_DATA(void) {
 	// Initial Values
 	Num_Encodings = -1;
 	Num_Coils = -1;
+	Num_Frames = 1;
 	for(int dir=0; dir < 3; dir++){
 		trajectory_type(dir) = NONCARTESIAN;
 		dft_needed(dir) = true;
@@ -356,6 +358,19 @@ void MRI_DATA::write_bart_data(const char *fname){
 	total_shots /= xres;
 	cout << "Bart export setting total shots to " << total_shots << endl;
 	
+	// Need a new export order for pregated data
+	// Time should be the last dimension
+	Array< int, 1 > export_order( this->Num_Encodings );
+	{
+	int count = 0;
+	for( int t = 0; t < (this->Num_Frames); t++){
+		for( int e = 0; e < (this->Num_Encodings/this->Num_Frames); e++){
+			export_order(count) = e*this->Num_Frames + t;
+			count++;
+		}
+	}
+	}
+	
 		
 	{
 	
@@ -366,7 +381,9 @@ void MRI_DATA::write_bart_data(const char *fname){
 	Dims(1) = xres;
 	Dims(2) = total_shots;
 	Dims(3) = this->Num_Coils;
-	Dims(10) = this->Num_Encodings; // Encodes? Encodes*Frames
+	Dims(4) = this->Num_Encodings/this->Num_Frames;
+	Dims(10) = this->Num_Frames; // Encodes? Encodes*Frames
+	
 	
 	// Header for kdata
 	char name_hdr[1024];
@@ -387,7 +404,11 @@ void MRI_DATA::write_bart_data(const char *fname){
 
 	remove(name_bin);
 	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
-	for( int encode=0; encode < this->Num_Encodings; encode++){
+	for( int count=0; count < this->Num_Encodings; count++){
+		
+		// For reordered export
+		int encode = export_order(count);
+		
 		for( int coil=0; coil < this->Num_Coils; coil++){
 			
 			//int subframe_shots = this->kdata(encode,coil).numElements();
@@ -421,9 +442,10 @@ void MRI_DATA::write_bart_data(const char *fname){
 	Dims(1) = xres;
 	Dims(2) = total_shots;
 	Dims(3) = 1;
-	Dims(10) = this->Num_Encodings; // Encodes? Encodes*Frames
+	Dims(4) = this->Num_Encodings/this->Num_Frames;
+	Dims(10) = this->Num_Frames; // Encodes? Encodes*Frames
 	
-	// Header for kdata
+ 	// Header for kdata
 	char name_hdr[1024];
 	sprintf(name_hdr,"%s_traj.hdr",fname);
 
@@ -442,7 +464,10 @@ void MRI_DATA::write_bart_data(const char *fname){
 
 	remove(name_bin);
 	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
-	for( int encode=0; encode < this->Num_Encodings; encode++){
+	for( int count=0; count < this->Num_Encodings; count++){
+		
+		// For reordered export
+		int encode = export_order(count);
 		
 			//int subframe_shots = this->kdata(encode,coil).numElements();
 			
@@ -485,8 +510,9 @@ void MRI_DATA::write_bart_data(const char *fname){
 	Dims(1) = xres;
 	Dims(2) = total_shots;
 	Dims(3) = 1;
-	Dims(10) = this->Num_Encodings; // Encodes? Encodes*Frames
-	
+	Dims(4) = this->Num_Encodings/this->Num_Frames;
+	Dims(10) = this->Num_Frames; // Encodes? Encodes*Frames
+
 	// Header for kdata
 	char name_hdr[1024];
 	sprintf(name_hdr,"%s_dcf.hdr",fname);
@@ -506,8 +532,11 @@ void MRI_DATA::write_bart_data(const char *fname){
 
 	remove(name_bin);
 	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
-	for( int encode=0; encode < this->Num_Encodings; encode++){
-			
+	for( int count=0; count < this->Num_Encodings; count++){
+		
+		// For reordered export
+		int encode = export_order(count);
+				
 			//int subframe_shots = this->kdata(encode,coil).numElements();
 			
 			Array< float,3 >::iterator kw_iter=this->kw(encode).begin();
@@ -549,6 +578,8 @@ void MRI_DATA::write_external_data(const char *fname) {
 	// Add dimensions
 	file.AddH5Scaler("Kdata", "Num_Encodings", Num_Encodings);
 	file.AddH5Scaler("Kdata", "Num_Coils", Num_Coils);
+	file.AddH5Scaler("Kdata", "Num_Frames", Num_Frames);
+	
 
 	// 2D/3D Cartesian/Non-Cartesian
 	file.AddH5Scaler("Kdata", "trajectory_typeX", (int)trajectory_type(0) );

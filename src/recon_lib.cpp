@@ -537,6 +537,7 @@ void RECON::pregate_data( MRI_DATA &data){
 	
 	data2.Num_Encodings = data.Num_Encodings * rcframes;
 	data2.Num_Coils = data.Num_Coils;
+	data2.Num_Frames = rcframes;
 	
 	// Resize the data structures but don't allocate sub-structure
 	data2.kx.resize( data2.Num_Encodings);
@@ -622,6 +623,8 @@ void RECON::pregate_data( MRI_DATA &data){
 	cycleArrays( data.kdata, data2.kdata);
 	
 	data.Num_Encodings = data2.Num_Encodings;
+	data.Num_Frames = data2.Num_Frames;
+	
 	// data.stats();
 		
 	cout << "Done gating data" << endl << flush;
