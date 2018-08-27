@@ -724,8 +724,14 @@ void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 			
 	case(HIST_MODE):{
 		cout << "Sorting Data into Histogram" << endl;
+		
 		// Use Aradillo Sort function
-		arma::vec time_sort(gate_times.numElements());
+		int total_views = 0;
+		for(int e=0; e< gate_times.length(firstDim); e++){
+			total_views += gate_times(e).numElements();
+		}
+		
+		arma::vec time_sort(total_views);
 		
 		// Copy into array
 		int count = 0;
