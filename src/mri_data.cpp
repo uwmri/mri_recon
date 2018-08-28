@@ -231,6 +231,9 @@ void MRI_DATA::init_memory(void) {
 	kdata.setStorage(ColumnMajorArray<2>());
 	kdata.resize(Num_Encodings, Num_Coils);
 
+	kdata_gating.setStorage(ColumnMajorArray<2>());
+	kdata_gating.resize(Num_Encodings, Num_Coils);
+
 	// Times 
 	time.resize(Num_Encodings);
 	ecg.resize(Num_Encodings);
@@ -275,6 +278,9 @@ void MRI_DATA::init_encode(int e, int readouts, int shots, int slices) {
 	for (int coil = 0; coil < Num_Coils; coil++) {
 		kdata(e, coil).setStorage(ColumnMajorArray<3>());
 		kdata(e, coil).resize(readouts, shots, slices);
+		
+		kdata_gating(e, coil).setStorage(ColumnMajorArray<2>());
+		kdata_gating(e, coil).resize(shots, slices);
 	}
 
 	time(e).setStorage(ColumnMajorArray<2>());
@@ -288,6 +294,7 @@ void MRI_DATA::init_encode(int e, int readouts, int shots, int slices) {
 
 	prep(e).setStorage(ColumnMajorArray<2>());
 	prep(e).resize(shots, slices);
+
 
 }
 
@@ -715,6 +722,8 @@ void MRI_DATA::write_external_data(const char *fname) {
 				}
 			}
 
+
+
 			{
 				try{
 				stringstream ss;
@@ -726,6 +735,20 @@ void MRI_DATA::write_external_data(const char *fname) {
 			
 				}
 			}
+			
+			
+			for (int coil = 0; coil < kdata.length(secondDim); coil++) {
+				try{
+					stringstream ss;
+					ss << "K0_E" << encode << "_C" << coil;
+					string s = ss.str();
+					file.AddH5Array("Gating", s.c_str(), kdata_gating(encode,coil));
+				}catch(...){
+					cout << "Can't export k0 data" << endl;
+			
+				}
+			}
+
 
 		}
 	}
@@ -735,9 +758,6 @@ void MRI_DATA::write_external_data(const char *fname) {
 		file.AddH5Array("Kdata", "Noise", noise_samples);
 	}
 
-	if (kdata_gating.numElements() != 0) {
-		// TEMP file.AddH5Array( "Gating","kdata_gating",kdata_gating);	
-	}
 }
 
 void MRI_DATA::read_external_data(const char *fname) {
@@ -875,68 +895,120 @@ void MRI_DATA::read_external_data(const char *fname) {
 /** Coil compress data with a cutoff of thresh*max(SV)
 *
 */
-void MRI_DATA::coilcompress(float thresh)
+void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 {
+	cout << "about to compress coils" << endl << flush;
 
-	int Num_Pixels = 0;
-	for (Array< Array<complex<float>, 3>, 2>::const_iterator miter = kdata.begin(); miter != kdata.end(); miter++) {
-		Num_Pixels += (*miter).numElements();
-	}
+	tictoc ctimer;
 
-	arma::cx_fmat all_data;
-	all_data.zeros(Num_Pixels, Num_Coils);
-	cout << "Num_pixels = " << Num_Pixels << endl;
-
-	cout << "Collect Data" << endl;
-	for (int coil = 0; coil < Num_Coils; coil++) {
-
-		int pos = 0;
-		for (int e = 0; e < Num_Encodings; e++) {
-			for (Array<complex<float>, 3>::const_iterator miter = kdata(e, coil).begin(); miter != kdata(e, coil).end(); miter++) {
-				all_data(pos, coil) = (*miter);
-				pos++;
+	// calculate kr
+	cout << "Using kr = 0  to " << kr_thresh << " for SVD in coil compression " << endl << flush; 
+	
+	// Get the values of kspace points less than kr_thresh
+	int Num_Pixels= 0;
+	float kr_thresh_squared = kr_thresh*kr_thresh;
+	
+	#pragma omp parallel for reduction(+:Num_Pixels)
+	for(int encode = 0; encode < kx.length(firstDim); encode++){
+		// Assign iterators to go over the data
+		Array< float, 3>::const_iterator kx_iter=this->kx(encode).begin();
+		Array< float, 3>::const_iterator ky_iter=this->ky(encode).begin();
+		Array< float, 3>::const_iterator kz_iter=this->kz(encode).begin();
+		Array< float, 3>::const_iterator kx_iter_end=this->kx(encode).end();
+		Array< float, 3>::const_iterator ky_iter_end=this->ky(encode).end();
+		Array< float, 3>::const_iterator kz_iter_end=this->kz(encode).end();
+		
+		// Iterate through and check to see if less than the kr_thresh		
+		for(; (kx_iter!=kx_iter_end) && (ky_iter!=ky_iter_end) && (kz_iter!=kz_iter_end); kx_iter++,ky_iter++,kz_iter++){
+			float kr = pow((*kx_iter), 2.0) + pow((*ky_iter), 2.0) + pow((*kz_iter), 2.0);
+			if( kr < kr_thresh_squared ){
+				Num_Pixels++;
 			}
 		}
-		cout << "Copied pixels = " << pos << endl;
 	}
+	
+	// Allocate memory for the data
+	arma::cx_fmat all_data;
+	all_data.zeros(Num_Pixels, Num_Coils);
+
+	cout << "Collect Data" << endl << flush;
+	ctimer.tic();
+	int idx = 0;
+	for (int encode = 0; encode < Num_Encodings; encode++) {
+	    for( int slice = 0; slice < kx(encode).length(thirdDim); slice++){
+			for( int view = 0; view < kx(encode).length(secondDim); view++){
+				for( int pos = 0; pos < kx(encode).length(firstDim); pos++){
+					float kr = pow( kx(encode)(pos,view,slice), 2.0) + pow( ky(encode)(pos,view,slice), 2.0) + pow(kz(encode)(pos,view,slice), 2.0);
+					if( kr < kr_thresh_squared ){
+						for(int coil=0; coil < this->Num_Coils; coil++){
+							all_data(idx,coil) = kdata(encode,coil)(pos,view,slice);
+						}
+						idx++;				
+					}
+				}// pos
+			}//view
+		}//slice
+	}//encode
+	cout << "Copied pixels = " << idx << endl << flush;
+	cout << "took " << ctimer << " s to copy data" << endl;
 
 	cout << "SVD " << endl << flush;
 	arma::fvec s;
 	arma::cx_fmat U;
 	arma::cx_fmat V;
+	ctimer.tic();
 	arma::svd_econ(U, s, V, all_data);
+	cout << "took " << ctimer << " s to perform SVD" << endl;
 	s = s / s(0);
 
 	s.print("S");
 
 	arma::cx_fmat VV = V.cols(0, (int)thresh - 1);
 	VV.print("V");
-	cout << "Rotate " << endl << flush;
-	all_data = all_data*VV;
+	
+	int Num_VCoils = (int)thresh; // number of virtual coils
+	cout << "Rotate to " << Num_VCoils << " coils " << endl << flush;
+	
+	ctimer.tic();
+	for (int encode = 0; encode < Num_Encodings; encode++) {
+    
+		for( int slice =0; slice < kx(encode).length(thirdDim); slice++){
+		
+			#pragma omp parallel for
+			for( int view=0; view< kx(encode).length(secondDim); view++ ){
+				
+				Array< complex<float>, 1> tmp_data(Num_Coils);
+				for( int pos=0; pos< kx(encode).length(firstDim); pos++ ){
+					
+					for (int coil = 0; coil < Num_Coils; coil++) {
+						tmp_data(coil) = kdata(encode,coil)(pos,view,slice);
+					} // coil
+				
+					for( int vcoil=0; vcoil<Num_VCoils; vcoil++ ){
+						complex<float> tmp(0.0,0.0);
+						for (int coil = 0; coil<Num_Coils; coil++) {
+							tmp += tmp_data(coil)*V(coil,vcoil);
+						} // coil
+						kdata(encode,vcoil)(pos,view,slice) = tmp;
+					} // vcoil
+				} // pos
+			} // view
+		} // slice
+	} // encode
+	cout << "took " << ctimer << " s to rotate data" << endl;
 
-	cout << "Resize to " << thresh << endl << flush;
-	Array< Array<complex<float>, 3>, 2>kdata2(kdata.length(firstDim), (int)thresh, ColumnMajorArray<2>());
-	for (int e = 0; e < Num_Encodings; e++) {
-		for (int c = 0; c < thresh; c++) {
-			kdata2(e, c).reference(kdata(e, c));
+	// Temp data structure 
+	Array< Array<complex<float>,3>, 2> kdata2(Num_Encodings,Num_VCoils,ColumnMajorArray<2>());
+	for( int encode = 0; encode < Num_Encodings; encode++){
+		for( int coil =0; coil < Num_VCoils; coil++){
+			kdata2(encode,coil) = this->kdata(encode,coil);
 		}
 	}
-	kdata.reference(kdata2);
-	Num_Coils = (int)thresh;
+	this->kdata.resize(Num_Encodings, Num_VCoils);
+	this->kdata.reference(kdata2);
+	this->Num_Coils = Num_VCoils;
 
-	cout << "Copy Back" << endl << flush;
-	for (int coil = 0; coil < Num_Coils; coil++) {
-		int pos = 0;
-		for (int e = 0; e < Num_Encodings; e++) {
-			for (Array< complex<float>, 3>::iterator miter = kdata(e, coil).begin(); miter != kdata(e, coil).end(); miter++) {
-				(*miter) = all_data(pos, coil);
-				pos++;
-			}
-		}
-		cout << "Copied pixels = " << pos << endl;
-	}
-
-	cout << "done" << endl;
+	cout << "done with coil compression" << endl;
 
 }
 

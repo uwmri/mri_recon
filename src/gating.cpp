@@ -299,6 +299,7 @@ NDarray::Array< NDarray::Array<complex<float>,2>,1> GATING::combine_kspace_chann
   	arma::cx_fmat V;
   	arma::svd_econ(U,s,V,full_data); 
     
+	
   	arma::cx_fmat VV = V.cols(0,0);
   	cout << "Rotate " << endl << flush;  
   	full_data = full_data*VV;
@@ -350,7 +351,11 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 				
 				/* Do a SVD - coil/channel combine - might need more complex for slice based*/
 				Array<Array<complex<float>,2>,1>kdc = combine_kspace_channels(data.kdata_gating);
-
+				
+				cout << "Sizes of SVD combined K0" << endl;
+				cout <<  kdc(0).shape() << endl;
+				cout <<  kdc.shape() << endl;
+				
 				/*  The question is now how to process/convert this data for the gating algorithm below?
 				 *  For now, just use the vector magnitude over all coils of k = 0, then apply a moving
 				 *  average to upsample to full temporal resolution					*/
@@ -359,8 +364,8 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 				cout << "views_per_grid = " << views_per_grid << endl;
 
 				// Use Aradillo Sort function
-				arma::vec time(resp_weight.numElements());
-				arma::cx_fvec signal(resp_weight.numElements());
+				arma::vec time(resp_weight(0).numElements());
+				arma::cx_fvec signal(resp_weight(0).numElements());
 
 				// Put into Matrix for Armadillo
 				{

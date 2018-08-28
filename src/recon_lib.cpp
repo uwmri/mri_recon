@@ -50,6 +50,7 @@ void RECON::set_defaults( void){
 	threads = -1;	
 	acc = 1;
 	compress_coils = 0.0;
+	compress_kr = 32; 
 	whiten = false;
 	export_smaps = 0;
 	max_iter = 50;
@@ -341,6 +342,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		// Data modification
 		int_flag("-acc",acc);
 		float_flag("-compress_coils",compress_coils);
+		float_flag("-compress_kr",compress_kr);
 		trig_flag(true,"-whiten",whiten);
 		trig_flag(true,"-complex_diff",complex_diff);
 		
@@ -396,7 +398,7 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	
 	// Option to compress coils
 	if (compress_coils > 0){
-		data.coilcompress(compress_coils);
+		data.coilcompress(compress_coils,compress_kr);
 	}
 
 	// Matlab like timer (openmp code base)
