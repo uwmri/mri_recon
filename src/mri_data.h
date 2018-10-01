@@ -19,6 +19,8 @@
 // Local Libraries
 #include "ArrayTemplates.hpp"
 #include "hdf5_interface.h"
+#include "tictoc.hpp"
+
 
 
 class MRI_DATA{
@@ -91,7 +93,7 @@ class MRI_DATA{
 		void convert_encodes_to_coils(int);
 				
 		// Data Operations (move?)
-		void coilcompress(float);
+		void coilcompress(float, float);
 		void whiten();
 		void demod_kdata( float);
 		void scale_fov( float,float,float);
@@ -107,6 +109,7 @@ class MRI_DATA{
 		// HDF5 Data 
 		void write_external_data(const char *fname);
 		void read_external_data( const char *fname);
+		void write_bart_data( const char *fname);
 		
 		// Print to Stdout
 		void stats(void);

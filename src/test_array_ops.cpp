@@ -5,21 +5,45 @@ using namespace std;
 
 int main(void){
 	
-	int N = 512;
-	Array< complex<float>,3> X(N,N,N);
-	
-	
-	for(int i=0; i<N; i++){
-	for(int j=0; j<N; j++){
-	for(int k=0; k<N; k++){
-		X(k,j,i) = complex<float>(i+j,k);
-	}}}
-	
 	
 	tictoc T; 
 	
 	
 	T.tic();
+	{
+	cout << "Check BART Export" << endl;
+	Array< Array<complex<float>,3>, 2> TEMP = Alloc5DContainer< complex<float> >( 3, 4, 5, 6, 7);
+	WriteCFL( TEMP, "BART_CFL");
+	cout << "Took " << T << endl;
+	}
+	
+	T.tic();
+	{
+	cout << "Check BART Export" << endl;
+	Array< float, 3> TEMP( 3, 4, 5, ColumnMajorArray<3>());
+	WriteCFL( TEMP, "BART_CFL_FLOAT");
+	cout << "Took " << T << endl;
+	}
+	
+	{
+	cout << "Check BART Export" << endl;
+	Array< Array<complex<float>,3>, 2> TEMP1 = Alloc5DContainer< complex<float> >( 3, 4, 1, 1, 1);
+	Array< Array<complex<float>,3>, 2> TEMP2 = Alloc5DContainer< complex<float> >( 3, 4, 1, 1, 1);
+	Array< Array<complex<float>,3>, 2> TEMP3 = Alloc5DContainer< complex<float> >( 3, 4, 1, 1, 1);
+	WriteCFL_triplet( TEMP1,TEMP2,TEMP3, "BART_TRIPLE_CFL_FLOAT");
+	cout << "Took " << T << endl;
+	}
+	
+	MRI_DATA data;
+	data.Num_Encodings = 1;
+	data.Num_Coils = 1;
+	data.init_memory(256,1000,1);
+	data.write_bart_data("MRI_Raw_Bart");
+	
+	
+	T.tic();
+	int N= 256;
+	Array< complex<float>,3> X(N,N,N);
 	ArrayWriteMag(X,"X_OF.dat");
 	cout << "Tool " << T << endl;
 	
@@ -30,10 +54,6 @@ int main(void){
 		ofs.write( (char *)&val,sizeof(T));
    	}
 	cout << "Tool " << T << endl;
-	
-	
-	
-	
 	
 	T.tic();
 	ArrayWriteMag(X,"X_OF.dat");
