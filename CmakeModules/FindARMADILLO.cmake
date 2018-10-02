@@ -95,10 +95,16 @@ if(APPLE)
   endif()
   
 else()
+
+  # MKL outside of Armadillo
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_DONT_USE_WRAPPER ")
+
+#include(FindMKL)
+#include_directories( BEFORE ${MKL_INCLUDE_DIRS} )
   
   set(ARMA_OS unix)
   
-  include(ARMA_FindMKL)
+  include(FindMKL)
   include(ARMA_FindACMLMP)
   include(ARMA_FindACML)
   include(ARMA_FindOpenBLAS)
@@ -134,7 +140,8 @@ else()
     
     if(MKL_FOUND)
       set(ARMA_LIBS ${ARMA_LIBS} ${MKL_LIBRARIES})
-      
+      include_directories( BEFORE ${MKL_INCLUDE_DIRS} )
+	  
       if(ACMLMP_FOUND OR ACML_FOUND)
         message(STATUS "*** Intel MKL as well as AMD ACML libraries were found.")
         message(STATUS "*** Using only the MKL library to avoid linking conflicts.")
@@ -225,7 +232,9 @@ endif ( ARMADILLO_INCLUDE_DIR)
 
 #Check for library
 IF( ARMADILLO_LIBRARY )
-  SET(ARMADILLO_LIBRARIES ${ARMADILLO_LIBRARY} ${ARMA_LIBS})
+#  SET(ARMADILLO_LIBRARIES ${ARMADILLO_LIBRARY} ${ARMA_LIBS})
+  SET(ARMADILLO_LIBRARIES ${ARMA_LIBS})
+
   SET(ARMADILLO_FOUND "yes")
   MESSAGE(STATUS "   Found  armadillo ${ARMADILLO_VERSION_STRING} : ${ARMADILLO_LIBRARIES}")
 ELSE( ARMADILLO_LIBRARY )

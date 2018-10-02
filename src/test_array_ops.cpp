@@ -8,6 +8,32 @@ int main(void){
 	
 	tictoc T; 
 	
+	{
+	cout << "Check SVD Performance" << endl;
+	int N = 256*256*8;
+	int Np = 385;
+
+	// preallocate some arrays
+	arma::cx_mat A = arma::randn< arma::cx_mat >(N,Np);
+    
+    arma::cx_mat U;
+	arma::cx_mat V;
+	arma::vec s;
+
+	cout << "working on SVD ( " << N << " , " << Np << ")" << endl << std::flush;
+	T.tic();
+	arma::svd_econ(U,s,V,A,"both");
+	cout << "it took " << T << " s per iteraiton" << endl << flush;
+
+	cout << "working on rotation" << endl;
+	T.tic();
+	A = U*arma::diagmat(s)*V.t();
+	cout << "it took " << T << " s per iteraiton" << endl << flush;
+	
+	cout << "Took " << T << endl;
+	}
+		
+	
 	
 	T.tic();
 	{

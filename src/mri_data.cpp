@@ -997,15 +997,16 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 	} // encode
 	cout << "took " << ctimer << " s to rotate data" << endl;
 
-	// Temp data structure 
+	/* Temp data structure 
 	Array< Array<complex<float>,3>, 2> kdata2(Num_Encodings,Num_VCoils,ColumnMajorArray<2>());
 	for( int encode = 0; encode < Num_Encodings; encode++){
 		for( int coil =0; coil < Num_VCoils; coil++){
 			kdata2(encode,coil) = this->kdata(encode,coil);
 		}
 	}
-	this->kdata.resize(Num_Encodings, Num_VCoils);
+	//this->kdata.resize(Num_Encodings, Num_VCoils);
 	this->kdata.reference(kdata2);
+	*/
 	this->Num_Coils = Num_VCoils;
 
 	cout << "done with coil compression" << endl;
