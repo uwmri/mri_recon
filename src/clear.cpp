@@ -18,10 +18,12 @@ void LOWRANKCOIL::help_message(void){
 	
 	help_flag("-clear_nx []","kernel size in x");
 	help_flag("-clear_ny []","kernel size in y");
-	help_flag("-clear_ns []","kernel size in z");
+	help_flag("-clear_nz []","kernel size in z");
 	help_flag("-clear_alpha_coil []","regularization factor");
 	help_flag("-clear_alpha_time []","regularization factor time");
 	help_flag("-clear_alpha_encode []","regularization factor space");
+	help_flag("-clear_amp []","control jumps of -clear_alpha during iter");
+	help_flag("-clear_t2 []","control jumps of -clear_alpha during iter");
 	
 }
 
@@ -77,7 +79,8 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring){
 		float_flag("-clear_alpha_coil",clear_alpha_coil);
 		float_flag("-clear_alpha_time",clear_alpha_time);
 		float_flag("-clear_alpha_encode",clear_alpha_encode);
-	
+		float_flag("-clear_amp",clear_amp);
+		float_flag("-clear_t2",clear_t2);
 		
 	}
   }

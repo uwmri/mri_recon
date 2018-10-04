@@ -116,6 +116,7 @@ class RECON{
 	  
 	  int acc;
 	  float compress_coils;
+	  float compress_kr;
 	  bool whiten;
       bool coil_rejection_flag;
       float coil_rejection_radius;
