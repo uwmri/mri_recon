@@ -23,8 +23,20 @@ message( STATUS "Using orchestra libraries")
 # Orchestra (GE Recon Library)
 #--------------------------------------
 
+if(EXISTS $ENV{OX_INSTALL_DIRECTORY})
+    set( OX_INSTALL_DIRECTORY $ENV{OX_INSTALL_DIRECTORY})
+	message("Install directory of the GE Orchestra SDK = $ENV{OX_INSTALL_DIRECTORY}" )
+else()
+
+	message("Looking for /lib/libFlex.a to find Orchestra")
+	find_path(OX_INSTALL_DIRECTORY NAMES /lib/libFlex.a  PATHS /usr/local/orchestra )
+	if(EXISTS ${OX_INSTALL_DIRECTORY})
+		message("Could not find Orchestra by searching for /lib/libFlex.a")
+    	message(FATAL_ERROR "Verify orchestra install or update CMakePath")
+	endif()
+endif()
+
 # TOPDIR is the root of the source tree
-#set(OX_INSTALL_DIRECTORY "/usr/local/orchestra/" CACHE PATH "Install directory of the GE Orchestra SDK")
 set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
 set(LARGE_LIBRARY_TYPE STATIC)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
