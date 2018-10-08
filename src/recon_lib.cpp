@@ -1939,26 +1939,34 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 		case(IST):
 		case(FISTA):{
 
-					  // ------------------------------------
-					  // Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
-					  //  Designed to not use memory
-					  // Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
-					  // ------------------------------------
-						
-					  // Residue 	
-					  Array< Array< complex<float>,3>, 2>R = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+					// ------------------------------------
+					// Iterative Soft Thresholding  x(n+1)=  thresh(   x(n) - E*(Ex(n) - d)  )
+					//  Designed to not use memory
+					// Uses gradient descent x(n+1) = x(n) - ( R'R ) / ( R'E'E R) * Grad  [ R = E'(Ex-d)]
+					// ------------------------------------
+					
+                    // Arrays for FISTA
+                    Array< Array< complex<float>,3>, 2>X_old;
+			        if( recon_type == FISTA){
+			            cout << "Alloc Fista Matrix" << endl;
+				        Array< Array< complex<float>,3>, 2>Temp =Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
+				        X_old.reference(Temp);
+			        }
+                        	
+					// Residue 	
+					Array< Array< complex<float>,3>, 2>R = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
 	
-					  // Temp variable for E'ER 
-					  Array< complex<float>,3 >P(rcxres,rcyres,rczres,ColumnMajorArray<3>());
+					// Temp variable for E'ER 
+					Array< complex<float>,3 >P(rcxres,rcyres,rczres,ColumnMajorArray<3>());
 
-					  // Class for gradient descent step size
-					  complex<float>step_size; 
+                    // Class for gradient descent step size
+					complex<float>step_size; 
 					    
 					  cout << "Iterate" << endl;
 					  double error0=0.0;
 					  for(int iteration =0; iteration< max_iter; iteration++){
-
-						  tictoc iteration_timer;
+                          
+                          tictoc iteration_timer;
 						  iteration_timer.tic();
 						  cout << "\nIteration = " << iteration << endl;
 
@@ -1969,7 +1977,12 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
 						  		*riter=0;
 						  }
-						  
+                          
+                          // Copy FISTA update
+                          if( recon_type == FISTA){
+			                fista_update(X,X_old,iteration);
+                          }
+                          
 						  cout << "\tGradient Calculation" << endl;
 						  
 						  for(int e=0; e< rcencodes; e++){
@@ -2134,6 +2147,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  }
   						  export_slice( X(0,0), "X_mag.dat");
 						  
+                          
 					  }// Iteration			
 
 				  }break;
@@ -2144,6 +2158,40 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 	cout << "Recon was completed successfully " << endl;	
 	return(X);
 }
+
+void RECON::fista_update(  Array<Array< complex<float>,3>,2>&X, Array<Array< complex<float>,3>,2>&X_old, int iteration){
+	
+	float A = 1.0 + (iteration - 1.0)/(iteration+1.0);
+	float B =     - (iteration - 1.0)/(iteration+1.0);
+
+	int Nx = X_old(0).length(firstDim);
+	int Ny = X_old(0).length(secondDim);
+	int Nz = X_old(0).length(thirdDim);
+	int Ne = X_old.length(secondDim);
+	int Nt = X_old.length(firstDim);
+	
+	cout << "fista_update: Matrix Size = " << Nx << " x " << Ny << " x " << Nz << " x " << Nt << " x " << Ne << endl;
+	
+	// Get Update
+	for(int e=0; e< Ne;e++){
+		for(int t=0; t< Nt;t++){
+			Array< complex<float>,3>XX     = X(t,e);
+			Array< complex<float>,3>XX_old = X_old(t,e);
+			
+            for(int k=0; k< Nz; k++){
+				for(int j=0; j< Ny; j++){
+					for(int i=0; i< Nx; i++){
+						
+						// cout << "Pos = " << i << "," << j << "," << k << "," << t << "," << e << endl;
+	                    complex<float>Xn0 = XX_old(i,j,k);
+						complex<float>Xn1 = XX(i,j,k);
+						XX(i,j,k) = A*Xn1 + B*Xn0;
+						XX_old(i,j,k) = Xn1;
+			}}} // Spatial
+	}}
+	cout << "Done with FISTA" << endl << flush;
+}
+
 
 
 double RECON::kspace_residual( MRI_DATA& data){

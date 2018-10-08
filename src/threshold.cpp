@@ -750,35 +750,4 @@ bool THRESHOLD::getTemporalThresholding() {
 	return temporal;
 }
 
-void THRESHOLD::fista_update(  Array<Array< complex<float>,3>,2>&X,Array<Array< complex<float>,3>,2>&X_old,int iteration){
-	
-	float A = 1.0 + (iteration - 1.0)/(iteration+1.0);
-	float B =     - (iteration - 1.0)/(iteration+1.0);
-
-	int Nx = X_old(0).length(firstDim);
-	int Ny = X_old(0).length(secondDim);
-	int Nz = X_old(0).length(thirdDim);
-	int Ne = X_old.length(secondDim);
-	int Nt = X_old.length(firstDim);
-	
-	cout << "fista_update: Matrix Size = " << Nx << " x " << Ny << " x " << Nz << " x " << Nt << " x " << Ne << endl;
-	
-	// Get Update
-	for(int e=0; e< Ne;e++){
-		for(int t=0; t< Nt;t++){
-			Array< complex<float>,3>XX     = X(t,e);
-			Array< complex<float>,3>XX_old = X_old(t,e);
-			
-			for(int k=0; k< Nz; k++){
-				for(int j=0; j< Ny; j++){
-					for(int i=0; i< Nx; i++){
-						complex<float>Xn0 = XX_old(i,j,k);
-						complex<float>Xn1 = XX(i,j,k);
-						XX(i,j,k) = A*Xn1 + B*Xn0;
-						XX_old(i,j,k) = Xn1;
-			}}} // Spatial
-	}}
-	cout << "Done with FISTA" << endl << flush;
-
-}
 

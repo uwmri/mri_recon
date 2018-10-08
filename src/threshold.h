@@ -57,10 +57,7 @@ class THRESHOLD{
 		
 		void setTemporalThresholding(bool flag);	// to skip the first frame in processing
 		bool getTemporalThresholding();
-
-        // Iterative soft thresholding code
-        void fista_update(NDarray::Array<NDarray::Array< complex<float>,3>,2>&X,NDarray::Array< NDarray::Array< complex<float>,3>,2 >&X_old,int iteration);
-                
+        
         private:        
         
 		// Execute thresholding method
