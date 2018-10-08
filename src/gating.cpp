@@ -478,7 +478,7 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 				  arma::vec temp2= sort(temp);
 				  double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0- resp_gate_efficiency )));
 
-				  arma_resp_weight(time_idx(i))= ( time_linear_resp(i) > thresh ) ? ( 1.0 ) : ( 0.0);
+				  arma_resp_weight(time_idx(i))= ( time_linear_resp(i) >= thresh ) ? ( 1.0 ) : ( 0.0);
 				  time_sort_resp_weight(i) =arma_resp_weight(time_idx(i));
 			  }
 			  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);

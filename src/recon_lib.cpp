@@ -173,6 +173,8 @@ void RECON::help_message(void){
 	help_flag("-coil_lowres","default,use low resolution images to get coil sensitivies");
 	help_flag("-export_smaps","write sensitivity maps");
 	help_flag("-intensity_correction","polynomial fit for intensity correction");
+	help_flag("-compress_coils","compress number of coils during recon");
+
 	
 	cout << "Options  Before Recon" << endl;
 	help_flag("-recalc_dcf","Use iterative calc for density");
