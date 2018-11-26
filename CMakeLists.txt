@@ -6,13 +6,13 @@ set(PROGNAME recon_binary)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
 file(GLOB LOCAL_INCS ${CMAKE_SOURCE_DIR}/*.h)
 
-set(CMAKE_FIND_STATIC FIRST) 
+set(CMAKE_FIND_STATIC FIRST)
 set(BUILD_SHARED_LIBS OFF)
 set(STATIC_LIBS ON)
 
 link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 
-set(ENABLE_ORCHESTRA "YES")
+#set(ENABLE_ORCHESTRA "YES")
 
 if (DEFINED ENABLE_ORCHESTRA )
 
@@ -96,6 +96,10 @@ include(FindHDF5)
 include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
 set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -Wall")
+set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
+
+
 endif()
 
 
@@ -121,14 +125,14 @@ include_directories( BEFORE ${ARMADILLO_INCLUDE_DIRS} )
 
 
 MESSAGE(STATUS "   Local Libraries = ${LOCAL_LIBS}")
-message(STATUS " ARMADILLO_FOUND  = ${ARMADILLO_FOUND}") 
-message(STATUS " ARMADILLO_INCLUDE_DIRS  = ${ARMADILLO_INCLUDE_DIRS}") 
-message(STATUS " ARMADILLO_LIBRARIES  = ${ARMADILLO_LIBRARIES}") 
-message(STATUS " ARMADILLO_VERSION_MAJOR  = ${ARMADILLO_VERSION_MAJOR}") 
-message(STATUS " ARMADILLO_VERSION_MINOR  = ${ARMADILLO_VERSION_MINOR}") 
-message(STATUS " ARMADILLO_VERSION_PATCH  = ${ARMADILLO_VERSION_PATCH}") 
-message(STATUS " ARMADILLO_VERSION_STRING  = ${ARMADILLO_VERSION_STRING}") 
-message(STATUS " ARMADILLO_VERSION_NAME  = ${ARMADILLO_VERSION_NAME}") 
+message(STATUS " ARMADILLO_FOUND  = ${ARMADILLO_FOUND}")
+message(STATUS " ARMADILLO_INCLUDE_DIRS  = ${ARMADILLO_INCLUDE_DIRS}")
+message(STATUS " ARMADILLO_LIBRARIES  = ${ARMADILLO_LIBRARIES}")
+message(STATUS " ARMADILLO_VERSION_MAJOR  = ${ARMADILLO_VERSION_MAJOR}")
+message(STATUS " ARMADILLO_VERSION_MINOR  = ${ARMADILLO_VERSION_MINOR}")
+message(STATUS " ARMADILLO_VERSION_PATCH  = ${ARMADILLO_VERSION_PATCH}")
+message(STATUS " ARMADILLO_VERSION_STRING  = ${ARMADILLO_VERSION_STRING}")
+message(STATUS " ARMADILLO_VERSION_NAME  = ${ARMADILLO_VERSION_NAME}")
 
 
 find_package(OpenMP)
@@ -148,27 +152,28 @@ endif()
 
 
 #--------------------------------------
-# Target Library 
+# Target Library
 #--------------------------------------
 
 #Main Recon
-add_library(RECONLIB STATIC 
-	src/polynomial_fitting.cpp 
-	src/hdf5_interface.cpp 
-	src/ArrayTemplates.cpp 
-	src/voronoi_dcf.cpp 
-	src/l2reg.cpp 
-	src/clear.cpp 
-	src/gating.cpp 
-	src/recon_lib.cpp 
-	src/threshold.cpp 
-	src/temporal_diff.cpp 
-	src/mri_data.cpp 
-	src/spirit.cpp 
-	src/smsEncode.cpp 
-	src/DCFgridFFT.cpp 
-	src/gridFFT.cpp 
-	src/wavelet3D.cpp 
+add_library(RECONLIB STATIC
+	src/polynomial_fitting.cpp
+	src/hdf5_interface.cpp
+	src/ArrayTemplates.cpp
+	src/voronoi_dcf.cpp
+	src/l2reg.cpp
+	src/clear.cpp
+	src/gating.cpp
+	src/recon_lib.cpp
+	src/threshold.cpp
+	src/temporal_diff.cpp
+	src/mri_data.cpp
+	src/spirit.cpp
+	src/smsEncode.cpp
+	src/DCFgridFFT.cpp
+	src/gridFFT.cpp
+    src/gridFFT_CoilThreaded.cpp
+	src/wavelet3D.cpp
 	src/phantom.cpp)
 target_link_libraries(RECONLIB ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} )
 
@@ -192,27 +197,19 @@ target_link_libraries(voronoi_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB
 
 
 #--------------------------------------
-# Install 
+# Install
 #--------------------------------------
 
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
 install( TARGETS recon_binary fractal_binary DESTINATION bin)
 install( TARGETS RECONLIB DESTINATION lib)
-install( DIRECTORY ./src/ DESTINATION include 
-	FILES_MATCHING PATTERN "src/*.h" 
-	PATTERN "src/*.hpp" 
-	PATTERN "html" EXCLUDE 
+install( DIRECTORY ./src/ DESTINATION include
+	FILES_MATCHING PATTERN "src/*.h"
+	PATTERN "src/*.hpp"
+	PATTERN "html" EXCLUDE
 	PATTERN ".git" EXCLUDE
 	PATTERN "Cmake*" EXCLUDE
 	PATTERN "build" EXCLUDE
 	PATTERN ".settings" EXCLUDE
-	PATTERN ".extern*" EXCLUDE) 
-
-
-
-
-
-
-
-
+	PATTERN ".extern*" EXCLUDE)
