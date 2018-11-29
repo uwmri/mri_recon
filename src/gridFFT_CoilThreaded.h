@@ -19,6 +19,7 @@
 #endif
 
 typedef NDarray::Array<complex<float>,3> Complex3D;
+typedef NDarray::Array<complex<float>,4> Complex4D_GRID;
 typedef NDarray::Array< NDarray::Array<complex<float>,3>, 1> Complex4D;
 typedef NDarray::Array< NDarray::Array<complex<float>,3>, 2> Complex5D;
 
@@ -28,8 +29,8 @@ class gridFFT_CoilThreaded{
         // Kernel Types
         enum {TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL,POLY_KERNEL};
 
-		Complex4D k3d_grid; /*Actual Gridding Space*/
-  		Complex4D image;   	/*Complex Storage Space*/
+		Complex4D_GRID k3d_grid; /*Actual Gridding Space*/
+  		Complex4D_GRID image;   	/*Complex Storage Space*/
 
 		// Controls for phase encode / 2D directions
 		int fft_in_x;
@@ -111,7 +112,6 @@ class gridFFT_CoilThreaded{
 		void precalc_gridding(int Nz,int Ny,int Nx,MRI_DATA &);
 		void precalc_kernel(void);
 
-		void plan_fft( void );
 		void do_fft( void);
 		void do_ifft( void );
 		void deapp( void );
@@ -176,7 +176,7 @@ class gridFFT_CoilThreaded{
 		//For setting images
 		void set_image( const NDarray::Array< complex<float>,3 >&X, const Complex4D &smap);
 		void set_image( const NDarray::Array< complex<float>,3 >&X);
-
+        void zero( void );
 
 		void chop_grid_forward( const Complex4D&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw);
 		void chop_grid_backward( Complex4D&data, const NDarray::Array< float,3 >&kx, const NDarray::Array< float,3 >&ky, const NDarray::Array< float,3 >&kz, const NDarray::Array< float,3 >&kw,const Complex4D&diff_data, bool);

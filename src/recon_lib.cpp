@@ -1768,7 +1768,6 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 				 Array< Array< complex<float>,3>, 2>P = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
 				 Array< Array< complex<float>,3>, 2>LHS = Alloc5DContainer< complex<float> >(rcxres,rcyres,rczres,Nt,rcencodes);
 
-
 				 // First Calculate E'd
 				 cout << "LHS Calculation" << endl;
 				 for(int e=0; e< rcencodes; e++){
@@ -1791,15 +1790,20 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
    						}
 
 						// E'd
-						for(int coil=0; coil< data.Num_Coils; coil++){
-							gridding.forward( R(store_t,e),smaps(coil),data.kdata(act_e,coil),data.kx(act_e),data.ky(act_e),data.kz(e),TimeWeight);
-						}
+                        if( this->parallel_coils){
+                            Array< Array<complex<float>,3> , 1> TEMP_KDATA = data.kdata(act_e,Range::all());
+                            gridding_CoilThreaded.forward(R(store_t,e),smaps,TEMP_KDATA,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
+                        }else{
+    						for(int coil=0; coil< data.Num_Coils; coil++){
+    							gridding.forward( R(store_t,e),smaps(coil),data.kdata(act_e,coil),data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
+    						}
+                        }
+
+                        // Initialize P
+                        P(store_t,e) = R(store_t,e);
 
 				 	}
 				 }
-
-				 // Initiialize P
-				 P  = R;
 
 				 // Now Iterate
 				 cout << "Iterate" << endl;
@@ -1816,7 +1820,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 							  int store_t = times_store(t);
 							  int act_e = ( pregate_data_flag) ? ( e*Nt + act_t ) : ( e);
 
-							  LHS(t,e ) = complex<float>(0.0,0.0);
+							  LHS(store_t,e) = complex<float>(0.0,0.0);
 							  T.tic();
 
 							  // Temporal weighting
@@ -1832,21 +1836,32 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					 			gate.weight_data( TimeWeight, act_e, data.kx(act_e),data.ky(act_e),data.kz(act_e),act_t,GATING::ITERATIVE,frame_type);
    							  }
 
-							  for(int coil=0; coil< data.Num_Coils; coil++){
+                              if( this->parallel_coils){
+                                  // K-space to Image
+                                  Array< Array< complex<float>,3 >, 1>diff_data = Alloc4DContainer< complex<float> >( data.kx(act_e).length(firstDim),data.kx(act_e).length(secondDim),data.kx(act_e).length(thirdDim),data.Num_Coils);
 
-								  // Storage for (Ex-d) - dynamic for variable size
-			  		  			  Array< complex<float>,3 >diff_data( data.kx(act_e).shape(),ColumnMajorArray<3>());
-								  diff_data=0;
+                                  // E'Ex
+                                  gridding_CoilThreaded.backward( P(store_t,e),smaps,diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
+                                  gridding_CoilThreaded.forward( LHS(store_t,e),smaps,diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
 
-								  // E'Ex
-								  gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
-								  gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
-							  }//Coils
+                              }else{
+    							  for(int coil=0; coil< data.Num_Coils; coil++){
+    								  // Storage for (Ex-d) - dynamic for variable size
+    			  		  			  Array< complex<float>,3 >diff_data( data.kx(act_e).shape(),ColumnMajorArray<3>());
+    								  diff_data=0;
 
-							  // L2 R'R
+    								  // E'Ex
+    								  gridding.backward( P(store_t,e),smaps(coil),diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
+    								  gridding.forward( LHS(store_t,e),smaps(coil),diff_data,data.kx(act_e),data.ky(act_e),data.kz(act_e),TimeWeight);
+    							  }//Coils
+                              }
+
+                              // L2 R'R
 							  if(iteration> 0){
 
 							  }
+
+                              cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 
 						}// t
 					}// e
@@ -1876,41 +1891,55 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 					//  Now perform gradient update
 					// ---------------------------------------------------
 
-					complex< float> sum_R0_R0(0.0,0.0);
-					complex< float> sum_R_R(0.0,0.0);
-					complex< float> sum_P_LHS(0.0,0.0);
+        			Array< complex< double >, 1> Asum_R0_R0(rczres);
+        			Array< complex< double >, 1> Asum_R_R(rczres);
+        			Array< complex< double >, 1> Asum_P_LHS(rczres);
+                    Asum_R0_R0 = complex<double>(0.0,0.0);
+                    Asum_R_R = complex<double>(0.0,0.0);
+                    Asum_P_LHS = complex<double>(0.0,0.0);
+
+					complex< double > sum_R0_R0(0.0,0.0);
+					complex< double > sum_R_R(0.0,0.0);
+					complex< double > sum_P_LHS(0.0,0.0);
 
 					// Calc R'R and P'*LHS
 					for(int e=0; e< rcencodes; e++){
 					 for(int t=0; t< Nt; t++){
-						for(int k=0; k < rczres; k++){
+                        #pragma omp parallel for
+                        for(int k=0; k < rczres; k++){
 						for(int j=0; j < rcyres; j++){
 						for(int i=0; i < rcxres; i++){
-							sum_R0_R0 += norm( R(t,e)(i,j,k) );
-							sum_P_LHS += conj( P(t,e)(i,j,k) )*LHS(t,e)(i,j,k);
+							Asum_R0_R0(k) += norm( R(t,e)(i,j,k) );
+							Asum_P_LHS(k) += conj( P(t,e)(i,j,k) )*LHS(t,e)(i,j,k);
 						}}}
 					}}
-					complex< float> scale = sum_R0_R0 / sum_P_LHS;
-
+                    sum_R0_R0 = sum( Asum_R0_R0 );
+                    sum_P_LHS = sum( Asum_P_LHS);
+					complex< double > dscale = sum_R0_R0  / sum_P_LHS;
+                    complex< float > scale = complex<float>( real(dscale), imag(dscale) );
 
 					// Take step size
 					for(int e=0; e< rcencodes; e++){
 					 for(int t=0; t< Nt; t++){
+                        #pragma omp parallel for
 						for(int k=0; k < rczres; k++){
 						for(int j=0; j < rcyres; j++){
 						for(int i=0; i < rcxres; i++){
 							X(t,e)(i,j,k) += ( scale* (  P(t,e)(i,j,k)) );
 							R(t,e)(i,j,k) -= ( scale* (LHS(t,e)(i,j,k)) );
-							sum_R_R += norm( R(t,e)(i,j,k) );
+							Asum_R_R(k) += norm( R(t,e)(i,j,k) );
 						}}}
 					}}
+                    sum_R_R = sum( Asum_R_R );
 
 					cout << "Sum R'R = " << sum_R_R << endl;
-					complex< float> scale2 = sum_R_R / sum_R0_R0;
+					complex< double > Dscale2 = sum_R_R / sum_R0_R0;
+                    complex< float > scale2 = complex< float >( real(Dscale2), imag(Dscale2) );
 
 					// Take step size
 					for(int e=0; e< rcencodes; e++){
 					 for(int t=0; t< Nt; t++){
+                        #pragma omp parallel for
 						for(int k=0; k < rczres; k++){
 						for(int j=0; j < rcyres; j++){
 						for(int i=0; i < rcxres; i++){
@@ -3328,12 +3357,12 @@ void RECON::eigen_coils( Array< Array< complex<float>,3 >,1 > &smaps, Array< Arr
 		//cout << "Block " << block << " of " << total_blocks << endl;
 
 		// Get the actual position
-		int *I = new int[3];
-		nested_workaround(block,N,I,3);
-		int i = I[0]*EaccX;
-		int j = I[1]*EaccY;
-		int k = I[2]*EaccZ;
-		delete [] I;
+		int *ID = new int[3];
+		nested_workaround(block,N,ID,3);
+		int i = ID[0]*EaccX;
+		int j = ID[1]*EaccY;
+		int k = ID[2]*EaccZ;
+		delete [] ID;
 
 		//-----------------------------------------------------
 		//   Block coordinates

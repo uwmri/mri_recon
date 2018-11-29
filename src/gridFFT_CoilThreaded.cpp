@@ -29,7 +29,7 @@ gridFFT_CoilThreaded::gridFFT_CoilThreaded(){
 	grid_x= -1;
   	grid_y= -1;
   	grid_z= -1;
-	overgrid = 1.5;
+	overgrid = 1.375;
 	kernel_type = KAISER_KERNEL;
   	betaX=12;
 	betaY=12;
@@ -66,98 +66,15 @@ gridFFT_CoilThreaded::gridFFT_CoilThreaded(){
 void gridFFT_CoilThreaded::alloc_grid(){
 
     // Alloc contain used to grid data to
-    Complex4D TEMP =  Alloc4DContainer< complex<float> >(Sx,Sy,Sz,this->Num_Coils);
-    k3d_grid.reference(TEMP);
+    k3d_grid.setStorage( ColumnMajorArray<4>());
+	k3d_grid.resize(Sx,Sy,Sz,this->Num_Coils);
+	k3d_grid = 0;
 
     // Alloc a reference to central matrix
-    image.resize( this->Num_Coils);
-    for(int coil=0; coil < Num_Coils; coil++){
-        // Get a subarray
-    	Array< complex<float>,3>image2 = k3d_grid(coil)( Range(og_sx,og_ex-1),Range(og_sy,og_ey-1),Range(og_sz,og_ez-1));
+	Array< complex<float>,4>image2 = k3d_grid( Range(og_sx,og_ex-1),Range(og_sy,og_ey-1),Range(og_sz,og_ez-1), Range::all());
+	image.reference(image2);
 
-        // Set reference to it
-    	image(coil).reference(image2);
-    }
 }
-
-
-//----------------------------------------
-// FFT Planning - Based on FFTW Library
-//----------------------------------------
-
-void gridFFT_CoilThreaded::plan_fft( void ){
-
-	// fftwf_init_threads();
-	// fftwf_plan_with_nthreads(omp_get_max_threads());
-    	// cout << "FFT Planning with " << omp_get_max_threads() << " threads"<< endl;
-
-	//- Load old Plan if Possible
-	FILE *fid;
-	FILE *fid2;
-	char hname[300];
-	char com[1300];
-	gethostname( hname,299);
-
-
-	// Get FFTW Plan Folder
-	char const* tmp = getenv("FFT_PLAN_PATH");
-	string fft_wisdom_folder;
-	if(tmp == NULL){
-		cout << "Warning no FFTW Plan folder " << endl;
-		cout << "  -- Set FFT_PLAN_PATH or plans may be slow" << endl;
-	}else{
-		fft_wisdom_folder = string(tmp);
-	}
-
-	// Create Name
-	ostringstream stringStream;
-	stringStream << fft_wisdom_folder << "/fft_wisdom_host_" << hname << "_x" << Sx << "_y" << Sy << "_z" << Sz << ".dat";
-	string fft_name =  stringStream.str();
-
-
-	cout << "The FFT File will be" << fft_name << endl;
-
-	if(  (fid=fopen(fft_name.c_str(),"r")) == NULL){
-		cout << "Unable to open wisdom file" << endl;
-	}else{
-		fftwf_import_wisdom_from_file(fid);
-		fclose(fid);
-	}
-
-	cout << "Test" << endl;
-
-	fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(k3d_grid.data());
-
-	cout << " Planning FFT " << endl << flush;
-	if( fast_fft_plan ){
-		fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
-	}else{
-		fft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
-	}
-
-	cout << " Planning Inverse FFT" << endl << flush;
-	if( fast_fft_plan ){
-		ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
-	}else{
-		ifft_plan = fftwf_plan_dft_3d(Sz,Sy,Sx,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
-	}
-
-	/*In case New Knowledge Was Gained*/
-	if( (fid2 = fopen(fft_name.c_str(), "w")) == NULL){
-		printf("Could Not Export FFT Wisdom\n");
-	}else{
-		fftwf_export_wisdom_to_file(fid2);
-		fclose(fid2);
-		sprintf(com,"chmod 777 %s",fft_name.c_str());
-		if( system(com) != 1 ){
-			cout << "Failed to Change FFT Plan Permissions" << endl;
-		}
-	}
-
-	return;
-}
-
-
 
 // ----------------------
 // Help Message
@@ -646,302 +563,25 @@ void gridFFT_CoilThreaded::precalc_gridding(int NzT,int NyT,int NxT, MRI_DATA &d
   cout << "Alloc Grid" << endl;
   alloc_grid();
 
-  // Setup 3D FFT
-  if( (fft_in_z==0) || (fft_in_y==0) || (fft_in_x==0) || (pruned_fft==1) ){
-
-  }else{
-  	plan_fft();
-  }
 }
 
 
 
 void gridFFT_CoilThreaded::do_fft( void ){
 
-	// Smallest array
-	if(fft_in_z==1){
-
-        int N = Sz;
-
-        // Create Plan
-        fftwf_plan plan;
-        #pragma omp critical
-        {
-            // Get a plan but never use
-            complex<float> *data_temp = new complex<float>[N];
-            fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
-            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
-            delete [] data_temp;
-        }
-
-        // nested
-        int *DIMS = new int[2];
-        DIMS[0] = og_ey - og_sy;
-        DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
-
-        #pragma omp parallel for
-        for (long index=0; index < Nlines; index++) {
-
-            // Get the actual position
-            int stride[2];
-            nested_workaround(index,DIMS,stride,2);
-            int jj = stride[0]+og_sy;
-            int coil = stride[1];
-
-            // Copy data
-            complex<float> *data =  new complex<float>[N];
-            fftwf_complex *data_ptr =  reinterpret_cast<fftwf_complex*>(data);
-            for( int i = og_sx; i < og_ex; i++){
-                for(int k=0;k< N; k++){
-                    data[k] = k3d_grid(coil)(i,jj,k);
-                }
-
-                // FFT
-                fftwf_execute_dft(plan,data_ptr,data_ptr);
-
-                // Copy back
-                for(int k=0;k< N; k++){
-                    k3d_grid(coil)(i,jj,k) = data[k];
-                }
-            }
-            delete [] data;
-        }
-
-        // Cleanup
-        fftwf_destroy_plan(plan);
-	}
-
-	// Bigger
-	if(fft_in_y==1){
-        int N = Sy;
-
-        // Create Plan
-        fftwf_plan plan;
-        #pragma omp critical
-        {
-            // Get a plan but never use
-            complex<float> *data_temp = new complex<float>[N];
-            fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
-            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
-            delete [] data_temp;
-        }
-
-        // nested
-        int *DIMS = new int[2];
-        DIMS[0] = Sz;
-        DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
-
-        #pragma omp parallel for
-        for (long index=0; index < Nlines; index++) {
-
-            // Get the actual position
-            int stride[2];
-            nested_workaround(index,DIMS,stride,2);
-            int kk = stride[0];
-            int coil = stride[1];
-
-            // Copy data
-            complex<float> *data =  new complex<float>[N];
-            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
-            for( int i = og_sx; i < og_ex; i++){
-                for(int j=0;j< N; j++){
-                    data[j] = k3d_grid(coil)(i,j,kk);
-                }
-
-                // FFT
-                fftwf_execute_dft(plan,data_ptr,data_ptr);
-
-                // Copy back
-                for(int j=0;j< N; j++){
-                    k3d_grid(coil)(i,j,kk) = data[j];
-                }
-            }
-            delete [] data;
-        }
-
-        // Cleanup
-        fftwf_destroy_plan(plan);
-	}
-
-	// Biggest
-	if(fft_in_x==1){
-        int N = Sx;
-
-        // Create Plan
-        fftwf_plan plan;
-        #pragma omp critical
-        {
-            // Get a plan but never use
-            complex<float> *data_temp = new complex<float>[N];
-            fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
-            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
-            delete [] data_temp;
-        }
-
-        // nested
-        int *DIMS = new int[2];
-        DIMS[0] = Sz;
-        DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
-
-        #pragma omp parallel for
-        for (long index=0; index < Nlines; index++) {
-
-            // Get the actual position
-            int stride[2];
-            nested_workaround(index,DIMS,stride,2);
-            int kk = stride[0];
-            int coil = stride[1];
-
-            complex<float> *data = new complex<float>[N];
-            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
-            for( int j =0; j < Sy; j++){
-                // Copy data
-                for(int i=0;i< N; i++){
-                    data[i] = k3d_grid(coil)(i,j,kk);
-                }
-
-                // FFT
-                fftwf_execute_dft(plan,data_ptr,data_ptr);
-
-                // Copy back
-                for(int i=0;i< N; i++){
-                    k3d_grid(coil)(i,j,kk) = data[i];
-                }
-            }
-            delete [] data;
-        }
-
-        // Cleanup
-        fftwf_destroy_plan(plan);
-	}
-
-}
-
-void gridFFT_CoilThreaded::do_ifft( void ){
-
-    // Biggest
-	if(fft_in_x==1){
-        int N = Sx;
-
-        // Create Plan
-        fftwf_plan plan;
-        #pragma omp critical
-        {
-            // Get a plan but never use
-            complex<float> *data_temp = new complex<float>[N];
-            fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
-            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
-            delete [] data_temp;
-        }
-
-        // nested
-        int DIMS[2];
-        DIMS[0] = Sz;
-        DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
-
-        #pragma omp parallel for
-        for (long index=0; index < Nlines; index++) {
-
-            // Get the actual position
-            int stride[2];
-            nested_workaround(index,DIMS,stride,2);
-            int k = stride[0];
-            int coil = stride[1];
-
-            complex<float> *data = new complex<float>[N];
-            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
-            for( int j =0; j < Sy; j++){
-                // Copy data
-                for(int i=0;i< N; i++){
-                    data[i] = k3d_grid(coil)(i,j,k);
-                }
-
-                // FFT
-                fftwf_execute_dft(plan,data_ptr,data_ptr);
-
-                // Copy back
-                for(int i=0;i< N; i++){
-                    k3d_grid(coil)(i,j,k) = data[i];
-                }
-            }
-            delete [] data;
-        }
-
-        // Cleanup
-        fftwf_destroy_plan(plan);
-	}
-
-    // Bigger
-	if(fft_in_y==1){
-        int N = Sy;
-
-        // Create Plan
-        fftwf_plan plan;
-        #pragma omp critical
-        {
-            // Get a plan but never use
-            complex<float> *data_temp = new complex<float>[N];
-            fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
-            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
-            delete [] data_temp;
-        }
-
-        // nested
-        int DIMS[2];
-        DIMS[0] = Sz;
-        DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
-
-        #pragma omp parallel for
-        for (long index=0; index < Nlines; index++) {
-
-            // Get the actual position
-            int stride[2];
-            nested_workaround(index,DIMS,stride,2);
-            int kk = stride[0];
-            int coil = stride[1];
-
-            // Copy data
-            complex<float> *data =  new complex<float>[N];
-            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
-            for( int i = og_sx; i < og_ex; i++){
-                for(int j=0;j< N; j++){
-                    data[j] = k3d_grid(coil)(i,j,kk);
-                }
-
-                // FFT
-                fftwf_execute_dft(plan,data_ptr,data_ptr);
-
-                // Copy back
-                for(int j=0;j< N; j++){
-                    k3d_grid(coil)(i,j,kk) = data[j];
-                }
-            }
-            delete [] data;
-        }
-
-        // Cleanup
-        fftwf_destroy_plan(plan);
-	}
-
     // Smallest array
     if(fft_in_z==1){
-
-        int N = Sz;
+        tictoc T;
+        if(time_grid) T.tic();
 
         // Create Plan
         fftwf_plan plan;
         #pragma omp critical
         {
             // Get a plan but never use
-            complex<float> *data_temp = new complex<float>[N];
-            fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
-            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
-            delete [] data_temp;
+            fftwf_complex *ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * Sz);
+            plan = fftwf_plan_dft_1d(Sz,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
+            fftwf_free(ptr);
         }
 
         // nested
@@ -959,32 +599,314 @@ void gridFFT_CoilThreaded::do_ifft( void ){
             int j = stride[0]+og_sy;
             int coil = stride[1];
 
-            // Copy data
-            complex<float> *data =  new complex<float>[N];
-            fftwf_complex *data_ptr =  reinterpret_cast<fftwf_complex*>(data);
-            for( int i = og_sx; i < og_ex; i++){
+            // Storage block
+            Array< complex<float>,2> TEMP( Sz, Nx, ColumnMajorArray<2>() );
 
-                // Copy data
-                for(int k=0;k< N; k++){
-                    data[k] = k3d_grid(coil)(i,j,k);
+            // Gather (i is continous)
+            for(int k=0;k< Sz; k++){
+                for( int i = og_sx; i < og_ex; i++){
+                    TEMP(k,i-og_sx) = k3d_grid(i,j,k,coil);
+                }
+            }
+
+            // FFT ( k is continous in this array but its small)
+            for( int i = 0; i < Nx; i++){
+                fftwf_complex *data = reinterpret_cast<fftwf_complex*>(&TEMP(0,i));
+                fftwf_execute_dft(plan,data,data);
+            }
+
+            // Scatter
+            for(int k=0;k< Sz; k++){
+                for( int i = og_sx; i < og_ex; i++){
+                    k3d_grid(i,j,k,coil) = TEMP(k,i-og_sx);
+                }
+            }
+        }
+
+        // Cleanup
+        fftwf_destroy_plan(plan);
+        if(time_grid) cout << "[FFTz " << T << "]";
+
+    }
+
+    // Bigger
+	if(fft_in_y==1){
+        tictoc T;
+        if(time_grid) T.tic();
+
+        // Create Plan
+        fftwf_plan plan;
+        #pragma omp critical
+        {
+            // Get a plan but never use
+            fftwf_complex *ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * Sy);
+            plan = fftwf_plan_dft_1d(Sy,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
+            fftwf_free(ptr);
+        }
+
+        // nested
+        int DIMS[2];
+        DIMS[0] = Sz;
+        DIMS[1] = this->Num_Coils;
+        int Nlines = DIMS[0]*DIMS[1];
+
+        #pragma omp parallel for
+        for (long index=0; index < Nlines; index++) {
+
+            // Get the actual position
+            int stride[2];
+            nested_workaround(index,DIMS,stride,2);
+            int k = stride[0];
+            int coil = stride[1];
+
+            // Copy data
+            fftwf_complex *data_ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * Sy);
+            complex<float> *data = reinterpret_cast< complex<float>*>(data_ptr);
+            for( int i = og_sx; i < og_ex; i++){
+                for(int j=0;j< Sy; j++){
+                    data[j] = k3d_grid(i,j,k,coil);
                 }
 
                 // FFT
                 fftwf_execute_dft(plan,data_ptr,data_ptr);
 
                 // Copy back
-                for(int k=0;k< N; k++){
-                    k3d_grid(coil)(i,j,k) = data[k];
+                for(int j=0;j< Sy; j++){
+                    k3d_grid(i,j,k,coil) = data[j];
                 }
             }
-            delete [] data;
+            fftwf_free(data_ptr);
         }
 
         // Cleanup
         fftwf_destroy_plan(plan);
+        if(time_grid) cout << "[FFTy " << T << "]";
+
+	}
+
+    // Biggest
+    if(fft_in_x==1){
+        tictoc T;
+        if(time_grid) T.tic();
+
+        // Create Plan
+        fftwf_plan plan;
+        #pragma omp critical
+        {
+            // Get a plan but never use
+            fftwf_complex *ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * Sx);
+            plan = fftwf_plan_dft_1d(Sx,ptr,ptr,FFTW_FORWARD, FFTW_MEASURE);
+            fftwf_free(ptr);
+        }
+
+        // nested
+        int DIMS[3];
+        DIMS[0] = Sy;
+        DIMS[1] = Sz;
+        DIMS[2] = this->Num_Coils;
+        int Nlines = DIMS[0]*DIMS[1]*DIMS[2];
+
+        #pragma omp parallel for
+        for (long index=0; index < Nlines; index++) {
+
+            // Get the actual position
+            int stride[3];
+            nested_workaround(index,DIMS,stride,3);
+            int j = stride[0];
+            int k = stride[1];
+            int coil = stride[2];
+
+            // i is contigous, just grab pointer and FFT
+            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(&k3d_grid(0,j,k,coil));
+            fftwf_execute_dft(plan,data_ptr,data_ptr);
+        }
+
+        // Cleanup
+        fftwf_destroy_plan(plan);
+
+        if(time_grid) cout << "[FFTx " << T << "]";
+    }
+
+}
+
+void gridFFT_CoilThreaded::do_ifft( void ){
+
+    // Biggest
+	if(fft_in_x==1){
+        tictoc T;
+        if(time_grid) T.tic();
+
+        int N = Sx;
+
+        // Create Plan
+        fftwf_plan plan;
+        #pragma omp critical
+        {
+            // Get a plan but never use
+            fftwf_complex *ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * N);
+            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
+            fftwf_free(ptr);
+        }
+
+        // nested
+        int DIMS[3];
+        DIMS[0] = Sy;
+        DIMS[1] = Sz;
+        DIMS[2] = this->Num_Coils;
+        int Nlines = DIMS[0]*DIMS[1]*DIMS[2];
+
+        #pragma omp parallel for
+        for (long index=0; index < Nlines; index++) {
+
+            // Get the actual position
+            int stride[3];
+            nested_workaround(index,DIMS,stride,3);
+            int j = stride[0];
+            int k = stride[1];
+            int coil = stride[2];
+
+            // i is contigous, just grab pointer and FFT
+            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(&k3d_grid(0,j,k,coil));
+            fftwf_execute_dft(plan,data_ptr,data_ptr);
+        }
+
+        // Cleanup
+        fftwf_destroy_plan(plan);
+
+        if(time_grid) cout << "[FFTx " << T << "]";
+	}
+
+    // Bigger
+	if(fft_in_y==1){
+        tictoc T;
+        if(time_grid) T.tic();
+
+        int N = Sy;
+
+        // Create Plan
+        fftwf_plan plan;
+        #pragma omp critical
+        {
+            // Get a plan but never use
+            fftwf_complex *ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * N);
+            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
+            fftwf_free(ptr);
+        }
+
+        // nested
+        int DIMS[2];
+        DIMS[0] = Sz;
+        DIMS[1] = this->Num_Coils;
+        int Nlines = DIMS[0]*DIMS[1];
+
+        #pragma omp parallel for
+        for (long index=0; index < Nlines; index++) {
+
+            // Get the actual position
+            int stride[2];
+            nested_workaround(index,DIMS,stride,2);
+            int kk = stride[0];
+            int coil = stride[1];
+
+            // Copy data
+            fftwf_complex *data_ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * N);
+            complex<float> *data = reinterpret_cast< complex<float>*>(data_ptr);
+            for( int i = og_sx; i < og_ex; i++){
+                for(int j=0;j< N; j++){
+                    data[j] = k3d_grid(i,j,kk,coil);
+                }
+
+                // FFT
+                fftwf_execute_dft(plan,data_ptr,data_ptr);
+
+                // Copy back
+                for(int j=0;j< N; j++){
+                    k3d_grid(i,j,kk,coil) = data[j];
+                }
+            }
+            fftwf_free(data_ptr);
+        }
+
+        // Cleanup
+        fftwf_destroy_plan(plan);
+        if(time_grid) cout << "[FFTy " << T << "]";
+
+	}
+
+    // Smallest array
+    if(fft_in_z==1){
+        tictoc T;
+        if(time_grid) T.tic();
+        int N = Sz;
+
+        // Create Plan
+        fftwf_plan plan;
+        #pragma omp critical
+        {
+            // Get a plan but never use
+            fftwf_complex *ptr = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex) * N);
+            plan = fftwf_plan_dft_1d(N,ptr,ptr,FFTW_BACKWARD, FFTW_MEASURE);
+            fftwf_free(ptr);
+        }
+
+        // nested
+        int DIMS[2];
+        DIMS[0] =Ny;
+        DIMS[1] = this->Num_Coils;
+        int Nlines = DIMS[0]*DIMS[1];
+
+        #pragma omp parallel for
+        for (long index=0; index < Nlines; index++) {
+
+            // Get the actual position
+            int stride[2];
+            nested_workaround(index,DIMS,stride,2);
+            int j = stride[0]+og_sy;
+            int coil = stride[1];
+
+            // Storage block
+            Array< complex<float>,2> TEMP( N, Nx, ColumnMajorArray<2>() );
+
+            // Gather (i is continous)
+            for(int k=0;k< N; k++){
+                for( int i = og_sx; i < og_ex; i++){
+                    TEMP(k,i-og_sx) = k3d_grid(i,j,k,coil);
+                }
+            }
+
+            // FFT ( k is continous in this array but its small)
+            for( int i = 0; i < Nx; i++){
+                fftwf_complex *data = reinterpret_cast<fftwf_complex*>(&TEMP(0,i));
+                fftwf_execute_dft(plan,data,data);
+            }
+
+            // Scatter
+            for(int k=0;k< N; k++){
+                for( int i = og_sx; i < og_ex; i++){
+                    k3d_grid(i,j,k,coil) = TEMP(k,i-og_sx);
+                }
+            }
+
+
+        }
+
+        // Cleanup
+        fftwf_destroy_plan(plan);
+        if(time_grid) cout << "[FFTz " << T << "]";
+
     }
 }
 
+
+
+void gridFFT_CoilThreaded::zero( void){
+
+    long N = Sx*Sy*Sz*Num_Coils;
+    #pragma omp parallel for
+    for( unsigned int i=0; i< N; i++){
+        k3d_grid(i) = complex<float>(0.0,0.0);
+    }
+}
 
 /**
  * Forward gridding sos
@@ -1003,10 +925,8 @@ void gridFFT_CoilThreaded::forward_sos( Array<complex<float>,3>&X,\
 					   const Array<float,3>&kw){
 	tictoc T;
 	if(time_grid) T.tic();
-    for( int coil=0; coil < this->Num_Coils; coil++){
-        k3d_grid(coil)=0; // Zero K-Space
-    }
-	if(time_grid) cout << "Forward::zero:"<< T;
+    zero();
+    if(time_grid) cout << "Forward::zero:"<< T;
 
 	if(time_grid) T.tic();
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
@@ -1044,10 +964,8 @@ void gridFFT_CoilThreaded::forward( Array<complex<float>,3>&X,\
 					   const Array<float,3>&kw){
 	tictoc T;
 	if(time_grid) T.tic();
-    for( int coil=0; coil < this->Num_Coils; coil++){
-        k3d_grid(coil)=0; // Zero K-Space
-    }
-	if(time_grid) cout << "Forward::zero:"<< T;
+    zero();
+    if(time_grid) cout << "Forward::zero:"<< T;
 
 	if(time_grid) T.tic();
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
@@ -1082,10 +1000,8 @@ void gridFFT_CoilThreaded::forward( Array<complex<float>,3>&X,\
 					   const Array<float,3>&kw){
 	tictoc T;
 	if(time_grid) T.tic();
-    for( int coil=0; coil < this->Num_Coils; coil++){
-        k3d_grid(coil)=0; // Zero K-Space
-    }
-	if(time_grid) cout << "Forward::zero:"<< T;
+    zero();
+    if(time_grid) cout << "Forward::zero:"<< T;
 
 	if(time_grid) T.tic();
 	chop_grid_forward(data,kx,ky,kz,kw); // Grid data to K-Space
@@ -1118,22 +1034,20 @@ void gridFFT_CoilThreaded::backward(const Array<complex<float>,3>&X,\
 					   const Array<float,3>&kz,\
 					   const Array<float,3>&kw){
 
-    for( int coil=0; coil < this->Num_Coils; coil++){
-       k3d_grid(coil)=0; // Zero K-Space
-    }
-	tictoc T;
-	if(time_grid) T.tic();
-	set_image(X,smap); // Copy image to gridding
-	if(time_grid) cout << "Backward::copy:"<< T;
+    tictoc T;
 
-	if(time_grid) T.tic();
-	do_fft();
-	if(time_grid)cout << ",ifft:"<< T;
+    if(time_grid) T.tic();
+    set_image(X,smap); // Copy image to gridding
+    if(time_grid) cout << ",copy:"<< T << std::flush;
 
-	if(time_grid) T.tic();
-	Complex4D temp;
-	chop_grid_backward(data,kx,ky,kz,kw,temp,false); // Inverse gridding
-	if(time_grid)cout << ",igrid:"<< T << endl;
+    if(time_grid) T.tic();
+    do_fft();
+    if(time_grid)cout << ",ifft:"<< T<< std::flush;
+
+    if(time_grid) T.tic();
+    Complex4D temp;
+    chop_grid_backward(data,kx,ky,kz,kw,temp,false); // Inverse gridding
+    if(time_grid)cout << ",igrid:"<< T << endl << std::flush;
 
 }
 
@@ -1156,21 +1070,19 @@ void gridFFT_CoilThreaded::backward_residual(const Array<complex<float>,3>&X,\
 					   const Array<float,3>&kw,\
 					   const Complex4D&diff_data){
 
-    for( int coil=0; coil < this->Num_Coils; coil++){
-       k3d_grid(coil)=0; // Zero K-Space
-    }
-	tictoc T;
-	if(time_grid) T.tic();
-	set_image(X,smap); // Copy image to gridding
-	if(time_grid) cout << "Backward::copy:"<< T;
+    tictoc T;
 
-	if(time_grid) T.tic();
-	do_fft();
-	if(time_grid)cout << ",ifft:"<< T;
+    if(time_grid) T.tic();
+    set_image(X,smap); // Copy image to gridding
+    if(time_grid) cout << ",copy:"<< T<< std::flush;
 
-	if(time_grid) T.tic();
-	chop_grid_backward(data,kx,ky,kz,kw,diff_data,true); // Inverse gridding
-	if(time_grid)cout << ",igrid:"<< T << endl;
+    if(time_grid) T.tic();
+    do_fft();
+    if(time_grid)cout << ",ifft:"<< T<< std::flush;
+
+    if(time_grid) T.tic();
+    chop_grid_backward(data,kx,ky,kz,kw,diff_data,true); // Inverse gridding
+    if(time_grid)cout << ",igrid:"<< T << endl<< std::flush;
 
 }
 
@@ -1191,23 +1103,20 @@ void gridFFT_CoilThreaded::backward(const Array<complex<float>,3>&X,\
 					   const Array<float,3>&kz,\
 					   const Array<float,3>&kw){
 
-    for( int coil=0; coil < this->Num_Coils; coil++){
-       k3d_grid(coil)=0; // Zero K-Space
-    }
+   tictoc T;
 
-	tictoc T;
-	if(time_grid) T.tic();
-	set_image(X); // Copy image to gridding
-	if(time_grid) cout << "Backward::copy:"<< T;
+    if(time_grid) T.tic();
+    set_image(X); // Copy image to gridding
+    if(time_grid) cout << ",copy:"<< T;
 
-	if(time_grid) T.tic();
-	do_fft();
-	if(time_grid)cout << ",ifft:"<< T;
+    if(time_grid) T.tic();
+    do_fft();
+    if(time_grid)cout << ",ifft:"<< T;
 
-	if(time_grid) T.tic();
-	Complex4D temp;
-	chop_grid_backward(data,kx,ky,kz,kw,temp,false); // Inverse gridding
-	if(time_grid)cout << ",igrid:"<< T << endl;
+    if(time_grid) T.tic();
+    Complex4D temp;
+    chop_grid_backward(data,kx,ky,kz,kw,temp,false); // Inverse gridding
+    if(time_grid)cout << ",igrid:"<< T << endl;
 
 }
 
@@ -1219,14 +1128,14 @@ void gridFFT_CoilThreaded::backward(const Array<complex<float>,3>&X,\
 
 void gridFFT_CoilThreaded::deapp( void ){
 
-    #pragma omp parallel for
     for( int coil=0; coil < this->Num_Coils; coil++){
+        #pragma omp parallel for
         for(int k=0; k< Nz; k++){
     	  float wtz = winz(k+og_sz);
     	  for(int j=0; j<Ny; j++){
     	    float wty = wtz*winy(j+og_sy);
     		for(int i=0; i<Nx; i++) {
-    			 image(coil)(i,j,k)*= wty*winx(i+og_sx); /* Don't just sum coils when no sense map is given*/
+    			 image(i,j,k,coil)*= wty*winx(i+og_sx); /* Don't just sum coils when no sense map is given*/
     	}}}
     }
 }
@@ -1245,7 +1154,7 @@ void gridFFT_CoilThreaded::accumulate( Array< complex<float>, 3>&X, const Comple
 
     			float wt = wty*winx(i+og_sx);
 
-    			X(i,j,k) += wt*image(coil)(i,j,k)*conj( smap(coil)(i,j,k) );
+    			X(i,j,k) += wt*image(i,j,k,coil)*conj( smap(coil)(i,j,k) );
 
     	}}}
     }
@@ -1265,7 +1174,7 @@ void gridFFT_CoilThreaded::accumulate( Array< complex<float>, 3>&X){
 
     			float wt = wty*winx(i+og_sx);
 
-    			X(i,j,k) += wt*image(coil)(i,j,k);
+    			X(i,j,k) += wt*image(i,j,k,coil);
 
     	}}}
     }
@@ -1279,46 +1188,85 @@ void gridFFT_CoilThreaded::accumulate_sos( Array< complex<float>, 3>&X){
     	  for(int j=0; j<Ny; j++){
     	    for(int i=0; i<Nx; i++){
     			// Acumulate in a thread safe manner
-    			X(i,j,k) += image(coil)(i,j,k)*conj(image(coil)(i,j,k));;
+    			X(i,j,k) += image(i,j,k,coil)*conj(image(i,j,k,coil));;
     	}}}
     }
 }
 
 void gridFFT_CoilThreaded::set_image( const Array< complex<float>, 3>&X, const Complex4D&smap){
 
-    #pragma omp parallel for
-	for( int coil=0; coil < this->Num_Coils; coil++){
-    	for(int k=0; k< Nz; k++){
-    	  float wtz = winz(k+og_sz);
+    for( int coil=0; coil < this->Num_Coils; coil++){
+        #pragma omp parallel for
+    	for(int k=0; k< Sz; k++){
 
-    	  for(int j=0; j<Ny; j++){
-    	  	float wty = wtz*winy(j+og_sy);
-
-    	    for(int i=0; i<Nx; i++){
-
-    			float wt = wty*winx(i+og_sx);
-    			image(coil)(i,j,k)= wt*X(i,j,k)*smap(coil)(i,j,k);
-    	}}}
-    }
+          // Zero the Edges
+          if( (k < og_sz) || (k > (og_ez-1))){
+               for(int j=0; j<Sy; j++){
+                   for( int i=0; i < Sx; i++){
+                        k3d_grid(i,j,k,coil) = complex<float>(0.0,0.0);
+                   }
+              }
+          }else{
+              // Loop y
+             float wtz = winz(k);
+             for(int j=0; j<Sy; j++){
+                 if( (j < og_sy) || (j > (og_ey-1))){
+                     for( int i=0; i < Sx; i++){
+                         k3d_grid(i,j,k,coil) = complex<float>(0.0,0.0);
+                     }
+                 }else{
+                     float wty = wtz*winy(j);
+                     for(int i=0; i<Sx; i++){
+                         if( (i < og_sx) || (i > (og_ex-1))){
+                              k3d_grid(i,j,k,coil) = complex<float>(0.0,0.0);
+                        }else{
+                             float wt = wty*winx(i);
+                             k3d_grid(i,j,k,coil)= wt*X(i-og_sx,j-og_sy,k-og_sz)*smap(coil)(i-og_sx,j-og_sy,k-og_sz);
+                        }
+                     }
+                 }
+             }
+         }
+        }// Loop k
+    }// Loop coil
 }
 
 void gridFFT_CoilThreaded::set_image( const Array< complex<float>, 3>&X){
 
-    #pragma omp parallel for
-	for( int coil=0; coil < this->Num_Coils; coil++){
+    for( int coil=0; coil < this->Num_Coils; coil++){
+        #pragma omp parallel for
+    	for(int k=0; k< Sz; k++){
 
-    	for(int k=0; k< Nz; k++){
-    	  float wtz = winz(k+og_sz);
-
-    	  for(int j=0; j<Ny; j++){
-    	  	float wty = wtz*winy(j+og_sy);
-
-    	    for(int i=0; i<Nx; i++){
-
-    			float wt = wty*winx(i+og_sx);
-    			image(coil)(i,j,k)= wt*X(i,j,k);
-    	}}}
-    }
+          // Zero the Edges
+          if( (k < og_sz) || (k > (og_ex-1))){
+               for(int j=0; j<Sy; j++){
+                   for( int i=0; i < Sx; i++){
+                        image(i,j,k,coil) = complex<float>(0.0,0.0);
+                   }
+              }
+          }else{
+              // Loop y
+             float wtz = winz(k);
+             for(int j=0; j<Sy; j++){
+                 if( (j < og_sy) || (j > (og_ey-1))){
+                     for( int i=0; i < Sx; i++){
+                         image(i,j,k,coil) = complex<float>(0.0,0.0);
+                     }
+                 }else{
+                     float wty = wtz*winy(j);
+                     for(int i=0; i<Sx; i++){
+                         if( (i < og_sx) || (i > (og_ex-1))){
+                              image(i,j,k,coil) = complex<float>(0.0,0.0);
+                        }else{
+                             float wt = wty*winx(i);
+                             image(i,j,k,coil)= wt*X(i-og_sx,j-og_sy,k-og_sz);
+                        }
+                     }
+                 }
+             }
+         }
+        }// Loop k
+    }// Loop coil
 }
 
 
@@ -1334,23 +1282,27 @@ void gridFFT_CoilThreaded::chop_grid_forward( const Complex4D&dataA, const Array
 	float cy = Sy/2;
 	float cz = Sz/2;
 
-	long Npts = dataA(0).numElements();
-
-	// nested
-	int *N = new int[3];
+    // nested
+	int *N = new int[4];
 	N[0] = dataA(0).length(firstDim);
 	N[1] = dataA(0).length(secondDim);
 	N[2] = dataA(0).length(thirdDim);
+    N[3] = this->Num_Coils;
+	long Npts = N[0];
+    Npts *= N[1];
+    Npts *= N[2];
+    Npts *= N[3];
 
 	#pragma omp parallel for
 	for (long index=0; index < Npts; index++) {
 
 		// Get the actual position
 		int stride[4];
-		nested_workaround(index,N,stride,3);
+		nested_workaround(index,N,stride,4);
 		int ii = stride[0];
 		int jj = stride[1];
 		int kk = stride[2];
+        int coil = stride[3];
 
 		float kw = kwA(ii,jj,kk);
 		if( kw == 0){
@@ -1452,8 +1404,8 @@ void gridFFT_CoilThreaded::chop_grid_forward( const Complex4D&dataA, const Array
 						wtx *=( (float)(2*(lx%2) -1 ));
 					}
 
-                    for(int coil=0; coil < this->Num_Coils; coil++){
-
+                    // for(int coil=0; coil < this->Num_Coils; coil++){
+                    {
                         complex<float>temp =dataA(coil)(ii,jj,kk);
 
                 		// Density Comp
@@ -1465,7 +1417,7 @@ void gridFFT_CoilThreaded::chop_grid_forward( const Complex4D&dataA, const Array
     					complex<float>temp2 = wtx*temp;
     					float RD = real(temp2);
     					float ID = imag(temp2);
-    					float *I = reinterpret_cast<float *>(&k3d_grid(coil)(lx,ly,lz));
+    					float *I = reinterpret_cast<float *>(&k3d_grid(lx,ly,lz,coil));
     					float *R = I++;
 
     					// Prevent Race conditions in multi-threaded
@@ -1483,13 +1435,8 @@ void gridFFT_CoilThreaded::chop_grid_forward( const Complex4D&dataA, const Array
 		 }/* end lx */
 	}/* end data loop */
 
-
-
-
 	return;
 }
-
-
 
 
 
@@ -1499,29 +1446,36 @@ void gridFFT_CoilThreaded::chop_grid_backward(Complex4D&dataA, const Array<float
 	float cy = Sy/2;
 	float cz = Sz/2;
 
-	long Npts = dataA(0).numElements();
-
-	// nested
-	int *N = new int[3];
+    // nested
+	int *N = new int[4];
 	N[0] = dataA(0).length(firstDim);
 	N[1] = dataA(0).length(secondDim);
 	N[2] = dataA(0).length(thirdDim);
+    N[3] = this->Num_Coils;
+	long Npts = N[0];
+    Npts *= N[1];
+    Npts *= N[2];
+    Npts *= N[3];
 
 	#pragma omp parallel for
-	for (int index=0; index < Npts; index++) {
+	for (long index=0; index < Npts; index++) {
 
 		// Get the actual position
-		int stride[3];
-		nested_workaround(index,N,stride,3);
+		int stride[4];
+		nested_workaround(index,N,stride,4);
 		int ii = stride[0];
 		int jj = stride[1];
 		int kk = stride[2];
+        int coil = stride[3];
+
+        // Storage for value
+        complex<float> temp(0.0,0.0);
 
 		// Do not grid zeros
 		float kw = kwA(ii,jj,kk);
      	if( kw==0.0){
-			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-			continue;
+            dataA(coil)(ii,jj,kk) = complex<float>(0.0,0.0);
+            continue;
 		}
 
 		float kx = kxA(ii,jj,kk);
@@ -1545,13 +1499,13 @@ void gridFFT_CoilThreaded::chop_grid_backward(Complex4D&dataA, const Array<float
 		}
 
 		if(sx >= Sx){
-			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-		 	continue;
+            dataA(coil)(ii,jj,kk) = complex<float>(0.0,0.0);
+         	continue;
 		}
 
 		if(ex < 0){
-			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-			continue;
+            dataA(coil)(ii,jj,kk) = complex<float>(0.0,0.0);
+        	continue;
 		}
 
 		float dky = ky*grid_y + cy;
@@ -1566,13 +1520,13 @@ void gridFFT_CoilThreaded::chop_grid_backward(Complex4D&dataA, const Array<float
 		}
 
 		if(sy >= Sy){
-			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-			continue;
+            dataA(coil)(ii,jj,kk) = complex<float>(0.0,0.0);
+        	continue;
 		}
 
 		if(ey < 0){
-			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-			continue;
+            dataA(coil)(ii,jj,kk) = complex<float>(0.0,0.0);
+        	continue;
 		}
 
 		float dkz = kz*grid_z + cz;
@@ -1586,19 +1540,17 @@ void gridFFT_CoilThreaded::chop_grid_backward(Complex4D&dataA, const Array<float
 			ez = sz;
 		}
 		if(sz >= Sz){
-			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-			continue;
+            dataA(coil)(ii,jj,kk) = complex<float>(0.0,0.0);
+        	continue;
 		}
 
 		if(ez < 0){
-			dataA(ii,jj,kk) = complex<float>(0.0,0.0);
-			continue;
+            dataA(coil)(ii,jj,kk) = complex<float>(0.0,0.0);
+            continue;
 		}
 
-        NDarray::Array< complex<float>,1 >temp(this->Num_Coils);
-        temp = complex<float>(0.0,0.0);
 
-		/*This is the main loop - most time is spent here*/
+        /*This is the main loop - most time is spent here*/
 		for(int lz =sz; lz<=ez; lz++){
     		float delz = fabs(grid_modZ*(dkz -(float)lz));
 			float dz = delz - (float)((int)delz);
@@ -1630,21 +1582,18 @@ void gridFFT_CoilThreaded::chop_grid_backward(Complex4D&dataA, const Array<float
 					}
 
 					/*This Memory Access is the Bottleneck*/
-                    for( int coil=0; coil<this->Num_Coils; coil++){
-                        temp(coil) += wtx*k3d_grid(coil)(lx,ly,lz);
-                    }
+                    temp += wtx*k3d_grid(lx,ly,lz,coil);
 
 	    	}/* end lz loop */
 	  	  }/* end ly */
 		 }/* end lx */
 
-         for( int coil=0; coil<this->Num_Coils; coil++){
-    		 if(sub_data_flag){
-    		 	dataA(coil)(ii,jj,kk) = temp(coil) - diff_dataA(coil)(ii,jj,kk);
-    		 }else{
-    		 	dataA(coil)(ii,jj,kk) = temp(coil);
-    		 }
-        }
+         if(sub_data_flag){
+    	 	dataA(coil)(ii,jj,kk) = temp - diff_dataA(coil)(ii,jj,kk);
+    	 }else{
+    	 	dataA(coil)(ii,jj,kk) = temp;
+    	 }
+
 	}/* end data loop */
 	return;
 }
