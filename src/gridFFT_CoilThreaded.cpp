@@ -588,7 +588,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
         int DIMS[2];
         DIMS[0] =Ny;
         DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
+        long Nlines = DIMS[0]*DIMS[1];
 
         #pragma omp parallel for
         for (long index=0; index < Nlines; index++) {
@@ -648,7 +648,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
         int DIMS[2];
         DIMS[0] = Sz;
         DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
+        long Nlines = DIMS[0]*DIMS[1];
 
         #pragma omp parallel for
         for (long index=0; index < Nlines; index++) {
@@ -704,7 +704,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
         DIMS[0] = Sy;
         DIMS[1] = Sz;
         DIMS[2] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1]*DIMS[2];
+        long Nlines = DIMS[0]*DIMS[1]*DIMS[2];
 
         #pragma omp parallel for
         for (long index=0; index < Nlines; index++) {
@@ -753,7 +753,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
         DIMS[0] = Sy;
         DIMS[1] = Sz;
         DIMS[2] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1]*DIMS[2];
+        long Nlines = DIMS[0]*DIMS[1]*DIMS[2];
 
         #pragma omp parallel for
         for (long index=0; index < Nlines; index++) {
@@ -797,7 +797,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
         int DIMS[2];
         DIMS[0] = Sz;
         DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
+        long Nlines = DIMS[0]*DIMS[1];
 
         #pragma omp parallel for
         for (long index=0; index < Nlines; index++) {
@@ -853,7 +853,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
         int DIMS[2];
         DIMS[0] =Ny;
         DIMS[1] = this->Num_Coils;
-        int Nlines = DIMS[0]*DIMS[1];
+        lonh Nlines = DIMS[0]*DIMS[1];
 
         #pragma omp parallel for
         for (long index=0; index < Nlines; index++) {
@@ -901,9 +901,10 @@ void gridFFT_CoilThreaded::do_ifft( void ){
 
 void gridFFT_CoilThreaded::zero( void){
 
+    // nested
     long N = Sx*Sy*Sz*Num_Coils;
     #pragma omp parallel for
-    for( unsigned int i=0; i< N; i++){
+    for( long i=0; i< N; i++){
         k3d_grid(i) = complex<float>(0.0,0.0);
     }
 }
