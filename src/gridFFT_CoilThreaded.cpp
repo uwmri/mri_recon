@@ -853,7 +853,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
         int DIMS[2];
         DIMS[0] =Ny;
         DIMS[1] = this->Num_Coils;
-        lonh Nlines = DIMS[0]*DIMS[1];
+        long Nlines = DIMS[0]*DIMS[1];
 
         #pragma omp parallel for
         for (long index=0; index < Nlines; index++) {
