@@ -175,6 +175,8 @@ void RECON::help_message(void){
 	help_flag("-export_smaps","write sensitivity maps");
 	help_flag("-intensity_correction","polynomial fit for intensity correction");
 	help_flag("-compress_coils","compress number of coils during recon");
+	help_flag("-parallel_coils","parallel recon of coils");
+
 
 
 	cout << "Options  Before Recon" << endl;
