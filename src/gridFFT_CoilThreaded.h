@@ -19,7 +19,7 @@
 #endif
 
 typedef NDarray::Array<complex<float>,3> Complex3D;
-typedef NDarray::Array<complex<float>,4> Complex4D_GRID;
+typedef NDarray::Array< NDarray::Array<complex<float>,3>, 1> Complex4D_GRID;
 typedef NDarray::Array< NDarray::Array<complex<float>,3>, 1> Complex4D;
 typedef NDarray::Array< NDarray::Array<complex<float>,3>, 2> Complex5D;
 

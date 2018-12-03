@@ -66,13 +66,15 @@ gridFFT_CoilThreaded::gridFFT_CoilThreaded(){
 void gridFFT_CoilThreaded::alloc_grid(){
 
     // Alloc contain used to grid data to
-    k3d_grid.setStorage( ColumnMajorArray<4>());
-	k3d_grid.resize(Sx,Sy,Sz,this->Num_Coils);
-	k3d_grid = 0;
+    Array< Array< complex<float>, 3>,1> temp =  Alloc4DContainer< complex<float> >(Sx,Sy,Sz,Num_Coils);
+    k3d_grid.reference(temp);
 
     // Alloc a reference to central matrix
-	Array< complex<float>,4>image2 = k3d_grid( Range(og_sx,og_ex-1),Range(og_sy,og_ey-1),Range(og_sz,og_ez-1), Range::all());
-	image.reference(image2);
+    image.resize(Num_Coils);
+    for( int coil=0; coil < Num_Coils; coil++){
+        Array< complex<float>,3>image2 = k3d_grid(coil)(Range(og_sx,og_ex-1),Range(og_sy,og_ey-1),Range(og_sz,og_ez-1));
+        image(coil).reference(image2);
+    }
 
 }
 
@@ -605,7 +607,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
             // Gather (i is continous)
             for(int k=0;k< Sz; k++){
                 for( int i = og_sx; i < og_ex; i++){
-                    TEMP(k,i-og_sx) = k3d_grid(i,j,k,coil);
+                    TEMP(k,i-og_sx) = k3d_grid(coil)(i,j,k);
                 }
             }
 
@@ -618,7 +620,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
             // Scatter
             for(int k=0;k< Sz; k++){
                 for( int i = og_sx; i < og_ex; i++){
-                    k3d_grid(i,j,k,coil) = TEMP(k,i-og_sx);
+                    k3d_grid(coil)(i,j,k) = TEMP(k,i-og_sx);
                 }
             }
         }
@@ -664,7 +666,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
             complex<float> *data = reinterpret_cast< complex<float>*>(data_ptr);
             for( int i = og_sx; i < og_ex; i++){
                 for(int j=0;j< Sy; j++){
-                    data[j] = k3d_grid(i,j,k,coil);
+                    data[j] = k3d_grid(coil)(i,j,k);
                 }
 
                 // FFT
@@ -672,7 +674,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
 
                 // Copy back
                 for(int j=0;j< Sy; j++){
-                    k3d_grid(i,j,k,coil) = data[j];
+                    k3d_grid(coil)(i,j,k) = data[j];
                 }
             }
             fftwf_free(data_ptr);
@@ -717,7 +719,7 @@ void gridFFT_CoilThreaded::do_fft( void ){
             int coil = stride[2];
 
             // i is contigous, just grab pointer and FFT
-            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(&k3d_grid(0,j,k,coil));
+            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(&k3d_grid(coil)(0,j,k));
             fftwf_execute_dft(plan,data_ptr,data_ptr);
         }
 
@@ -766,7 +768,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
             int coil = stride[2];
 
             // i is contigous, just grab pointer and FFT
-            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(&k3d_grid(0,j,k,coil));
+            fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(&k3d_grid(coil)(0,j,k));
             fftwf_execute_dft(plan,data_ptr,data_ptr);
         }
 
@@ -813,7 +815,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
             complex<float> *data = reinterpret_cast< complex<float>*>(data_ptr);
             for( int i = og_sx; i < og_ex; i++){
                 for(int j=0;j< N; j++){
-                    data[j] = k3d_grid(i,j,kk,coil);
+                    data[j] = k3d_grid(coil)(i,j,kk);
                 }
 
                 // FFT
@@ -821,7 +823,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
 
                 // Copy back
                 for(int j=0;j< N; j++){
-                    k3d_grid(i,j,kk,coil) = data[j];
+                    k3d_grid(coil)(i,j,kk) = data[j];
                 }
             }
             fftwf_free(data_ptr);
@@ -870,7 +872,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
             // Gather (i is continous)
             for(int k=0;k< N; k++){
                 for( int i = og_sx; i < og_ex; i++){
-                    TEMP(k,i-og_sx) = k3d_grid(i,j,k,coil);
+                    TEMP(k,i-og_sx) = k3d_grid(coil)(i,j,k);
                 }
             }
 
@@ -883,7 +885,7 @@ void gridFFT_CoilThreaded::do_ifft( void ){
             // Scatter
             for(int k=0;k< N; k++){
                 for( int i = og_sx; i < og_ex; i++){
-                    k3d_grid(i,j,k,coil) = TEMP(k,i-og_sx);
+                    k3d_grid(coil)(i,j,k) = TEMP(k,i-og_sx);
                 }
             }
 
@@ -897,15 +899,29 @@ void gridFFT_CoilThreaded::do_ifft( void ){
     }
 }
 
-
-
 void gridFFT_CoilThreaded::zero( void){
 
     // nested
-    long N = Sx*Sy*Sz*Num_Coils;
+    int *N = new int[2];
+    N[0] = Sz;
+    N[1] = Num_Coils;
+
+    // nested
+    long Ns = Sz*Num_Coils;
     #pragma omp parallel for
-    for( long i=0; i< N; i++){
-        k3d_grid(i) = complex<float>(0.0,0.0);
+    for( long index=0; index< Ns; index++){
+
+        int stride[2];
+		nested_workaround(index,N,stride,2);
+		int k = stride[0];
+        int coil = stride[1];
+
+        for( int j = 0; j < Sy; j++){
+            for( int i =0; i < Sx; i++){
+                k3d_grid(coil)(i,j,k)= complex<float>(0.0,0.0);
+            }
+        }
+
     }
 }
 
@@ -1136,7 +1152,7 @@ void gridFFT_CoilThreaded::deapp( void ){
     	  for(int j=0; j<Ny; j++){
     	    float wty = wtz*winy(j+og_sy);
     		for(int i=0; i<Nx; i++) {
-    			 image(i,j,k,coil)*= wty*winx(i+og_sx); /* Don't just sum coils when no sense map is given*/
+    			 image(coil)(i,j,k)*= wty*winx(i+og_sx); /* Don't just sum coils when no sense map is given*/
     	}}}
     }
 }
@@ -1155,7 +1171,7 @@ void gridFFT_CoilThreaded::accumulate( Array< complex<float>, 3>&X, const Comple
 
     			float wt = wty*winx(i+og_sx);
 
-    			X(i,j,k) += wt*image(i,j,k,coil)*conj( smap(coil)(i,j,k) );
+    			X(i,j,k) += wt*image(coil)(i,j,k)*conj( smap(coil)(i,j,k) );
 
     	}}}
     }
@@ -1175,7 +1191,7 @@ void gridFFT_CoilThreaded::accumulate( Array< complex<float>, 3>&X){
 
     			float wt = wty*winx(i+og_sx);
 
-    			X(i,j,k) += wt*image(i,j,k,coil);
+    			X(i,j,k) += wt*image(coil)(i,j,k);
 
     	}}}
     }
@@ -1189,7 +1205,7 @@ void gridFFT_CoilThreaded::accumulate_sos( Array< complex<float>, 3>&X){
     	  for(int j=0; j<Ny; j++){
     	    for(int i=0; i<Nx; i++){
     			// Acumulate in a thread safe manner
-    			X(i,j,k) += image(i,j,k,coil)*conj(image(i,j,k,coil));;
+    			X(i,j,k) += image(coil)(i,j,k)*conj(image(coil)(i,j,k));;
     	}}}
     }
 }
@@ -1204,7 +1220,7 @@ void gridFFT_CoilThreaded::set_image( const Array< complex<float>, 3>&X, const C
           if( (k < og_sz) || (k > (og_ez-1))){
                for(int j=0; j<Sy; j++){
                    for( int i=0; i < Sx; i++){
-                        k3d_grid(i,j,k,coil) = complex<float>(0.0,0.0);
+                        k3d_grid(coil)(i,j,k) = complex<float>(0.0,0.0);
                    }
               }
           }else{
@@ -1213,16 +1229,16 @@ void gridFFT_CoilThreaded::set_image( const Array< complex<float>, 3>&X, const C
              for(int j=0; j<Sy; j++){
                  if( (j < og_sy) || (j > (og_ey-1))){
                      for( int i=0; i < Sx; i++){
-                         k3d_grid(i,j,k,coil) = complex<float>(0.0,0.0);
+                         k3d_grid(coil)(i,j,k) = complex<float>(0.0,0.0);
                      }
                  }else{
                      float wty = wtz*winy(j);
                      for(int i=0; i<Sx; i++){
                          if( (i < og_sx) || (i > (og_ex-1))){
-                              k3d_grid(i,j,k,coil) = complex<float>(0.0,0.0);
+                              k3d_grid(coil)(i,j,k) = complex<float>(0.0,0.0);
                         }else{
                              float wt = wty*winx(i);
-                             k3d_grid(i,j,k,coil)= wt*X(i-og_sx,j-og_sy,k-og_sz)*smap(coil)(i-og_sx,j-og_sy,k-og_sz);
+                             k3d_grid(coil)(i,j,k)= wt*X(i-og_sx,j-og_sy,k-og_sz)*smap(coil)(i-og_sx,j-og_sy,k-og_sz);
                         }
                      }
                  }
@@ -1242,7 +1258,7 @@ void gridFFT_CoilThreaded::set_image( const Array< complex<float>, 3>&X){
           if( (k < og_sz) || (k > (og_ex-1))){
                for(int j=0; j<Sy; j++){
                    for( int i=0; i < Sx; i++){
-                        image(i,j,k,coil) = complex<float>(0.0,0.0);
+                        image(coil)(i,j,k) = complex<float>(0.0,0.0);
                    }
               }
           }else{
@@ -1251,16 +1267,16 @@ void gridFFT_CoilThreaded::set_image( const Array< complex<float>, 3>&X){
              for(int j=0; j<Sy; j++){
                  if( (j < og_sy) || (j > (og_ey-1))){
                      for( int i=0; i < Sx; i++){
-                         image(i,j,k,coil) = complex<float>(0.0,0.0);
+                         image(coil)(i,j,k) = complex<float>(0.0,0.0);
                      }
                  }else{
                      float wty = wtz*winy(j);
                      for(int i=0; i<Sx; i++){
                          if( (i < og_sx) || (i > (og_ex-1))){
-                              image(i,j,k,coil) = complex<float>(0.0,0.0);
+                              image(coil)(i,j,k) = complex<float>(0.0,0.0);
                         }else{
                              float wt = wty*winx(i);
-                             image(i,j,k,coil)= wt*X(i-og_sx,j-og_sy,k-og_sz);
+                             image(coil)(i,j,k)= wt*X(i-og_sx,j-og_sy,k-og_sz);
                         }
                      }
                  }
@@ -1418,7 +1434,7 @@ void gridFFT_CoilThreaded::chop_grid_forward( const Complex4D&dataA, const Array
     					complex<float>temp2 = wtx*temp;
     					float RD = real(temp2);
     					float ID = imag(temp2);
-    					float *I = reinterpret_cast<float *>(&k3d_grid(lx,ly,lz,coil));
+    					float *I = reinterpret_cast<float *>(&k3d_grid(coil)(lx,ly,lz));
     					float *R = I++;
 
     					// Prevent Race conditions in multi-threaded
@@ -1583,7 +1599,7 @@ void gridFFT_CoilThreaded::chop_grid_backward(Complex4D&dataA, const Array<float
 					}
 
 					/*This Memory Access is the Bottleneck*/
-                    temp += wtx*k3d_grid(lx,ly,lz,coil);
+                    temp += wtx*k3d_grid(coil)(lx,ly,lz);
 
 	    	}/* end lz loop */
 	  	  }/* end ly */

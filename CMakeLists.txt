@@ -176,6 +176,8 @@ add_library(RECONLIB STATIC
 	src/wavelet3D.cpp
 	src/phantom.cpp)
 target_link_libraries(RECONLIB ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} )
+set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 98)
+
 
 #--------------------------------------
 # Support for Command Line Binary
