@@ -44,7 +44,7 @@ void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z) {
 	float scale_ky = ( dft_needed(1) ) ? ( scale_y ) : ( scale_y );
 	float scale_kz = ( dft_needed(2) ) ? ( scale_z ) : ( scale_z );
 	cout << "Scaling the kspace by" << scale_kx << "," << scale_ky << "," << scale_kz << endl;
-		
+
 	// Multiply kspace by inverse
 	for (Array< Array<float, 3>, 1>::iterator miter = kx.begin(); miter != kx.end(); miter++) {
 		(*miter) *= scale_kx;
@@ -72,7 +72,7 @@ void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z) {
 }
 
 void MRI_DATA::convert_encodes_to_coils( int passes ){
-	
+
 	// This function treats encodes as sperate coils
 	// Only works if encodes are identical
 	int new_Num_Coils = (Num_Encodings/passes)*Num_Coils;
@@ -84,13 +84,13 @@ void MRI_DATA::convert_encodes_to_coils( int passes ){
 	this->kw.resizeAndPreserve(1);
 	this->kt.resizeAndPreserve(1);
 	*/
-	
+
 	cout << "Create temp array" << endl;
 	Array< Array<complex<float>,3>, 2> kdata_temp;
 	kdata_temp.setStorage(ColumnMajorArray<2>());
 	kdata_temp.resize(1, new_Num_Coils);
-			
-	cout << "Copy array" << endl;	
+
+	cout << "Copy array" << endl;
 	int count= 0;
 	for (int ee = 0; ee < this->Num_Encodings; ee ++) {
 		for (int coil = 0; coil < this->Num_Coils; coil++) {
@@ -108,11 +108,11 @@ void MRI_DATA::convert_encodes_to_coils( int passes ){
 			this->kdata(0,pos).resize(kdata_temp(0,pos).shape());
 			this->kdata(0,pos) = kdata_temp(0,pos);
 	}
-	
+
 	// Reset size
 	this->Num_Encodings = 1;
 	this->Num_Coils = new_Num_Coils;
-	
+
 }
 
 MRI_DATA MRI_DATA::subframe(int eStart, int eStop, int eStride) {
@@ -140,7 +140,7 @@ MRI_DATA MRI_DATA::subframe(int eStart, int eStop, int eStride) {
 			}
 		}
 
-		// Copy the data	
+		// Copy the data
 		for (int coil = 0; coil < data2.Num_Coils; coil++) {
 			data2.kdata(count, coil) = this->kdata(ee, coil);
 		}
@@ -195,7 +195,7 @@ void MRI_DATA::clone_attributes(MRI_DATA &data) {
 	Num_Encodings = data.Num_Encodings;;
 	Num_Coils = data.Num_Coils;
 	Num_Frames = data.Num_Frames;
-	
+
 	dft_needed = data.dft_needed;
 	trajectory_type = data.trajectory_type;
 
@@ -234,7 +234,7 @@ void MRI_DATA::init_memory(void) {
 	kdata_gating.setStorage(ColumnMajorArray<2>());
 	kdata_gating.resize(Num_Encodings, Num_Coils);
 
-	// Times 
+	// Times
 	time.resize(Num_Encodings);
 	ecg.resize(Num_Encodings);
 	resp.resize(Num_Encodings);
@@ -278,7 +278,7 @@ void MRI_DATA::init_encode(int e, int readouts, int shots, int slices) {
 	for (int coil = 0; coil < Num_Coils; coil++) {
 		kdata(e, coil).setStorage(ColumnMajorArray<3>());
 		kdata(e, coil).resize(readouts, shots, slices);
-		
+
 		kdata_gating(e, coil).setStorage(ColumnMajorArray<2>());
 		kdata_gating(e, coil).resize(shots, slices);
 	}
@@ -300,7 +300,7 @@ void MRI_DATA::init_encode(int e, int readouts, int shots, int slices) {
 
 
 void MRI_DATA::init_gating_kdata(int gating_samples) {
-	
+
 	cout << "Gating samples = " << gating_samples << endl;
 	/*kdata_gating.setStorage( ColumnMajorArray<5>());
 	kdata_gating.resize(gating_samples,Num_Readouts,Num_Slices,Num_Encodings,Num_Coils);
@@ -345,17 +345,15 @@ void MRI_DATA::demod_kdata(float demod) {
 	}
 }
 
-
-
 //
 //  Export for Berkely Advanced Reconstruction Tools
-// 
+//
 void MRI_DATA::write_bart_data(const char *fname){
 
 	// Now determine the size of the ND array
 	int total_shots = 0;
 	int total_elements = 0;
-	int xres = 1; 
+	int xres = 1;
 	// this->kx(0).length(firstDim);
 	for( int pos=0; pos < this->kx.length(firstDim); pos++){
 		total_shots = max( (int)this->kx(pos).numElements(), total_shots);
@@ -364,7 +362,7 @@ void MRI_DATA::write_bart_data(const char *fname){
 	total_elements = total_shots;
 	total_shots /= xres;
 	cout << "Bart export setting total shots to " << total_shots << endl;
-	
+
 	// Need a new export order for pregated data
 	// Time should be the last dimension
 	Array< int, 1 > export_order( this->Num_Encodings );
@@ -377,10 +375,10 @@ void MRI_DATA::write_bart_data(const char *fname){
 		}
 	}
 	}
-	
-		
+
+
 	{
-	
+
 	// Export kdata
 	Array< int,1> Dims(11);
 	Dims = 1;
@@ -390,8 +388,8 @@ void MRI_DATA::write_bart_data(const char *fname){
 	Dims(3) = this->Num_Coils;
 	Dims(4) = this->Num_Encodings/this->Num_Frames;
 	Dims(10) = this->Num_Frames; // Encodes? Encodes*Frames
-	
-	
+
+
 	// Header for kdata
 	char name_hdr[1024];
 	sprintf(name_hdr,"%s_data.hdr",fname);
@@ -404,7 +402,7 @@ void MRI_DATA::write_bart_data(const char *fname){
 		fprintf(fid,"%d ",Dims(i));
  	}
 	fclose(fid);
-	
+
 	// Write the binary data
 	char name_bin[1024];
 	sprintf(name_bin,"%s_data.cfl",fname);
@@ -412,12 +410,12 @@ void MRI_DATA::write_bart_data(const char *fname){
 	remove(name_bin);
 	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
 	for( int count=0; count < this->Num_Encodings; count++){
-		
+
 		// For reordered export
 		int encode = export_order(count);
-		
+
 		for( int coil=0; coil < this->Num_Coils; coil++){
-			
+
 			//int subframe_shots = this->kdata(encode,coil).numElements();
 			Array< complex<float>,3 >::iterator miter=this->kdata(encode,coil).begin();
 			Array< complex<float>,3 >::iterator miter_stop=this->kdata(encode,coil).end();
@@ -425,23 +423,23 @@ void MRI_DATA::write_bart_data(const char *fname){
 				complex<float>val = (*miter);
 				ofs.write( (char *)&val,sizeof(complex<float>));
 			}
-			
+
 			// If the subframe is smaller, pad with zeros to make bart happy
 			if( (int)this->kdata(encode,coil).numElements() < total_elements ){
-				complex<float>val(0.0,0.0);	
+				complex<float>val(0.0,0.0);
 				for(int i=0; i < ( total_elements - (int)this->kdata(encode,coil).numElements() ); i++){
 						ofs.write( (char *)&val,sizeof(complex<float>));
 				}
 			}
-			
+
 		}
 	}
 	ofs.close();
 	}
-	
-	
+
+
 	{
-	
+
 	// Export kx,ky,kz
 	Array< int,1> Dims(11);
 	Dims = 1;
@@ -451,7 +449,7 @@ void MRI_DATA::write_bart_data(const char *fname){
 	Dims(3) = 1;
 	Dims(4) = this->Num_Encodings/this->Num_Frames;
 	Dims(10) = this->Num_Frames; // Encodes? Encodes*Frames
-	
+
  	// Header for kdata
 	char name_hdr[1024];
 	sprintf(name_hdr,"%s_traj.hdr",fname);
@@ -464,7 +462,7 @@ void MRI_DATA::write_bart_data(const char *fname){
 		fprintf(fid,"%d ",Dims(i));
  	}
 	fclose(fid);
-	
+
 	// Write the binary data
 	char name_bin[1024];
 	sprintf(name_bin,"%s_traj.cfl",fname);
@@ -472,20 +470,20 @@ void MRI_DATA::write_bart_data(const char *fname){
 	remove(name_bin);
 	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
 	for( int count=0; count < this->Num_Encodings; count++){
-		
+
 		// For reordered export
 		int encode = export_order(count);
-		
+
 			//int subframe_shots = this->kdata(encode,coil).numElements();
-			
+
 			Array< float,3 >::iterator kx_iter=this->kx(encode).begin();
 			Array< float,3 >::iterator ky_iter=this->ky(encode).begin();
 			Array< float,3 >::iterator kz_iter=this->kz(encode).begin();
-			
+
 			Array< float,3 >::iterator kx_iter_stop=this->kx(encode).end();
 			Array< float,3 >::iterator ky_iter_stop=this->ky(encode).end();
 			Array< float,3 >::iterator kz_iter_stop=this->kz(encode).end();
-			
+
 			for(; (kx_iter!=kx_iter_stop); kx_iter++,ky_iter++,kz_iter++){
 				complex<float>val = complex<float>(*kx_iter,0);
 				ofs.write( (char *)&val,sizeof(complex<float>));
@@ -494,10 +492,10 @@ void MRI_DATA::write_bart_data(const char *fname){
 				val = complex<float>(*kz_iter,0);
 				ofs.write( (char *)&val,sizeof(complex<float>));
 			}
-			
+
 			// If the subframe is smaller, pad with zeros to make bart happy
 			if( (int)this->kx(encode).numElements() < total_elements ){
-				complex<float>val(0.0,0.0);	
+				complex<float>val(0.0,0.0);
 				for(int i=0; i < 3*( total_elements - (int)this->kx(encode).numElements() ); i++){
 						ofs.write( (char *)&val,sizeof(complex<float>));
 				}
@@ -507,9 +505,9 @@ void MRI_DATA::write_bart_data(const char *fname){
 	}
 
 
-	
+
 	{
-	
+
 	// Export kw
 	Array< int,1> Dims(11);
 	Dims = 1;
@@ -532,7 +530,7 @@ void MRI_DATA::write_bart_data(const char *fname){
 		fprintf(fid,"%d ",Dims(i));
  	}
 	fclose(fid);
-	
+
 	// Write the binary data
 	char name_bin[1024];
 	sprintf(name_bin,"%s_dcf.cfl",fname);
@@ -540,40 +538,40 @@ void MRI_DATA::write_bart_data(const char *fname){
 	remove(name_bin);
 	ofstream ofs(name_bin, ios_base::binary | ios_base::app);
 	for( int count=0; count < this->Num_Encodings; count++){
-		
+
 		// For reordered export
 		int encode = export_order(count);
-				
+
 			//int subframe_shots = this->kdata(encode,coil).numElements();
-			
+
 			Array< float,3 >::iterator kw_iter=this->kw(encode).begin();
 			Array< float,3 >::iterator kw_iter_stop=this->kw(encode).end();
-			
+
 			for(; (kw_iter!=kw_iter_stop); kw_iter++){
 				complex<float>val = complex<float>(*kw_iter,0);
 				ofs.write( (char *)&val,sizeof(complex<float>));
 			}
-			
+
 			// If the subframe is smaller, pad with zeros to make bart happy
 			if( (int)this->kw(encode).numElements() < total_elements ){
-				complex<float>val(0.0,0.0);	
+				complex<float>val(0.0,0.0);
 				for(int i=0; i < ( total_elements - (int)this->kw(encode).numElements() ); i++){
 						ofs.write( (char *)&val,sizeof(complex<float>));
 				}
 			}
-		
+
 	}
 	ofs.close();
 	}
 
-	
-	
+
+
 }
 
 
 
 //---------------------------------------------------
-//  Temporary Function to Write Data ( will be replaced by ismrmd ) 
+//  Temporary Function to Write Data ( will be replaced by ismrmd )
 //---------------------------------------------------
 
 void MRI_DATA::write_external_data(const char *fname) {
@@ -586,7 +584,7 @@ void MRI_DATA::write_external_data(const char *fname) {
 	file.AddH5Scaler("Kdata", "Num_Encodings", Num_Encodings);
 	file.AddH5Scaler("Kdata", "Num_Coils", Num_Coils);
 	file.AddH5Scaler("Kdata", "Num_Frames", Num_Frames);
-	
+
 
 	// 2D/3D Cartesian/Non-Cartesian
 	file.AddH5Scaler("Kdata", "trajectory_typeX", (int)trajectory_type(0) );
@@ -643,7 +641,7 @@ void MRI_DATA::write_external_data(const char *fname) {
 			}catch(...){
 				cout << "Can't export KZ for encode " << encode << endl;
 			}
-			
+
 		}
 
 		if (sms_type == SMSon) {
@@ -666,7 +664,7 @@ void MRI_DATA::write_external_data(const char *fname) {
 				cout << "Can't export KW for encode " << encode << endl;
 			}
 		}
-		
+
 		cout << "Exporting data" << endl << flush;
 		for (int coil = 0; coil < kdata.length(secondDim); coil++) {
 			{
@@ -684,11 +682,11 @@ void MRI_DATA::write_external_data(const char *fname) {
 
 		// Gating
 		if (ecg.numElements() != 0) {
-			
+
 			cout << "Exporting Gating " << endl << flush;
-			
+
 			{
-				try{ 
+				try{
 					stringstream ss;
 					ss << "ECG_E" << encode;
 					string s = ss.str();
@@ -732,11 +730,11 @@ void MRI_DATA::write_external_data(const char *fname) {
 				file.AddH5Array("Gating", s.c_str(), time(encode));
 				}catch(...){
 						cout << "Can't export TIME data" << endl;
-			
+
 				}
 			}
-			
-			
+
+
 			for (int coil = 0; coil < kdata.length(secondDim); coil++) {
 				try{
 					stringstream ss;
@@ -745,7 +743,7 @@ void MRI_DATA::write_external_data(const char *fname) {
 					file.AddH5Array("Gating", s.c_str(), kdata_gating(encode,coil));
 				}catch(...){
 					cout << "Can't export k0 data" << endl;
-			
+
 				}
 			}
 
@@ -887,7 +885,7 @@ void MRI_DATA::read_external_data(const char *fname) {
 	cout << "Read Noise Samples" << endl << flush;
 	file.ReadH5Array("Kdata", "Noise", noise_samples);
 
-	//file.ReadH5Array( "Gating","kdata_gating",kdata_gating);	
+	//file.ReadH5Array( "Gating","kdata_gating",kdata_gating);
 
 }
 
@@ -902,12 +900,12 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 	tictoc ctimer;
 
 	// calculate kr
-	cout << "Using kr = 0  to " << kr_thresh << " for SVD in coil compression " << endl << flush; 
-	
+	cout << "Using kr = 0  to " << kr_thresh << " for SVD in coil compression " << endl << flush;
+
 	// Get the values of kspace points less than kr_thresh
 	int Num_Pixels= 0;
 	float kr_thresh_squared = kr_thresh*kr_thresh;
-	
+
 	#pragma omp parallel for reduction(+:Num_Pixels)
 	for(int encode = 0; encode < kx.length(firstDim); encode++){
 		// Assign iterators to go over the data
@@ -917,8 +915,8 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 		Array< float, 3>::const_iterator kx_iter_end=this->kx(encode).end();
 		Array< float, 3>::const_iterator ky_iter_end=this->ky(encode).end();
 		Array< float, 3>::const_iterator kz_iter_end=this->kz(encode).end();
-		
-		// Iterate through and check to see if less than the kr_thresh		
+
+		// Iterate through and check to see if less than the kr_thresh
 		for(; (kx_iter!=kx_iter_end) && (ky_iter!=ky_iter_end) && (kz_iter!=kz_iter_end); kx_iter++,ky_iter++,kz_iter++){
 			float kr = pow((*kx_iter), 2.0) + pow((*ky_iter), 2.0) + pow((*kz_iter), 2.0);
 			if( kr < kr_thresh_squared ){
@@ -926,7 +924,7 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 			}
 		}
 	}
-	
+
 	// Allocate memory for the data
 	arma::cx_fmat all_data;
 	all_data.zeros(Num_Pixels, Num_Coils);
@@ -943,7 +941,7 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 						for(int coil=0; coil < this->Num_Coils; coil++){
 							all_data(idx,coil) = kdata(encode,coil)(pos,view,slice);
 						}
-						idx++;				
+						idx++;
 					}
 				}// pos
 			}//view
@@ -965,25 +963,25 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 
 	arma::cx_fmat VV = V.cols(0, (int)thresh - 1);
 	VV.print("V");
-	
+
 	int Num_VCoils = (int)thresh; // number of virtual coils
 	cout << "Rotate to " << Num_VCoils << " coils " << endl << flush;
-	
+
 	ctimer.tic();
 	for (int encode = 0; encode < Num_Encodings; encode++) {
-    
+
 		for( int slice =0; slice < kx(encode).length(thirdDim); slice++){
-		
+
 			#pragma omp parallel for
 			for( int view=0; view< kx(encode).length(secondDim); view++ ){
-				
+
 				Array< complex<float>, 1> tmp_data(Num_Coils);
 				for( int pos=0; pos< kx(encode).length(firstDim); pos++ ){
-					
+
 					for (int coil = 0; coil < Num_Coils; coil++) {
 						tmp_data(coil) = kdata(encode,coil)(pos,view,slice);
 					} // coil
-				
+
 					for( int vcoil=0; vcoil<Num_VCoils; vcoil++ ){
 						complex<float> tmp(0.0,0.0);
 						for (int coil = 0; coil<Num_Coils; coil++) {
@@ -997,7 +995,7 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 	} // encode
 	cout << "took " << ctimer << " s to rotate data" << endl;
 
-	/* Temp data structure 
+	/* Temp data structure
 	Array< Array<complex<float>,3>, 2> kdata2(Num_Encodings,Num_VCoils,ColumnMajorArray<2>());
 	for( int encode = 0; encode < Num_Encodings; encode++){
 		for( int coil =0; coil < Num_VCoils; coil++){
@@ -1095,7 +1093,3 @@ void MRI_DATA::whiten(void) {
 		}
 	}
 }
-
-
-
-
