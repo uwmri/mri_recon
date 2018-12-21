@@ -2129,6 +2129,11 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
                                     Array< Array< complex<float>,3 >, 1>diff_data_all;
 
                                     if(this->parallel_coils){
+                                        // K-space to Image
+                                        Array< Array<complex<float>,3> , 1> TEMP_KDATA = data.kdata(act_e,Range::all());
+                                        Array< Array< complex<float>,3 >, 1>TEMP_POINT = Alloc4DContainer< complex<float> >( kxE.length(firstDim),kxE.length(secondDim),kxE.length(thirdDim),data.Num_Coils);
+                                        diff_data_all.reference(TEMP_POINT);
+
                                         // Ex
                                         gridding_CoilThreaded.backward(X(store_t,e),smaps, diff_data_all,kxE,kyE,kzE,TimeWeight);
 
