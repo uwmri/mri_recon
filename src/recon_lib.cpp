@@ -2172,6 +2172,10 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 
                     }
 
+                    // Reset X after max_eigen calculation
+                    for( Array< Array<complex<float>,3>,2>::iterator riter =X.begin(); riter != X.end(); riter++){
+                          *riter=0;
+                    }
 
 
 					  cout << "Iterate" << endl;
