@@ -89,7 +89,12 @@ class RECON{
 	  int rcencodes;
 
 	  int rc_frame_start;
-	  int step_update_frequency;
+
+      int cauchy_update_number;
+      int max_eigen_iterations;
+
+      enum IterativeStepType {STEP_CAUCHY,STEP_MAXEIG};
+      IterativeStepType iterative_step_type;
 
 	  // Code to rotate into low resolution images
 	  bool phase_rotation;

@@ -105,7 +105,9 @@ void RECON::set_defaults( void){
 	admm_max_iter = 20;
 	admm_rho = 0.5;
 
-	step_update_frequency = 1;
+	cauchy_update_number = 30;
+    max_eigen_iterations = 30;
+    iterative_step_type = STEP_CAUCHY;
 }
 
 // ----------------------
@@ -167,6 +169,7 @@ void RECON::help_message(void){
 
 	cout << "Iterative Recon Control:" << endl;
 	help_flag("-max_iter []","max iterations for iterative recons");
+    help_flag("-iterative_step_type []","cauchy/maxeig[default]");
 
 	cout << "Coil Control:" << endl;
 	help_flag("-espirit","use ESPIRIT to get coil sensitivies");
@@ -323,7 +326,21 @@ void RECON::parse_commandline(int numarg, char **pstring){
         trig_flag(true,"-coil_rejection",coil_rejection_flag);
         float_flag("-coil_rejection_radius", coil_rejection_radius);
         int_flag("-coil_rejection_shape", coil_rejection_shape);
-		int_flag("-step_update_frequency",step_update_frequency);
+		int_flag("-cauchy_update_number",cauchy_update_number);
+
+        // Encode Transforms
+        }else if(strcmp("-iterative_step_type",pstring[pos]) == 0) {
+            pos++;
+            if( pos==numarg){
+                cout << "Please provide step type for gradient descent cauchy/maxeig[default]" << endl;
+                exit(1);
+                trig_flag(STEP_CAUCHY,"cauchy",iterative_step_type);
+                trig_flag(STEP_MAXEIG,"maxeig",iterative_step_type);
+            }else{
+                cout << "Please provide step type for gradient descent cauchy/maxeig[default]" << endl;
+                exit(1);
+            }
+
 
 		// Encode Transforms
 		}else if(strcmp("-smap_mask",pstring[pos]) == 0) {
@@ -2059,10 +2076,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
                     //
                     // Max Eigen calculations
                     //
-                    bool max_eigen_step_size = true;
-                    if( max_eigen_step_size ){
-                        int max_eigen_iterations = 30;
 
+                    if( iterative_step_type == STEP_MAXEIG ){
                         // Initialize x to random number
                         cout << "Seeding X" << endl;
                         for(int e=0; e< rcencodes; e++){
@@ -2271,7 +2286,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								}
 
 								// Now Get Scale factor (for Cauchy-Step Size)
-								if( ((iteration % this->step_update_frequency) == 0) && (max_eigen_step_size==false) ){
+								if( (iteration < this->cauchy_update_number) && (this->iterative_step_type == STEP_CAUCHY)){
 
 									P=0;
                                     if(this->parallel_coils){
@@ -2325,8 +2340,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 						  export_slice( R(0,0),"R.dat");
 
 						  // Step in direction
-                          if( ((iteration % this->step_update_frequency) == 0) && (max_eigen_step_size==false) ){
-
+                          if( (iteration < this->cauchy_update_number) && (this->iterative_step_type == STEP_CAUCHY)){
 						  	complex<double>scale_double = (scale_RhR/scale_RhP);
 						  	step_size = complex<float>( real(scale_double),imag(scale_double) );
 						  }
