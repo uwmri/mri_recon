@@ -208,9 +208,12 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 	}// Block (threaded)
 	
 	float amp_scale = ( 1 + clear_amp*exp( -((float)iter)/clear_t2));
-	smax = max(sblocks) * amp_scale;
+	
+	vec nonzero_sblocks = sblocks.elem( find(sblocks) );
+	vec sorted_sblocks  = sort(nonzero_sblocks);
+	smax = median(sorted_sblocks) * amp_scale;
 	cout << "Amp scale " << amp_scale << endl;
-	cout << "Max singular value is " << max(sblocks) << endl;
+	//cout << "Max singular value is " << max(sblocks) << endl;
 	cout << "Median singular value is" << smax << endl;
 }
 
@@ -322,9 +325,12 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, i
 	}// Block (threaded)
 
 	float amp_scale = ( 1 + clear_amp*exp( -((float)iter)/clear_t2));
-	smax = max(sblocks) * amp_scale;
+
+	vec nonzero_sblocks = sblocks.elem( find(sblocks) );
+	vec sorted_sblocks  = sort(nonzero_sblocks);
+	smax = median(sorted_sblocks) * amp_scale;
 	cout << "Amp scale " << amp_scale << endl;
-	cout << "Max singular value is " << max(sblocks) << endl;
+	//cout << "Max singular value is " << max(sblocks) << endl;
 	cout << "Median singular value is" << smax << endl;
 }
 
