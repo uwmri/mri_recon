@@ -6,15 +6,26 @@ void NDarray::fftshift( Array< complex<float>,3>& temp){
 			for(int i=0; i<temp.extent(firstDim);i++){
 				float mod = ((float)( 2*(( i+j+k)%2) - 1));
 				temp(i,j,k) *= mod;
-			}}}	
+			}}}
 }
-
+void NDarray::fftshift( Array< complex<float>,4>& temp){
+	for(int t=0; t<temp.extent(fourthDim);t++){
+		for(int k=0; k<temp.extent(thirdDim);k++){
+			for(int j=0; j<temp.extent(secondDim);j++){
+				for(int i=0; i<temp.extent(firstDim);i++){
+					float mod = ((float)( 2*(( i+j+k+t)%2) - 1));
+					temp(i,j,k,t) *= mod;
+				}
+			}
+		}
+	}
+}
 
 void NDarray::nested_workaround( long index, int *N,int *idx, int total){
 	long tempi = index;
 	for( int pos=0; pos < total; pos++){
 		idx[pos] = tempi % N[pos];
-		tempi = (tempi-idx[pos]) / N[pos];		
+		tempi = (tempi-idx[pos]) / N[pos];
 	}
 }
 
@@ -22,10 +33,10 @@ void NDarray::ifft( Array< complex<float>,3>& temp){
 	// Shift to Center of K-space
 	fftshift( temp);
 
-	// Do FFT 
+	// Do FFT
 	fftwf_complex *ptr=NULL;
 	complex<float>*data=NULL;
-	if(temp.isStorageContiguous()){ 
+	if(temp.isStorageContiguous()){
 		ptr = reinterpret_cast<fftwf_complex*>(temp.data());
 	}else{
 		cout << "Warning:: Doing FFT of Non-Contiguous Data. Will be slow!" << endl;
@@ -38,12 +49,12 @@ void NDarray::ifft( Array< complex<float>,3>& temp){
 					pos++;
 				}}}
 		ptr = reinterpret_cast<fftwf_complex*>(data);
-	}	
+	}
 
 	fftwf_plan fft_plan = fftwf_plan_dft_3d(temp.length(thirdDim),temp.length(secondDim),temp.length(firstDim),ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
-	fftwf_execute(fft_plan);	
+	fftwf_execute(fft_plan);
 
-	if(!temp.isStorageContiguous()){ 
+	if(!temp.isStorageContiguous()){
 		int pos=0;
 		for(int k=0;k<temp.extent(thirdDim);k++){
 			for(int j=0;j<temp.extent(secondDim);j++){
@@ -52,7 +63,7 @@ void NDarray::ifft( Array< complex<float>,3>& temp){
 					pos++;
 				}}}
 		free(ptr);
-	}	
+	}
 
 	// Fix Phase from Shift
 	fftshift( temp);
@@ -61,19 +72,76 @@ void NDarray::ifft( Array< complex<float>,3>& temp){
 	float scale = 1.0/sqrt( (float)temp.extent(thirdDim) * (float)temp.extent(secondDim) * (float)temp.extent(firstDim));
 	temp *= scale;
 
-	// Cleanup	
+	// Cleanup
 	fftwf_destroy_plan(fft_plan);
 }
-
-
-void NDarray::fft( Array< complex<float>,3>& temp){
+void NDarray::ifft( Array< complex<float>,4>& temp){
 	// Shift to Center of K-space
 	fftshift( temp);
 
-	// Do FFT 
+	// Do FFT
 	fftwf_complex *ptr=NULL;
 	complex<float>*data=NULL;
-	if(temp.isStorageContiguous()){ 
+	if(temp.isStorageContiguous()){
+		ptr = reinterpret_cast<fftwf_complex*>(temp.data());
+	}else{
+		cout << "Warning:: Doing FFT of Non-Contiguous Data. Will be slow!" << endl;
+		data = new complex<float>[temp.numElements()];
+		int pos=0;
+		for(int t=0; t<temp.extent(fourthDim);t++){
+			for(int k=0;k<temp.extent(thirdDim);k++){
+				for(int j=0;j<temp.extent(secondDim);j++){
+					for(int i=0;i<temp.extent(firstDim);i++){
+						data[pos++]=temp(i,j,k,t);
+					}
+				}
+			}
+		}
+		ptr = reinterpret_cast<fftwf_complex*>(data);
+	}
+
+	int n[4];
+	n[0] = temp.length(firstDim);
+	n[1] = temp.length(secondDim);
+	n[2] = temp.length(thirdDim);
+	n[3] = temp.length(fourthDim);
+	fftwf_plan fft_plan = fftwf_plan_dft(4,n,ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
+	fftwf_execute(fft_plan);
+
+	if(!temp.isStorageContiguous()){
+		int pos=0;
+		for(int t=0; t<temp.extent(fourthDim);t++){
+			for(int k=0;k<temp.extent(thirdDim);k++){
+				for(int j=0;j<temp.extent(secondDim);j++){
+					for(int i=0;i<temp.extent(firstDim);i++){
+						temp(i,j,k,t)=data[pos++];
+					}
+				}
+			}
+		}
+		free(ptr);
+	}
+
+	// Fix Phase from Shift
+	fftshift( temp);
+
+	// Scale
+	float scale = 1.0/sqrt( (float)temp.extent(fourthDim) * (float)temp.extent(thirdDim) * (float)temp.extent(secondDim) * (float)temp.extent(firstDim));
+	temp *= scale;
+
+	// Cleanup
+	fftwf_destroy_plan(fft_plan);
+}
+
+void NDarray::fft( Array< complex<float>,3>& temp){
+
+	// Shift to Center of K-space
+	fftshift( temp);
+
+	// Do FFT
+	fftwf_complex *ptr=NULL;
+	complex<float>*data=NULL;
+	if(temp.isStorageContiguous()){
 		ptr = reinterpret_cast<fftwf_complex*>(temp.data());
 	}else{
 		cout << "Warning:: Doing FFT of Non-Contiguous Data. Will be slow!" << endl;
@@ -86,12 +154,12 @@ void NDarray::fft( Array< complex<float>,3>& temp){
 					pos++;
 				}}}
 		ptr = reinterpret_cast<fftwf_complex*>(data);
-	}	
+	}
 
 	fftwf_plan fft_plan = fftwf_plan_dft_3d(temp.length(thirdDim),temp.length(secondDim),temp.length(firstDim),ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
-	fftwf_execute(fft_plan);	
+	fftwf_execute(fft_plan);
 
-	if(!temp.isStorageContiguous()){ 
+	if(!temp.isStorageContiguous()){
 		int pos=0;
 		for(int k=0;k<temp.extent(thirdDim);k++){
 			for(int j=0;j<temp.extent(secondDim);j++){
@@ -100,7 +168,7 @@ void NDarray::fft( Array< complex<float>,3>& temp){
 					pos++;
 				}}}
 		free(ptr);
-	}	
+	}
 
 	// Fix Phase from Shift
 	fftshift( temp);
@@ -109,10 +177,67 @@ void NDarray::fft( Array< complex<float>,3>& temp){
 	float scale = 1.0/sqrt( (float)temp.extent(thirdDim) * (float)temp.extent(secondDim) * (float)temp.extent(firstDim));
 	temp *= scale;
 
-	// Cleanup	
+	// Cleanup
 	fftwf_destroy_plan(fft_plan);
 }
+void NDarray::fft( Array< complex<float>,4>& temp){
 
+	// Shift to Center of K-space
+	fftshift( temp);
+
+	// Do FFT
+	fftwf_complex *ptr=NULL;
+	complex<float>*data=NULL;
+	if(temp.isStorageContiguous()){
+		ptr = reinterpret_cast<fftwf_complex*>(temp.data());
+	}else{
+		cout << "Warning:: Doing FFT of Non-Contiguous Data. Will be slow!" << endl;
+		data = new complex<float>[temp.numElements()];
+		int pos=0;
+		for(int t=0; t<temp.extent(fourthDim);t++){
+			for(int k=0;k<temp.extent(thirdDim);k++){
+				for(int j=0;j<temp.extent(secondDim);j++){
+					for(int i=0;i<temp.extent(firstDim);i++){
+						data[pos++]=temp(i,j,k,t);
+					}
+				}
+			}
+		}
+		ptr = reinterpret_cast<fftwf_complex*>(data);
+	}
+
+	int n[4];
+	n[0] = temp.length(firstDim);
+	n[1] = temp.length(secondDim);
+	n[2] = temp.length(thirdDim);
+	n[3] = temp.length(fourthDim);
+	fftwf_plan fft_plan = fftwf_plan_dft(4,n,ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
+	fftwf_execute(fft_plan);
+
+	if(!temp.isStorageContiguous()){
+		int pos=0;
+		for(int t=0; t<temp.extent(fourthDim);t++){
+			for(int k=0;k<temp.extent(thirdDim);k++){
+				for(int j=0;j<temp.extent(secondDim);j++){
+					for(int i=0;i<temp.extent(firstDim);i++){
+						temp(i,j,k,t)=data[pos++];
+					}
+				}
+			}
+		}
+		free(ptr);
+	}
+
+	// Fix Phase from Shift
+	fftshift( temp);
+
+	// Scale
+	float scale = 1.0/sqrt( (float)temp.extent(fourthDim) * (float)temp.extent(thirdDim) * (float)temp.extent(secondDim) * (float)temp.extent(firstDim));
+	temp *= scale;
+
+	// Cleanup
+	fftwf_destroy_plan(fft_plan);
+}
 
 
 // FFT in only one dimension
@@ -121,7 +246,7 @@ void NDarray::fft( Array< complex<float>,3>& temp, int dim){
 }
 
 void NDarray::ifft( Array< complex<float>,3>& temp, int dim){
-	
+
 	fft3( temp, dim, FFTW_BACKWARD,1);
 }
 
@@ -155,9 +280,9 @@ double NDarray::Dmin( const Array< Array<double,2>,1> &A){
 }
 
 void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool chop){
-	
-	
-	// Get Size		
+
+
+	// Get Size
 	int N;
 	switch(dim){
 		case(0):{ N=temp.length(firstDim); }break;
@@ -168,33 +293,33 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 			exit(1);
 		}
 	}
-	
+
 	fftwf_plan plan;
-	
+
 	#pragma omp critical
 	{
 		//  FFT planning is not thread safe
 		//fftwf_init_threads();
 		//fftwf_plan_with_nthreads(1);
-	
+
 		// Get a plan but never use
 		complex<float> *data_temp = new complex<float>[N];
 		fftwf_complex *ptr = reinterpret_cast<fftwf_complex*>(data_temp);
 		plan = fftwf_plan_dft_1d(N,ptr,ptr,direction, FFTW_MEASURE);
 		delete [] data_temp;
 	}
-	
-	
+
+
 	float scale = 1./sqrt((float)N);
-	
+
 	switch(dim){
 		case(0):{
 			#pragma omp parallel for
 			for(int k=0;k<temp.extent(thirdDim);k++){
-		
+
 			complex<float> *data = new complex<float>[N];
 			fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
-			
+
 			for(int j=0;j<temp.extent(secondDim);j++){
 				// Copy
 				if(chop==1){
@@ -205,11 +330,11 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 					for(int i=0;i<temp.extent(firstDim);i++){
 						data[i] = temp(i,j,k);
 					}
-				}	
-							
+				}
+
 				// FFT
 				fftwf_execute_dft(plan,data_ptr,data_ptr);
-				
+
 				// Copy Back
 				if(chop){
 					for(int i=0;i<temp.extent(firstDim);i++){
@@ -224,16 +349,16 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 			delete [] data;
 			}
 		}break;
-	
+
 		case(1):{
 			#pragma omp parallel for
 			for(int k=0;k<temp.extent(thirdDim);k++){
-		
+
 			complex<float> *data = new complex<float>[N];
 			fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
-			
+
 			for(int i=0;i<temp.extent(firstDim);i++){
-				
+
 				// Copy
 				if(chop==1){
 					for(int j=0;j<temp.extent(secondDim);j++){
@@ -246,7 +371,7 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 				}
 				// FFT
 				fftwf_execute_dft(plan,data_ptr,data_ptr);
-				
+
 				// Copy Back
 				if(chop){
 					for(int j=0;j<temp.extent(secondDim);j++){
@@ -260,18 +385,18 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 			}
 			delete [] data;
 			}
-		
+
 		}break;
-	
+
 		case(2):{
 			#pragma omp parallel for
 			for(int j=0;j<temp.extent(secondDim);j++){
-				
+
 			complex<float> *data = new complex<float>[N];
 			fftwf_complex *data_ptr = reinterpret_cast<fftwf_complex*>(data);
-			
+
 			for(int i=0;i<temp.extent(firstDim);i++){
-				
+
 				// Copy
 				if(chop){
 					for(int k=0;k<temp.extent(thirdDim);k++){
@@ -282,10 +407,10 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 						data[k] = temp(i,j,k);
 					}
 				}
-				
+
 				// FFT
 				fftwf_execute_dft(plan,data_ptr,data_ptr);
-				
+
 				// Copy Back
 				if(chop){
 					for(int k=0;k<temp.extent(thirdDim);k++){
@@ -296,16 +421,15 @@ void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool
 						temp(i,j,k)= data[k]*scale;
 					}
 				}
-				
+
 			}
-			
+
 			delete [] data;
 			}
-			
+
 		}break;
 	}// Switch
-	
-	// Cleanup	
+
+	// Cleanup
 	fftwf_destroy_plan(plan);
 }
-

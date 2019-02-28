@@ -21,8 +21,11 @@ using namespace blitz;
 
 // FFT Libraries complex Float
 void fftshift( Array<complex<float>,3>& temp);
+void fftshift( Array<complex<float>,4>& temp);
 void fft( Array<complex<float>,3>& temp);
+void fft( Array<complex<float>,4>& temp);
 void ifft( Array<complex<float>,3>& temp);
+void ifft( Array<complex<float>,4>& temp);
 
 void fft( Array<complex<float>,3>& temp,int);
 void ifft( Array<complex<float>,3>& temp,int);
