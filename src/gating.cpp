@@ -490,67 +490,72 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 		}break;
 		
 		case(RESP_WEIGHT):{
-
-			  cout << "Copying Resp Waveform" << endl;
+                                      
+                          cout << "Time Sorting Data" << endl;
 
 			  // Use Aradillo Sort function
-			  arma::vec time(resp_weight.numElements());
-			  arma::vec resp(resp_weight.numElements());
-			  arma::vec arma_resp_weight(resp_weight.numElements());
-			  arma::vec time_linear_resp(resp_weight.numElements());
-			  arma::vec time_sort_resp_weight(resp_weight.numElements());
-
-			  // Put into Matrix for Armadillo
-			  int count = 0;
-			  for(int e=0; e< resp_weight.length(thirdDim); e++){
-				  for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-					  for(int view=0; view< resp_weight.length(firstDim); view++){
-						  time(count) = data.time(e)(view,slice);
-						  resp(count) = resp_weight(e)(view,slice);
-						  count++;
-			  }}}
+			  arma::vec time = array_to_vec( data.time );
+			  arma::vec resp = array_to_vec( data.resp );
 			  time.save("Time.txt",arma::raw_ascii);
 			  resp.save("Resp.txt",arma::raw_ascii);
 
-			  // Sort
-			  arma::uvec idx = arma::sort_index(time); 
-
+			  // Vectors for working on data
+			  int N = resp.n_elem;
+			  arma::vec arma_resp_weight = arma::zeros<arma::vec>(N);
+			  arma::vec time_linear_resp  = arma::zeros<arma::vec>(N);
+			  arma::vec time_sort_resp_weight = arma::zeros<arma::vec>(N);
+			  
+			   // Sort
+			  arma::uvec time_idx = arma::sort_index(time); 
+			  time_idx.save("Sorted.txt", arma::raw_ascii);
+			  
 			  // Copy Resp
-			  idx.save("Sorted.dat", arma::raw_ascii);
-			  for(int i=0; i< (int)resp_weight.numElements(); i++){
-				  time_linear_resp( i )= resp( idx(i));
+			  for(int i=0; i< N; i++){
+				  time_linear_resp( i )= resp( time_idx(i));
+				  
 			  }
 			  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
-
-
-			  // Size of histogram
+                          
+                          // This version uses a 10 second window to define the threshold and weights.
+                          // Size of histogram
 			  cout << "Time range = " << ( Dmax(data.time)-Dmin(data.time) ) << endl;
-			  int fsize = (int)( 5.0 / (  ( Dmax(data.time)-Dmin(data.time) ) / data.time.numElements() ) ); // 10s filter / delta time
+			  int fsize = (int)( 5.0 / (  ( Dmax(data.time)-Dmin(data.time) ) / resp.n_elem ) ); // 10s filter / delta time
 
 			  // Now Filter
-			  cout << "Estimating median within " << resp_gate_efficiency*100 << "% efficiency window of first 10sec of data" << fsize << endl;
-							
-			  arma::vec temp = time_linear_resp.rows( 100,100+2*fsize);
-			  arma::vec temp2= sort(temp);
-			  double med_resp = temp2( (int)( (double)temp2.n_elem*( 1.0- resp_gate_efficiency/2.0 )));
-			  double sigma = temp2(temp2.n_elem-1) - temp2((int)((double)temp2.n_elem*(1.0 - resp_gate_efficiency )));
-				 
-			for(int i=0; i< (int)time_linear_resp.n_elem; i++){
-				  arma_resp_weight(idx(i))= ( 1.0 / (abs(med_resp - time_linear_resp(i)) + sigma));
-				  time_sort_resp_weight(i ) =arma_resp_weight(idx(i));
-			}
-			time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
-			arma_resp_weight.save("Weight.txt",arma::raw_ascii);
+			  cout << "Stencil Radius = " << fsize << endl;
+			  for(int i=0; i< N; i++){
+				  int start = i - fsize;
+				  int stop  = i + fsize;
+				  if(start < 0){
+					  stop  = 2*fsize;
+					  start = 0; 
+				  }
 
-			// Copy Back
-			count = 0;
-			for(int e=0; e< resp_weight.length(thirdDim); e++){
-			  	for(int slice=0; slice< resp_weight.length(secondDim); slice++){
-					for(int view=0; view< resp_weight.length(firstDim); view++){
-					  resp_weight(view,slice,e)=arma_resp_weight(count);
-					  count++;
-			}}}
-			
+				  if(stop >=  N){
+					  stop  = N -1;
+					  start = time_linear_resp.n_elem - 1 - 2*fsize;
+				  }
+                                  
+                                  arma::vec temp = time_linear_resp.rows(start, stop);
+                                  arma::vec temp2= sort(temp);
+			          double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0 - resp_gate_efficiency )));
+				  double decay_const = 3.0/arma::max(temp);
+                                  //cout << "Decay Const: " << decay_const << endl;
+
+                                  // For exponentially decaying weights. Implemented Soft-Gating as in: https://doi.org/10.1002/mrm.26958
+                                  arma_resp_weight(i) = ( time_linear_resp(i) >= thresh ) ? ( 1.0 ) : ( exp(decay_const*( (time_linear_resp(i)-thresh) ) ) );
+
+                                  time_sort_resp_weight(i) = arma_resp_weight(i);
+			  }
+                          // Save
+			  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
+			  arma_resp_weight.save("Weight.txt",arma::raw_ascii);
+                          
+                          // Copy Back
+			  vec_to_array( resp_weight, arma_resp_weight);
+	                  
+
+		
 		}break;
 		
 		case(RESP_NONE):
