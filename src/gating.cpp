@@ -490,7 +490,10 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 		}break;
 		
 		case(RESP_WEIGHT):{
-                                      
+                          if( correct_resp_drift ==1){
+                              cout << "Correcting Drift" << endl;
+                              filter_resp( data );
+                          }           
                           cout << "Time Sorting Data" << endl;
 
 			  // Use Aradillo Sort function
@@ -521,31 +524,20 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 			  cout << "Time range = " << ( Dmax(data.time)-Dmin(data.time) ) << endl;
 			  int fsize = (int)( 5.0 / (  ( Dmax(data.time)-Dmin(data.time) ) / resp.n_elem ) ); // 10s filter / delta time
 
+                          arma::vec temp = time_linear_resp;
+                          arma::vec temp2= sort(temp);
+                          double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0 - resp_gate_efficiency )));
+			  double decay_const = 3.0/arma::max(temp);
+                          //cout << "Decay Const: " << decay_const << endl;
+
+
 			  // Now Filter
 			  cout << "Stencil Radius = " << fsize << endl;
 			  for(int i=0; i< N; i++){
-				  int start = i - fsize;
-				  int stop  = i + fsize;
-				  if(start < 0){
-					  stop  = 2*fsize;
-					  start = 0; 
-				  }
-
-				  if(stop >=  N){
-					  stop  = N -1;
-					  start = time_linear_resp.n_elem - 1 - 2*fsize;
-				  }
-                                  
-                                  arma::vec temp = time_linear_resp.rows(start, stop);
-                                  arma::vec temp2= sort(temp);
-			          double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0 - resp_gate_efficiency )));
-				  double decay_const = 3.0/arma::max(temp);
-                                  //cout << "Decay Const: " << decay_const << endl;
-
                                   // For exponentially decaying weights. Implemented Soft-Gating as in: https://doi.org/10.1002/mrm.26958
-                                  arma_resp_weight(i) = ( time_linear_resp(i) >= thresh ) ? ( 1.0 ) : ( exp(decay_const*( (time_linear_resp(i)-thresh) ) ) );
+                                  arma_resp_weight(time_idx(i)) = ( time_linear_resp(i) >= thresh ) ? ( 1.0 ) : (exp(-decay_const*( (thresh-time_linear_resp(i)) ) ) );
 
-                                  time_sort_resp_weight(i) = arma_resp_weight(i);
+                                  time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
 			  }
                           // Save
 			  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
