@@ -121,6 +121,7 @@ int main(int argc, char **argv){
 			// Read in External Data Format
 			data.read_external_data(recon.filename);
 			data.scale_fov(1./recon.zoom_x,1./recon.zoom_y,1./recon.zoom_z);
+            data.demod_kdata( recon.demod_freq);
 		}break;
 	}
 
@@ -138,7 +139,7 @@ int main(int argc, char **argv){
     for(int ee=0; ee<recon.rcencodes; ee++){
 		for(int tt=0; tt<recon.rcframes; tt++){
             char fname[80];
-			sprintf(fname,"X_%03d_%03d.dat.complex",ee,tt);
+			sprintf(fname,"X_%03d_%03d.dat",ee,tt);
             Array< float, 3> IMAGE;
             IMAGE.setStorage( ColumnMajorArray<3>());
             IMAGE.resize(X(0,0).shape());
@@ -146,15 +147,13 @@ int main(int argc, char **argv){
             clearRAW.AddH5Array("IMAGES",fname,IMAGE);
     }}
 
-	for(int ee=0; ee<recon.rcencodes; ee++){
+    HDF5 complexRAW("ComplexImages.h5","w");
+    for(int ee=0; ee<recon.rcencodes; ee++){
 		for(int tt=0; tt<recon.rcframes; tt++){
-			char fname[80];
-			sprintf(fname,"X_%03d_%03d.dat.complex",ee,tt);
-			ArrayWrite( X(tt,ee),fname);
+            char fname[80];
 			sprintf(fname,"X_%03d_%03d.dat",ee,tt);
-			ArrayWriteMag( X(tt,ee),fname);
-	}}
-
+            complexRAW.AddH5Array("IMAGES",fname,X(tt,ee));
+    }}
 
 	return(0);
 }
