@@ -109,7 +109,7 @@ void RECON::set_defaults( void){
 
 	cauchy_update_number = 30;
     max_eigen_iterations = 30;
-    iterative_step_type = STEP_CAUCHY;
+    iterative_step_type = STEP_MAXEIG;
 }
 
 // ----------------------
