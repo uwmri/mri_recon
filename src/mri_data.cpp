@@ -328,14 +328,14 @@ MRI_DATA::MRI_DATA(void) {
 
 void MRI_DATA::demod_kdata(float demod) {
 
-	for (int c = 0; c < Num_Coils; c++) {
-		for (int e = 0; e < Num_Encodings; e++) {
+	for (int e = 0; e < Num_Encodings; e++) {
+        for (int c = 0; c < Num_Coils; c++) {
 
-			// Each Dataset
-			for (int slice = 0; slice < kdata(e, c).length(thirdDim); slice++) {
+		// Each Dataset
+		for (int slice = 0; slice < kdata(e, c).length(thirdDim); slice++) {
 
-#pragma omp parallel for
-				for (int readout = 0; readout < kdata(e, c).length(secondDim); readout++) {
+                #pragma omp parallel for
+                for (int readout = 0; readout < kdata(e, c).length(secondDim); readout++) {
 					for (int i = 0; i < kdata(e, c).length(firstDim); i++) {
 						kdata(e, c)(i, readout, slice) *= polar<float>(1.0, demod*2.0*arma::datum::pi*kt(e)(i, readout, slice));
 					}

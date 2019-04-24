@@ -12,7 +12,7 @@ int main(int argc, char **argv){
     // Initialize Recon - reading the command line
     // ------------------------------------
     RECON recon(argc,argv);
-    if(	recon.threads != -1){
+    if(     recon.threads != -1){
         omp_set_num_threads( recon.threads );
     }
 
@@ -53,7 +53,7 @@ int main(int argc, char **argv){
                                  cout << "Phantom " << endl;
                                  PHANTOM phantom;
                                  phantom.read_commandline(argc,argv);
-                                 phantom.init(recon.rcxres,recon.rcyres,recon.rczres,recon.rcframes);
+                                 phantom.init(recon.rxcres,recon.rcyres,recon.rczres,recon.rcframes);
 
 
                                  // More accurate gridding for Phantom
@@ -88,9 +88,9 @@ int main(int argc, char **argv){
                                      cout << "Smap " << endl << flush;
                                      phantom.update_smap_biotsavart(coil,data.Num_Coils);
 
-                                     // Update Image (Entire Filled Array)
+                                     // Update Image
                                      Array<complex<float>,3>kdataE = data.kdata(e,coil); // Get one encoding, one coil
-                                     kdataE=0;	// Zero data
+                                     kdataE=0;       // Zero data
 
                                      //Temp array to zero and fill.
                                      Array<complex<float>,3>temp(kdataE.shape(),ColumnMajorArray<3>());
@@ -102,7 +102,6 @@ int main(int argc, char **argv){
 
                                          // Weight Image
                                          TimeWeight = 1;
-                                         //TimeWeight = kwE;
                                          gate.weight_data( TimeWeight,e, kxE, kyE,kzE,t,GATING::NON_ITERATIVE,GATING::TIME_FRAME);
 
                                          // Now Inverse Grid
@@ -128,6 +127,7 @@ int main(int argc, char **argv){
                                   // Read in External Data Format
                                   data.read_external_data(recon.filename);
                                   data.scale_fov(1./recon.zoom_x,1./recon.zoom_y,1./recon.zoom_z);
+                                  data.demod_kdata( recon.demod_freq);
                               }break;
     }
 
@@ -145,7 +145,7 @@ int main(int argc, char **argv){
     for(int ee=0; ee<recon.rcencodes; ee++){
         for(int tt=0; tt<recon.rcframes; tt++){
             char fname[80];
-            sprintf(fname,"X_%03d_%03d.dat.complex",ee,tt);
+            sprintf(fname,"X_%03d_%03d.dat",ee,tt);
             Array< float, 3> IMAGE;
             IMAGE.setStorage( ColumnMajorArray<3>());
             IMAGE.resize(X(0,0).shape());
@@ -153,15 +153,13 @@ int main(int argc, char **argv){
             clearRAW.AddH5Array("IMAGES",fname,IMAGE);
         }}
 
+    HDF5 complexRAW("ComplexImages.h5","w");
     for(int ee=0; ee<recon.rcencodes; ee++){
         for(int tt=0; tt<recon.rcframes; tt++){
             char fname[80];
-            sprintf(fname,"X_%03d_%03d.dat.complex",ee,tt);
-            ArrayWrite( X(tt,ee),fname);
             sprintf(fname,"X_%03d_%03d.dat",ee,tt);
-            ArrayWriteMag( X(tt,ee),fname);
+            complexRAW.AddH5Array("IMAGES",fname,X(tt,ee));
         }}
-
 
     return(0);
 }

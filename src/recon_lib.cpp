@@ -34,6 +34,8 @@ void RECON::set_defaults( void){
 	zoom_y = 1.0;
 	zoom_z = 1.0;
 
+    demod_freq = 0.0;
+
 	rcxres=-1;
 	rcyres=-1;
 	rczres=-1;
@@ -252,6 +254,8 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-dcf_acc",dcf_acc);
 		trig_flag(true,"-reset_dens",reset_dens);
 
+        float_flag("-demod",demod_freq);
+        
 		// Spatial Transforms
 		}else if(strcmp("-spatial_transform",pstring[pos]) == 0) {
 			pos++;
