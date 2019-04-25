@@ -53,7 +53,7 @@ int main(int argc, char **argv){
                                  cout << "Phantom " << endl;
                                  PHANTOM phantom;
                                  phantom.read_commandline(argc,argv);
-                                 phantom.init(recon.rxcres,recon.rcyres,recon.rczres,recon.rcframes);
+                                 phantom.init(recon.rcxres,recon.rcyres,recon.rczres,recon.rcframes);
 
 
                                  // More accurate gridding for Phantom
