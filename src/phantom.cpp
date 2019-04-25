@@ -17,6 +17,7 @@ phantom.SMAP // Sensitivity Map
 */
 
 #include "phantom.h"
+#include <string>
 using namespace arma;
 using namespace std;
 using namespace NDarray;
@@ -1176,7 +1177,7 @@ inline float gamma_variate(float x,float beta,float alpha){
 void FRACTAL3D::write_matlab_truth_script( const char *folder){
     char fname[1024];
     sprintf(fname,"%s%s",folder,"get_pixel_timecourse.m");
-
+   
     ofstream script;
     script.open( fname);
     script << "function st = get_pixel_timecourse( i,j,k ) " << endl;
