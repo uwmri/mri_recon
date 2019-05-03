@@ -1182,7 +1182,7 @@ inline float decoupled_gamma_variate(float x, float ymax, float alpha, float t0,
         return(0.0);
     }else{
         float tprime = (x-t0)/(tmax-t0);
-        return(ymax*pow(tprime, alpha)*exp(alpha*(1-tprime));
+        return( ymax*pow(tprime, alpha)*exp(alpha*(1-tprime)) );
     }
 }
 
@@ -1300,8 +1300,8 @@ void FRACTAL3D::write_matlab_truth_script( const char *folder){
 void FRACTAL3D::calc_image(Array< complex<float>,3>&IMAGE,int t,int frames){
 
     float current_time = (float)t* 1.0 / (float)frames; //No reason to scale to 3. Time is normalized from 0-1 makes things simpler.
-    dtime = 1.0 / (float)frames;
-    tmax_initial = 2*dtime; // Set initial time of arrival to 2 frames.
+    float dtime = 1.0 / (float)frames;
+    float tmax_initial = 2*dtime; // Set initial time of arrival to 2 frames.
     IMAGE = complex<float>(0,0);
 
     // Alpha determines how wide the gamma variate curve is (shape). 
@@ -1319,13 +1319,13 @@ void FRACTAL3D::calc_image(Array< complex<float>,3>&IMAGE,int t,int frames){
                     float disp_factor = 1+4*time;
                     float alpha_t = alpha*disp_factor;
                     float tmax = time + tmax_initial*(1+time); // This will increase time of arrival from 2 to 4 over the course of time. Maybe I don't want this. 
-                    IMAGE(i,j,k) += gamma_variate(current_time, dens, alpha_t, time, tmax); // Bolus
-                    }
-                }
+                    IMAGE(i,j,k) += decoupled_gamma_variate(current_time, dens, alpha_t, time, tmax); // Bolus
+                }    
             }
         }
     }
 }
+
 
 /*
 // For classical gamma variate formulation
