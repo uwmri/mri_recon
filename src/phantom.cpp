@@ -901,7 +901,7 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz){
     // ---------------------------------------------
 
     //float tissue_radius = 0.02;
-    float tissue_radius = 0.07;
+    float tissue_radius = 0.08;
     // Phantom Density
 
     // Arterial, Perfusion, and Venous Compartments
@@ -940,7 +940,7 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz){
         EZ = max( arterial_tree(t).stop(2),EZ);
         Qmax = max(arterial_tree[t].Q,Qmax);
     }
-    float Qscale = 0.010 / pow( Qmax,1.0f/3.0f);
+    float Qscale = 0.030 / pow( Qmax,1.0f/3.0f);
     float Rmin =0;
     float Rmax = max(0.010f,tissue_radius);
 
@@ -1120,7 +1120,8 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz){
                     float kact = (float)k - dz;
 
                     float radius = sqrt( iact*iact + jact*jact + kact*kact);
-                    float s=(float)(1.0/( 1.0 + exp(1.0*(radius-0.5*(float)R))) );
+                    //float s=(float)(1.0/( 1.0 + exp(1.0*(radius-0.5*(float)R))) );
+                    float s=(float)(1.0/( 1.0 + exp(8.0*(radius-0.5*(float)R))) ); //Blurring?
                     FUZZY( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s;
                     FUZZYT( (i+xx)%Nx,(j+yy)%Ny,(k+zz)%Nz,1) += s*time;
 
@@ -1134,7 +1135,7 @@ void  FRACTAL3D::build_tree(int Nx, int Ny, int Nz){
     // CBV is about 10%
     Array< float, 3>Tissue = FUZZY(Range::all(),Range::all(),Range::all(),1);
     Array< float, 3>Arterial = FUZZY(Range::all(),Range::all(),Range::all(),0);
-    Tissue*= 0.8*max(Arterial)/max(Tissue); //0.1 for brain
+    Tissue*= 0.25*max(Arterial)/max(Tissue); //0.1 for brain, 0.25 for lungs?
 
     // Normalize times to 0.5
     FUZZYT/= 2.0*max(FUZZYT);
@@ -1173,6 +1174,17 @@ inline float gamma_variate(float x,float beta,float alpha){
     }
 }
 
+//  Decoupled Gamma Variate: M T Madsen 1992 Phys. Med. Biol. 37 1597
+inline float decoupled_gamma_variate(float x, float ymax, float alpha, float t0, float tmax){
+    if(x < 0.0) {
+        return(0.0);
+    }else if(x < t0){
+        return(0.0);
+    }else{
+        float tprime = (x-t0)/(tmax-t0);
+        return(ymax*pow(tprime, alpha)*exp(alpha*(1-tprime));
+    }
+}
 
 void FRACTAL3D::write_matlab_truth_script( const char *folder){
     char fname[1024];
@@ -1181,10 +1193,10 @@ void FRACTAL3D::write_matlab_truth_script( const char *folder){
     ofstream script;
     script.open( fname);
     script << "function st = get_pixel_timecourse( i,j,k ) " << endl;
-    script << "Nx = " << Nx << ";" << endl;
-    script << "Ny = " << Ny << ";" << endl;
-    script << "Nz = " << Nz << ";" << endl;
-    script << "Nt = " << Nt << ";" << endl;
+    script << "Nx = 512;" << endl;
+    script << "Ny = 512;" << endl;
+    script << "Nz = 512;" << endl;
+    script << "Nt = 200;" << endl;
 
     // Read in a script (density)
     script << "fid = fopen('Phantom.dat','r'); " << endl;
@@ -1207,7 +1219,7 @@ void FRACTAL3D::write_matlab_truth_script( const char *folder){
     script << "fclose(fid);" << endl;
 
     // Calc signal
-    script << "t = 3.0* (0:Nt-1)/Nt;" << endl;
+    script << "t =1.0 * (0:Nt-1)/Nt;" << endl;
     script << "st =t*0;" << endl;
     script << "beta = " << beta << endl;
     script << "alpha = " << alpha << endl;
@@ -1284,6 +1296,39 @@ void FRACTAL3D::write_matlab_truth_script( const char *folder){
 
 }
 
+// For decoupled gamma variate formulation M T Madsen 1992 Phys. Med. Biol. 37 1597
+void FRACTAL3D::calc_image(Array< complex<float>,3>&IMAGE,int t,int frames){
+
+    float current_time = (float)t* 1.0 / (float)frames; //No reason to scale to 3. Time is normalized from 0-1 makes things simpler.
+    dtime = 1.0 / (float)frames;
+    tmax_initial = 2*dtime; // Set initial time of arrival to 2 frames.
+    IMAGE = complex<float>(0,0);
+
+    // Alpha determines how wide the gamma variate curve is (shape). 
+    // Start with alpha = 0.5 for arteries and simulate dispersion as flow propagates through vasculature (Art -> Tiss -> Ven)
+    alpha = 0.5;
+
+    for(int compartment =0; compartment < FUZZYT.length(fourthDim); compartment++){
+#pragma omp parallel for
+        for(int k= 0; k< FUZZYT.length(thirdDim); k++){
+            for(int j= 0; j< FUZZYT.length(secondDim); j++){
+                for(int i= 0; i< FUZZYT.length(firstDim); i++){
+                    float time = FUZZYT(i,j,k,compartment); //Time of Arrival
+                    float dens = FUZZY(i,j,k,compartment); // Peak signal
+                    // Simulate basic dispersion of curve. alpha_t = 1.5 at tissue (t=0.5) sounds reasonable.
+                    float disp_factor = 1+4*time;
+                    float alpha_t = alpha*disp_factor;
+                    float tmax = time + tmax_initial*(1+time); // This will increase time of arrival from 2 to 4 over the course of time. Maybe I don't want this. 
+                    IMAGE(i,j,k) += gamma_variate(current_time, dens, alpha_t, time, tmax); // Bolus
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+// For classical gamma variate formulation
 void FRACTAL3D::calc_image(Array< complex<float>,3>&IMAGE,int t,int frames){
 
     float current_time = (float)t* 3.0 / (float)frames;
@@ -1312,5 +1357,5 @@ void FRACTAL3D::calc_image(Array< complex<float>,3>&IMAGE,int t,int frames){
     }
 }
 
-
+*/
 
