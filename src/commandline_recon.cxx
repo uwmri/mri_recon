@@ -91,6 +91,9 @@ int main(int argc, char **argv){
 				// Update Image
 				Array<complex<float>,3>kdataE = data.kdata(e,coil); // Get one encoding, one coil
 				kdataE=0;	// Zero data
+
+                Array< complex<float>,3>temp(kdataE.shape(),ColumnMajorArray<3>() );
+
 				for(int t =0; t < recon.rcframes; t++){
 					// Get Image
 					phantom.calc_image(t,recon.rcframes);
@@ -101,7 +104,7 @@ int main(int argc, char **argv){
 
 					// Now Inverse Grid
 					cout << " Inverse Grid :: " << t << endl;
-					// phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,TimeWeight);
+					phantom_gridding.backward(phantom.IMAGE,kdataE,kxE,kyE,kzE,TimeWeight);
 				}
 			}
 

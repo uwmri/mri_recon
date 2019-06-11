@@ -255,7 +255,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		trig_flag(true,"-reset_dens",reset_dens);
 
         float_flag("-demod",demod_freq);
-        
+
 		// Spatial Transforms
 		}else if(strcmp("-spatial_transform",pstring[pos]) == 0) {
 			pos++;
@@ -302,6 +302,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 				cout << "Please provide encode transform type..none/dft/wavelet/diff" << endl;
 				exit(1);
 			}
+
 		int_flag("-wavelet_levelsX",wavelet_levelsX);
 		int_flag("-wavelet_levelsY",wavelet_levelsY);
 		int_flag("-wavelet_levelsZ",wavelet_levelsZ);
@@ -387,6 +388,15 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		int_flag("-threads",threads);
 	}
   }
+
+
+      for(int ii=0; ii<numarg; ii++){
+          if(strcmp("-smap_skip_encode",pstring[ii]) == 0){
+              ii++;
+              smap_skip_encode.resizeAndPreserve(smap_skip_encode.numElements()+1);
+              smap_skip_encode( smap_skip_encode.numElements()-1 ) =  atoi(pstring[ii]);
+          }
+      }
 }
 
 complex<float> conj_sum( Array<complex<float>,3>P,Array<complex<float>,3>R){
@@ -2845,9 +2855,9 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 			int smap_num_encodes=1;
 			if( smap_use_all_encodes){
 				cout << "Using all encodes for coil maps" << endl;
-				Array< Array<complex<float>,3>,2> temp = Alloc5DContainer< complex<float> >(rcxres, rcyres, rczres, data.Num_Encodings,data.Num_Coils);
+                smap_num_encodes = data.Num_Encodings - this->smap_skip_encode.length(firstDim);
+				Array< Array<complex<float>,3>,2> temp = Alloc5DContainer< complex<float> >(rcxres, rcyres, rczres, smap_num_encodes,data.Num_Coils);
 				image_store.reference( temp);
-				smap_num_encodes = data.Num_Encodings;
 			}else if( coil_combine_type == WALSH){
 				cout << "Using one encodes for coil maps" << endl;
 				Array< Array<complex<float>,3>,2> temp = Alloc5DContainer< complex<float> >(rcxres, rcyres, rczres, 1,data.Num_Coils);
@@ -2868,15 +2878,29 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 
 			if( smap_use_all_encodes){
 
-				for(int e=0; e< smap_num_encodes;e++){
+                int smap_encode_count = 0;
+				for(int e=0; e< data.Num_Encodings;e++){
+
+                    // Skip if in array
+                    bool skip_this_encode = false;
+                    for(int i=0; i< (int)this->smap_skip_encode.numElements(); i++){
+                        skip_this_encode |= ( e==this->smap_skip_encode(i) );
+                    }
+
+                    if(skip_this_encode){
+                        std::cout << "Skipping Encode" << e << "for coil sensitivity mapping" << std::endl;
+                        continue;
+                    }
+
 					for(int coil=0; coil< data.Num_Coils; coil++){
 						cout << "Coil " << coil << "Encode " << e << endl;
 						// Simple gridding
-						gridding.forward( image_store(e,coil),data.kdata(e,coil),data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
+						gridding.forward( image_store(smap_encode_count,coil),data.kdata(e,coil),data.kx(e), data.ky(e), data.kz(e) ,data.kw(e) );
 
 						// Gaussian blur
-						gaussian_blur(image_store(e,coil),extra_blurX,extra_blurY,extra_blurZ); // TEMP
+						gaussian_blur(image_store(smap_encode_count,coil),extra_blurX,extra_blurY,extra_blurZ); // TEMP
 					}
+                    smap_encode_count++;
 				}
 			}else{
 				for(int coil=0; coil< data.Num_Coils; coil++){
