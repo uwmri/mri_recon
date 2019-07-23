@@ -2092,14 +2092,15 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
                     //
 
                     if( iterative_step_type == STEP_MAXEIG ){
+
                         // Initialize x to random number
-                        cout << "Seeding X" << endl;
+                        std::cout << "Seeding X" << std::endl;
                         for(int e=0; e< rcencodes; e++){
                             for(int t=0; t< Nt; t++){
 
                                 for(int k=0; k< rczres; k++){
-                    				for(int j=0; j< rcxres; j++){
-                    					for(int i=0; i< rcyres; i++){
+                    				for(int j=0; j< rcyres; j++){
+                    					for(int i=0; i< rcxres; i++){
 
                                             arma::fvec N = arma::randn<arma::fvec>(2);
                                             X(t,e)(i,j,k) = complex<float>( N(0), N(1) );

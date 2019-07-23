@@ -30,6 +30,7 @@ void NDarray::nested_workaround( long index, int *N,int *idx, int total){
 }
 
 void NDarray::ifft( Array< complex<float>,3>& temp){
+	
 	// Shift to Center of K-space
 	fftshift( temp);
 
@@ -75,7 +76,9 @@ void NDarray::ifft( Array< complex<float>,3>& temp){
 	// Cleanup
 	fftwf_destroy_plan(fft_plan);
 }
+
 void NDarray::ifft( Array< complex<float>,4>& temp){
+	
 	// Shift to Center of K-space
 	fftshift( temp);
 
@@ -101,10 +104,10 @@ void NDarray::ifft( Array< complex<float>,4>& temp){
 	}
 
 	int n[4];
-	n[0] = temp.length(firstDim);
-	n[1] = temp.length(secondDim);
-	n[2] = temp.length(thirdDim);
-	n[3] = temp.length(fourthDim);
+	n[0] = temp.length(fourthDim);
+	n[1] = temp.length(thirdDim);
+	n[2] = temp.length(secondDim);
+	n[3] = temp.length(firstDim);
 	fftwf_plan fft_plan = fftwf_plan_dft(4,n,ptr,ptr,FFTW_BACKWARD, FFTW_ESTIMATE);
 	fftwf_execute(fft_plan);
 
@@ -180,6 +183,7 @@ void NDarray::fft( Array< complex<float>,3>& temp){
 	// Cleanup
 	fftwf_destroy_plan(fft_plan);
 }
+
 void NDarray::fft( Array< complex<float>,4>& temp){
 
 	// Shift to Center of K-space
@@ -207,10 +211,10 @@ void NDarray::fft( Array< complex<float>,4>& temp){
 	}
 
 	int n[4];
-	n[0] = temp.length(firstDim);
-	n[1] = temp.length(secondDim);
-	n[2] = temp.length(thirdDim);
-	n[3] = temp.length(fourthDim);
+	n[0] = temp.length(fourthDim);
+	n[1] = temp.length(thirdDim);
+	n[2] = temp.length(secondDim);
+	n[3] = temp.length(firstDim);
 	fftwf_plan fft_plan = fftwf_plan_dft(4,n,ptr,ptr,FFTW_FORWARD, FFTW_ESTIMATE);
 	fftwf_execute(fft_plan);
 
@@ -280,7 +284,6 @@ double NDarray::Dmin( const Array< Array<double,2>,1> &A){
 }
 
 void NDarray::fft3( Array< complex<float>,3>& temp, int dim, int direction, bool chop){
-
 
 	// Get Size
 	int N;
