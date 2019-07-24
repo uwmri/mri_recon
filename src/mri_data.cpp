@@ -890,12 +890,17 @@ void MRI_DATA::read_external_data(const char *fname) {
 }
 
 
-/** Coil compress data with a cutoff of thresh*max(SV)
+/** Coil compress data with set number of coils
 *
 */
-void MRI_DATA::coilcompress(float thresh, float kr_thresh)
+void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh)
 {
 	cout << "about to compress coils" << endl << flush;
+
+	if( Num_VCoils > this->Num_Coils){
+		std::cout << "Target virtual coils is greater than actual coils, doing nothing" << std::endl;
+		return;		
+	}
 
 	tictoc ctimer;
 
@@ -961,10 +966,9 @@ void MRI_DATA::coilcompress(float thresh, float kr_thresh)
 
 	s.print("S");
 
-	arma::cx_fmat VV = V.cols(0, (int)thresh - 1);
+	arma::cx_fmat VV = V.cols(0, (int)Num_VCoils - 1);
 	VV.print("V");
 
-	int Num_VCoils = (int)thresh; // number of virtual coils
 	cout << "Rotate to " << Num_VCoils << " coils " << endl << flush;
 
 	ctimer.tic();
