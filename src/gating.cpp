@@ -72,6 +72,7 @@ GATING::GATING( int numarg, char **pstring) {
 	// Respiratory Efficiency
 	correct_resp_drift = 0;
 	resp_gate_efficiency = 0.5;
+        resp_gate_weight = 3; // This controls exponential decay of resp weights for soft-thresholding.
         resp_gate_type = RESP_NONE;
 	resp_gate_signal = BELLOWS;
 		
@@ -142,6 +143,7 @@ GATING::GATING( int numarg, char **pstring) {
 			int_flag("-vs_wdth_high",wdth_high);
 			trig_flag(1,"-correct_resp_drift",correct_resp_drift);
 			float_flag("-resp_gate_efficiency",resp_gate_efficiency);
+			float_flag("-resp_gate_weight",resp_gate_weight);
 			float_flag("-resp_sign",resp_sign);
 			
 			}
@@ -189,6 +191,7 @@ void GATING::help_message() {
 	cout << "Control for Resp Data" << endl;
 	help_flag("-correct_resp_drift","Median filter with 10s interval");
 	help_flag("-resp_gate_efficiency","Fraction of data to accept");
+	help_flag("-resp_gate_weight","Soft-Gating Decay Constant (Exponential)");
 	help_flag("-adaptive_resp_window","Length of window to use for thresholding");
 	
 	cout << "Control for ECG Data" << endl;
@@ -527,7 +530,7 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
                           arma::vec temp = time_linear_resp;
                           arma::vec temp2= sort(temp);
                           double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0 - resp_gate_efficiency )));
-			  double decay_const = 3.0/arma::max(temp);
+			  double decay_const = resp_gate_weight/arma::max(temp);
                           //cout << "Decay Const: " << decay_const << endl;
 
 
@@ -565,7 +568,7 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 
 void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 	
-	cout << "Initializing Time resolved for" << (*frames) << " frames" << endl;
+	cout << "Initializing Time resolved for " << (*frames) << " frames" << endl;
 	
 	// Create Array and Fill with Base 
 	gate_times.resize(data.Num_Encodings);
@@ -766,9 +769,18 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
     
 	switch(resp_gate_type){
 		
-		case(RESP_WEIGHT):
+		case(RESP_WEIGHT):{
+                    cout << "Resp weighting (soft-thresholding)" << endl << flush;
+                    for(int k=0; k<Tw.length(thirdDim); k++){
+                    for(int j=0; j<Tw.length(secondDim); j++){
+                    for(int i=0; i<Tw.length(firstDim); i++){
+                       Tw(i,j,k) *= resp_weight(e)(j,k);
+                    }}}
+                    cout << "Resp weighting done" << endl << flush;
+                    }break;
+
 		case(RESP_THRESH):{
-			cout << "Resp weighting" << endl << flush;	
+			cout << "Resp weighting (hard-threshold)" << endl << flush;	
 			for(int k=0; k<Tw.length(thirdDim); k++){
 			for(int j=0; j<Tw.length(secondDim); j++){
 			for(int i=0; i<Tw.length(firstDim); i++){
@@ -778,7 +790,7 @@ void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, con
 		}break;
 		
 		default:{
-			
+		cout << "No Additional Resp Gating" << endl << flush;
 		}
 	}
 	
