@@ -568,7 +568,7 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 
 void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 	
-	cout << "Initializing Time resolved for" << (*frames) << " frames" << endl;
+	cout << "Initializing Time resolved for " << (*frames) << " frames" << endl;
 	
 	// Create Array and Fill with Base 
 	gate_times.resize(data.Num_Encodings);
