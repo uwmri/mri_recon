@@ -64,6 +64,7 @@ class GATING {
 		RespGateType resp_gate_type;
 		int correct_resp_drift;
 		float resp_gate_efficiency;
+                float resp_gate_weight;
 
 		// Respiratory Signal 
 		enum RespGateSignal{BELLOWS,DC_DATA};
