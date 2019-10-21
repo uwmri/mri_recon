@@ -110,6 +110,7 @@ void RECON::set_defaults( void){
 	cauchy_update_number = 30;
     max_eigen_iterations = 30;
     iterative_step_type = STEP_MAXEIG;
+	image_scale_normalization = false;
 }
 
 // ----------------------
@@ -172,6 +173,7 @@ void RECON::help_message(void){
 	cout << "Iterative Recon Control:" << endl;
 	help_flag("-max_iter []","max iterations for iterative recons");
     help_flag("-iterative_step_type []","cauchy/maxeig[default]");
+	help_flag("-image_scale_normalization","Scale images and k-space weights to be roughly 1");
 
 	cout << "Coil Control:" << endl;
 	help_flag("-espirit","use ESPIRIT to get coil sensitivies");
@@ -332,6 +334,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
         float_flag("-coil_rejection_radius", coil_rejection_radius);
         int_flag("-coil_rejection_shape", coil_rejection_shape);
 		int_flag("-cauchy_update_number",cauchy_update_number);
+		trig_flag(true,"-image_scale_normalization",image_scale_normalization);
 
         // Encode Transforms
         }else if(strcmp("-iterative_step_type",pstring[pos]) == 0) {
@@ -2199,7 +2202,13 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
                             step_size = complex<float>( 1./ max_eig, 0.0 );
                         }
 
-
+						// Scale kweights instead of step size
+						if( this->image_scale_normalization ){
+							for( Array< Array< float,3>,1>::iterator riter =data.kw.begin(); riter != data.kw.end(); riter++){
+								*riter *= abs(step_size);
+							}
+							step_size = complex<float>(1.0,0.0);
+						}
                     }
 
                     // Reset X after max_eigen calculation
@@ -2336,6 +2345,29 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 							  }//Time
 						  }//Encode
+						  
+							// Scale the image to set aproximate value to 1								
+							if( this->image_scale_normalization && (iteration==0) ){
+								// Get max value
+								float max_image_value = 0.0;
+								for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
+									float max_current = max(abs(*riter));
+									max_image_value = ( max_current > max_image_value) ? ( max_current ) : ( max_image_value);
+								}
+								complex<float> image_scale( 1./max_image_value, 0.0);
+								std::cout << "Scaling Image to max ~1, Max is " << max_image_value << " scale to " << image_scale << std::endl;
+								
+								// Scale image
+								for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
+									*riter *= image_scale;
+								}
+
+								// Scale data
+								for( Array< Array<complex<float>,3>,2>::iterator riter =data.kdata.begin(); riter != data.kdata.end(); riter++){
+									*riter *= image_scale;
+								}
+
+							}
 
 						  // Get Scaling Factor R'P / R'R
 						  cout << endl << "Calc residue" << endl << flush;

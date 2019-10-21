@@ -224,7 +224,7 @@ void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,3 > &image, i
 //  Just estimate the max singular value over the matrix  
 //-----------------------------------------------------
 void LOWRANKCOIL::update_threshold( Array< Array<complex<float>,3>,2 > &image, int dim, int iter){
-		
+	
 	// Shorthand
 	int Nt =image.extent(firstDim);
 	int Ne =image.extent(secondDim);

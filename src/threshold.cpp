@@ -103,7 +103,7 @@ void THRESHOLD::help_message() {
 	cout << "----------------------------------------------" << endl;
 	cout << "   Thresholding Control " << endl;
 	cout << "----------------------------------------------" << endl;
-	help_flag("-threshold_type []","thresholding method l1reg/fraction/visu/bayes/sure");
+	help_flag("-threshold_type []","thresholding method fixed/fraction/visu/bayes/sure");
 	help_flag("-thresh []","fraction of coefficient to be removed for fractional method (default=0.0)");
 	help_flag("-noise_est_type []","method for noise estimation global(estimate using all frames)/frame(estimate for each frame)/last(estimate using last frame)/first(estimate using first frame) (default=frame)");
 	help_flag("-noise_scale []","scale factor for noise estimate(s) (e.g. for zero-padding correction)");
@@ -139,15 +139,14 @@ void THRESHOLD::exec_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVE
 
 
 /*--------------------------------------------------------------------
-  Upodate threshold. Seperated for cycle spin
+  Update threshold. Seperated for cycle spin
  *------------------------------------------------------------------*/ 
  void THRESHOLD::update_threshold( Array<  Array< complex<float>,3>,  2>&Coef, WAVELET3D &wave, float scale){
 
 	switch(threshold_type){
-
 	
 		case TH_FIXED:{
-			global_threshold = thresh *scale; // This is odd?
+			global_threshold = thresh *scale; // Cycle spin correction  
 		}break;
 
 		case TH_FRACTION:{

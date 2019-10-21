@@ -167,6 +167,7 @@ public:
     int export_smaps;
     bool prep_done;
     bool pregate_data_flag;
+    bool image_scale_normalization;
 
     NDarray::Array< NDarray::Array< complex<float>,3>, 2 >  test_sms( MRI_DATA&,MRI_DATA&,int numarg,char **pstring);
 
