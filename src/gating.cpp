@@ -72,8 +72,8 @@ GATING::GATING( int numarg, char **pstring) {
 	// Respiratory Efficiency
 	correct_resp_drift = 0;
 	resp_gate_efficiency = 0.5;
-        resp_gate_weight = 3; // This controls exponential decay of resp weights for soft-thresholding.
-        resp_gate_type = RESP_NONE;
+    resp_gate_weight = 3; // This controls exponential decay of resp weights for soft-thresholding.
+    resp_gate_type = RESP_NONE;
 	resp_gate_signal = BELLOWS;
 		
 	resp_sign = 1.0;
@@ -121,9 +121,10 @@ GATING::GATING( int numarg, char **pstring) {
 					exit(1);
 				trig_flag(RESP_THRESH,"thresh",resp_gate_type);
 				trig_flag(RESP_WEIGHT,"weight",resp_gate_type);
+                trig_flag(RESP_HARD,"hard",resp_gate_type);
 								
 				}else{
-					cout << "Please provide respiratory gating type..thresh/weight (-h for usage)" << endl;
+					cout << "Please provide respiratory gating type..thresh/weight/hard (-h for usage)" << endl;
 					exit(1);
 				}			
 			}else if(strcmp("-resp_gate_signal",pstring[pos]) == 0) {
@@ -150,9 +151,11 @@ GATING::GATING( int numarg, char **pstring) {
 	}
 
 	if (resp_gate_type == RESP_THRESH) {
-		cout << "Using threshold based respiratory gating" << endl;
+		cout << "Using moving average threshold based respiratory gating" << endl;
 	} else if (resp_gate_type == RESP_WEIGHT) {
 		cout << "Using (fuzzy) weight based respiratory gating" << endl;
+	} else if (resp_gate_type == RESP_HARD){
+    	cout << "Using hard threshold respiratory gating" << endl;
 	}
 
 }
@@ -347,8 +350,7 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 			    cout << "Respiratory gating using bellows belt waveform" << endl;
 			    resp_weight = resp_sign*data.resp;
 			}break;
-			
-			
+						
 			case(DC_DATA):{
 				cout << "Respiratory gating using internal DC waveform(s)" << endl;
 				
@@ -436,7 +438,7 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 
 			  // Use Aradillo Sort function
 			  arma::vec time = array_to_vec( data.time );
-			  arma::vec resp = array_to_vec( data.resp );
+			  arma::vec resp = array_to_vec( resp_weight );
 			  time.save("Time.txt",arma::raw_ascii);
 			  resp.save("Resp.txt",arma::raw_ascii);
 
@@ -492,64 +494,90 @@ void GATING::init_resp_gating( const MRI_DATA& data ){
 			  
 		}break;
 		
-		case(RESP_WEIGHT):{
-                          if( correct_resp_drift ==1){
-                              cout << "Correcting Drift" << endl;
-                              filter_resp( data );
-                          }           
-                          cout << "Time Sorting Data" << endl;
+        
+        case(RESP_HARD):{
+            std::cout << "Setting hard threshold without moving average" << std::endl;
+            
+            // Use Aradillo Sort function
+			arma::vec resp = array_to_vec( resp_weight );
+			resp.save("Resp.txt",arma::raw_ascii);
 
-			  // Use Aradillo Sort function
-			  arma::vec time = array_to_vec( data.time );
-			  arma::vec resp = array_to_vec( data.resp );
-			  time.save("Time.txt",arma::raw_ascii);
-			  resp.save("Resp.txt",arma::raw_ascii);
+			// Sort
+            arma::vec resp_sorted = arma::sort(resp);
+            
+            // Get threshold
+            int thresh_idx = (int)( (float)resp_sorted.n_elem *(1.0 - this->resp_gate_efficiency));
+            float resp_thresh = resp_sorted(thresh_idx);
+            cout << "Hard resp thresh = " << resp_thresh << endl;
+            
+            // Copy to weight
+            arma::vec arma_resp_weight = arma::zeros<arma::vec>(resp.n_elem);
+            for( int i = 0; i < (int)resp.n_elem; i++){
+                arma_resp_weight(i) = (resp(i) > resp_thresh ) ? ( 1.0 ) : ( 0.0);
+            }
+                        
+            // Copy Back
+			vec_to_array( resp_weight, arma_resp_weight);
+               
+        }break;
+                
+        case(RESP_WEIGHT):{
+			if( correct_resp_drift ==1){
+				cout << "Correcting Drift" << endl;
+				filter_resp( data );
+			}           
+			cout << "Time Sorting Data" << endl;
 
-			  // Vectors for working on data
-			  int N = resp.n_elem;
-			  arma::vec arma_resp_weight = arma::zeros<arma::vec>(N);
-			  arma::vec time_linear_resp  = arma::zeros<arma::vec>(N);
-			  arma::vec time_sort_resp_weight = arma::zeros<arma::vec>(N);
+			// Use Aradillo Sort function
+			arma::vec time = array_to_vec( data.time );
+			arma::vec resp = array_to_vec( data.resp );
+			time.save("Time.txt",arma::raw_ascii);
+			resp.save("Resp.txt",arma::raw_ascii);
+
+			// Vectors for working on data
+			int N = resp.n_elem;
+			arma::vec arma_resp_weight = arma::zeros<arma::vec>(N);
+			arma::vec time_linear_resp  = arma::zeros<arma::vec>(N);
+			arma::vec time_sort_resp_weight = arma::zeros<arma::vec>(N);
 			  
-			   // Sort
-			  arma::uvec time_idx = arma::sort_index(time); 
-			  time_idx.save("Sorted.txt", arma::raw_ascii);
+			// Sort
+			arma::uvec time_idx = arma::sort_index(time); 
+			time_idx.save("Sorted.txt", arma::raw_ascii);
 			  
-			  // Copy Resp
-			  for(int i=0; i< N; i++){
-				  time_linear_resp( i )= resp( time_idx(i));
-				  
-			  }
-			  time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
+			// Copy Resp
+			for(int i=0; i< N; i++){
+				time_linear_resp( i )= resp( time_idx(i));
+				
+			}
+			time_linear_resp.save("TimeResp.txt",arma::raw_ascii);
+						
+			// This version uses a 10 second window to define the threshold and weights.
+			// Size of histogram
+			cout << "Time range = " << ( Dmax(data.time)-Dmin(data.time) ) << endl;
+			int fsize = (int)( 5.0 / (  ( Dmax(data.time)-Dmin(data.time) ) / resp.n_elem ) ); // 10s filter / delta time
+
+			arma::vec temp = time_linear_resp;
+			arma::vec temp2= sort(temp);
+			double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0 - resp_gate_efficiency )));
+			double decay_const = resp_gate_weight/arma::max(temp);
+			//cout << "Decay Const: " << decay_const << endl;
+
+
+			// Now Filter
+			cout << "Stencil Radius = " << fsize << endl;
+			for(int i=0; i< N; i++){
+				// For exponentially decaying weights. Implemented Soft-Gating as in: https://doi.org/10.1002/mrm.26958
+				arma_resp_weight(time_idx(i)) = ( time_linear_resp(i) >= thresh ) ? ( 1.0 ) : (exp(-decay_const*( (thresh-time_linear_resp(i)) ) ) );
+
+				time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
+			}
+
+			// Save
+			time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
+			arma_resp_weight.save("Weight.txt",arma::raw_ascii);
                           
-                          // This version uses a 10 second window to define the threshold and weights.
-                          // Size of histogram
-			  cout << "Time range = " << ( Dmax(data.time)-Dmin(data.time) ) << endl;
-			  int fsize = (int)( 5.0 / (  ( Dmax(data.time)-Dmin(data.time) ) / resp.n_elem ) ); // 10s filter / delta time
-
-                          arma::vec temp = time_linear_resp;
-                          arma::vec temp2= sort(temp);
-                          double thresh = temp2( (int)( (double)temp2.n_elem*( 1.0 - resp_gate_efficiency )));
-			  double decay_const = resp_gate_weight/arma::max(temp);
-                          //cout << "Decay Const: " << decay_const << endl;
-
-
-			  // Now Filter
-			  cout << "Stencil Radius = " << fsize << endl;
-			  for(int i=0; i< N; i++){
-                                  // For exponentially decaying weights. Implemented Soft-Gating as in: https://doi.org/10.1002/mrm.26958
-                                  arma_resp_weight(time_idx(i)) = ( time_linear_resp(i) >= thresh ) ? ( 1.0 ) : (exp(-decay_const*( (thresh-time_linear_resp(i)) ) ) );
-
-                                  time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
-			  }
-                          // Save
-			  time_sort_resp_weight.save("TimeWeight.txt",arma::raw_ascii);
-			  arma_resp_weight.save("Weight.txt",arma::raw_ascii);
-                          
-                          // Copy Back
-			  vec_to_array( resp_weight, arma_resp_weight);
-	                  
-
+			// Copy Back
+			vec_to_array( resp_weight, arma_resp_weight);
 		
 		}break;
 		
@@ -768,27 +796,17 @@ void GATING::init_time_resolved( const MRI_DATA& data,int * frames){
 void GATING::weight_data(Array<float,3>&Tw, int e, const Array<float,3> &kx, const Array<float,3> &ky,const Array<float,3> &kz,int t,WeightType w_type,FrameType comp_type){
     
 	switch(resp_gate_type){
-		
+		case(RESP_HARD):
+        case(RESP_THRESH):
 		case(RESP_WEIGHT):{
-                    cout << "Resp weighting (soft-thresholding)" << endl << flush;
                     for(int k=0; k<Tw.length(thirdDim); k++){
                     for(int j=0; j<Tw.length(secondDim); j++){
                     for(int i=0; i<Tw.length(firstDim); i++){
                        Tw(i,j,k) *= resp_weight(e)(j,k);
                     }}}
                     cout << "Resp weighting done" << endl << flush;
-                    }break;
-
-		case(RESP_THRESH):{
-			cout << "Resp weighting (hard-threshold)" << endl << flush;	
-			for(int k=0; k<Tw.length(thirdDim); k++){
-			for(int j=0; j<Tw.length(secondDim); j++){
-			for(int i=0; i<Tw.length(firstDim); i++){
-				Tw(i,j,k) *= resp_weight(e)(j,k);
-			}}}
-			cout << "Resp weighting done" << endl << flush;	
-		}break;
-		
+        }break;
+        		
 		default:{
 		cout << "No Additional Resp Gating" << endl << flush;
 		}

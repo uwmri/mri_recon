@@ -115,8 +115,14 @@ message( STATUS "Check for required libraries ")
 
 # Find Voro++
 include(FindVORO)
-include_directories( BEFORE ${VORO_INCLUDE_DIR} )
-set(LOCAL_LIBS ${LOCAL_LIBS} ${VORO_LIBRARIES} )
+set( VORO_FOUND "no")
+if (VORO_FOUND)
+	include_directories( BEFORE ${VORO_INCLUDE_DIR} )
+	set(LOCAL_LIBS ${LOCAL_LIBS} ${VORO_LIBRARIES} )
+	ADD_DEFINITIONS(-DUSE_VORO)
+else (VORO_FOUND)
+	message(WARNING " Compiling without Voronoi support - Install Voro++ to enable")
+endif (VORO_FOUND)
 
 #Find Armadillo
 #find_package(Armadillo REQUIRED)
@@ -155,8 +161,8 @@ endif()
 # Target Library
 #--------------------------------------
 
-#Main Recon
-add_library(RECONLIB STATIC
+#Main recon library
+set(RECONLIB_SOURCES 
 	src/polynomial_fitting.cpp
 	src/hdf5_interface.cpp
 	src/ArrayTemplates.cpp
@@ -172,12 +178,18 @@ add_library(RECONLIB STATIC
 	src/smsEncode.cpp
 	src/DCFgridFFT.cpp
 	src/gridFFT.cpp
-    src/gridFFT_CoilThreaded.cpp
+	src/gridFFT_CoilThreaded.cpp
 	src/wavelet3D.cpp
 	src/phantom.cpp)
+
+# Only add if library is found
+if (VORO_FOUND)
+	set(RECONLIB_SOURCES ${RECONLIB_SOURCES} src/voronoi_dcf.cpp)
+endif(VORO_FOUND)
+
+add_library(RECONLIB STATIC ${RECONLIB_SOURCES}	)
 target_link_libraries(RECONLIB ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} )
 set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 98)
-
 
 #--------------------------------------
 # Support for Command Line Binary
@@ -194,9 +206,10 @@ target_link_libraries(ops_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
 add_executable(hdf5_test src/test_hdf5.cpp ${LOCAL_INCS})
 target_link_libraries(hdf5_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
 
-add_executable(voronoi_test src/test_voronoi.cpp ${LOCAL_INCS})
-target_link_libraries(voronoi_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
-
+if(VORO_FOUND)
+	add_executable(voronoi_test src/test_voronoi.cpp ${LOCAL_INCS})
+	target_link_libraries(voronoi_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
+endif(VORO_FOUND)
 
 #--------------------------------------
 # Install

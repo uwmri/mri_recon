@@ -466,14 +466,17 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 		}break;
 
 		case(RECALC_VOR):{
-			if( data.trajectory_type(2) == MRI_DATA::NONCARTESIAN){
-				VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::SPHERE);
-			}else{
-				VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::CYLINDER);
-			}
+			#ifdef USE_VORO
+                if( data.trajectory_type(2) == MRI_DATA::NONCARTESIAN){
+                    VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::SPHERE);
+                }else{
+                    VORONOI_DCF::vor_dcf(data.kw(0),data.kx(0),data.ky(0),data.kz(0),VORONOI_DCF::CYLINDER);
+                }
+            #else
+                throw std::invalid_argument( "Invalid DCF Type [voronoi], code was not compiled with VORO++. Recompile with VORO++ to use.");
+            #endif
 		}break;
 	}
-
 
 	// Calculate Sensitivity maps (using gridding struct)
 	calc_sensitivity_maps(  argc,argv, data);
@@ -710,9 +713,13 @@ void vor_dcf2(Array< Array<float,3 >,2 >&Kw,Array< Array<float,3 >,2 > &Ky,Array
 			}}
 		}
 	}
-
-	cout << "Compute Vor" << endl;
-	VORONOI_DCF::vor_dcf( kw,ky,kz,kx,VORONOI_DCF::CUBE);
+    
+    #ifdef USE_VORO
+	    cout << "Compute Vor" << endl;
+	    VORONOI_DCF::vor_dcf( kw,ky,kz,kx,VORONOI_DCF::CUBE);
+    #else
+        throw std::invalid_argument( "Invalid DCF Type [voronoi], code was not compiled with VORO++. Recompile with VORO++ to use.");
+    #endif
 
 	ArrayWrite(kz,"NEW_Kz.dat");
 	ArrayWrite(ky,"NEW_Ky.dat");
@@ -3065,14 +3072,14 @@ void RECON::calc_sensitivity_maps( int argc, char **argv, MRI_DATA& data){
 				//ArrayWrite(IC,"Intensity.dat");
 			}
 
-
 			// Export
 			if(export_smaps==1){
 				cout << "Exporting Smaps" << endl;
+				HDF5 SmapsOut("SenseMaps.h5","w");
 				for(int coil=0; coil< smaps.length(firstDim); coil++){
 					char name[256];
-					sprintf(name,"SenseMaps_%2d.dat",coil);
-					ArrayWrite(smaps(coil),name);
+					sprintf(name,"SenseMaps_%d",coil);
+					SmapsOut.AddH5Array("Maps",name,smaps(coil));
 				}
 			}
 

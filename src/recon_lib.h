@@ -33,7 +33,10 @@
 #include "l2reg.h"
 #include "hdf5_interface.h"
 #include "polynomial_fitting.h"
-#include "voronoi_dcf.h"
+
+#ifdef USE_VORO
+    #include "voronoi_dcf.h"
+#endif
 
 class RECON{
 public:

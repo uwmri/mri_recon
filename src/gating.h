@@ -31,7 +31,7 @@ class GATING {
 		enum WeightType { ITERATIVE,NON_ITERATIVE};
 		enum FrameType { COMPOSITE, TIME_FRAME};
 		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
-		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
+		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT,RESP_HARD};
 		
 		
 		GATING();						
