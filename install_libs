@@ -35,7 +35,7 @@ install_voro > tee Voro_Install.log
 
 function install_intel_mkl_ubuntu () {
 	# Intel MKL for Debian
-	wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB #Get key
+	wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB --no-check-certificate #Get key
 	apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB # now install that key
 	rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB # now remove the public key file exit the root shell
 	wget https://apt.repos.intel.com/setup/intelproducts.list -O /etc/apt/sources.list.d/intelproducts.list 
