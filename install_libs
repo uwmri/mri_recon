@@ -1,0 +1,177 @@
+#!/bin/bash
+
+main (){
+
+# GCC Library [Using 4.8 for GE Orchestra compatibility]
+CC="gcc-4.8"
+CXX="g++-4.8"
+FC="gfortran-4.8"
+
+echo "This will install local libraries need to support mri_recon based recons:" 
+
+# Download libraries
+wget https://downloads.sourceforge.net/project/arma/armadillo-9.800.2.tar.xz
+wget https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/hdf5-1.8.12/src/hdf5-1.8.12.tar.gz
+wget ftp://ftp.fftw.org/pub/fftw/fftw-3.3.6-pl2.tar.gz
+wget http://downloads.sourceforge.net/project/blitz/blitz/Blitz%2B%2B%200.10/blitz-0.10.tar.gz
+wget http://math.lbl.gov/voro++/download/dir/voro++-0.4.6.tar.gz 
+
+#LAPACK_TAR="lapack-3.7.1.tgz"
+HDF5_TAR="hdf5-1.8.12.tar"
+ARMA_TAR="armadillo-9.800.2.tar.xz"
+FFTW_TAR="fftw-3.3.6-pl2.tar"
+BLITZ_TAR="blitz-0.10.tar"
+VORO_TAR="voro++-0.4.6.tar.gz"
+
+echo "Install Libraries"
+install_intel_mkl_ubuntu | tee Intel_MKL_Install.log
+install_hdf5 | tee HDF5_Install.log 
+install_blitz | tee Blitz_Install.log 
+install_fftw | tee FFFTW_Install.log 
+install_arma | tee ARMA_Install.log
+install_voro | tee Voro_Install.log
+
+}
+
+function install_intel_mkl_ubuntu () {
+	# Intel MKL for Debian
+	wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB #Get key
+	apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB # now install that key
+	rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB # now remove the public key file exit the root shell
+	wget https://apt.repos.intel.com/setup/intelproducts.list -O /etc/apt/sources.list.d/intelproducts.list 
+	apt-get update
+	apt-get install intel-mkl-64bit
+}
+
+
+
+
+function install_hdf5 () {
+
+	gzip -d -f ${HDF5_TAR}.gz 
+	
+	HDF5_FOLDER=`basename ${HDF5_TAR} .tar`
+
+	tar xvf ${HDF5_TAR}
+	cd ${HDF5_FOLDER}
+	CC=${CC} CXX=${CXX} FC=${FC} ./configure --prefix=${INSTALL_DIR} --enable-fortran --enable-cxx --enable-static --disable-shared  make -j 10 
+	make install
+	cd ../
+}
+
+function install_arma () {
+
+	ARMA_FOLDER=`basename ${ARMA_TAR} .tar.xz`
+
+	tar xvf ${ARMA_TAR}
+	cd ${ARMA_FOLDER}
+	CC=${CC} CXX=${CXX} FC=${FC} ./configure -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DBUILD_SHARED_LIBS=no
+	make -j 10 
+	make install
+	cd ../
+}
+
+function install_voro () {
+
+	VORO_FOLDER=`basename ${VORO_TAR} .tar.gz`
+
+	tar xvf ${VORO_TAR}
+	cd ${VORO_FOLDER}
+	
+	make CC=${CC} CXX=${CXX} FC=${FC} -j 10 
+	make install PREFIX=${INSTALL_DIR}
+	cd ../
+}
+
+function install_fftw () {
+
+	gzip -d -f ${FFTW_TAR}.gz 
+ 
+	FFTW_FOLDER=`basename ${FFTW_TAR} .tar`
+
+	tar xvf ${FFTW_TAR}
+	cd ${FFTW_FOLDER} 
+	CC=${CC} CXX=${CXX} FC=${FC} ./configure --enable-float --enable-threads --enable-openmp --prefix=${INSTALL_DIR}
+	make -j 10
+	make install
+	cd ../
+
+}
+
+function install_blitz () {
+
+	echo "Installing BLITZ" 
+	
+	# Decompress / unpack 
+	gzip -d -f ${BLITZ_TAR}.gz
+	tar xvf ${BLITZ_TAR}
+
+
+	BLITZ_FOLDER=`basename ${BLITZ_TAR} .tar`
+
+	cd ${BLITZ_FOLDER} 
+
+	# Get rid of dependency on papi
+	sed -i '/ac_cv_lib_papi_main=yes/c\ac_cv_lib_papi_main=no' configure
+	CC=${CC} CXX=${CXX} FC=${FC} ./configure --prefix=${INSTALL_DIR}
+	make -j 10 
+	make install
+	cd ../
+}
+
+# Check if root
+if [ "$EUID" -ne 0 ]; then
+  then echo "Please run as root"
+  exit
+else  
+   read -e -p "Enter directory to install :" -i "/usr/local/" INSTALL_DIR 
+fi
+
+mkdir -p /tmp/recon_install
+cd /tmp/recon_install
+main "$@"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
