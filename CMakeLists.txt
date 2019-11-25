@@ -14,93 +14,91 @@ link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 
 #set(ENABLE_ORCHESTRA "YES")
 
-if (DEFINED ENABLE_ORCHESTRA )
+if ( ENABLE_ORCHESTRA )
 
-message( STATUS "Using orchestra libraries")
+	message( STATUS "Using orchestra libraries")
+	
+	#--------------------------------------
+	# Orchestra (GE Recon Library)
+	#--------------------------------------
 
+	if(EXISTS $ENV{OX_INSTALL_DIRECTORY})
+		set( OX_INSTALL_DIRECTORY $ENV{OX_INSTALL_DIRECTORY})
+		message("Install directory of the GE Orchestra SDK = $ENV{OX_INSTALL_DIRECTORY}" )
+	else()
 
-#--------------------------------------
-# Orchestra (GE Recon Library)
-#--------------------------------------
-
-if(EXISTS $ENV{OX_INSTALL_DIRECTORY})
-    set( OX_INSTALL_DIRECTORY $ENV{OX_INSTALL_DIRECTORY})
-	message("Install directory of the GE Orchestra SDK = $ENV{OX_INSTALL_DIRECTORY}" )
-else()
-
-	message("Looking for /lib/libFlex.a to find Orchestra")
-	find_path(OX_INSTALL_DIRECTORY NAMES /lib/libFlex.a  PATHS /usr/local/orchestra )
-	if(EXISTS ${OX_INSTALL_DIRECTORY})
-		message("Could not find Orchestra by searching for /lib/libFlex.a")
-    	message(FATAL_ERROR "Verify orchestra install or update CMakePath")
+		message("Looking for /lib/libFlex.a to find Orchestra")
+		find_path(OX_INSTALL_DIRECTORY NAMES /lib/libFlex.a  PATHS /usr/local/orchestra )
+		if(EXISTS ${OX_INSTALL_DIRECTORY})
+			message("Could not find Orchestra by searching for /lib/libFlex.a")
+			message(FATAL_ERROR "Verify orchestra install or update CMakePath")
+		endif()
 	endif()
-endif()
 
-# TOPDIR is the root of the source tree
-set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
-set(LARGE_LIBRARY_TYPE STATIC)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
+	# TOPDIR is the root of the source tree
+	set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
+	set(LARGE_LIBRARY_TYPE STATIC)
+	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
 
-message("Configuring GE SDK Recon Build")
-set(PRODUCT EXTERNAL_SDK)
+	message("Configuring GE SDK Recon Build")
+	set(PRODUCT EXTERNAL_SDK)
 
-# Include recon libraries exported from the SDK CMake build
-set(RECON_LIBRARIES_INCLUDE_FILE ${OX_INSTALL_DIRECTORY}/lib/ReconLibraries.cmake)
-if(EXISTS ${RECON_LIBRARIES_INCLUDE_FILE})
-    include (${RECON_LIBRARIES_INCLUDE_FILE})
-else()
-    message("Could not find ${RECON_LIBRARIES_INCLUDE_FILE}")
-    message(FATAL_ERROR "Verify that the CMake OX_INSTALL_DIRECTORY option is set correctly")
-endif()
+	# Include recon libraries exported from the SDK CMake build
+	set(RECON_LIBRARIES_INCLUDE_FILE ${OX_INSTALL_DIRECTORY}/lib/ReconLibraries.cmake)
+	if(EXISTS ${RECON_LIBRARIES_INCLUDE_FILE})
+		include (${RECON_LIBRARIES_INCLUDE_FILE})
+	else()
+		message("Could not find ${RECON_LIBRARIES_INCLUDE_FILE}")
+		message(FATAL_ERROR "Verify that the CMake OX_INSTALL_DIRECTORY option is set correctly")
+	endif()
 
-# Include SDK build configuration
-#include (productUW.cmake)
-include (${TOPDIR}/recon/SDK/product.cmake)
+	# Include SDK build configuration
+	#include (productUW.cmake)
+	include (${TOPDIR}/recon/SDK/product.cmake)
 
-# Override 3P libs to include only those libs required by SDK executables
-# Original set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${Z_LIBS})
-set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${Z_LIBS})
+	# Override 3P libs to include only those libs required by SDK executables
+	# Original set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${Z_LIBS})
+	set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${Z_LIBS})
 
-# Set 3p include directories
-set(OX_3P_INCLUDES
-    ${MATLAB_ROOT}/extern/include
-    ${ANTS_ROOT}/include/Examples
-    ${ANTS_ROOT}/include/ImageRegistration
-    ${ANTS_ROOT}/include/Tensor
-    ${ANTS_ROOT}/include/Utilities
-    ${BLITZ_ROOT}/include
-    ${BOOST_ROOT}/include
-    ${DCMTK_ROOT}/include
-    ${FFTW_ROOT}/include
-    ${HDF5_ROOT}/include
-    ${ITK_ROOT}/include/ITK-4.9
-    ${ZLIB_ROOT}/include)
+	# Set 3p include directories
+	set(OX_3P_INCLUDES
+		${MATLAB_ROOT}/extern/include
+		${ANTS_ROOT}/include/Examples
+		${ANTS_ROOT}/include/ImageRegistration
+		${ANTS_ROOT}/include/Tensor
+		${ANTS_ROOT}/include/Utilities
+		${BLITZ_ROOT}/include
+		${BOOST_ROOT}/include
+		${DCMTK_ROOT}/include
+		${FFTW_ROOT}/include
+		${HDF5_ROOT}/include
+		${ITK_ROOT}/include/ITK-4.9
+		${ZLIB_ROOT}/include)
 
-message("Using Orchestra 3p: ${OX_3P_LIBS} ")
-message("Using Orchestra Os: ${OX_OS_LIBS} ")
+	message("Using Orchestra 3p: ${OX_3P_LIBS} ")
+	message("Using Orchestra Os: ${OX_OS_LIBS} ")
 
-# This code only requires a few libraries
-set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Hdf5 Common)
+	# This code only requires a few libraries
+	set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Hdf5 Common)
 
-else ()
+else (ENABLE_ORCHESTRA)
 
-#--------------------------------------
-# Non-Orchestra
-#--------------------------------------
+	#--------------------------------------
+	# Non-Orchestra
+	#--------------------------------------
 
-include(FindBlitz)
-include(FindFFTW)
-include(FindHDF5)
+	include(FindBlitz)
+	include(FindFFTW)
+	include(FindHDF5)
 
-#Set include directories
-include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
-set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
+	#Set include directories
+	include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
+	set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -funroll-loops -Wall")
-set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -funroll-loops -Wall")
+	set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
-
-endif()
+endif(ENABLE_ORCHESTRA)
 
 
 ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)

@@ -10,15 +10,15 @@ This is reconstruction code developed for MRI reconstructions, primarily non-car
 * Armadillo a linear algebra package. It is highly recomended you install with the Intel MKL package
 * HDF5 C++ library
 * FFTW with OpenMp support 
-* Voro++ a 3D voronoi diagram package (used for sampling density estimates)
-* Ochestra 1.8 or higher if using GE library compatibility
-* gcc/g++ 4.x for Orchestra code
+* [Optional]Voro++ a 3D voronoi diagram package (used for sampling density estimates)
+* [Optional]Ochestra 1.8 or higher if using GE library compatibility
+* [Optional]gcc/g++ 4.x for Orchestra code compatibility
 
 # Compiling without Orchestra 
 
 
-# Compiling with GE Orchestra
-CC=gcc-4.8 CXX=g++-4.8 FC=gfortran-4.8 cmake ../ -DCMAKE_BUILD_TYPE=Release  -DENABLE_ORCHESTRA="yes" -DOX_INSTALL_DIRECTORY=$SDKTOP -DCMAKE_INSTALL_PREFIX=${HOME}/local/
+# Compiling with GE Orchestra (Example with gcc 4.8)
+CC=gcc-4.8 CXX=g++-4.8 FC=gfortran-4.8 cmake ../ -DCMAKE_BUILD_TYPE=Release -DENABLE_ORCHESTRA="yes" -DOX_INSTALL_DIRECTORY=$SDKTOP -DCMAKE_INSTALL_PREFIX=${HOME}/local/
 CC=gcc-4.8 CXX=g++-4.8 FC=gfortran-4.8 cmake ../ -DCMAKE_BUILD_TYPE=Debug -DENABLE_ORCHESTRA="yes" -DOX_INSTALL_DIRECTORY=$SDKTOP -DCMAKE_INSTALL_PREFIX=${HOME}/local/
 
 
