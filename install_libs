@@ -121,7 +121,7 @@ function install_blitz () {
 
 # Check if root
 if [ "$EUID" -ne 0 ]; then
-  then echo "Please run as root"
+  echo "Please run as root"
   exit
 else  
    read -e -p "Enter directory to install :" -i "/usr/local/" INSTALL_DIR 
