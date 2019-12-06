@@ -39,7 +39,7 @@ int main(void){
 	{
 	cout << "Check BART Export" << endl;
 	Array< Array<complex<float>,3>, 2> TEMP = Alloc5DContainer< complex<float> >( 3, 4, 5, 6, 7);
-	WriteCFL( TEMP, "BART_CFL");
+	//WriteCFL( TEMP, "BART_CFL");
 	cout << "Took " << T << endl;
 	}
 	
@@ -56,7 +56,7 @@ int main(void){
 	Array< Array<complex<float>,3>, 2> TEMP1 = Alloc5DContainer< complex<float> >( 3, 4, 1, 1, 1);
 	Array< Array<complex<float>,3>, 2> TEMP2 = Alloc5DContainer< complex<float> >( 3, 4, 1, 1, 1);
 	Array< Array<complex<float>,3>, 2> TEMP3 = Alloc5DContainer< complex<float> >( 3, 4, 1, 1, 1);
-	WriteCFL_triplet( TEMP1,TEMP2,TEMP3, "BART_TRIPLE_CFL_FLOAT");
+	//WriteCFL_triplet( TEMP1,TEMP2,TEMP3, "BART_TRIPLE_CFL_FLOAT");
 	cout << "Took " << T << endl;
 	}
 	
