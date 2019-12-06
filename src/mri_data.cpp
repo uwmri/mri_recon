@@ -899,7 +899,7 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh)
 
 	if( Num_VCoils > this->Num_Coils){
 		std::cout << "Target virtual coils is greater than actual coils, doing nothing" << std::endl;
-		return;		
+		return;
 	}
 
 	tictoc ctimer;
@@ -1038,12 +1038,12 @@ void MRI_DATA::whiten(void) {
 	}
 
 	cout << "Calc Cov" << endl << flush;
-	arma::cx_fmat CV = NoiseData*NoiseData.t();
+	arma::cx_fmat CV = covariance(NoiseData,Num_Coils,noise_samples.length(firstDim));
 	CV.save("CovMatrix.dat", arma::raw_binary);
 
 	cout << "Whiten" << endl;
 	arma::cx_fmat V = chol(CV);
-	arma::cx_fmat VT = V.t();
+	arma::cx_fmat VT = V.st();
 	arma::cx_fmat Decorr = VT.i();
 
 	// Test Whitening
@@ -1061,7 +1061,7 @@ void MRI_DATA::whiten(void) {
 		}
 	}
 
-	arma::cx_fmat CV_POST = W*W.t();
+	arma::cx_fmat CV_POST = covariance(W,Num_Coils,noise_samples.length(firstDim));
 	CV_POST.save("CovMatrixPost.dat", arma::raw_binary);
 
 
@@ -1096,4 +1096,50 @@ void MRI_DATA::whiten(void) {
 
 		}
 	}
+}
+
+void MRI_DATA::add_noise(float noise_factor) {
+	cout << "Adding " << (100.0*(noise_factor-1.0)) << "% more noise." << endl;
+	float noise_std = sqrt(noise_factor*noise_factor-1.0)/sqrt(2.0); // variance is additive but standard deviation is not
+	for (int e = 0; e < Num_Encodings; e++) {
+		for (int coil = 0; coil < Num_Coils; coil++) {
+			arma::cube noise_real = arma::randn<arma::cube>(kdata(e, coil).length(firstDim),kdata(e, coil).length(secondDim),kdata(e, coil).length(thirdDim));
+			arma::cube noise_imag = arma::randn<arma::cube>(kdata(e, coil).length(firstDim),kdata(e, coil).length(secondDim),kdata(e, coil).length(thirdDim));
+			for (int k = 0; k < kdata(e, coil).length(thirdDim); k++) {
+				for (int j = 0; j < kdata(e, coil).length(secondDim); j++) {
+					for (int i = 0; i < kdata(e, coil).length(firstDim); i++) {
+						complex<float> noise(noise_real(i,j,k)*noise_std, noise_imag(i,j,k)*noise_std);
+						kdata(e, coil)(i, j, k) = kdata(e, coil)(i, j, k) + noise;
+					}
+				}
+			}
+		}
+	}
+}
+
+
+arma::cx_fmat covariance(arma::cx_fmat X, int Nx, int Ny) {
+	// Initialize covariance matrix
+	arma::cx_fmat cov;
+	cov.zeros(Nx,Nx);
+
+	//Loop Through Coils
+	for (int i=0; i<Nx; i++) {
+		for (int j=0; j<Nx; j++) {
+			std::complex<float> meani = 0;
+			std::complex<float> meanj = 0;
+			for (int k=0; k<Ny; k++) {
+				meani += X(i,k);
+				meanj += X(j,k);
+			}
+			meani /= (float)Ny;
+			meanj /= (float)Ny;
+			for (int k=0; k<Ny; k++) {
+				cov(i,j) += std::conj(X(i,k)-meani)*(X(j,k)-meanj);
+			}
+			cov(i,j) /= ((float)Ny-1);
+		}
+	}
+
+	return cov;
 }
