@@ -113,11 +113,10 @@ message( STATUS "Check for required libraries ")
 
 # Find Voro++
 include(FindVORO)
-set( VORO_FOUND "no")
 if (VORO_FOUND)
 	include_directories( BEFORE ${VORO_INCLUDE_DIR} )
 	set(LOCAL_LIBS ${LOCAL_LIBS} ${VORO_LIBRARIES} )
-	ADD_DEFINITIONS(-DUSE_VORO)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_VORO")
 else (VORO_FOUND)
 	message(WARNING " Compiling without Voronoi support - Install Voro++ to enable")
 endif (VORO_FOUND)
