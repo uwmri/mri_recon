@@ -129,6 +129,7 @@ public:
     float compress_coils;
     float compress_kr;
     bool whiten;
+    float noise_scale_factor;
     bool coil_rejection_flag;
     float coil_rejection_radius;
     int coil_rejection_shape;

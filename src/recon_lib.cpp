@@ -55,6 +55,7 @@ void RECON::set_defaults( void){
 	compress_coils = 0.0;
 	compress_kr = 32;
 	whiten = false;
+	noise_scale_factor = 1.0; //  2 doubles noise, 3 triples noise, ...
 	export_smaps = 0;
 	max_iter = 50;
 	smap_use_all_encodes = false;
@@ -375,6 +376,7 @@ void RECON::parse_commandline(int numarg, char **pstring){
 		float_flag("-compress_coils",compress_coils);
 		float_flag("-compress_kr",compress_kr);
 		trig_flag(true,"-whiten",whiten);
+		float_flag("-noise_scale_factor", noise_scale_factor); // -noise_scale_factor 2 doubles noise, -noise_scale_factor 3 triples noise, ...
 		trig_flag(true,"-complex_diff",complex_diff);
 
 		// Iterations for IST
@@ -434,6 +436,9 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA& data ){
 	// Whiten
 	if( whiten ){
 		data.whiten(); // Requires noise samples inserted
+		if (noise_scale_factor>1.0) {
+			data.add_noise(noise_scale_factor);
+		}
 	}
 
 	// Option to compress coils
@@ -2352,8 +2357,8 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 							  }//Time
 						  }//Encode
-						  
-							// Scale the image to set aproximate value to 1								
+
+							// Scale the image to set aproximate value to 1
 							if( this->image_scale_normalization && (iteration==0) ){
 								// Get max value
 								float max_image_value = 0.0;
@@ -2363,7 +2368,7 @@ Array< Array<complex<float>,3 >,2 >RECON::full_recon( MRI_DATA& data, Range time
 								}
 								complex<float> image_scale( 1./max_image_value, 0.0);
 								std::cout << "Scaling Image to max ~1, Max is " << max_image_value << " scale to " << image_scale << std::endl;
-								
+
 								// Scale image
 								for( Array< Array<complex<float>,3>,2>::iterator riter =R.begin(); riter != R.end(); riter++){
 									*riter *= image_scale;
