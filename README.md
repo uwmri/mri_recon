@@ -25,6 +25,8 @@ This is reconstruction code developed for MRI reconstructions, primarily non-car
 CC=gcc-4.8 CXX=g++-4.8 FC=gfortran-4.8 cmake ../ -DCMAKE_BUILD_TYPE=Release -DENABLE_ORCHESTRA="yes" -DOX_INSTALL_DIRECTORY=$SDKTOP -DCMAKE_INSTALL_PREFIX=${HOME}/local/
 CC=gcc-4.8 CXX=g++-4.8 FC=gfortran-4.8 cmake ../ -DCMAKE_BUILD_TYPE=Debug -DENABLE_ORCHESTRA="yes" -DOX_INSTALL_DIRECTORY=$SDKTOP -DCMAKE_INSTALL_PREFIX=${HOME}/local/
 
+# Coding style
+Code is C++99 to support current coding compatibility of Vendor libraries. Style is based on 2 space indentation according to Google's style ( https://google.github.io/styleguide/cppguide.html )
 
 # Data preparation
 

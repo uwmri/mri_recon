@@ -1,9 +1,7 @@
-/* 
-	
-	This Contains Actual Recon
+/*
+        
+
+        This Contains Actual Recon
 
  */
 #include "recon.h"
-
-
-
