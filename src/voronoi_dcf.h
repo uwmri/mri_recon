@@ -15,8 +15,6 @@
 
 #include "ArrayTemplates.hpp"
 
-#include "voro++/voro++.hh"
-
 /**
  *  @brief
  *  Class to perform Voroni Diagram of MRI Data

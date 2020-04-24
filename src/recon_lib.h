@@ -35,6 +35,8 @@
 
 #ifdef USE_VORO
 #include "voronoi_dcf.h"
+#else 
+#pragma message( "WARNING: Compiling without Voro++, voronoi density calculations not supported " )
 #endif
 
 class RECON {

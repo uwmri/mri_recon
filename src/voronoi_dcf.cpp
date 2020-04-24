@@ -1,4 +1,5 @@
 #include "voronoi_dcf.h"
+#include "voro++/voro++.hh"
 
 using namespace std;
 using namespace NDarray;

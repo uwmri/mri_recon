@@ -189,11 +189,9 @@ void GATING::help_message() {
   cout << "   View Sharing Control " << endl;
   cout << "----------------------------------------------" << endl;
   cout << "Usage:" << endl;
-  help_flag("-viewshare_type []",
-            "view sharing method tornado/none/hist (defult=none)");
+  help_flag("-viewshare_type []", "view sharing method tornado/none/hist (defult=none)");
   help_flag("", "  tornado = variable width filter in kr");
-  help_flag(
-      "", "  none = images at equal time intervals, no sharing between frames");
+  help_flag("", "  none = images at equal time intervals, no sharing between frames");
   help_flag("", "  hist = images with equal data points");
 
   help_flag("-gating_type []", "how to gate images");
@@ -203,15 +201,11 @@ void GATING::help_message() {
   help_flag("", "  time = bin by acquisition time");
   help_flag("", "  prep = bin by time from prep pulses");
 
-  help_flag("-resp_gate []",
-            "In addition to other gating, perform respiratory gating");
+  help_flag("-resp_gate []", "In addition to other gating, perform respiratory gating");
   help_flag("", "  thresh = threshold values");
-  help_flag(
-      "",
-      "  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
+  help_flag("", "  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
 
-  help_flag("-resp_gate_signal",
-            "Specify source for the data used to estimate respiratory phase");
+  help_flag("-resp_gate_signal", "Specify source for the data used to estimate respiratory phase");
   help_flag("",
             "  bellows = signal from respiratory bellows belt in gating file "
             "(default)");
@@ -229,8 +223,7 @@ void GATING::help_message() {
   help_flag("-correct_resp_drift", "Median filter with 10s interval");
   help_flag("-resp_gate_efficiency", "Fraction of data to accept");
   help_flag("-resp_gate_weight", "Soft-Gating Decay Constant (Exponential)");
-  help_flag("-adaptive_resp_window",
-            "Length of window to use for thresholding");
+  help_flag("-adaptive_resp_window", "Length of window to use for thresholding");
 
   cout << "Control for ECG Data" << endl;
   help_flag("-bad_ecg_filter", "Filter Bad ECG Vals (>10,000ms)");
@@ -243,8 +236,7 @@ void GATING::filter_resp(const MRI_DATA &data) {
   // Assume all the data is contigous
   double min_time = Dmin(data.time);
   double max_time = Dmax(data.time);
-  cout << "Time range [ " << min_time << " to " << max_time
-       << " ] span = " << (max_time - min_time) << endl;
+  cout << "Time range [ " << min_time << " to " << max_time << " ] span = " << (max_time - min_time) << endl;
 
   // Time in seconds to grab median from
   double fsize = 5.0;
@@ -319,23 +311,23 @@ GATING::combine_kspace_channels(
     int pos = 0;
     for (int e = 0; e < kdata_gating.length(firstDim); e++) {
       // Now grab the values
-      for (Array<complex<float>, 2>::const_iterator miter =
-               kdata_gating(e, coil).begin();
-           miter != kdata_gating(e, coil).end(); miter++) {
+      for (Array<complex<float>, 2>::const_iterator miter = kdata_gating(e, coil).begin(); miter != kdata_gating(e, coil).end(); miter++) {
         full_data(pos, coil) = (*miter);
         pos++;
       }
     }
   }
 
-  cout << "SVD " << endl << flush;
+  cout << "SVD " << endl
+       << flush;
   arma::fvec s;
   arma::cx_fmat U;
   arma::cx_fmat V;
   arma::svd_econ(U, s, V, full_data);
 
   arma::cx_fmat VV = V.cols(0, 0);
-  cout << "Rotate " << endl << flush;
+  cout << "Rotate " << endl
+       << flush;
   full_data = full_data * VV;
 
   cout << "Copy Back" << endl;
@@ -402,8 +394,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         {
           int count = 0;
           for (int e = 0; e < data.resp.length(firstDim); e++) {
-            for (Array<double, 2>::const_iterator miter = data.time(e).begin();
-                 miter != data.time(e).end(); miter++) {
+            for (Array<double, 2>::const_iterator miter = data.time(e).begin(); miter != data.time(e).end(); miter++) {
               time(count) = (*miter);
               count++;
             }
@@ -445,11 +436,9 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         {
           int count = 0;
           for (int e = 0; e < resp_weight.length(thirdDim); e++) {
-            for (int slice = 0; slice < resp_weight.length(secondDim);
-                 slice++) {
+            for (int slice = 0; slice < resp_weight.length(secondDim); slice++) {
               for (int view = 0; view < resp_weight.length(firstDim); view++) {
-                resp_weight(view, slice, e) =
-                    resp_sign * filtered_signal(count);
+                resp_weight(view, slice, e) = resp_sign * filtered_signal(count);
                 count++;
               }
             }
@@ -490,8 +479,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         // Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) /
-                                 resp.n_elem));  // 10s filter / delta time
+        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
 
         // Now Filter
         cout << "Thresholding Data Frame Size = " << fsize << endl;
@@ -510,11 +498,9 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
           arma::vec temp = time_linear_resp.rows(start, stop);
           arma::vec temp2 = sort(temp);
-          double thresh =
-              temp2((int)((double)temp2.n_elem * (1.0 - resp_gate_efficiency)));
+          double thresh = temp2((int)((double)temp2.n_elem * (1.0 - resp_gate_efficiency)));
 
-          arma_resp_weight(time_idx(i)) =
-              (time_linear_resp(i) >= thresh) ? (1.0) : (0.0);
+          arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh) ? (1.0) : (0.0);
           time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
         }
         time_sort_resp_weight.save("TimeWeight.txt", arma::raw_ascii);
@@ -537,8 +523,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         arma::vec resp_sorted = arma::sort(resp);
 
         // Get threshold
-        int thresh_idx = (int)((float)resp_sorted.n_elem *
-                               (1.0 - this->resp_gate_efficiency));
+        int thresh_idx = (int)((float)resp_sorted.n_elem * (1.0 - this->resp_gate_efficiency));
         float resp_thresh = resp_sorted(thresh_idx);
         cout << "Hard resp thresh = " << resp_thresh << endl;
 
@@ -585,13 +570,11 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         // This version uses a 10 second window to define the threshold and
         // weights. Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) /
-                                 resp.n_elem));  // 10s filter / delta time
+        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
 
         arma::vec temp = time_linear_resp;
         arma::vec temp2 = sort(temp);
-        double thresh =
-            temp2((int)((double)temp2.n_elem * (1.0 - resp_gate_efficiency)));
+        double thresh = temp2((int)((double)temp2.n_elem * (1.0 - resp_gate_efficiency)));
         double decay_const = resp_gate_weight / arma::max(temp);
         // cout << "Decay Const: " << decay_const << endl;
 
@@ -600,10 +583,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         for (int i = 0; i < N; i++) {
           // For exponentially decaying weights. Implemented Soft-Gating as in:
           // https://doi.org/10.1002/mrm.26958
-          arma_resp_weight(time_idx(i)) =
-              (time_linear_resp(i) >= thresh)
-                  ? (1.0)
-                  : (exp(-decay_const * ((thresh - time_linear_resp(i)))));
+          arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh) ? (1.0) : (exp(-decay_const * ((thresh - time_linear_resp(i)))));
 
           time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
         }
@@ -618,7 +598,9 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
       } break;
 
       case (RESP_NONE):
-      default: { return; }
+      default: {
+        return;
+      }
     }
   }
 }
@@ -692,8 +674,7 @@ void GATING::init_time_resolved(const MRI_DATA &data, int *frames) {
     arma::vec temp(total_elements);
     int count = 0;
     for (int e = 0; e < gate_times.length(firstDim); e++) {
-      for (Array<double, 2>::iterator miter = gate_times(e).begin();
-           miter != gate_times(e).end(); miter++) {
+      for (Array<double, 2>::iterator miter = gate_times(e).begin(); miter != gate_times(e).end(); miter++) {
         temp(count) = *miter;
         count++;
       }
@@ -709,8 +690,7 @@ void GATING::init_time_resolved(const MRI_DATA &data, int *frames) {
   }
 
   // Rescale to Frames
-  scale_time = (*frames) / (max_time - min_time) *
-               (1 - 1e-9);  // Extra factor is to map last point to < frames
+  scale_time = (*frames) / (max_time - min_time) * (1 - 1e-9);  // Extra factor is to map last point to < frames
   offset_time = min_time;
 
   // Temporal resolution
@@ -734,8 +714,7 @@ void GATING::init_time_resolved(const MRI_DATA &data, int *frames) {
     arma::vec temp(*frames);
     temp.fill(0);
     for (int e = 0; e < gate_times.length(firstDim); e++) {
-      for (Array<double, 2>::iterator miter = gate_times(e).begin();
-           miter != gate_times(e).end(); miter++) {
+      for (Array<double, 2>::iterator miter = gate_times(e).begin(); miter != gate_times(e).end(); miter++) {
         int pos = (int)(*miter);
         if ((pos < (*frames)) && (pos >= 0)) {
           temp(pos)++;
@@ -760,8 +739,7 @@ void GATING::init_time_resolved(const MRI_DATA &data, int *frames) {
       }
       switch (tornado_shape) {
         case (VIPR): {
-          kmax = max(data.kx(0) * data.kx(0) + data.ky(0) * data.ky(0) +
-                     data.kz(0) * data.kz(0));
+          kmax = max(data.kx(0) * data.kx(0) + data.ky(0) * data.ky(0) + data.kz(0) * data.kz(0));
           kmax = sqrt(kmax);
         } break;
 
@@ -797,8 +775,7 @@ void GATING::init_time_resolved(const MRI_DATA &data, int *frames) {
       // Copy into array
       int count = 0;
       for (int e = 0; e < gate_times.length(firstDim); e++) {
-        for (Array<double, 2>::iterator miter = gate_times(e).begin();
-             miter != gate_times(e).end(); miter++) {
+        for (Array<double, 2>::iterator miter = gate_times(e).begin(); miter != gate_times(e).end(); miter++) {
           time_sort(count) = (*miter);
           count++;
         }
@@ -812,8 +789,7 @@ void GATING::init_time_resolved(const MRI_DATA &data, int *frames) {
       // Now Split into frames
       count = 0;
       for (int e = 0; e < gate_times.length(firstDim); e++) {
-        for (Array<double, 2>::iterator miter = gate_times(e).begin();
-             miter != gate_times(e).end(); miter++) {
+        for (Array<double, 2>::iterator miter = gate_times(e).begin(); miter != gate_times(e).end(); miter++) {
           int t_frame = (int)((double)(sort_idx(count) * (*frames)) / Ncount);
           *miter = t_frame;
           count++;
@@ -837,10 +813,14 @@ void GATING::weight_data(Array<float, 3> &Tw, int e, const Array<float, 3> &kx,
           }
         }
       }
-      cout << "Resp weighting done" << endl << flush;
+      cout << "Resp weighting done" << endl
+           << flush;
     } break;
 
-    default: { cout << "No Additional Resp Gating" << endl << flush; }
+    default: {
+      cout << "No Additional Resp Gating" << endl
+           << flush;
+    }
   }
 
   if ((gate_type != GATE_NONE) && (comp_type != COMPOSITE)) {
@@ -916,19 +896,15 @@ void GATING::tornado_weight(Array<float, 3> &Tw, int e,
           } break;
 
           case (VIPR): {
-            kr = sqrt(kx(i, j, k) * kx(i, j, k) + ky(i, j, k) * ky(i, j, k) +
-                      kz(i, j, k) * kz(i, j, k));
+            kr = sqrt(kx(i, j, k) * kx(i, j, k) + ky(i, j, k) * ky(i, j, k) + kz(i, j, k) * kz(i, j, k));
             k_power = 2.0;
           } break;
         }
 
-        double wdth =
-            0.5 * ((wdth_high - wdth_low) * pow(kr / kmax, k_power) + wdth_low);
+        double wdth = 0.5 * ((wdth_high - wdth_low) * pow(kr / kmax, k_power) + wdth_low);
         if (w_type == ITERATIVE) {
-          Tw(i, j, k) *=
-              (t_diff < wdth)
-                  ? (1.0)
-                  : (0.0);  // Don't Divide (i.e. perform density compensation)
+          // Don't Divide (i.e. perform density compensation)
+          Tw(i, j, k) *= (t_diff < wdth) ? (1.0) : (0.0);
         } else {
           Tw(i, j, k) *= (t_diff < wdth) ? (1. / wdth) : (0.0);
         }

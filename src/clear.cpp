@@ -868,10 +868,8 @@ void LOWRANKCOIL::combine(Array<Array<complex<float>, 3>, 3> &image,
       for (int e = 0; e < Ne; e++) {
         for (int t = 0; t < Nt; t++) {
           for (int kk = (k + shiftz); kk < (k + block_size_z + shiftz); kk++) {
-            for (int jj = (j + shifty); jj < (j + block_size_y + shifty);
-                 jj++) {
-              for (int ii = (i + shiftx); ii < (i + block_size_x + shiftx);
-                   ii++) {
+            for (int jj = (j + shifty); jj < (j + block_size_y + shifty); jj++) {
+              for (int ii = (i + shiftx); ii < (i + block_size_x + shiftx); ii++) {
                 int px = (ii + Nx) % Nx;
                 int py = (jj + Ny) % Ny;
                 int pz = (kk + Nz) % Nz;
@@ -902,8 +900,7 @@ void LOWRANKCOIL::combine(Array<Array<complex<float>, 3>, 3> &image,
       for (int t = 0; t < Nt; t++) {
         for (int kk = (k + shiftz); kk < (k + block_size_z + shiftz); kk++) {
           for (int jj = (j + shifty); jj < (j + block_size_y + shifty); jj++) {
-            for (int ii = (i + shiftx); ii < (i + block_size_x + shiftx);
-                 ii++) {
+            for (int ii = (i + shiftx); ii < (i + block_size_x + shiftx); ii++) {
               int px = (ii + Nx) % Nx;
               int py = (jj + Ny) % Ny;
               int pz = (kk + Nz) % Nz;

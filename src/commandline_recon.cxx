@@ -35,9 +35,7 @@ int main(int argc, char **argv) {
     case (RECON::PSF): {
       // Use external Kx,Ky,Kz
       data.read_external_data(recon.filename);
-      for (Array<Array<complex<float>, 3>, 2>::iterator miter =
-               data.kdata.begin();
-           miter != data.kdata.end(); miter++) {
+      for (Array<Array<complex<float>, 3>, 2>::iterator miter = data.kdata.begin(); miter != data.kdata.end(); miter++) {
         *miter = complex<float>(1.0, 0.0);
       }
     } break;
@@ -45,9 +43,7 @@ int main(int argc, char **argv) {
     case (RECON::PHANTOM): {
       // Use external Kx,Ky,Kz
       data.read_external_data(recon.filename);
-      for (Array<Array<complex<float>, 3>, 2>::iterator miter =
-               data.kdata.begin();
-           miter != data.kdata.end(); miter++) {
+      for (Array<Array<complex<float>, 3>, 2>::iterator miter = data.kdata.begin(); miter != data.kdata.end(); miter++) {
         *miter = complex<float>(0.0, 0.0);
       }
 
@@ -86,13 +82,13 @@ int main(int argc, char **argv) {
       cout << "Num coils = " << data.Num_Coils << endl;
       for (int coil = 0; coil < data.Num_Coils; coil++) {
         cout << "Getting phantom" << coil << ":" << flush;
-        cout << "Smap " << endl << flush;
+        cout << "Smap " << endl
+             << flush;
         phantom.update_smap_biotsavart(coil, data.Num_Coils);
 
         // Update Image
-        Array<complex<float>, 3> kdataE =
-            data.kdata(e, coil);  // Get one encoding, one coil
-        kdataE = 0;               // Zero data
+        Array<complex<float>, 3> kdataE = data.kdata(e, coil);  // Get one encoding, one coil
+        kdataE = 0;                                             // Zero data
 
         Array<complex<float>, 3> temp(kdataE.shape(), ColumnMajorArray<3>());
 
@@ -102,13 +98,11 @@ int main(int argc, char **argv) {
 
           // Weight Image
           TimeWeight = 1;
-          gate.weight_data(TimeWeight, e, kxE, kyE, kzE, t,
-                           GATING::NON_ITERATIVE, GATING::TIME_FRAME);
+          gate.weight_data(TimeWeight, e, kxE, kyE, kzE, t, GATING::NON_ITERATIVE, GATING::TIME_FRAME);
 
           // Now Inverse Grid
           cout << " Inverse Grid :: " << t << endl;
-          phantom_gridding.backward(phantom.IMAGE, kdataE, kxE, kyE, kzE,
-                                    TimeWeight);
+          phantom_gridding.backward(phantom.IMAGE, kdataE, kxE, kyE, kzE, TimeWeight);
         }
       }
 
