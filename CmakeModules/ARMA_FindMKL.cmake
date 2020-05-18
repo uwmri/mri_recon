@@ -30,6 +30,8 @@ if(NOT MKL_ROOT)
   set(MKL_ROOT "/opt/intel/mkl")
 endif()
 
+message(STATUS "Looking for MKL in ${MKL_ROOT}")
+
 
 foreach (MKL_NAME ${MKL_NAMES})
   find_library(${MKL_NAME}_LIBRARY

@@ -46,7 +46,7 @@ else()
   set(COR_LIB "mkl_core")
 endif()
 
-find_path(MKL_INCLUDE_DIR NAMES mkl.h HINTS $ENV{MKLROOT}/include)
+find_path(MKL_INCLUDE_DIR NAMES mkl.h HINTS $ENV{MKLROOT}/include )
 
 find_library(MKL_INTERFACE_LIBRARY
              NAMES ${INT_LIB}

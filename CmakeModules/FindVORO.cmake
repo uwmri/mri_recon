@@ -16,7 +16,7 @@ IF( VORO_INCLUDE_DIR )
   MESSAGE(STATUS "   Found the Voro++ headers: ${VORO_INCLUDE_DIR}")
 ELSE( VORO_INCLUDE_DIR )
   SET(VORO_HEADER_FOUND "no")
-  MESSAGE(FATAL_ERROR "Could not find the Voro++ headers")
+  MESSAGE(WARNING "Could not find the Voro++ headers")
 endif ( VORO_INCLUDE_DIR)
 
 
@@ -27,7 +27,7 @@ IF( VORO_LIBRARY )
   MESSAGE(STATUS "   Found the Voro++ library: ${VORO_LIBRARIES}")
 ELSE( VORO_LIBRARY )
   SET(VORO_FOUND "no")
-  MESSAGE(FATAL_ERROR "Could not find the Voro++ library")
+  MESSAGE(WARNING "Could not find the Voro++ library")
 endif ( VORO_LIBRARY)
 
 

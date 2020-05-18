@@ -12,8 +12,6 @@ set(STATIC_LIBS ON)
 
 link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 
-#set(ENABLE_ORCHESTRA "YES")
-
 if ( ENABLE_ORCHESTRA )
 
 	message( STATUS "Using orchestra libraries")
@@ -163,7 +161,6 @@ set(RECONLIB_SOURCES
 	src/polynomial_fitting.cpp
 	src/hdf5_interface.cpp
 	src/ArrayTemplates.cpp
-	src/voronoi_dcf.cpp
 	src/l2reg.cpp
 	src/clear.cpp
 	src/gating.cpp
@@ -191,8 +188,8 @@ set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 98)
 #--------------------------------------
 # Support for Command Line Binary
 #--------------------------------------
-add_executable(recon_binary src/commandline_recon.cxx ${LOCAL_INCS})
-target_link_libraries(recon_binary ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB)
+add_executable(uwmri_recon src/commandline_recon.cxx ${LOCAL_INCS})
+target_link_libraries(uwmri_recon ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB)
 
 add_executable(fractal_binary src/commandline_fractal.cpp ${LOCAL_INCS})
 target_link_libraries(fractal_binary ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB)
