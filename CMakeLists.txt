@@ -211,7 +211,7 @@ endif(VORO_FOUND)
 
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
-install( TARGETS recon_binary fractal_binary DESTINATION bin)
+install( TARGETS uwmri_recon fractal_binary DESTINATION bin)
 install( TARGETS RECONLIB DESTINATION lib)
 install( DIRECTORY ./src/ DESTINATION include
 	FILES_MATCHING PATTERN "src/*.h"
