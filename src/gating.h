@@ -22,18 +22,33 @@
 
 class GATING {
  public:
-  enum ViewshareType { TORNADO, NONE, HIST_MODE };
-  enum TornadoType { FLAT, RADIAL, VIPR };
-  enum WeightType { ITERATIVE, NON_ITERATIVE };
-  enum FrameType { COMPOSITE, TIME_FRAME };
-  enum GateType { GATE_NONE, RETRO_ECG, ECG, RESP, TIME, PREP };
-  enum RespGateType { RESP_NONE, RESP_THRESH, RESP_WEIGHT, RESP_HARD };
+  enum ViewshareType { TORNADO,
+                       NONE,
+                       HIST_MODE };
+  enum TornadoType { FLAT,
+                     RADIAL,
+                     VIPR };
+  enum WeightType { ITERATIVE,
+                    NON_ITERATIVE };
+  enum FrameType { COMPOSITE,
+                   TIME_FRAME };
+  enum GateType { GATE_NONE,
+                  RETRO_ECG,
+                  ECG,
+                  RESP,
+                  TIME,
+                  PREP };
+  enum RespGateType { RESP_NONE,
+                      RESP_THRESH,
+                      RESP_WEIGHT,
+                      RESP_HARD };
 
   GATING();
   GATING(int numarg, char **pstring);
-  void init(const MRI_DATA &data, int *);
+  void init(const MRI_DATA &data, int);
   void init_resp_gating(const MRI_DATA &data);
-  void init_time_resolved(const MRI_DATA &data, int *);
+  void init_time_resolved(const MRI_DATA &data, int);
+  int number_of_frames(void);
 
   // Tornado Filter Parameters
   int wdth_low;   // k=0 width
@@ -46,12 +61,13 @@ class GATING {
   double offset_time;
   double actual_temporal_resolution;
 
+  int recon_frames;
+
   // Control Gating Method
   ViewshareType vs_type;
   GateType gate_type;
 
   NDarray::Array<NDarray::Array<double, 2>, 1> gate_times;
-  NDarray::Array<NDarray::Array<double, 2>, 1> resp_times;
   NDarray::Array<NDarray::Array<double, 2>, 1> resp_weight;
 
   // Control of Retrospective Respiratory Gating
@@ -61,12 +77,13 @@ class GATING {
   float resp_gate_weight;
 
   // Respiratory Signal
-  enum RespGateSignal { BELLOWS, DC_DATA };
+  enum RespGateSignal { BELLOWS,
+                        DC_DATA };
   RespGateSignal resp_gate_signal;
   float resp_sign;
 
   // Frame Centers
-  double *gate_frames;
+  NDarray::Array<double, 1> gate_frames;
 
   // Function Calls
   static void help_message(void);
@@ -82,8 +99,7 @@ class GATING {
                       const NDarray::Array<float, 3> &ky,
                       const NDarray::Array<float, 3> &kz, int t, WeightType);
   void filter_resp(const MRI_DATA &data);
-  NDarray::Array<NDarray::Array<complex<float>, 2>, 1> combine_kspace_channels(
-      const NDarray::Array<NDarray::Array<complex<float>, 2>, 2> &kdata_gating);
+  NDarray::Array<NDarray::Array<complex<float>, 2>, 1> combine_kspace_channels(const NDarray::Array<NDarray::Array<complex<float>, 2>, 2> &kdata_gating);
 
  private:
 };

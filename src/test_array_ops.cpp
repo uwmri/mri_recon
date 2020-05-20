@@ -8,7 +8,7 @@ int main(void) {
 
   {
     cout << "Check SVD Performance" << endl;
-    int N = 256 * 256 * 8;
+    int N = 64 * 64 * 8;
     int Np = 385;
 
     // preallocate some arrays
@@ -22,12 +22,14 @@ int main(void) {
          << std::flush;
     T.tic();
     arma::svd_econ(U, s, V, A, "both");
-    cout << "it took " << T << " s per iteraiton" << endl << flush;
+    cout << "it took " << T << " s per iteraiton" << endl
+         << flush;
 
     cout << "working on rotation" << endl;
     T.tic();
     A = U * arma::diagmat(s) * V.t();
-    cout << "it took " << T << " s per iteraiton" << endl << flush;
+    cout << "it took " << T << " s per iteraiton" << endl
+         << flush;
 
     cout << "Took " << T << endl;
   }
