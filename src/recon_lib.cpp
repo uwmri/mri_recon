@@ -606,8 +606,6 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
  * @param data MRI_DATA to be transfromed
  */
 void RECON::pregate_data(MRI_DATA &data) {
-  // data.stats();
-
   // For now balloon memory
   MRI_DATA data2;
 
@@ -633,13 +631,11 @@ void RECON::pregate_data(MRI_DATA &data) {
 
       // First count th number of points required
       Kweight = 1;
-      gate.weight_data(Kweight, e, data.kx(e), data.ky(e), data.kz(e), t,
-                       GATING::NON_ITERATIVE, GATING::TIME_FRAME);
+      gate.weight_data(Kweight, e, data.kx(e), data.ky(e), data.kz(e), t, GATING::NON_ITERATIVE, GATING::TIME_FRAME);
 
       // Count the number of frames
       int number_of_points = 0;
-      for (Array<float, 3>::iterator miter = Kweight.begin();
-           miter != Kweight.end(); miter++) {
+      for (Array<float, 3>::iterator miter = Kweight.begin(); miter != Kweight.end(); miter++) {
         if (*miter > 0) {
           number_of_points++;
         }
@@ -649,7 +645,7 @@ void RECON::pregate_data(MRI_DATA &data) {
       {
         cout << "Frame " << t
              << ", Total number of point = " << number_of_points
-             << "Kw_scale = " << Kw_Scale << endl;
+             << " ,Kw_scale = " << Kw_Scale << endl;
       }
 
       data2.kx(count + t).setStorage(ColumnMajorArray<3>());
@@ -680,13 +676,11 @@ void RECON::pregate_data(MRI_DATA &data) {
               if (reset_dens) {
                 data2.kw(count + t)(point_number, 0, 0) = 1.0;
               } else {
-                data2.kw(count + t)(point_number, 0, 0) =
-                    Kw_Scale * data.kw(e)(i, j, k);
+                data2.kw(count + t)(point_number, 0, 0) = Kw_Scale * data.kw(e)(i, j, k);
               }
 
               for (int coil = 0; coil < data2.Num_Coils; coil++) {
-                data2.kdata(count + t, coil)(point_number, 0, 0) =
-                    data.kdata(e, coil)(i, j, k);
+                data2.kdata(count + t, coil)(point_number, 0, 0) = data.kdata(e, coil)(i, j, k);
               }
               point_number++;
             }

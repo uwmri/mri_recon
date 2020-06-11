@@ -75,11 +75,11 @@ GATING::GATING(int numarg, char **pstring) {
   // Respiratory Efficiency
   correct_resp_drift = 0;
   resp_gate_efficiency = 0.5;
-  resp_gate_weight = 3;  // This controls exponential decay of resp weights for
-                         // soft-thresholding.
+  resp_gate_weight = 3;  // This controls exponential decay of resp weights for soft-thresholding.
   resp_gate_type = RESP_NONE;
   resp_gate_signal = BELLOWS;
-
+  gate_min_quantile = 0.0;
+  gate_max_quantile = 1.0;
   resp_sign = 1.0;
 
 // Catch command line switches
@@ -172,6 +172,8 @@ GATING::GATING(int numarg, char **pstring) {
       float_flag("-resp_gate_efficiency", resp_gate_efficiency);
       float_flag("-resp_gate_weight", resp_gate_weight);
       float_flag("-resp_sign", resp_sign);
+      float_flag("-gate_min_quantile", gate_min_quantile);
+      float_flag("-gate_max_quantile", gate_max_quantile);
     }
   }
 
@@ -382,8 +384,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         /* Do a SVD - coil/channel combine - might need more complex for slice
          * based*/
-        Array<Array<complex<float>, 2>, 1> kdc =
-            combine_kspace_channels(data.kdata_gating);
+        Array<Array<complex<float>, 2>, 1> kdc = combine_kspace_channels(data.kdata_gating);
 
         cout << "Sizes of SVD combined K0" << endl;
         cout << kdc(0).shape() << endl;
@@ -673,38 +674,79 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
     } break;
   }
 
-  // Get Range
-  double max_time = Dmax(this->gate_times);
-  double min_time = Dmin(this->gate_times);
-
-  if (gate_type == RETRO_ECG) {
-    int total_elements = 0;
-    for (int e = 0; e < gate_times.length(firstDim); e++) {
-      this->gate_times(e) -= min_time;
-      total_elements += this->gate_times(e).numElements();
-    }
-
-    min_time = 0;
-
-    // Use Median to set value
-    arma::vec temp(total_elements);
-    int count = 0;
-    for (int e = 0; e < this->gate_times.length(firstDim); e++) {
-      for (Array<double, 2>::iterator miter = this->gate_times(e).begin(); miter != this->gate_times(e).end(); miter++) {
-        temp(count) = *miter;
-        count++;
-      }
-    }
-    max_time = 2.0 * median(temp);
-    cout << "Retro ECG::RR is estimated to be " << max_time << endl;
-  }
-
   /* Bounds check*/
   if (target_frames == -1) {
     this->recon_frames = data.tres;
     cout << "Using native number of time frames:" << this->recon_frames << endl;
   } else {
     this->recon_frames = target_frames;
+  }
+
+  // Get Range
+  double max_time;
+  double min_time;
+
+  switch (gate_type) {
+    case (RETRO_ECG): {
+      int total_elements = 0;
+      for (int e = 0; e < gate_times.length(firstDim); e++) {
+        this->gate_times(e) -= min_time;
+        total_elements += this->gate_times(e).numElements();
+      }
+
+      min_time = 0;
+
+      // Use Median to set value
+      arma::vec temp(total_elements);
+      int count = 0;
+      for (int e = 0; e < this->gate_times.length(firstDim); e++) {
+        for (Array<double, 2>::iterator miter = this->gate_times(e).begin(); miter != this->gate_times(e).end(); miter++) {
+          temp(count) = *miter;
+          count++;
+        }
+      }
+      max_time = 2.0 * median(temp);
+      cout << "Retro ECG::RR is estimated to be " << max_time << endl;
+    } break;
+
+    case (RESP): {
+      // For respiratory weighting it is useful to reject outliers in the data
+      int total_elements = 0;
+      for (int e = 0; e < gate_times.length(firstDim); e++) {
+        this->gate_times(e) -= min_time;
+        total_elements += this->gate_times(e).numElements();
+      }
+
+      min_time = 0;
+      max_time = 0;
+
+      // Create histogram
+      arma::vec temp(total_elements);
+      int count = 0;
+      for (int e = 0; e < this->gate_times.length(firstDim); e++) {
+        for (Array<double, 2>::iterator miter = this->gate_times(e).begin(); miter != this->gate_times(e).end(); miter++) {
+          temp(count) = *miter;
+          count++;
+        }
+      }
+      arma::vec P(2);
+      P(0) = this->gate_min_quantile;
+      P(1) = this->gate_max_quantile;
+      arma::vec V = arma::quantile(temp, P);
+      cout << "Respiratory Quantiles = " << endl
+           << V << endl;
+      double frame_width = (V(1) - V(0)) / (this->recon_frames - 1.0);
+
+      // Add half frame on ends
+      max_time = V(1) + 0.5 * frame_width;
+      min_time = V(0) - 0.5 * frame_width;
+
+    } break;
+
+    default: {
+      max_time = Dmax(this->gate_times);
+      min_time = Dmin(this->gate_times);
+    } break;
   }
 
   // Rescale to Frames
@@ -733,7 +775,7 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
     temp.fill(0);
     for (int e = 0; e < this->gate_times.length(firstDim); e++) {
       for (Array<double, 2>::iterator miter = this->gate_times(e).begin(); miter != this->gate_times(e).end(); miter++) {
-        int pos = (int)(*miter);
+        int pos = floor(*miter);
         if ((pos < (this->recon_frames)) && (pos >= 0)) {
           temp(pos)++;
         }

@@ -84,6 +84,8 @@ class GATING {
 
   // Frame Centers
   NDarray::Array<double, 1> gate_frames;
+  float gate_min_quantile;
+  float gate_max_quantile;
 
   // Function Calls
   static void help_message(void);
