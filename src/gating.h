@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -9,7 +9,7 @@
 #include <complex>
 #include <omp.h>
 
- 
+
 #include <armadillo>
 #include "ArrayTemplates.hpp"
 #include "gridFFT.h"
@@ -25,56 +25,56 @@
 class GATING {
 
     public:
-        
+
 		enum ViewshareType { TORNADO, NONE, HIST_MODE };
 		enum TornadoType { FLAT, RADIAL, VIPR};
 		enum WeightType { ITERATIVE,NON_ITERATIVE};
 		enum FrameType { COMPOSITE, TIME_FRAME};
-		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP}; 
+		enum GateType{ GATE_NONE,RETRO_ECG,ECG,RESP,TIME,PREP};
 		enum RespGateType{RESP_NONE,RESP_THRESH,RESP_WEIGHT};
-		
-		
-		GATING();						
+
+
+		GATING();
 		GATING(int numarg,char **pstring);
 		void init( const MRI_DATA &data,int *);
 		void init_resp_gating(const MRI_DATA &data);
 		void init_time_resolved(const MRI_DATA &data,int *);
-		
+
 		// Tornado Filter Parameters
 		int wdth_low;	// k=0 width
 		int wdth_high; 	// k=kmax width
 		float kmax;
 		TornadoType tornado_shape; // kr^2 vs kr
-		                      
-        
+
+
 		// Scaling for Waveform
 		double scale_time;
 		double offset_time;
 		double actual_temporal_resolution;
-		
-		//Control Gating Method		
-		ViewshareType vs_type;	
+
+		//Control Gating Method
+		ViewshareType vs_type;
 		GateType gate_type;
-		
+
 		NDarray::Array< NDarray::Array<double,2>,1>gate_times;
 		NDarray::Array< NDarray::Array<double,2>,1>resp_times;
 		NDarray::Array< NDarray::Array<double,2>,1>resp_weight;
-		
+
 		// Control of Retrospective Respiratory Gating
 		RespGateType resp_gate_type;
 		int correct_resp_drift;
 		float resp_gate_efficiency;
-                float resp_gate_weight;
+    float resp_gate_weight;
 
-		// Respiratory Signal 
+		// Respiratory Signal
 		enum RespGateSignal{BELLOWS,DC_DATA};
 		RespGateSignal resp_gate_signal;
-		float resp_sign; 
+		float resp_sign;
 
-		// Frame Centers	
+		// Frame Centers
 		double *gate_frames;
-		
-		// Function Calls		
+
+		// Function Calls
 		static void help_message(void);
 		void weight_data(NDarray::Array<float,3>&Tw, int e, const NDarray::Array<float,3> &kx, const NDarray::Array<float,3> &ky,const NDarray::Array<float,3>&kz,int t,WeightType, FrameType );
 		float temporal_resolution(void);
@@ -85,4 +85,3 @@ class GATING {
     private:
 
 };
-
