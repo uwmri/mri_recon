@@ -9,9 +9,12 @@
 #include "ArrayTemplates.hpp"
 #include "tictoc.hpp"
 
-enum { SP_SQUARE, SP_CIRCLE };
-enum { SP_TIK, SP_TSVD };
-enum { SP_COIL_PHASE, SP_SMOOTH };
+enum { SP_SQUARE,
+       SP_CIRCLE };
+enum { SP_TIK,
+       SP_TSVD };
+enum { SP_COIL_PHASE,
+       SP_SMOOTH };
 
 void fftshift3(NDarray::Array<complex<float>, 3> &);
 void ifft3(NDarray::Array<complex<float>, 3> &);

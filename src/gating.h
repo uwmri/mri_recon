@@ -22,12 +22,26 @@
 
 class GATING {
  public:
-  enum ViewshareType { TORNADO, NONE, HIST_MODE };
-  enum TornadoType { FLAT, RADIAL, VIPR };
-  enum WeightType { ITERATIVE, NON_ITERATIVE };
-  enum FrameType { COMPOSITE, TIME_FRAME };
-  enum GateType { GATE_NONE, RETRO_ECG, ECG, RESP, TIME, PREP };
-  enum RespGateType { RESP_NONE, RESP_THRESH, RESP_WEIGHT, RESP_HARD };
+  enum ViewshareType { TORNADO,
+                       NONE,
+                       HIST_MODE };
+  enum TornadoType { FLAT,
+                     RADIAL,
+                     VIPR };
+  enum WeightType { ITERATIVE,
+                    NON_ITERATIVE };
+  enum FrameType { COMPOSITE,
+                   TIME_FRAME };
+  enum GateType { GATE_NONE,
+                  RETRO_ECG,
+                  ECG,
+                  RESP,
+                  TIME,
+                  PREP };
+  enum RespGateType { RESP_NONE,
+                      RESP_THRESH,
+                      RESP_WEIGHT,
+                      RESP_HARD };
 
   GATING();
   GATING(int numarg, char **pstring);
@@ -61,7 +75,8 @@ class GATING {
   float resp_gate_weight;
 
   // Respiratory Signal
-  enum RespGateSignal { BELLOWS, DC_DATA };
+  enum RespGateSignal { BELLOWS,
+                        DC_DATA };
   RespGateSignal resp_gate_signal;
   float resp_sign;
 

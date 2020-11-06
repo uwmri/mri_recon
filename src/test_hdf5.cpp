@@ -48,13 +48,16 @@ int main(void) {
     float B;
     std::string C;
     file.ReadH5Scaler("Kdata", "A", &A);
-    cout << "A = " << A << endl << flush;
+    cout << "A = " << A << endl
+         << flush;
 
     file.ReadH5Scaler("Kdata", "B", &B);
-    cout << "B = " << B << endl << flush;
+    cout << "B = " << B << endl
+         << flush;
 
     file.ReadH5Char("Kdata", "C", C);
-    cout << "C = " << C << endl << flush;
+    cout << "C = " << C << endl
+         << flush;
 
     Array<float, 3> TEMP(3, 3, 3);
     file.ReadH5Array("Kdata", "D", TEMP);

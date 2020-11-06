@@ -141,7 +141,8 @@ void SPIRIT::generateEigenCoils(Array<Array<complex<float>, 3>, 1> &smaps,
   }
 
   // FFT Smaps Back to K-Space
-  cout << "FFT back to K-space" << endl << flush;
+  cout << "FFT back to K-space" << endl
+       << flush;
   for (int e = 0; e < image.length(firstDim); e++) {
     for (int coil = 0; coil < image.length(secondDim); coil++) {
       ifft(image(e, coil));  // In Place FFT
@@ -153,7 +154,8 @@ void SPIRIT::generateEigenCoils(Array<Array<complex<float>, 3>, 1> &smaps,
   }
 
   // Array Reference for Low with Blitz
-  cout << "Calibrate" << endl << flush;
+  cout << "Calibrate" << endl
+       << flush;
   calibrate_ellipsoid(image);
 
   // Code to get Sense maps from kernel
@@ -177,7 +179,8 @@ void SPIRIT::generateEigenCoils(Array<Array<complex<float>, 3>, 1> &smaps,
 //		Does
 //-----------------------------------------------------
 void SPIRIT::calibrate_ellipsoid(Array<Array<complex<float>, 3>, 2> &kdata) {
-  cout << "Calibrating..." << endl << flush;
+  cout << "Calibrating..." << endl
+       << flush;
 
   // Centers of k-space
   int cx, cy, cz;
@@ -247,7 +250,8 @@ void SPIRIT::calibrate_ellipsoid(Array<Array<complex<float>, 3>, 2> &kdata) {
   // Kernel Matrix
   cx_mat A(num_ACS, num_kernel);
 
-  cout << "Populating Kernel: " << endl << flush;
+  cout << "Populating Kernel: " << endl
+       << flush;
   int Arow = 0;
   for (int ie = 0; ie < kdata.length(firstDim); ie++) {
     for (int iz = -crz; iz <= crz; iz++) {
@@ -314,7 +318,8 @@ void SPIRIT::calibrate_ellipsoid(Array<Array<complex<float>, 3>, 2> &kdata) {
 
   cout << "A is " << A.n_rows << " x " << A.n_cols << endl;
 
-  cout << "SVD on Kernel: " << endl << flush;
+  cout << "SVD on Kernel: " << endl
+       << flush;
   cx_mat U;
   vec s;
   cx_mat V;
@@ -327,7 +332,8 @@ void SPIRIT::calibrate_ellipsoid(Array<Array<complex<float>, 3>, 2> &kdata) {
   V.save("V.txt", arma::raw_binary);
   s.save("S.txt", arma::raw_binary);
 
-  cout << "Finding Number of Singular Values " << endl << flush;
+  cout << "Finding Number of Singular Values " << endl
+       << flush;
   float thresh = s(0) * sqrt(svd_thresh);
   nV = 0;
   for (int pos = 0; pos < (int)s.n_rows; pos++) {
@@ -337,7 +343,8 @@ void SPIRIT::calibrate_ellipsoid(Array<Array<complex<float>, 3>, 2> &kdata) {
   }
   cout << "Using " << nV << " singular values of kernel" << endl;
 
-  cout << "Alloc Kernel: " << endl << flush;
+  cout << "Alloc Kernel: " << endl
+       << flush;
 
   // Blitz Alocation of Kernel (ColumnMajor Now!)
   k.setStorage(ColumnMajorArray<5>());
@@ -459,7 +466,8 @@ void SPIRIT::getcoils(Array<Array<complex<float>, 3>, 1> &LR) {
   x_line_full.resize(Nx, ncoils, nV);
 
   for (int iz = 0; iz < Nz; iz++) {
-    cout << iz << " of " << Nz << endl << flush;
+    cout << iz << " of " << Nz << endl
+         << flush;
 
     // Get one Slice
     temp = complex<float>(0.0, 0.0);
@@ -498,7 +506,8 @@ void SPIRIT::getcoils(Array<Array<complex<float>, 3>, 1> &LR) {
 
         svd_econ(U, s, V, A, "left");
         for (int jj = 0; jj < ncoils; jj++) {
-          LR(jj)(ix, iy, iz) = conj(U(jj, 0));
+          LR(jj)
+          (ix, iy, iz) = conj(U(jj, 0));
         }
       }
     }

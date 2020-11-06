@@ -27,8 +27,10 @@ class MRI_DATA {
   //
   //	Data Descriptors
   //
-  enum TrajType { CARTESIAN, NONCARTESIAN };
-  enum SmsType { SMSoff, SMSon };
+  enum TrajType { CARTESIAN,
+                  NONCARTESIAN };
+  enum SmsType { SMSoff,
+                 SMSon };
 
   //
   //	Variables
@@ -60,7 +62,7 @@ class MRI_DATA {
   // Physiologic Data for gating
   NDarray::Array<NDarray::Array<double, 2>, 1> ecg;  // Distance from ECG in MS
   NDarray::Array<NDarray::Array<double, 2>, 1>
-      resp;  // Respiratory signal from bellows or navigator
+      resp;                                           // Respiratory signal from bellows or navigator
   NDarray::Array<NDarray::Array<double, 2>, 1> time;  // Acquisition Time
   NDarray::Array<NDarray::Array<double, 2>, 1>
       prep;  // Time since a prep event (for example inversion)

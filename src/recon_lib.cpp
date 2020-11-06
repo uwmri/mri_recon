@@ -695,7 +695,8 @@ void RECON::pregate_data(MRI_DATA &data) {
     count += rcframes;
   }
 
-  cout << "Swap" << endl << flush;
+  cout << "Swap" << endl
+       << flush;
   cycleArrays(data.kx, data2.kx);
   cycleArrays(data.ky, data2.ky);
   cycleArrays(data.kz, data2.kz);
@@ -707,7 +708,8 @@ void RECON::pregate_data(MRI_DATA &data) {
 
   // data.stats();
 
-  cout << "Done gating data" << endl << flush;
+  cout << "Done gating data" << endl
+       << flush;
 }
 
 void vor_dcf2(Array<Array<float, 3>, 2> &Kw, Array<Array<float, 3>, 2> &Ky,
@@ -806,7 +808,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
       Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres, Ncoils);
   smaps.reference(temp);
 
-  cout << "Allocate Sense Maps" << endl << flush;
+  cout << "Allocate Sense Maps" << endl
+       << flush;
   if (Ncoils == 1) {
     smaps(0) = complex<float>(1.0, 0.0);
   } else {
@@ -853,13 +856,15 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
     smsCgrid.precalc_gridding(rczres, rcyres, rcxres, cal_frames, cal_encodes,
                               1, data_cal);
 
-    cout << "Alloc Image" << endl << flush;
+    cout << "Alloc Image" << endl
+         << flush;
     Array<Array<complex<float>, 3>, 2> image_store =
         Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, cal_encodes,
                                           Ncoils);
 
     // Compute Forward Transform
-    cout << "Create X" << endl << flush;
+    cout << "Create X" << endl
+         << flush;
     Array<Array<complex<float>, 3>, 2> xdf = Alloc5DContainer<complex<float> >(
         rcxres, rcyres, rczres, cal_frames, cal_encodes);
 
@@ -868,7 +873,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
 
     // Now grid each frame
     for (int coil = 0; coil < Ncoils; coil++) {
-      cout << "Sense Map " << coil << endl << flush;
+      cout << "Sense Map " << coil << endl
+           << flush;
 
       // Zero the storage
       for (int e = 0; e < cal_encodes; e++) {
@@ -931,7 +937,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
       }
     }
 
-    cout << "Writing Smaps " << endl << flush;
+    cout << "Writing Smaps " << endl
+         << flush;
     for (int coil = 0; coil < Ncoils; coil++) {
       char name[1024];
       sprintf(name, "Smap%03d.dat", coil);
@@ -980,7 +987,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
     }
   }
 
-  cout << "Prep Thresholds" << endl << flush;
+  cout << "Prep Thresholds" << endl
+       << flush;
   {
     // Setup 3D Wavelet
     wave = WAVELET3D(
@@ -1052,7 +1060,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
       rcxres, rcyres, rczres, rcframes, sms_encodes);
 
   // Compute Forward Transform
-  cout << "Create X" << endl << flush;
+  cout << "Create X" << endl
+       << flush;
   Array<Complex3D, 2> R = Alloc5DContainer<complex<float> >(
       rcxres, rcyres, rczres, rcframes, sms_encodes);
   Array<Complex3D, 2> P = Alloc5DContainer<complex<float> >(
@@ -1079,7 +1088,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
           R(t, e) = complex<float>(0.0, 0.0);
         }
       }
-      cout << "(took " << timer << ")" << endl << flush;
+      cout << "(took " << timer << ")" << endl
+           << flush;
 
       cout << "\tGradient Calculation" << flush;
       for (int coil = 0; coil < Ncoils; coil++) {
@@ -1090,7 +1100,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
             diff_data(t, e) = complex<float>(0.0, 0.0);
           }
         }
-        cout << "(took " << timer << ")" << endl << flush;
+        cout << "(took " << timer << ")" << endl
+             << flush;
 
         // Ex
         if (iteration > 0) {
@@ -1098,26 +1109,30 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
           timer.tic();
           smsgrid.backward(X, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz,
                            SmsKw, SmsZ);
-          cout << "(took " << timer << ")" << endl << flush;
+          cout << "(took " << timer << ")" << endl
+               << flush;
         }
 
         // Ex-d
         cout << "\t\tSubtract" << flush;
-        cout << "(took " << timer << ")" << endl << flush;
+        cout << "(took " << timer << ")" << endl
+             << flush;
 
         for (int e = 0; e < sms_encodes; e++) {
           for (int t = 0; t < sms_frames; t++) {
             diff_data(t, e) -= SmsData(t, e, coil);
           }
         }
-        cout << "(took " << timer << ")" << endl << flush;
+        cout << "(took " << timer << ")" << endl
+             << flush;
 
         // E'Ex
         cout << "\t\tForward" << flush;
         timer.tic();
         smsgrid.forward(R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,
                         SmsZ);
-        cout << "(took " << timer << ")" << endl << flush;
+        cout << "(took " << timer << ")" << endl
+             << flush;
 
       }  // Coils
 
@@ -1129,7 +1144,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
           P(t, e) = complex<float>(0.0, 0.0);
         }
       }
-      cout << "(took " << timer << ")" << endl << flush;
+      cout << "(took " << timer << ")" << endl
+           << flush;
 
       for (int coil = 0; coil < Ncoils; coil++) {
         cout << "\t\tZeroing" << flush;
@@ -1139,21 +1155,24 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
             diff_data(t, e) = complex<float>(0.0, 0.0);
           }
         }
-        cout << "(took " << timer << ")" << endl << flush;
+        cout << "(took " << timer << ")" << endl
+             << flush;
 
         // EE'(Ex-d)
         cout << "\t\tBackwards" << flush;
         timer.tic();
         smsgrid.backward(R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,
                          SmsZ);
-        cout << "(took " << timer << ")" << endl << flush;
+        cout << "(took " << timer << ")" << endl
+             << flush;
 
         // E'EE'(Ex-d)
         cout << "\t\tForward" << flush;
         timer.tic();
         smsgrid.forward(P, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,
                         SmsZ);
-        cout << "(took " << timer << ")" << endl << flush;
+        cout << "(took " << timer << ")" << endl
+             << flush;
 
       }  // Coils
 
@@ -1181,7 +1200,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
           scale_RhR += complex<double>(ArrayEnergy(R(t, e)), 0.0);
         }
       }
-      cout << "(took " << timer << ")" << endl << flush;
+      cout << "(took " << timer << ")" << endl
+           << flush;
 
       if (iteration == 0) {
         error0 = abs(scale_RhR);
@@ -1194,7 +1214,8 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
 
       cout << "RhR = " << scale_RhR;
       cout << "RhP = " << scale_RhP;
-      cout << "Scale = " << scale << endl << flush;
+      cout << "Scale = " << scale << endl
+           << flush;
       for (int t = 0; t < rcframes; t++) {
         for (int e = 0; e < sms_encodes; e++) {
           R(t, e) *= scale;
@@ -1322,7 +1343,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
                                                      Range times,
                                                      Range times_store,
                                                      bool composite) {
-  cout << "Starting Recon" << endl << flush;
+  cout << "Starting Recon" << endl
+       << flush;
 
   // Shorthand for Blitz++
   Range all = Range::all();
@@ -1818,8 +1840,10 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
-                    R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                    X(t, e)
+                    (i, j, k) += (scale * (P(t, e)(i, j, k)));
+                    R(t, e)
+                    (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                     sum_R_R += norm(R(t, e)(i, j, k));
                   }
                 }
@@ -1875,7 +1899,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
                               L(t, e)(i, j, k) / admm_rho;
 
                   // Also update dual
-                  L(t, e)(i, j, k);
+                  L(t, e)
+                  (i, j, k);
                 }
               }
             }
@@ -2127,8 +2152,10 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
-                  R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                  X(t, e)
+                  (i, j, k) += (scale * (P(t, e)(i, j, k)));
+                  R(t, e)
+                  (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                   Asum_R_R(k) += norm(R(t, e)(i, j, k));
                 }
               }
@@ -2238,7 +2265,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
                   arma::fvec N = arma::randn<arma::fvec>(2);
-                  X(t, e)(i, j, k) = complex<float>(N(0), N(1));
+                  X(t, e)
+                  (i, j, k) = complex<float>(N(0), N(1));
                 }
               }
             }
@@ -2538,7 +2566,9 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         }
 
         // Get Scaling Factor R'P / R'R
-        cout << endl << "Calc residue" << endl << flush;
+        cout << endl
+             << "Calc residue" << endl
+             << flush;
         complex<double> scale_RhR = 0.0;
         for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
              riter != R.end(); riter++) {
@@ -2563,7 +2593,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
           step_size = complex<float>(real(scale_double), imag(scale_double));
         }
 
-        cout << "Scale = " << step_size << endl << flush;
+        cout << "Scale = " << step_size << endl
+             << flush;
         for (int e = 0; e < rcencodes; e++) {
           for (int t = 0; t < Nt; t++) {
             R(t, e) *= step_size;
@@ -2663,7 +2694,8 @@ void RECON::fista_update(Array<Array<complex<float>, 3>, 2> &X,
       }  // Spatial
     }
   }
-  cout << "Done with FISTA" << endl << flush;
+  cout << "Done with FISTA" << endl
+       << flush;
 }
 
 double RECON::kspace_residual(MRI_DATA &data) {
@@ -2809,7 +2841,9 @@ void RECON::transform_in_encode(Array<Array<complex<float>, 3>, 2> &X,
       }
     } break;
 
-    default: { } break; }
+    default: {
+    } break;
+  }
 }
 
 void RECON::transform_in_time(Array<Array<complex<float>, 3>, 2> &X,
@@ -2863,7 +2897,9 @@ void RECON::transform_in_time(Array<Array<complex<float>, 3>, 2> &X,
       }
     } break;
 
-    default: { } break; }
+    default: {
+    } break;
+  }
 }
 
 void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
@@ -3023,7 +3059,8 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
     case (FISTA):
     case (CG): {
       // Allocate Storage for Map	and zero
-      cout << "Allocate Sense Maps" << endl << flush;
+      cout << "Allocate Sense Maps" << endl
+           << flush;
       {
         Array<Array<complex<float>, 3>, 1> temp =
             Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres,
@@ -3032,12 +3069,14 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
       }
 
       if (data.Num_Coils == 1) {
-        cout << "One coil - assuming senitivity map is 1" << endl << flush;
+        cout << "One coil - assuming senitivity map is 1" << endl
+             << flush;
         smaps(0) = complex<float>(1.0, 0.0);
         break;
       }
 
-      cout << "Recon Low Resolution Images" << endl << flush;
+      cout << "Recon Low Resolution Images" << endl
+           << flush;
 
       // Multiple Encode Smaps
       Array<Array<complex<float>, 3>, 2> image_store;
@@ -3219,7 +3258,8 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
       }  // Normalization
 
       if (intensity_correction) {
-        cout << "Intensity correcting maps" << endl << flush;
+        cout << "Intensity correcting maps" << endl
+             << flush;
         for (int coil = 0; coil < data.Num_Coils; coil++) {
 #pragma omp parallel for
           for (int k = 0; k < smaps(0).length(thirdDim); k++) {
@@ -3248,7 +3288,8 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
 
     case (SOS): {
       // Allocate Storage for Map	and zero
-      cout << "Allocate Sense Maps (SOS)" << endl << flush;
+      cout << "Allocate Sense Maps (SOS)" << endl
+           << flush;
       {
         Array<Array<complex<float>, 3>, 1> temp =
             Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres,
@@ -3292,7 +3333,9 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
                 r = sqrt(x * x + y * y + z * z);
               } break;
 
-              default: { r = 0.0; } break;
+              default: {
+                r = 0.0;
+              } break;
             }
 
             if (r > 1) {
@@ -3320,7 +3363,8 @@ void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
 
           // Normalize
           for (int coil = 0; coil < A.length(firstDim); coil++) {
-            A(coil)(i, j, k) /= sos;
+            A(coil)
+            (i, j, k) /= sos;
           }
         }
       }
@@ -3396,9 +3440,11 @@ void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
         for (int j = 0; j < A(0).length(secondDim); j++) {
           for (int i = 0; i < A(0).length(firstDim); i++) {
             if (MASK(i, j, k) > 0) {
-              A(coil)(i, j, k) /= IC(i, j, k);
+              A(coil)
+              (i, j, k) /= IC(i, j, k);
             } else {
-              A(coil)(i, j, k) = complex<float>(0.0, 0.0);
+              A(coil)
+              (i, j, k) = complex<float>(0.0, 0.0);
             }
           }
         }
@@ -3856,7 +3902,8 @@ void RECON::eigen_coils(Array<Array<complex<float>, 3>, 1> &smaps,
     }
 
   }  // Block (threaded)
-  cout << "(eigen coil took " << T << ")" << endl << flush;
+  cout << "(eigen coil took " << T << ")" << endl
+       << flush;
 
   //-----------------------------------------------------
   //   Interpolate for acclerated calculation

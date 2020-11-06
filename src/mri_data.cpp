@@ -617,7 +617,8 @@ void MRI_DATA::write_external_data(const char *fname) {
     }
 
     if (sms_type == SMSon) {
-      cout << "Export SMS Z2" << endl << flush;
+      cout << "Export SMS Z2" << endl
+           << flush;
       for (int sms_pos = 0; sms_pos < sms_factor; sms_pos++) {
         stringstream ss;
         ss << "Z_E" << encode << "_S" << sms_pos;
@@ -637,7 +638,8 @@ void MRI_DATA::write_external_data(const char *fname) {
       }
     }
 
-    cout << "Exporting data" << endl << flush;
+    cout << "Exporting data" << endl
+         << flush;
     for (int coil = 0; coil < kdata.length(secondDim); coil++) {
       {
         try {
@@ -654,7 +656,8 @@ void MRI_DATA::write_external_data(const char *fname) {
 
     // Gating
     if (ecg.numElements() != 0) {
-      cout << "Exporting Gating " << endl << flush;
+      cout << "Exporting Gating " << endl
+           << flush;
 
       {
         try {
@@ -806,7 +809,8 @@ void MRI_DATA::read_external_data(const char *fname) {
       }
     }
 
-    cout << "Read Gating " << endl << flush;
+    cout << "Read Gating " << endl
+         << flush;
     {
       stringstream ss;
       ss << "ECG_E" << encode;
@@ -837,7 +841,8 @@ void MRI_DATA::read_external_data(const char *fname) {
   }
 
   // Noise Samples
-  cout << "Read Noise Samples" << endl << flush;
+  cout << "Read Noise Samples" << endl
+       << flush;
   file.ReadH5Array("Kdata", "Noise", noise_samples);
 
   // file.ReadH5Array( "Gating","kdata_gating",kdata_gating);
@@ -847,7 +852,8 @@ void MRI_DATA::read_external_data(const char *fname) {
  *
  */
 void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
-  cout << "about to compress coils" << endl << flush;
+  cout << "about to compress coils" << endl
+       << flush;
 
   if (Num_VCoils > this->Num_Coils) {
     std::cout
@@ -867,7 +873,8 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   int Num_Pixels = 0;
   float kr_thresh_squared = kr_thresh * kr_thresh;
 
-#pragma omp parallel for reduction(+ : Num_Pixels)
+#pragma omp parallel for reduction(+ \
+                                   : Num_Pixels)
   for (int encode = 0; encode < kx.length(firstDim); encode++) {
     // Assign iterators to go over the data
     Array<float, 3>::const_iterator kx_iter = this->kx(encode).begin();
@@ -893,7 +900,8 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   arma::cx_fmat all_data;
   all_data.zeros(Num_Pixels, Num_Coils);
 
-  cout << "Collect Data" << endl << flush;
+  cout << "Collect Data" << endl
+       << flush;
   ctimer.tic();
   int idx = 0;
   for (int encode = 0; encode < Num_Encodings; encode++) {
@@ -913,10 +921,12 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
       }    // view
     }      // slice
   }        // encode
-  cout << "Copied pixels = " << idx << endl << flush;
+  cout << "Copied pixels = " << idx << endl
+       << flush;
   cout << "took " << ctimer << " s to copy data" << endl;
 
-  cout << "SVD " << endl << flush;
+  cout << "SVD " << endl
+       << flush;
   arma::fvec s;
   arma::cx_fmat U;
   arma::cx_fmat V;
@@ -930,7 +940,8 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   arma::cx_fmat VV = V.cols(0, (int)Num_VCoils - 1);
   VV.print("V");
 
-  cout << "Rotate to " << Num_VCoils << " coils " << endl << flush;
+  cout << "Rotate to " << Num_VCoils << " coils " << endl
+       << flush;
 
   ctimer.tic();
   for (int encode = 0; encode < Num_Encodings; encode++) {
@@ -982,7 +993,8 @@ void MRI_DATA::whiten(void) {
   }
 
   cout << "Noise Samples : " << noise_samples.length(firstDim) << endl;
-  cout << "Noise Pre-Whitening" << endl << flush;
+  cout << "Noise Pre-Whitening" << endl
+       << flush;
 
   // Copy into matrix
   arma::cx_fmat NoiseData = arma::randu<arma::cx_fmat>(
@@ -993,7 +1005,8 @@ void MRI_DATA::whiten(void) {
     }
   }
 
-  cout << "Calc Cov" << endl << flush;
+  cout << "Calc Cov" << endl
+       << flush;
   arma::cx_fmat CV =
       covariance(NoiseData, Num_Coils, noise_samples.length(firstDim));
   CV.save("CovMatrix.dat", arma::raw_binary);

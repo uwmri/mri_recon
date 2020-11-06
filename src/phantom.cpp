@@ -125,13 +125,15 @@ void PHANTOM::init(int Sx, int Sy, int Sz, int St) {
   Nt = (int)(St);
 
   // Phantom Density
-  cout << "Init IMAGE: " << Nx << " by " << Ny << " by " << Nz << endl << flush;
+  cout << "Init IMAGE: " << Nx << " by " << Ny << " by " << Nz << endl
+       << flush;
   IMAGE.setStorage(ColumnMajorArray<3>());
   IMAGE.resize(Nx, Ny, Nz);
   IMAGE = 0;
 
   // Sensitivity Map
-  cout << "Init Smap" << endl << flush;
+  cout << "Init Smap" << endl
+       << flush;
   SMAP.setStorage(ColumnMajorArray<3>());
   SMAP.resize(Nx, Ny, Nz);
   SMAP = 1;
@@ -139,7 +141,8 @@ void PHANTOM::init(int Sx, int Sy, int Sz, int St) {
   // Switch For Phantom
   switch (phantom_type) {
     case (FRACTAL): {
-      cout << "Build Tree" << endl << flush;
+      cout << "Build Tree" << endl
+           << flush;
       fractal.build_tree(Nx, Ny, Nz);
     } break;
 
@@ -192,7 +195,8 @@ void PHANTOM::write_matlab_truth_script(const char *folder) {
   // Switch For Phantom
   switch (phantom_type) {
     case (FRACTAL): {
-      cout << "Build Tree" << endl << flush;
+      cout << "Build Tree" << endl
+           << flush;
       fractal.write_matlab_truth_script(folder);
     } break;
 
@@ -821,7 +825,8 @@ void FRACTAL3D::build_tree(int Nx, int Ny, int Nz) {
   //    Arterial Tree
   // ---------------------------------------------
 
-  cout << "Arterial Tree" << endl << flush;
+  cout << "Arterial Tree" << endl
+       << flush;
   // Get Seed Points
   int Nseeds = 3;
   fmat seeds_start = zeros<fmat>(3, Nseeds);
@@ -856,7 +861,8 @@ void FRACTAL3D::build_tree(int Nx, int Ny, int Nz) {
   //    Venous Tree
   // ---------------------------------------------
 
-  cout << "Venous Tree" << endl << flush;
+  cout << "Venous Tree" << endl
+       << flush;
   // Get Seed Points
   fmat Vseeds_start = zeros<fmat>(3, 1);
   fmat Vseeds_stop = zeros<fmat>(3, 1);
@@ -884,7 +890,8 @@ void FRACTAL3D::build_tree(int Nx, int Ny, int Nz) {
   // ---------------------------------------------
   //    Tissue Tree
   // ---------------------------------------------
-  cout << "Tissue Tree" << endl << flush;
+  cout << "Tissue Tree" << endl
+       << flush;
   field<FRACTAL3D::TFRACT_RAND> tissue_tree(terminal_pts + Nseeds);
   int cpos = 0;
   for (int t = 0; t < (int)arterial_tree.n_elem; t++) {
@@ -904,13 +911,15 @@ void FRACTAL3D::build_tree(int Nx, int Ny, int Nz) {
   // Phantom Density
 
   // Arterial, Perfusion, and Venous Compartments
-  cout << "Allocate Fuzzy Density" << endl << flush;
+  cout << "Allocate Fuzzy Density" << endl
+       << flush;
   FUZZY.setStorage(ColumnMajorArray<4>());
   FUZZY.resize(Nx, Ny, Nz, 3);
   FUZZY = 0;
 
   // Arterial, Perfusion, and Venous Compartments
-  cout << "Allocate Fuzzy Time of Arrival" << endl << flush;
+  cout << "Allocate Fuzzy Time of Arrival" << endl
+       << flush;
   FUZZYT.setStorage(ColumnMajorArray<4>());
   FUZZYT.resize(Nx, Ny, Nz, 3);
   FUZZYT = 0;

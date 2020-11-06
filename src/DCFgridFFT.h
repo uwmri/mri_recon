@@ -19,7 +19,8 @@
 class DCFgridFFT {
  public:
   // Kernel Types
-  enum { POLY_KERNEL, POLY_KERNEL2 };
+  enum { POLY_KERNEL,
+         POLY_KERNEL2 };
 
   // Controls for phase encode / 2D directions
   int grid_in_x;

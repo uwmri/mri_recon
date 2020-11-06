@@ -25,7 +25,10 @@ typedef NDarray::Array<NDarray::Array<complex<float>, 3>, 2> Complex5D;
 class gridFFT_CoilThreaded {
  public:
   // Kernel Types
-  enum { TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL, POLY_KERNEL };
+  enum { TRIANGLE_KERNEL,
+         KAISER_KERNEL,
+         SINC_KERNEL,
+         POLY_KERNEL };
 
   Complex4D_GRID k3d_grid; /*Actual Gridding Space*/
   Complex4D_GRID image;    /*Complex Storage Space*/

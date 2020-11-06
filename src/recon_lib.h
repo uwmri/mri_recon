@@ -35,27 +35,47 @@
 
 #ifdef USE_VORO
 #include "voronoi_dcf.h"
-#else 
-#pragma message( "WARNING: Compiling without Voro++, voronoi density calculations not supported " )
+#else
+#pragma message("WARNING: Compiling without Voro++, voronoi density calculations not supported ")
 #endif
 
 class RECON {
  public:
   // Types of Recons
-  enum ReconType { SOS, PILS, CG, IST, FISTA, CLEAR, ADMM };
+  enum ReconType { SOS,
+                   PILS,
+                   CG,
+                   IST,
+                   FISTA,
+                   CLEAR,
+                   ADMM };
 
   // Data Types
-  enum DataType { EXTERNAL, SIMULATE, PSF, PHANTOM, BENCHMARK };
+  enum DataType { EXTERNAL,
+                  SIMULATE,
+                  PSF,
+                  PHANTOM,
+                  BENCHMARK };
 
   // Coil Combine Type
-  enum CoilCombineType { LOWRES, ESPIRIT, WALSH };
+  enum CoilCombineType { LOWRES,
+                         ESPIRIT,
+                         WALSH };
 
   // Enum Transform Types
-  enum TransformType { NONE, WAVELET, DIFF, DFT, PCA, COMPOSITE_DIFF };
-  enum TransformDirection { FORWARD, BACKWARD };
+  enum TransformType { NONE,
+                       WAVELET,
+                       DIFF,
+                       DFT,
+                       PCA,
+                       COMPOSITE_DIFF };
+  enum TransformDirection { FORWARD,
+                            BACKWARD };
 
   // Enum Sensitivity Maps
-  enum SmapMaskType { SMAPMASK_NONE, SMAPMASK_CIRCLE, SMAPMASK_SPHERE };
+  enum SmapMaskType { SMAPMASK_NONE,
+                      SMAPMASK_CIRCLE,
+                      SMAPMASK_SPHERE };
   SmapMaskType smap_mask;
 
   // Recon Flags
@@ -97,7 +117,8 @@ class RECON {
   int cauchy_update_number;
   int max_eigen_iterations;
 
-  enum IterativeStepType { STEP_CAUCHY, STEP_MAXEIG };
+  enum IterativeStepType { STEP_CAUCHY,
+                           STEP_MAXEIG };
   IterativeStepType iterative_step_type;
 
   // Code to rotate into low resolution images
@@ -119,7 +140,9 @@ class RECON {
   GATING gate;
 
   // Density calcs
-  enum DcfType { SUPPLIED, RECALC_VOR, RECALC_DCF };
+  enum DcfType { SUPPLIED,
+                 RECALC_VOR,
+                 RECALC_DCF };
   DcfType dcf_type;
   int dcf_iter;
   float dcf_dwin;
