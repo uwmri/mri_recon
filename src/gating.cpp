@@ -655,7 +655,17 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
       cout << "Using Time Resolved" << endl;
       for (int e = 0; e < data.Num_Encodings; e++) {
         this->gate_times(e).resize(data.time(e).shape());
-        this->gate_times(e) = data.time(e);
+				if (!data.dft_needed(2)){
+					for (int shot=0; shot<data.time(e).length(0); shot++) {
+						for (int slice=0; slice<data.time(e).length(1); slice++) {
+							int projPerSlice = data.time(e).length(0)/data.zres;
+							int firstShotOfSlice = floor(shot/projPerSlice)*projPerSlice;
+							gate_times(e)(shot,slice) = data.time(e)(shot,slice) - data.time(e)(firstShotOfSlice,slice);
+						}
+					}
+				}else {
+					gate_times(e) = data.time(e);
+				}
       }
     } break;
 
