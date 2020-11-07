@@ -1830,8 +1830,10 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
-                    R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                    X(t, e)
+                    (i, j, k) += (scale * (P(t, e)(i, j, k)));
+                    R(t, e)
+                    (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                     sum_R_R += norm(R(t, e)(i, j, k));
                   }
                 }

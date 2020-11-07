@@ -58,12 +58,12 @@ class MRI_DATA {
   NDarray::Array<std::complex<float>, 2> noise_samples;  // data for noise samples
 
   // Physiologic Data for gating
-  NDarray::Array<NDarray::Array<double, 2>, 1> ecg;  // Distance from ECG in MS
+  NDarray::Array<NDarray::Array<double, 2>, 1> ecg;                   // Distance from ECG in MS
   NDarray::Array<NDarray::Array<double, 2>, 1> resp;                  // Respiratory signal from bellows or navigator
-  NDarray::Array<NDarray::Array<double, 2>, 1> time;  // Acquisition Time
+  NDarray::Array<NDarray::Array<double, 2>, 1> time;                  // Acquisition Time
   NDarray::Array<NDarray::Array<double, 2>, 1> prep;                  // Time since a prep event (for example inversion)
   NDarray::Array<NDarray::Array<complex<float>, 2>, 2> kdata_gating;  // Repeated sample for gating, need to be the same for each
-                     // data point, all coils
+                                                                      // data point, all coils
 
   // Native Resolution
   int xres;
