@@ -449,22 +449,22 @@ complex<float> conj_sum(Array<complex<float>, 3> P,
 
 void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
   // Use Native Resultion
-  this->rcxres = (this->rcxres == -1) ? (data.xres) : (this->rcxres);
-  this->rcyres = (this->rcyres == -1) ? (data.yres) : (this->rcyres);
-  this->rczres = (this->rczres == -1) ? (data.zres) : (this->rczres);
-  this->rcencodes = data.Num_Encodings;
+  rcxres = (rcxres == -1) ? (data.xres) : (rcxres);
+  rcyres = (rcyres == -1) ? (data.yres) : (rcyres);
+  rczres = (rczres == -1) ? (data.zres) : (rczres);
+  rcencodes = data.Num_Encodings;
 
   // Whiten
-  if (this->whiten) {
+  if (whiten) {
     data.whiten();  // Requires noise samples inserted
-    if (this->noise_scale_factor > 1.0) {
+    if (noise_scale_factor > 1.0) {
       data.add_noise(noise_scale_factor);
     }
   }
 
   // Option to compress coils
-  if (this->compress_coils > 0) {
-    data.coilcompress(this->compress_coils, this->compress_kr);
+  if (compress_coils > 0) {
+    data.coilcompress(compress_coils, compress_kr);
   }
 
   // Matlab like timer (openmp code base)
@@ -472,22 +472,22 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
 
   // Setup Gridding + FFT Structure
   gridding.read_commandline(argc, argv);
-  gridding.precalc_gridding(this->rczres, this->rcyres, this->rcxres, data);
+  gridding.precalc_gridding(rczres, rcyres, rcxres, data);
 
   // Option to parallelize overs coils
   if (this->parallel_coils) {
     gridding_CoilThreaded.read_commandline(argc, argv);
-    gridding_CoilThreaded.precalc_gridding(this->rczres, this->rcyres, this->rcxres, data);
+    gridding_CoilThreaded.precalc_gridding(rczres, rcyres, rcxres, data);
   }
 
   // Recalculate the Density compensation
-  switch (this->dcf_type) {
+  switch (dcf_type) {
     default: {
       // Use supplied
     } break;
 
     case (RECALC_DCF): {
-      this->dcf_calc(data);
+      dcf_calc(data);
     } break;
 
     case (RECALC_VOR): {
@@ -511,24 +511,24 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
   calc_sensitivity_maps(argc, argv, data);
 
   // Complex Difference
-  if (this->complex_diff) {
+  if (complex_diff) {
     cout << "Doing Complex Diff" << endl;
     for (int coil = 0; coil < data.Num_Coils; coil++) {
       // Subtract off reference
-      for (int e = 1; e < this->rcencodes; e++) {
+      for (int e = 1; e < rcencodes; e++) {
         Array<complex<float>, 3> kdata1 = data.kdata(0, coil);
         Array<complex<float>, 3> kdata2 = data.kdata(e, coil);
         kdata2 -= kdata1;
       }
 
       // Rearrange Positions
-      for (int e = 1; e < this->rcencodes; e++) {
+      for (int e = 1; e < rcencodes; e++) {
         Array<complex<float>, 3> kdata1 = data.kdata(e - 1, coil);
         Array<complex<float>, 3> kdata2 = data.kdata(e, coil);
         kdata1 = kdata2;
       }
     }
-    this->rcencodes -= 1;
+    rcencodes -= 1;
     data.Num_Encodings -= 1;
 
     /* Need to resize Gating
@@ -543,9 +543,9 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
   //	This handles all the gating, assuming mri_data physio data is populated
   // -------------------------------------
   gate = GATING(argc, argv);
-  gate.init(data, this->rcframes);
-  this->rcframes = gate.number_of_frames();
-  std::cout << "Reconstructing to " << this->rcframes << std::endl;
+  gate.init(data, rcframes);
+  rcframes = gate.number_of_frames();
+  std::cout << "Reconstructing to " << rcframes << std::endl;
 
   if (pregate_data_flag) {
     pregate_data(data);
@@ -1830,10 +1830,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    X(t, e)
-                    (i, j, k) += (scale * (P(t, e)(i, j, k)));
-                    R(t, e)
-                    (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                    X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
+                    R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                     sum_R_R += norm(R(t, e)(i, j, k));
                   }
                 }
