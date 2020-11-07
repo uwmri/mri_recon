@@ -1188,7 +1188,8 @@ void gridFFT::chop_grid_backward(Array<complex<float>, 3> &dataA,
   long Npts = dataA.numElements();
 
   // nested
-  int *N = new int[3];
+  //int *N = new int[3];
+  int N[3];
   N[0] = dataA.length(firstDim);
   N[1] = dataA.length(secondDim);
   N[2] = dataA.length(thirdDim);

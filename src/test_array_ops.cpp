@@ -8,7 +8,7 @@ int main(void) {
 
   {
     cout << "Check SVD Performance" << endl;
-    int N = 256 * 256 * 8;
+    int N = 64 * 64 * 8;
     int Np = 385;
 
     // preallocate some arrays

@@ -4,33 +4,26 @@ using arma::cx_fmat;
 using arma::fvec;
 using namespace NDarray;
 
-void MRI_DATA::dump_stats(const string name,
-                          const Array<Array<float, 3>, 1> &in) {
+void MRI_DATA::dump_stats(const string name, const Array<Array<float, 3>, 1> &in) {
   cout << name << endl;
   cout << "\tContainer Size = " << in.length(firstDim) << endl;
-  cout << "\tElement size = " << in(0).length(firstDim) << " x "
-       << in(0).length(secondDim) << " x " << in(0).length(thirdDim) << endl;
+  cout << "\tElement size = " << in(0).length(firstDim) << " x " << in(0).length(secondDim) << " x " << in(0).length(thirdDim) << endl;
   float high = 0;
   float low = 9999;
-  for (Array<Array<float, 3>, 1>::const_iterator miter = in.begin();
-       miter != in.end(); miter++) {
+  for (Array<Array<float, 3>, 1>::const_iterator miter = in.begin(); miter != in.end(); miter++) {
     high = max(high, max(*miter));
     low = min(low, min(*miter));
   }
   cout << "\tRange = " << low << " to " << high << endl;
 }
 
-void MRI_DATA::dump_stats(const string name,
-                          const Array<Array<complex<float>, 3>, 2> &in) {
+void MRI_DATA::dump_stats(const string name, const Array<Array<complex<float>, 3>, 2> &in) {
   cout << name << endl;
-  cout << "\tContainer Size = " << in.length(firstDim) << " x "
-       << in.length(secondDim) << endl;
-  cout << "\tElement size = " << in(0).length(firstDim) << " x "
-       << in(0).length(secondDim) << " x " << in(0).length(thirdDim) << endl;
+  cout << "\tContainer Size = " << in.length(firstDim) << " x " << in.length(secondDim) << endl;
+  cout << "\tElement size = " << in(0).length(firstDim) << " x " << in(0).length(secondDim) << " x " << in(0).length(thirdDim) << endl;
   float high = 0;
   float low = 9999;
-  for (Array<Array<complex<float>, 3>, 2>::const_iterator miter = in.begin();
-       miter != in.end(); miter++) {
+  for (Array<Array<complex<float>, 3>, 2>::const_iterator miter = in.begin(); miter != in.end(); miter++) {
     float temp = max(abs(*miter));
     high = max(high, temp);
 
@@ -45,27 +38,22 @@ void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z) {
     return;
   }
 
-  cout << "Scaling the fov by" << scale_x << "," << scale_y << "," << scale_z
-       << endl;
+  cout << "Scaling the fov by" << scale_x << "," << scale_y << "," << scale_z << endl;
   float scale_kx = (dft_needed(0)) ? (scale_x) : (scale_x);
   float scale_ky = (dft_needed(1)) ? (scale_y) : (scale_y);
   float scale_kz = (dft_needed(2)) ? (scale_z) : (scale_z);
-  cout << "Scaling the kspace by" << scale_kx << "," << scale_ky << ","
-       << scale_kz << endl;
+  cout << "Scaling the kspace by" << scale_kx << "," << scale_ky << "," << scale_kz << endl;
 
   // Multiply kspace by inverse
-  for (Array<Array<float, 3>, 1>::iterator miter = kx.begin();
-       miter != kx.end(); miter++) {
+  for (Array<Array<float, 3>, 1>::iterator miter = kx.begin(); miter != kx.end(); miter++) {
     (*miter) *= scale_kx;
   }
 
-  for (Array<Array<float, 3>, 1>::iterator miter = ky.begin();
-       miter != ky.end(); miter++) {
+  for (Array<Array<float, 3>, 1>::iterator miter = ky.begin(); miter != ky.end(); miter++) {
     (*miter) *= scale_ky;
   }
 
-  for (Array<Array<float, 3>, 1>::iterator miter = kz.begin();
-       miter != kz.end(); miter++) {
+  for (Array<Array<float, 3>, 1>::iterator miter = kz.begin(); miter != kz.end(); miter++) {
     (*miter) *= scale_kz;
   }
 
@@ -75,8 +63,7 @@ void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z) {
   xfov *= scale_x;
 
   if (sms_type == SMSon) {
-    for (Array<Array<float, 3>, 2>::iterator miter = z.begin();
-         miter != z.end(); miter++) {
+    for (Array<Array<float, 3>, 2>::iterator miter = z.begin(); miter != z.end(); miter++) {
       (*miter) /= scale_z;
     }
   }
@@ -401,10 +388,8 @@ void MRI_DATA::write_bart_data(const char *fname) {
 
       for (int coil = 0; coil < this->Num_Coils; coil++) {
         // int subframe_shots = this->kdata(encode,coil).numElements();
-        Array<complex<float>, 3>::iterator miter =
-            this->kdata(encode, coil).begin();
-        Array<complex<float>, 3>::iterator miter_stop =
-            this->kdata(encode, coil).end();
+        Array<complex<float>, 3>::iterator miter = this->kdata(encode, coil).begin();
+        Array<complex<float>, 3>::iterator miter_stop = this->kdata(encode, coil).end();
         for (; (miter != miter_stop); miter++) {
           complex<float> val = (*miter);
           ofs.write((char *)&val, sizeof(complex<float>));
@@ -413,9 +398,7 @@ void MRI_DATA::write_bart_data(const char *fname) {
         // If the subframe is smaller, pad with zeros to make bart happy
         if ((int)this->kdata(encode, coil).numElements() < total_elements) {
           complex<float> val(0.0, 0.0);
-          for (int i = 0; i < (total_elements -
-                               (int)this->kdata(encode, coil).numElements());
-               i++) {
+          for (int i = 0; i < (total_elements - (int)this->kdata(encode, coil).numElements()); i++) {
             ofs.write((char *)&val, sizeof(complex<float>));
           }
         }
@@ -997,8 +980,7 @@ void MRI_DATA::whiten(void) {
        << flush;
 
   // Copy into matrix
-  arma::cx_fmat NoiseData = arma::randu<arma::cx_fmat>(
-      noise_samples.length(secondDim), noise_samples.length(firstDim));
+  arma::cx_fmat NoiseData = arma::randu<arma::cx_fmat>(noise_samples.length(secondDim), noise_samples.length(firstDim));
   for (int coil = 0; coil < Num_Coils; coil++) {
     for (int i = 0; i < noise_samples.length(firstDim); i++) {
       NoiseData(coil, i) = noise_samples(i, coil);
@@ -1007,8 +989,7 @@ void MRI_DATA::whiten(void) {
 
   cout << "Calc Cov" << endl
        << flush;
-  arma::cx_fmat CV =
-      covariance(NoiseData, Num_Coils, noise_samples.length(firstDim));
+  arma::cx_fmat CV = covariance(NoiseData, Num_Coils, noise_samples.length(firstDim));
   CV.save("CovMatrix.dat", arma::raw_binary);
 
   cout << "Whiten" << endl;

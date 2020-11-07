@@ -543,7 +543,9 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
   //	This handles all the gating, assuming mri_data physio data is populated
   // -------------------------------------
   gate = GATING(argc, argv);
-  gate.init(data, &rcframes);
+  gate.init(data, rcframes);
+  rcframes = gate.number_of_frames();
+  std::cout << "Reconstructing to " << rcframes << std::endl;
 
   if (pregate_data_flag) {
     pregate_data(data);
@@ -604,8 +606,6 @@ void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
  * @param data MRI_DATA to be transfromed
  */
 void RECON::pregate_data(MRI_DATA &data) {
-  // data.stats();
-
   // For now balloon memory
   MRI_DATA data2;
 
@@ -631,13 +631,11 @@ void RECON::pregate_data(MRI_DATA &data) {
 
       // First count th number of points required
       Kweight = 1;
-      gate.weight_data(Kweight, e, data.kx(e), data.ky(e), data.kz(e), t,
-                       GATING::NON_ITERATIVE, GATING::TIME_FRAME);
+      gate.weight_data(Kweight, e, data.kx(e), data.ky(e), data.kz(e), t, GATING::NON_ITERATIVE, GATING::TIME_FRAME);
 
       // Count the number of frames
       int number_of_points = 0;
-      for (Array<float, 3>::iterator miter = Kweight.begin();
-           miter != Kweight.end(); miter++) {
+      for (Array<float, 3>::iterator miter = Kweight.begin(); miter != Kweight.end(); miter++) {
         if (*miter > 0) {
           number_of_points++;
         }
@@ -647,7 +645,7 @@ void RECON::pregate_data(MRI_DATA &data) {
       {
         cout << "Frame " << t
              << ", Total number of point = " << number_of_points
-             << "Kw_scale = " << Kw_Scale << endl;
+             << " ,Kw_scale = " << Kw_Scale << endl;
       }
 
       data2.kx(count + t).setStorage(ColumnMajorArray<3>());
@@ -678,13 +676,11 @@ void RECON::pregate_data(MRI_DATA &data) {
               if (reset_dens) {
                 data2.kw(count + t)(point_number, 0, 0) = 1.0;
               } else {
-                data2.kw(count + t)(point_number, 0, 0) =
-                    Kw_Scale * data.kw(e)(i, j, k);
+                data2.kw(count + t)(point_number, 0, 0) = Kw_Scale * data.kw(e)(i, j, k);
               }
 
               for (int coil = 0; coil < data2.Num_Coils; coil++) {
-                data2.kdata(count + t, coil)(point_number, 0, 0) =
-                    data.kdata(e, coil)(i, j, k);
+                data2.kdata(count + t, coil)(point_number, 0, 0) = data.kdata(e, coil)(i, j, k);
               }
               point_number++;
             }
@@ -710,6 +706,10 @@ void RECON::pregate_data(MRI_DATA &data) {
 
   cout << "Done gating data" << endl
        << flush;
+}
+
+int RECON::get_rcframes(void) {
+  return (this->rcframes);
 }
 
 void vor_dcf2(Array<Array<float, 3>, 2> &Kw, Array<Array<float, 3>, 2> &Ky,
@@ -1248,26 +1248,19 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
   return (X);
 }
 
-Array<Array<complex<float>, 3>, 1> RECON::reconstruct_one_frame(
-    MRI_DATA &data, int frame_number) {
-  Array<Array<complex<float>, 3>, 2> XX =
-      full_recon(data, Range(frame_number, frame_number), Range(0, 0), false);
+Array<Array<complex<float>, 3>, 1> RECON::reconstruct_one_frame(MRI_DATA &data, int frame_number) {
+  Array<Array<complex<float>, 3>, 2> XX = full_recon(data, Range(frame_number, frame_number), Range(0, 0), false);
   Array<Array<complex<float>, 3>, 1> X = XX(0, Range::all());
   return (X);
 }
 
-Array<Array<complex<float>, 3>, 2> RECON::reconstruct_all_frames(
-    MRI_DATA &data) {
-  Array<Array<complex<float>, 3>, 2> XX =
-      full_recon(data, Range(rc_frame_start, rcframes - 1),
-                 Range(0, rcframes - 1 - rc_frame_start), false);
+Array<Array<complex<float>, 3>, 2> RECON::reconstruct_all_frames(MRI_DATA &data) {
+  Array<Array<complex<float>, 3>, 2> XX = full_recon(data, Range(rc_frame_start, rcframes - 1), Range(0, rcframes - 1 - rc_frame_start), false);
   return (XX);
 }
 
-Array<Array<complex<float>, 3>, 1> RECON::reconstruct_composite(
-    MRI_DATA &data) {
-  Array<Array<complex<float>, 3>, 2> XX =
-      full_recon(data, Range(0, 0), Range(0, 0), true);
+Array<Array<complex<float>, 3>, 1> RECON::reconstruct_composite(MRI_DATA &data) {
+  Array<Array<complex<float>, 3>, 2> XX = full_recon(data, Range(0, 0), Range(0, 0), true);
   Array<Array<complex<float>, 3>, 1> X = XX(0, Range::all());
   return (X);
 }
@@ -1550,12 +1543,10 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         if (iteration == 0) {
           error0 = abs(scale_RhR);
         }
-        cout << "Residue Energy =" << scale_RhR << " ( "
-             << (abs(scale_RhR) / error0) << " % )  " << endl;
+        cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR) / error0) << " % )  " << endl;
 
         // Export R (across coils)
-        Array<complex<float>, 2> Rslice =
-            RR(0, 0, 0)(all, all, RR(0, 0, 0).length(2) / 2);
+        Array<complex<float>, 2> Rslice = RR(0, 0, 0)(all, all, RR(0, 0, 0).length(2) / 2);
         ArrayWriteMag(Rslice, "R.dat");
 
         // Step in direction
@@ -1579,8 +1570,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
           Xslice = 0;
           for (int coil = 0; coil < data.Num_Coils; coil++) {
-            Array<complex<float>, 2> Xtemp =
-                XX(0, 0, coil)(all, all, RR(0, 0, 0).length(2) / 2);
+            Array<complex<float>, 2> Xtemp = XX(0, 0, coil)(all, all, RR(0, 0, 0).length(2) / 2);
             Xslice += norm(Xtemp);
             ArrayWriteMagAppend(Xtemp, "X_coils.dat");
           }

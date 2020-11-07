@@ -79,6 +79,7 @@ if ( ENABLE_ORCHESTRA )
 	# This code only requires a few libraries
 	set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Hdf5 Common)
 
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -m64")
 else (ENABLE_ORCHESTRA)
 
 	#--------------------------------------
@@ -93,14 +94,13 @@ else (ENABLE_ORCHESTRA)
 	include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
 	set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -funroll-loops -Wall")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 	set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
 endif(ENABLE_ORCHESTRA)
 
-
-ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64 -std=gnu++11)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -m64 -std=gnu++11")
+ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Werror -Wall -Wextra -m64 -pedantic-errors")
 set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
 # Find static libraries for portability
@@ -138,6 +138,7 @@ message(STATUS " ARMADILLO_VERSION_NAME  = ${ARMADILLO_VERSION_NAME}")
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
+	message(STATUS "Open CXX Flags ${OpenMP_C_FLAGS}" )
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")

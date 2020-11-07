@@ -45,9 +45,10 @@ class GATING {
 
   GATING();
   GATING(int numarg, char **pstring);
-  void init(const MRI_DATA &data, int *);
+  void init(const MRI_DATA &data, int);
   void init_resp_gating(const MRI_DATA &data);
-  void init_time_resolved(const MRI_DATA &data, int *);
+  void init_time_resolved(const MRI_DATA &data, int);
+  int number_of_frames(void);
 
   // Tornado Filter Parameters
   int wdth_low;   // k=0 width
@@ -60,12 +61,13 @@ class GATING {
   double offset_time;
   double actual_temporal_resolution;
 
+  int recon_frames;
+
   // Control Gating Method
   ViewshareType vs_type;
   GateType gate_type;
 
   NDarray::Array<NDarray::Array<double, 2>, 1> gate_times;
-  NDarray::Array<NDarray::Array<double, 2>, 1> resp_times;
   NDarray::Array<NDarray::Array<double, 2>, 1> resp_weight;
 
   // Control of Retrospective Respiratory Gating
@@ -81,7 +83,9 @@ class GATING {
   float resp_sign;
 
   // Frame Centers
-  double *gate_frames;
+  NDarray::Array<double, 1> gate_frames;
+  float gate_min_quantile;
+  float gate_max_quantile;
 
   // Function Calls
   static void help_message(void);
@@ -97,8 +101,7 @@ class GATING {
                       const NDarray::Array<float, 3> &ky,
                       const NDarray::Array<float, 3> &kz, int t, WeightType);
   void filter_resp(const MRI_DATA &data);
-  NDarray::Array<NDarray::Array<complex<float>, 2>, 1> combine_kspace_channels(
-      const NDarray::Array<NDarray::Array<complex<float>, 2>, 2> &kdata_gating);
+  NDarray::Array<NDarray::Array<complex<float>, 2>, 1> combine_kspace_channels(const NDarray::Array<NDarray::Array<complex<float>, 2>, 2> &kdata_gating);
 
  private:
 };
