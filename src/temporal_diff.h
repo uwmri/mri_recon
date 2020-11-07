@@ -18,7 +18,8 @@ class TRANSFORMS {
  public:
   TRANSFORMS();
 
-  enum TransformDirection { FORWARD, BACKWARD };
+  enum TransformDirection { FORWARD,
+                            BACKWARD };
 
   /* Low res*/
   void eigen(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& temp, int,

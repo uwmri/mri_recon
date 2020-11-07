@@ -471,7 +471,8 @@ void smsEncode::forward(
 
   if (time_grid) T.tic();
   accumulate(xdf, smap);  // Deapp,multiply by sensitivity map, and copy
-  if (time_grid) cout << ",accumulate:" << T << endl << flush;
+  if (time_grid) cout << ",accumulate:" << T << endl
+                      << flush;
 }
 
 /**
@@ -520,7 +521,8 @@ void smsEncode::backward(
 
   if (time_grid) T.tic();
   chop_grid_backward(data, kx, ky, kz, kw, z);
-  if (time_grid) cout << ",igrid:" << T << endl << flush;
+  if (time_grid) cout << ",igrid:" << T << endl
+                      << flush;
 }
 
 //----------------------------------------

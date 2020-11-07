@@ -949,7 +949,8 @@ void gridFFT_CoilThreaded::forward_sos(Array<complex<float>, 3> &X,
 
   if (time_grid) T.tic();
   accumulate_sos(X);  // Deapp,multiply by sensitivity map, and copy
-  if (time_grid) cout << ",accumulate:" << T << endl << flush;
+  if (time_grid) cout << ",accumulate:" << T << endl
+                      << flush;
 }
 
 /**
@@ -1048,7 +1049,8 @@ void gridFFT_CoilThreaded::backward(const Array<complex<float>, 3> &X,
   if (time_grid) T.tic();
   Complex4D temp;
   chop_grid_backward(data, kx, ky, kz, kw, temp, false);  // Inverse gridding
-  if (time_grid) cout << ",igrid:" << T << endl << std::flush;
+  if (time_grid) cout << ",igrid:" << T << endl
+                      << std::flush;
 }
 
 /**
@@ -1079,7 +1081,8 @@ void gridFFT_CoilThreaded::backward_residual(
   if (time_grid) T.tic();
   chop_grid_backward(data, kx, ky, kz, kw, diff_data,
                      true);  // Inverse gridding
-  if (time_grid) cout << ",igrid:" << T << endl << std::flush;
+  if (time_grid) cout << ",igrid:" << T << endl
+                      << std::flush;
 }
 
 /**

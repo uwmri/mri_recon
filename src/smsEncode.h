@@ -20,7 +20,10 @@
 class smsEncode {
  public:
   // Kernel Types
-  enum { TRIANGLE_KERNEL, KAISER_KERNEL, SINC_KERNEL, POLY_KERNEL };
+  enum { TRIANGLE_KERNEL,
+         KAISER_KERNEL,
+         SINC_KERNEL,
+         POLY_KERNEL };
 
   NDarray::Array<NDarray::Array<complex<float>, 3>, 2>
       k3d_grid; /*Actual Gridding Space*/

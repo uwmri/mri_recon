@@ -13,7 +13,10 @@ class L2REG {
   L2REG();
   L2REG(int numarg, char **pstring);
 
-  enum TransformType { NONE, TV, PHASE, LOWRES };
+  enum TransformType { NONE,
+                       TV,
+                       PHASE,
+                       LOWRES };
   static void help_message(void);
   float lambda;
   float reg_scale;

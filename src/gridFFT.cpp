@@ -120,7 +120,8 @@ void gridFFT::plan_fft(void) {
 
   fftwf_complex *ptr = reinterpret_cast<fftwf_complex *>(k3d_grid.data());
 
-  cout << " Planning FFT " << endl << flush;
+  cout << " Planning FFT " << endl
+       << flush;
   if (fast_fft_plan) {
     fft_plan =
         fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_FORWARD, FFTW_ESTIMATE);
@@ -129,7 +130,8 @@ void gridFFT::plan_fft(void) {
         fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_FORWARD, FFTW_MEASURE);
   }
 
-  cout << " Planning Inverse FFT" << endl << flush;
+  cout << " Planning Inverse FFT" << endl
+       << flush;
   if (fast_fft_plan) {
     ifft_plan =
         fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_BACKWARD, FFTW_ESTIMATE);
@@ -747,7 +749,8 @@ void gridFFT::forward_sos(Array<complex<float>, 3> &X,
 
   if (time_grid) T.tic();
   accumulate_sos(X);  // Deapp,multiply by sensitivity map, and copy
-  if (time_grid) cout << ",accumulate:" << T << endl << flush;
+  if (time_grid) cout << ",accumulate:" << T << endl
+                      << flush;
 }
 
 /**

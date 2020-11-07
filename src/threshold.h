@@ -14,8 +14,16 @@
 #include "wavelet3D.h"
 
 // Thresholding methods
-enum { TH_NONE, TH_FIXED, TH_FRACTION, TH_VISU, TH_BAYES, TH_SURE };
-enum { NOISE_GLOBAL, NOISE_FRAME, NOISE_FIRST, NOISE_LAST };
+enum { TH_NONE,
+       TH_FIXED,
+       TH_FRACTION,
+       TH_VISU,
+       TH_BAYES,
+       TH_SURE };
+enum { NOISE_GLOBAL,
+       NOISE_FRAME,
+       NOISE_FIRST,
+       NOISE_LAST };
 
 class THRESHOLD {
  public:

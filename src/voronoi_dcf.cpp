@@ -321,7 +321,8 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
       // cout << kw_calculated(count) << endl;
       count++;
     } while (vl.inc() && (count < unique_points));
-  cout << endl << "Counted " << count << " points in dcf calc" << endl;
+  cout << endl
+       << "Counted " << count << " points in dcf calc" << endl;
 
   // Convert to sorted index
   cout << "Convert to Sorted" << endl;
@@ -386,7 +387,8 @@ void VORONOI_DCF::vor_sphere(Array<float, 1> &kw, Array<float, 1> &kx,
   wall_sphere ksphereOuter(0, 0, 0, kmax + 0.5);
   wall_sphere2 ksphereInner(0, 0, 0, kmax - 0.5);
 
-  cout << "Add Sphere" << endl << flush;
+  cout << "Add Sphere" << endl
+       << flush;
   con.add_wall(ksphereOuter);
   con.add_wall(ksphereInner);
 
@@ -537,7 +539,8 @@ void VORONOI_DCF::vor_sphere(Array<float, 1> &kw, Array<float, 1> &kx,
       // cout << kw_calculated(count) << endl;
       count++;
     } while (vl.inc() && (count < unique_points));
-  cout << endl << "Counted " << count << " points in dcf calc" << endl;
+  cout << endl
+       << "Counted " << count << " points in dcf calc" << endl;
 
   // Convert to sorted index
   cout << "Convert to Sorted" << endl;

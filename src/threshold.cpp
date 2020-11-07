@@ -162,7 +162,9 @@ void THRESHOLD::exec_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
     } break;
 
     case TH_NONE:
-    default: { return; }
+    default: {
+      return;
+    }
   }
 }
 
@@ -217,7 +219,9 @@ void THRESHOLD::update_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
     } break;
 
     case TH_NONE:
-    default: { return; }
+    default: {
+      return;
+    }
   }
 }
 
@@ -230,7 +234,8 @@ float THRESHOLD::get_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
   float value;
 
   if (VERBOSE) {
-    cout << "Calc Range" << endl << flush;
+    cout << "Calc Range" << endl
+         << flush;
   }
 
   int Nz = Coef(0, 0).length(thirdDim);
@@ -329,7 +334,8 @@ float THRESHOLD::get_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
       for (int t = 0; t < Coef.extent(firstDim); t++) {
         Array<complex<float>, 3> XX = Coef(t, e);
 
-#pragma omp parallel for reduction(+ : points_found)
+#pragma omp parallel for reduction(+ \
+                                   : points_found)
         for (int k = 0; k < XX.extent(thirdDim); k++) {
           for (int j = 0; j < XX.extent(secondDim); j++) {
             for (int i = 0; i < XX.extent(firstDim); i++) {
@@ -738,7 +744,8 @@ void THRESHOLD::thresholding(Array<complex<float>, 3> &XX, float value) {
 
   // Get Update
 
-#pragma omp parallel for reduction(+ : count)
+#pragma omp parallel for reduction(+ \
+                                   : count)
   for (int k = 0; k < Nz; k++) {
     for (int j = 0; j < Ny; j++) {
       for (int i = 0; i < Nx; i++) {
