@@ -6,7 +6,7 @@
 using namespace NDarray;
 using namespace std;
 
-int main(int argc, char **argv) {
+int main(int argc, const char **argv) {
   // Initialize Phantom
   cout << "Phantom " << endl;
   PHANTOM phantom;

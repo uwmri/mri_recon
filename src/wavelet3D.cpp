@@ -17,8 +17,7 @@ WAVELET3D::~WAVELET3D() {
  * @param type The actual wavelet to be used.
  */
 WAVELET3D::WAVELET3D(Array<complex<float>, 5> &temp, int *l, int type) {
-  Array<complex<float>, 3> temp3 =
-      temp(Range::all(), Range::all(), Range::all(), 0, 0);
+  Array<complex<float>, 3> temp3 = temp(Range::all(), Range::all(), Range::all(), 0, 0);
   setup(temp3, l, type);
 }
 
@@ -30,8 +29,7 @@ WAVELET3D::WAVELET3D(Array<complex<float>, 5> &temp, int *l, int type) {
  * @param type The actual wavelet to be used.
  */
 WAVELET3D::WAVELET3D(Array<complex<float>, 4> &temp, int *l, int type) {
-  Array<complex<float>, 3> temp3 =
-      temp(Range::all(), Range::all(), Range::all(), 0);
+  Array<complex<float>, 3> temp3 = temp(Range::all(), Range::all(), Range::all(), 0);
   setup(temp3, l, type);
 }
 

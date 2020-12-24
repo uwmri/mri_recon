@@ -57,7 +57,7 @@ class SPIRIT {
   static void help_message(void);
 
   SPIRIT();
-  void read_commandline(int numarg, char **pstring);
+  void read_commandline(int numarg, const char **pstring);
   void init(int, int, int, int);
 
   void generateEigenCoils(

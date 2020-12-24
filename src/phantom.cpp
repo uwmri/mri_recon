@@ -53,7 +53,7 @@ void PHANTOM::help_message(void) {
 //----------------------------------------
 // Phantom Read Command Line
 //----------------------------------------
-void PHANTOM::read_commandline(int numarg, char **pstring) {
+void PHANTOM::read_commandline(int numarg, const char **pstring) {
 #define trig_flag(num, name, val)             \
   }                                           \
   else if (strcmp(name, pstring[pos]) == 0) { \
@@ -579,7 +579,7 @@ Array<int, 3> FRACTAL3D::synthetic_perfusion(int xs, int ys, int zs,
 //----------------------------------------
 // FRACTAL Read Command Line
 //----------------------------------------
-void FRACTAL3D::read_commandline(int numarg, char **pstring) {
+void FRACTAL3D::read_commandline(int numarg, const char **pstring) {
 #define trig_flag(num, name, val)             \
   }                                           \
   else if (strcmp(name, pstring[pos]) == 0) { \

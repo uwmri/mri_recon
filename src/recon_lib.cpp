@@ -115,7 +115,7 @@ void RECON::set_defaults(void) {
 //  Constructor with Command Line Read
 // ----------------------
 
-RECON::RECON(int numarg, char **pstring) {
+RECON::RECON(int numarg, const char **pstring) {
   set_defaults();
 
   // --------------------------
@@ -146,9 +146,9 @@ void RECON::help_message(void) {
   cout << "   recon_binary -f header.txt [flags]" << endl;
 
   cout << "Recon Size:" << endl;
-  help_flag("-rcxres []", "matrix size in x");
-  help_flag("-rcyres []", "matrix size in y");
-  help_flag("-rczres []", "matrix size in z");
+  help_flag("-recon_xres []", "matrix size in x");
+  help_flag("-recon_yres []", "matrix size in y");
+  help_flag("-recon_zres []", "matrix size in z");
   help_flag("-rcframes []", "reconstructed temporal frames");
   help_flag("-zoom_x []", "zoom factor in x (external data)");
   help_flag("-zoom_y []", "zoom factor in y (external data)");
@@ -210,7 +210,7 @@ void RECON::help_message(void) {
  *  Doxygen test: Read command line and set variables
  * --------------------*/
 
-void RECON::parse_commandline(int numarg, char **pstring) {
+void RECON::parse_commandline(int numarg, const char **pstring) {
 #define trig_flag(num, name, val)             \
   }                                           \
   else if (strcmp(name, pstring[pos]) == 0) { \
@@ -236,9 +236,9 @@ void RECON::parse_commandline(int numarg, char **pstring) {
       char_flag("-f", filename);
 
       // Reconstruction Geometry
-      int_flag("-rcxres", rcxres);
-      int_flag("-rcyres", rcyres);
-      int_flag("-rczres", rczres);
+      int_flag("-recon_xres", rcxres);
+      int_flag("-recon_yres", rcyres);
+      int_flag("-recon_zres", rczres);
       int_flag("-rcframes", rcframes);
       int_flag("-rc_frame_start", rc_frame_start);
 
@@ -393,10 +393,7 @@ void RECON::parse_commandline(int numarg, char **pstring) {
       float_flag("-compress_coils", compress_coils);
       float_flag("-compress_kr", compress_kr);
       trig_flag(true, "-whiten", whiten);
-      float_flag(
-          "-noise_scale_factor",
-          noise_scale_factor);  // -noise_scale_factor 2 doubles noise,
-                                // -noise_scale_factor 3 triples noise, ...
+      float_flag("-noise_scale_factor", noise_scale_factor);
       trig_flag(true, "-complex_diff", complex_diff);
 
       // Iterations for IST
@@ -423,10 +420,8 @@ void RECON::parse_commandline(int numarg, char **pstring) {
   }
 }
 
-complex<float> conj_sum(Array<complex<float>, 3> P,
-                        Array<complex<float>, 3> R) {
+complex<float> conj_sum(Array<complex<float>, 3> P, Array<complex<float>, 3> R) {
   complex<float> s(0, 0);
-
   complex<float> *stemp = new complex<float>[R.length(thirdDim)];
 
 #pragma omp parallel for
@@ -447,11 +442,11 @@ complex<float> conj_sum(Array<complex<float>, 3> P,
   return (s);
 }
 
-void RECON::init_recon(int argc, char **argv, MRI_DATA &data) {
-  // Use Native Resultion
-  rcxres = (rcxres == -1) ? (data.xres) : (rcxres);
-  rcyres = (rcyres == -1) ? (data.yres) : (rcyres);
-  rczres = (rczres == -1) ? (data.zres) : (rczres);
+void RECON::init_recon(int argc, const char **argv, MRI_DATA &data) {
+  // Use resultion in the header
+  rcxres = (rcxres == -1) ? (data.recon_res(0)) : (rcxres);
+  rcyres = (rcyres == -1) ? (data.recon_res(1)) : (rcyres);
+  rczres = (rczres == -1) ? (data.recon_res(2)) : (rczres);
   rcencodes = data.Num_Encodings;
 
   // Whiten
@@ -769,7 +764,7 @@ void vor_dcf2(Array<Array<float, 3>, 2> &Kw, Array<Array<float, 3>, 2> &Ky,
 
 Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
                                                    MRI_DATA &data, int argc,
-                                                   char **argv) {
+                                                   const char **argv) {
   // Input should be:
   //  data_cal     - A dataset without sms used to calc sensitvity maps
   //  data	 	 - A dataset with sms reconed in dynamic fashion
@@ -793,9 +788,9 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
   cout << "Sms Factor = " << sms_factor << endl;
 
   // Use Native Resultion
-  rcxres = (rcxres == -1) ? (data.xres) : (rcxres);
-  rcyres = (rcyres == -1) ? (data.yres) : (rcyres);
-  rczres = (rczres == -1) ? (data.zres + zpad) : (rczres + zpad);
+  rcxres = (rcxres == -1) ? (data.recon_res(0)) : (rcxres);
+  rcyres = (rcyres == -1) ? (data.recon_res(1)) : (rcyres);
+  rczres = (rczres == -1) ? (data.recon_res(2) + zpad) : (rczres + zpad);
 
   cout << "Sms Matrix = [ " << rcxres << "," << rcyres << "," << rczres << "]"
        << endl;
@@ -804,8 +799,7 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
   typedef Array<float, 3> Float3D;
 
   // Allocate Sensiticty Maps
-  Array<Array<complex<float>, 3>, 1> temp =
-      Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres, Ncoils);
+  Array<Array<complex<float>, 3>, 1> temp = Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres, Ncoils);
   smaps.reference(temp);
 
   cout << "Allocate Sense Maps" << endl
@@ -853,20 +847,16 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
     //  This is just to get sensitivty maps
     smsEncode smsCgrid;
     smsCgrid.read_commandline(argc, argv);
-    smsCgrid.precalc_gridding(rczres, rcyres, rcxres, cal_frames, cal_encodes,
-                              1, data_cal);
+    smsCgrid.precalc_gridding(rczres, rcyres, rcxres, cal_frames, cal_encodes, 1, data_cal);
 
     cout << "Alloc Image" << endl
          << flush;
-    Array<Array<complex<float>, 3>, 2> image_store =
-        Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, cal_encodes,
-                                          Ncoils);
+    Array<Array<complex<float>, 3>, 2> image_store = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, cal_encodes, Ncoils);
 
     // Compute Forward Transform
     cout << "Create X" << endl
          << flush;
-    Array<Array<complex<float>, 3>, 2> xdf = Alloc5DContainer<complex<float> >(
-        rcxres, rcyres, rczres, cal_frames, cal_encodes);
+    Array<Array<complex<float>, 3>, 2> xdf = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, cal_frames, cal_encodes);
 
     Complex3D smaptest(rcxres, rcyres, rczres, ColumnMajorArray<3>());
     smaptest = complex<float>(1.0, 0.0);
@@ -1830,8 +1820,10 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
-                    R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                    X(t, e)
+                    (i, j, k) += (scale * (P(t, e)(i, j, k)));
+                    R(t, e)
+                    (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                     sum_R_R += norm(R(t, e)(i, j, k));
                   }
                 }
@@ -3006,7 +2998,90 @@ void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
 
 inline float sqr(float x) { return (x * x); }
 
-void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
+void RECON::autofov(MRI_DATA &data, AutoFovMode automode) {
+  std::cout << "AUTOFOV :: Reconstruct images" << std::endl;
+
+  gridFFT autofov_grid;
+  autofov_grid.precalc_gridding(data.xres, data.yres, data.zres, data);
+
+  Array<float, 3> sos_image(data.xres, data.yres, data.yres, ColumnMajorArray<3>());
+  Array<complex<float>, 3> complex_image(data.xres, data.yres, data.zres, ColumnMajorArray<3>());
+
+  for (int coil = 0; coil < data.Num_Coils; coil++) {
+    complex_image = complex<float>(0.0, 0.0);
+    for (int e = 0; e < 1; e++) {
+      cout << "AUTOFOV :: Coil " << coil << "Encode " << e << endl;
+
+      // Simple gridding
+      autofov_grid.forward(complex_image, data.kdata(e, coil), data.kx(e), data.ky(e), data.kz(e), data.kw(e));
+      sos_image += norm(complex_image);
+    }
+  }
+  sos_image = sqrt(sos_image);
+  cout << "AUTOFOV :: Shape" << sos_image.shape() << endl;
+
+  // Blur in place
+  gaussian_blur(sos_image, 5.0, 5.0, 5.0);
+
+  // Temp write to disk (remove once tested)
+  ArrayWrite(sos_image, "AutoFov.dat");
+
+  // Now we find the bounding box using a threshold
+  float thresh = 0.2 * max(sos_image);
+  int max_x = 0;
+  int max_y = 0;
+  int max_z = 0;
+  int min_x = sos_image.length(firstDim);
+  int min_y = sos_image.length(secondDim);
+  int min_z = sos_image.length(thirdDim);
+  for (int k = 0; k < sos_image.length(thirdDim); k++) {
+    for (int j = 0; j < sos_image.length(secondDim); j++) {
+      for (int i = 0; i < sos_image.length(firstDim); i++) {
+        // Check for spherical mask
+        if (automode == AUTOFOVSPHERE) {
+          float rad = pow(2.0 * (float)i / (float)sos_image.length(firstDim) - 1.0, 2);
+          rad += pow(2.0 * (float)j / (float)sos_image.length(secondDim) - 1.0, 2);
+          rad += pow(2.0 * (float)k / (float)sos_image.length(thirdDim) - 1.0, 2);
+          if (rad > 1.0) {
+            continue;
+          }
+        }
+
+        // Add the coordinates if greater than the threshold
+        if (sos_image(i, j, k) > thresh) {
+          max_x = max(i, max_x);
+          max_y = max(j, max_y);
+          max_z = max(k, max_z);
+          min_x = min(i, min_x);
+          min_y = min(j, min_y);
+          min_z = min(k, min_z);
+        }
+      }
+    }
+  }
+
+  int new_rcxres = 2 * max(sos_image.length(firstDim) / 2 - min_x, max_x - sos_image.length(firstDim) / 2);
+  int new_rcyres = 2 * max(sos_image.length(secondDim) / 2 - min_y, max_y - sos_image.length(secondDim) / 2);
+  int new_rczres = 2 * max(sos_image.length(thirdDim) / 2 - min_z, max_z - sos_image.length(thirdDim) / 2);
+
+  std::cout << "AUTOFOV :: X  [ " << min_x << " " << max_x << " ] -> recon to " << new_rcxres << std::endl;
+  std::cout << "AUTOFOV :: Y  [ " << min_y << " " << max_y << " ] -> recon to " << new_rcyres << std::endl;
+  std::cout << "AUTOFOV :: Z  [ " << min_z << " " << max_z << " ] -> recon to " << new_rczres << std::endl;
+
+  float new_zoom_x = (float)sos_image.length(firstDim) / (float)new_rcxres;
+  float new_zoom_y = (float)sos_image.length(secondDim) / (float)new_rcyres;
+  float new_zoom_z = (float)sos_image.length(thirdDim) / (float)new_rczres;
+
+  // Scale the FOV
+  data.scale_fov(1. / new_zoom_x, 1. / new_zoom_y, 1. / new_zoom_z);
+
+  // Set the resolution
+  data.recon_res(0) = new_rcxres;
+  data.recon_res(1) = new_rcyres;
+  data.recon_res(2) = new_rczres;
+}
+
+void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
   // ------------------------------------
   //  Get coil sensitivity map ( move into function)
   // ------------------------------------
@@ -3120,8 +3195,10 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
                              data.kz(e), data.kw(e));
 
             // Gaussian blur
-            gaussian_blur(image_store(smap_encode_count, coil), extra_blurX,
-                          extra_blurY, extra_blurZ);  // TEMP
+            gaussian_blur(image_store(smap_encode_count, coil),
+                          extra_blurX,
+                          extra_blurY,
+                          extra_blurZ);  // TEMP
           }
           smap_encode_count++;
         }
@@ -3174,12 +3251,9 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
             }
           }
 
-          double coil_cx =
-              2.0 * sumIX / sumI / (double)smaps(0).length(firstDim);
-          double coil_cy =
-              2.0 * sumIY / sumI / (double)smaps(0).length(secondDim);
-          double coil_cz =
-              2.0 * sumIZ / sumI / (double)smaps(0).length(thirdDim);
+          double coil_cx = 2.0 * sumIX / sumI / (double)smaps(0).length(firstDim);
+          double coil_cy = 2.0 * sumIY / sumI / (double)smaps(0).length(secondDim);
+          double coil_cz = 2.0 * sumIZ / sumI / (double)smaps(0).length(thirdDim);
 
           std::cout << "Coil = " << coil << "center=" << coil_cx << ","
                     << coil_cy << "," << coil_cz << std::endl;
@@ -3301,23 +3375,16 @@ void RECON::calc_sensitivity_maps(int argc, char **argv, MRI_DATA &data) {
             float r = 0.0;
             switch (smap_mask) {
               case (SMAPMASK_CIRCLE): {
-                float x = 2.0 * (i - 0.5 * ((float)smaps(0).length(firstDim))) /
-                          ((float)smaps(0).length(firstDim));
-                float y = 2.0 *
-                          (j - 0.5 * ((float)smaps(0).length(secondDim))) /
-                          ((float)smaps(0).length(secondDim));
+                float x = 2.0 * (i - 0.5 * ((float)smaps(0).length(firstDim))) / ((float)smaps(0).length(firstDim));
+                float y = 2.0 * (j - 0.5 * ((float)smaps(0).length(secondDim))) / ((float)smaps(0).length(secondDim));
                 r = sqrt(x * x + y * y);
 
               } break;
 
               case (SMAPMASK_SPHERE): {
-                float x = 2.0 * (i - 0.5 * ((float)smaps(0).length(firstDim))) /
-                          ((float)smaps(0).length(firstDim));
-                float y = 2.0 *
-                          (j - 0.5 * ((float)smaps(0).length(secondDim))) /
-                          ((float)smaps(0).length(secondDim));
-                float z = 2.0 * (k - 0.5 * ((float)smaps(0).length(thirdDim))) /
-                          ((float)smaps(0).length(thirdDim));
+                float x = 2.0 * (i - 0.5 * ((float)smaps(0).length(firstDim))) / ((float)smaps(0).length(firstDim));
+                float y = 2.0 * (j - 0.5 * ((float)smaps(0).length(secondDim))) / ((float)smaps(0).length(secondDim));
+                float z = 2.0 * (k - 0.5 * ((float)smaps(0).length(thirdDim))) / ((float)smaps(0).length(thirdDim));
                 r = sqrt(x * x + y * y + z * z);
               } break;
 
@@ -3498,12 +3565,16 @@ void RECON::intensity_correct(Array<float, 3> &IC,
   return;
 }
 
-void RECON::gaussian_blur(Array<complex<float>, 3> &In, float sigmaX,
-                          float sigmaY, float sigmaZ) {
+template <typename D>
+void gaussian_blur_template(Array<D, 3> &In, float sigmaX, float sigmaY, float sigmaZ) {
   // Extent of kernel
   int dwinX = (int)(5 * sigmaX);
   int dwinY = (int)(5 * sigmaY);
   int dwinZ = (int)(5 * sigmaZ);
+
+  int rcxres = In.length(firstDim);
+  int rcyres = In.length(secondDim);
+  int rczres = In.length(thirdDim);
 
   if (sigmaX > 0) {
     // Kernel to reduce calls to exp
@@ -3514,14 +3585,13 @@ void RECON::gaussian_blur(Array<complex<float>, 3> &In, float sigmaX,
     kern /= sum(kern);
 
     // Gaussian Blur in X
-    cout << "Blur in X" << endl;
 #pragma omp parallel for
     for (int k = 0; k < rczres; k++) {
       for (int j = 0; j < rcyres; j++) {
-        Array<complex<float>, 1> TEMP(rcxres);
+        Array<D, 1> TEMP(rcxres);
         for (int i = 0; i < rcxres; i++) {
           TEMP(i) = In(i, j, k);
-          In(i, j, k) = complex<float>(0.0, 0.0);
+          In(i, j, k) = 0.0;
         }
 
         for (int i = 0; i < rcxres; i++) {
@@ -3547,14 +3617,13 @@ void RECON::gaussian_blur(Array<complex<float>, 3> &In, float sigmaX,
     kern /= sum(kern);
 
     // Gaussian Blur in Y
-    cout << "Blur in Y" << endl;
 #pragma omp parallel for
     for (int k = 0; k < rczres; k++) {
       for (int i = 0; i < rcxres; i++) {
-        Array<complex<float>, 1> TEMP(rcyres);
+        Array<D, 1> TEMP(rcyres);
         for (int j = 0; j < rcyres; j++) {
           TEMP(j) = In(i, j, k);
-          In(i, j, k) = complex<float>(0.0, 0.0);
+          In(i, j, k) = 0.0;
         }
 
         for (int j = 0; j < rcyres; j++) {
@@ -3579,15 +3648,14 @@ void RECON::gaussian_blur(Array<complex<float>, 3> &In, float sigmaX,
     }
     kern /= sum(kern);
 
-    // Gaussian Blur in Y
-    cout << "Blur in Z" << endl;
+    // Gaussian Blur in X;
 #pragma omp parallel for
     for (int j = 0; j < rcyres; j++) {
       for (int i = 0; i < rcxres; i++) {
-        Array<complex<float>, 1> TEMP(rczres);
+        Array<D, 1> TEMP(rczres);
         for (int k = 0; k < rczres; k++) {
           TEMP(k) = In(i, j, k);
-          In(i, j, k) = complex<float>(0.0, 0.0);
+          In(i, j, k) = 0.0;
         }
 
         for (int k = 0; k < rczres; k++) {
@@ -3603,6 +3671,14 @@ void RECON::gaussian_blur(Array<complex<float>, 3> &In, float sigmaX,
       }
     }
   }
+}
+
+void RECON::gaussian_blur(NDarray::Array<complex<float>, 3> &In, float sigX, float sigY, float sigZ) {
+  gaussian_blur_template<complex<float> >(In, sigX, sigY, sigZ);
+}
+
+void RECON::gaussian_blur(NDarray::Array<float, 3> &In, float sigX, float sigY, float sigZ) {
+  gaussian_blur_template<float>(In, sigX, sigY, sigZ);
 }
 
 void RECON::normalized_gaussian_blur(const Array<float, 3> &In,

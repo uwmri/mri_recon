@@ -197,16 +197,20 @@ class RECON {
   bool pregate_data_flag;
   bool image_scale_normalization;
 
-  NDarray::Array<NDarray::Array<complex<float>, 3>, 2> test_sms(MRI_DATA&, MRI_DATA&, int numarg, char** pstring);
+  NDarray::Array<NDarray::Array<complex<float>, 3>, 2> test_sms(MRI_DATA&, MRI_DATA&, int numarg, const char** pstring);
 
   RECON(void);
-  RECON(int numarg, char** pstring);
+  RECON(int numarg, const char** pstring);
   static void help_message(void);
   void parse_external_header(MRI_DATA& data);
   void set_defaults(void);
-  void parse_commandline(int numarg, char** pstring);
-  void init_recon(int argc, char** argv, MRI_DATA& data);
-  void calc_sensitivity_maps(int argc, char** argv, MRI_DATA& data);
+  void parse_commandline(int numarg, const char** pstring);
+  void init_recon(int argc, const char** argv, MRI_DATA& data);
+  void calc_sensitivity_maps(int argc, const char** argv, MRI_DATA& data);
+
+  enum AutoFovMode { AUTOFOVSPHERE,
+                     AUTOFOVRECT };
+  void autofov(MRI_DATA& data, AutoFovMode = AUTOFOVSPHERE);
 
   void L1_threshold(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>&);
   void transform_in_time(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>&, TransformDirection);
@@ -223,6 +227,7 @@ class RECON {
   void dcf_calc(MRI_DATA& data);
   void dcf_calc(MRI_DATA& data, GATING& gate);
   void gaussian_blur(NDarray::Array<complex<float>, 3>& In, float, float, float);
+  void gaussian_blur(NDarray::Array<float, 3>& In, float, float, float);
   void normalized_gaussian_blur(const NDarray::Array<float, 3>& In, NDarray::Array<float, 3>& out, float sigma);
   void intensity_correct(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& smaps);
   void pregate_data(MRI_DATA&);

@@ -62,7 +62,7 @@ GATING::GATING(void) {
 }
 
 // Setup of
-GATING::GATING(int numarg, char **pstring) {
+GATING::GATING(int numarg, const char **pstring) {
   // Setting default values, configurable
   wdth_low = 1;
   wdth_high = 4;

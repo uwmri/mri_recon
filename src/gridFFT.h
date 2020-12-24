@@ -103,7 +103,7 @@ class gridFFT {
   gridFFT();
 
   void alloc_grid();
-  void read_commandline(int numarg, char **pstring);
+  void read_commandline(int numarg, const char **pstring);
   void precalc_gridding(int Nz, int Ny, int Nx, MRI_DATA &);
   void precalc_kernel(void);
 

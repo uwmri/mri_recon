@@ -38,23 +38,20 @@ class FRACTAL3D {
   int Nt;           //!< Size of Phantom in time
 
   // Need to maintain these functions for public calls
-  void read_commandline(int numarg, char **pstring);
+  void read_commandline(int numarg, const char **pstring);
   void calc_image(int, int);
   void write_matlab_truth_script(const char *);
   void calc_image(NDarray::Array<complex<float>, 3> &, int, int);
   void build_tree(int Nx, int Ny, int Nz);
 
  private:
-  NDarray::Array<int, 3> synthetic_perfusion(int xs, int ys, int zs,
-                                             PerfType ptype);
+  NDarray::Array<int, 3> synthetic_perfusion(int xs, int ys, int zs, PerfType ptype);
   void update_children(arma::field<TFRACT_RAND> &tree, int pos);
-  arma::field<TFRACT_RAND> create_tree(arma::fmat seeds_start,
-                                       arma::fmat seeds_stop, arma::fmat X);
+  arma::field<TFRACT_RAND> create_tree(arma::fmat seeds_start, arma::fmat seeds_stop, arma::fmat X);
 
   bool debug;
-  NDarray::Array<float, 4> FUZZY;  //!< Fuzzy model densities (3D+compartments)
-  NDarray::Array<float, 4>
-      FUZZYT;  //!< Fuzzy model arrival times (3D+compartments)
+  NDarray::Array<float, 4> FUZZY;   //!< Fuzzy model densities (3D+compartments)
+  NDarray::Array<float, 4> FUZZYT;  //!< Fuzzy model arrival times (3D+compartments)
 };
 
 /**
@@ -120,7 +117,7 @@ class PHANTOM {
   PHANTOM(void);
   void init(int, int, int, int);
   static void help_message(void);
-  void read_commandline(int numarg, char **pstring);
+  void read_commandline(int numarg, const char **pstring);
   bool phantom_export_smaps;
 
   // Functions

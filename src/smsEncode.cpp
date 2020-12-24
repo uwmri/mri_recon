@@ -93,7 +93,7 @@ void smsEncode::help_message(void) {
 // Parse Command Line Args
 //----------------------------------------
 
-void smsEncode::read_commandline(int numarg, char **pstring) {
+void smsEncode::read_commandline(int numarg, const char **pstring) {
 #define trig_flag(num, name, val)             \
   }                                           \
   else if (strcmp(name, pstring[pos]) == 0) { \

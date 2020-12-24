@@ -297,6 +297,8 @@ MRI_DATA::MRI_DATA(void) {
   }
   sms_type = SMSoff;
   sms_factor = 1;
+  recon_fov = 0;
+  recon_res = 0;
 }
 
 //---------------------------------------------------
@@ -965,6 +967,67 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   cout << "done with coil compression" << endl;
 }
 
+template <typename T>
+arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noise_samples) {
+  std::cout << "Noise Samples : " << noise_samples.length(firstDim) << std::endl;
+  std::cout << "Noise Pre-Whitening" << std::endl;
+
+  // Copy into matrix (coil x samples)
+  int Num_Coils = noise_samples.length(secondDim);
+  arma::cx_mat NoiseData = arma::randu<arma::cx_mat>(noise_samples.length(secondDim), noise_samples.length(firstDim));
+  for (int coil = 0; coil < Num_Coils; coil++) {
+    for (int i = 0; i < noise_samples.length(firstDim); i++) {
+      NoiseData(coil, i) = noise_samples(i, coil);
+    }
+  }
+
+  std::cout << "Calc Cov" << std::endl;
+  arma::cx_mat CV = NoiseData * NoiseData.t();
+
+  std::cout << "Whiten" << std::endl;
+  arma::cx_mat V = chol(CV);
+  arma::cx_mat VT = V.t();
+  arma::cx_mat Decorr = VT.i();
+
+  // Test Whitening
+  arma::cx_mat W = NoiseData;
+  arma::cx_mat temp = arma::randu<arma::cx_mat>(Num_Coils);
+  for (int i = 0; i < noise_samples.length(firstDim); i++) {
+    for (int coil = 0; coil < Num_Coils; coil++) {
+      temp(coil, 0) = W(coil, i);
+    }
+    arma::cx_mat temp2 = Decorr * temp;
+
+    for (int coil = 0; coil < Num_Coils; coil++) {
+      W(coil, i) = temp2(coil, 0);
+    }
+  }
+  //arma::cx_mat CV_POST = W * W.t();
+  //cout << "Noise Covariance post whiten" << endl;
+  //cout << "  size = " << W.n_rows << " x " << W.n_cols << endl;
+  //cout << CV_POST << endl;
+
+  arma::cx_fmat whitening_matrix;
+  whitening_matrix.copy_size(Decorr);
+  for (unsigned int i = 0; i < Decorr.n_rows; i++) {
+    for (unsigned int j = 0; j < Decorr.n_cols; j++) {
+      whitening_matrix(i, j) = Decorr(i, j);
+    }
+  }
+
+  return whitening_matrix;
+}
+
+arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<float>, 2> &noise_samples) {
+  arma::cx_fmat decorr = whitening_matrix_calc<float>(noise_samples);
+  return (decorr);
+}
+
+arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<double>, 2> &noise_samples) {
+  arma::cx_fmat decorr = whitening_matrix_calc<double>(noise_samples);
+  return (decorr);
+}
+
 //--------------------------------------------------
 //  Whiten Data
 //--------------------------------------------------
@@ -975,45 +1038,8 @@ void MRI_DATA::whiten(void) {
     return;
   }
 
-  cout << "Noise Samples : " << noise_samples.length(firstDim) << endl;
-  cout << "Noise Pre-Whitening" << endl
-       << flush;
-
-  // Copy into matrix
-  arma::cx_fmat NoiseData = arma::randu<arma::cx_fmat>(noise_samples.length(secondDim), noise_samples.length(firstDim));
-  for (int coil = 0; coil < Num_Coils; coil++) {
-    for (int i = 0; i < noise_samples.length(firstDim); i++) {
-      NoiseData(coil, i) = noise_samples(i, coil);
-    }
-  }
-
-  cout << "Calc Cov" << endl
-       << flush;
-  arma::cx_fmat CV = covariance(NoiseData, Num_Coils, noise_samples.length(firstDim));
-  CV.save("CovMatrix.dat", arma::raw_binary);
-
-  cout << "Whiten" << endl;
-  arma::cx_fmat V = chol(CV);
-  arma::cx_fmat VT = V.st();
-  arma::cx_fmat Decorr = VT.i();
-
-  // Test Whitening
-  arma::cx_fmat W = NoiseData;
-  arma::cx_fmat temp = arma::randu<arma::cx_fmat>(Num_Coils);
-  for (int i = 0; i < noise_samples.length(firstDim); i++) {
-    for (int coil = 0; coil < Num_Coils; coil++) {
-      temp(coil, 0) = W(coil, i);
-    }
-    arma::cx_fmat temp2 = Decorr * temp;
-
-    for (int coil = 0; coil < Num_Coils; coil++) {
-      W(coil, i) = temp2(coil, 0);
-    }
-  }
-
-  arma::cx_fmat CV_POST =
-      covariance(W, Num_Coils, noise_samples.length(firstDim));
-  CV_POST.save("CovMatrixPost.dat", arma::raw_binary);
+  // Get the whitening matrix
+  arma::cx_fmat Decorr = MRI_DATA::get_whitening_matrix(noise_samples);
 
   // Now Whiten Actual Data
   cout << "Whiten all data" << endl;

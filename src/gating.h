@@ -44,7 +44,7 @@ class GATING {
                       RESP_HARD };
 
   GATING();
-  GATING(int numarg, char **pstring);
+  GATING(int numarg, const char **pstring);
   void init(const MRI_DATA &data, int);
   void init_resp_gating(const MRI_DATA &data);
   void init_time_resolved(const MRI_DATA &data, int);

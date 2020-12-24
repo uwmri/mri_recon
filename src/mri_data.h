@@ -58,12 +58,12 @@ class MRI_DATA {
   NDarray::Array<std::complex<float>, 2> noise_samples;  // data for noise samples
 
   // Physiologic Data for gating
-  NDarray::Array<NDarray::Array<double, 2>, 1> ecg;  // Distance from ECG in MS
+  NDarray::Array<NDarray::Array<double, 2>, 1> ecg;                   // Distance from ECG in MS
   NDarray::Array<NDarray::Array<double, 2>, 1> resp;                  // Respiratory signal from bellows or navigator
-  NDarray::Array<NDarray::Array<double, 2>, 1> time;  // Acquisition Time
+  NDarray::Array<NDarray::Array<double, 2>, 1> time;                  // Acquisition Time
   NDarray::Array<NDarray::Array<double, 2>, 1> prep;                  // Time since a prep event (for example inversion)
   NDarray::Array<NDarray::Array<complex<float>, 2>, 2> kdata_gating;  // Repeated sample for gating, need to be the same for each
-                     // data point, all coils
+                                                                      // data point, all coils
 
   // Native Resolution
   int xres;
@@ -71,10 +71,14 @@ class MRI_DATA {
   int zres;
   int tres;
 
-  // Image Size in each dimension
+  // Native field of view
   float zfov;
   float yfov;
   float xfov;
+
+  // Reconstructed resolution and FOV
+  NDarray::TinyVector<int, 3> recon_res;
+  NDarray::TinyVector<float, 3> recon_fov;
 
   // 2D/3D Cartesian/Non-Cartesian
   NDarray::TinyVector<TrajType, 3> trajectory_type;
@@ -95,6 +99,9 @@ class MRI_DATA {
 
   // Data Operations (move?)
   void coilcompress(float, float);
+  static arma::cx_fmat get_whitening_matrix(const NDarray::Array<complex<double>, 2> &noise_samples);
+  static arma::cx_fmat get_whitening_matrix(const NDarray::Array<complex<float>, 2> &noise_samples);
+
   void whiten();
   void add_noise(float);  // -add_noise(2) doubles noise, add_noise(3) triples noise, ...
   void demod_kdata(float);

@@ -24,7 +24,7 @@ void L2REG::help_message(void) {
 
 L2REG::L2REG() {}
 
-L2REG::L2REG(int numarg, char **pstring) {
+L2REG::L2REG(int numarg, const char **pstring) {
   verbose = 0;
   lambda = 0.00;
   l2_type = NONE;

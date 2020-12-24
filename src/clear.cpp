@@ -44,7 +44,7 @@ LOWRANKCOIL::LOWRANKCOIL() {
   clear_t2 = 6;
 }
 
-LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring) {
+LOWRANKCOIL::LOWRANKCOIL(int numarg, const char **pstring) {
   // Kernel Size Defaults
   block_size_x = 4;
   block_size_y = 4;
@@ -96,8 +96,7 @@ LOWRANKCOIL::LOWRANKCOIL(int numarg, char **pstring) {
 //  Just estimate the max singular value over the matrix
 //-----------------------------------------------------
 
-void LOWRANKCOIL::update_threshold(Array<Array<complex<float>, 3>, 3> &image,
-                                   int dim, int iter) {
+void LOWRANKCOIL::update_threshold(Array<Array<complex<float>, 3>, 3> &image, int dim, int iter) {
   // Shorthand
   int Nt = image.extent(firstDim);
   int Ne = image.extent(secondDim);

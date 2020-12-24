@@ -102,7 +102,7 @@ class smsEncode {
   smsEncode();
 
   void alloc_grid();
-  void read_commandline(int numarg, char **pstring);
+  void read_commandline(int numarg, const char **pstring);
   void precalc_gridding(int Nz, int Ny, int Nx, int Nt, int Ne, float sms_gap,
                         MRI_DATA &);
   void precalc_kernel(void);

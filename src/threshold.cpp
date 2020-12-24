@@ -25,7 +25,7 @@ THRESHOLD::THRESHOLD() {}
   Constructor  - read command line
  *----------------------------------------------*/
 
-THRESHOLD::THRESHOLD(int numarg, char **pstring) {
+THRESHOLD::THRESHOLD(int numarg, const char **pstring) {
   soft = true;
   thapp = false;
   thresh = 0.0;  // Default

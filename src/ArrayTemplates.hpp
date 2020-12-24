@@ -31,6 +31,9 @@ void fft(Array<complex<float>, 3> &temp, int);
 void ifft(Array<complex<float>, 3> &temp, int);
 void fft3(Array<complex<float>, 3> &temp, int, int, bool);
 
+void gaussian_filter(Array<float, 2> &, int);
+void gaussian_filter(Array<complex<float>, 2> &, int);
+
 inline void endian_swap(int &x) {
   x = (x << 24 & 0xFF000000) | (x << 8 & 0x00FF0000) | (x >> 8 & 0x0000FF00) |
       (x >> 24 & 0x000000FF);

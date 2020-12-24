@@ -11,7 +11,7 @@
 class L2REG {
  public:
   L2REG();
-  L2REG(int numarg, char **pstring);
+  L2REG(int numarg, const char **pstring);
 
   enum TransformType { NONE,
                        TV,

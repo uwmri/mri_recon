@@ -454,3 +454,71 @@ void NDarray::fft3(Array<complex<float>, 3> &temp, int dim, int direction,
   // Cleanup
   fftwf_destroy_plan(plan);
 }
+
+
+
+void NDarray::gaussian_filter(Array<float, 2> &temp, int fsize) {
+  int Nx = temp.length(firstDim);
+  float *filter_bank = new float[Nx];
+
+  // cout << "Gaussian filtering" << endl;
+  // cout << " X = " << temp.length(firstDim) << endl;
+  // cout << " Y = " << temp.length(secondDim) << endl;
+  // cout << " F = " << fsize << endl;
+
+  for (int j = 0; j < temp.length(secondDim); j++) {
+    /***Store Old**/
+    for (int i = 0; i < Nx; i++) {
+      filter_bank[i] = temp(i, j);
+      temp(i, j) = 0.0;
+    }
+
+    /**DO FILTER*/
+    for (int i = 0; i < Nx; i++) {
+      int start = max(i - fsize * 3, 0);
+      int stop = min(i + fsize * 3, Nx - 1);
+
+      for (int ii = start; ii <= stop; ii++) {
+        float rad = (float)ii - (float)i;
+        float val =
+            (float)exp(-(rad * rad) / (2.0 * (float)fsize * (float)fsize));
+        temp(i, j) += (filter_bank[ii] * val);
+      }
+    }
+  }
+
+  delete[] filter_bank;
+}
+
+void NDarray::gaussian_filter(Array<complex<float>, 2> &temp, int fsize) {
+  int Nx = temp.length(firstDim);
+  complex<float> *filter_bank = new complex<float>[Nx];
+
+  // cout << "Gaussian filtering" << endl;
+  // cout << " X = " << temp.length(firstDim) << endl;
+  // cout << " Y = " << temp.length(secondDim) << endl;
+  // cout << " F = " << fsize << endl;
+
+  for (int j = 0; j < temp.length(secondDim); j++) {
+    /***Store Old**/
+    for (int i = 0; i < Nx; i++) {
+      filter_bank[i] = temp(i, j);
+      temp(i, j) = complex<float>(0.0, 0.0);
+    }
+
+    /**DO FILTER*/
+    for (int i = 0; i < Nx; i++) {
+      int start = max(i - fsize * 3, 0);
+      int stop = min(i + fsize * 3, Nx - 1);
+
+      for (int ii = start; ii <= stop; ii++) {
+        float rad = (float)ii - (float)i;
+        float val =
+            (float)exp(-(rad * rad) / (2.0 * (float)fsize * (float)fsize));
+        temp(i, j) += (filter_bank[ii] * val);
+      }
+    }
+  }
+
+  delete[] filter_bank;
+}

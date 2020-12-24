@@ -88,7 +88,7 @@ void SPIRIT::help_message(void) {
   help_flag("-sp_coil_phase", "use phase from one coil");
 }
 
-void SPIRIT::read_commandline(int numarg, char **pstring) {
+void SPIRIT::read_commandline(int numarg, const char **pstring) {
 #define trig_flag(num, name, val)             \
   }                                           \
   else if (strcmp(name, pstring[pos]) == 0) { \

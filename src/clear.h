@@ -39,7 +39,7 @@ class LOWRANKCOIL {
 
   // Functions
   LOWRANKCOIL();
-  LOWRANKCOIL(int numarg, char **pstring);
+  LOWRANKCOIL(int numarg, const char **pstring);
 
   void update_threshold(NDarray::Array<NDarray::Array<complex<float>, 3>, 2> &, int, int);
   void thresh(NDarray::Array<NDarray::Array<complex<float>, 3>, 2> &image, int);
