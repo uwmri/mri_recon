@@ -39,6 +39,8 @@
 #pragma message("WARNING: Compiling without Voro++, voronoi density calculations not supported ")
 #endif
 
+void print_mri_recon_help(void);
+
 class RECON {
  public:
   // Types of Recons
@@ -163,9 +165,8 @@ class RECON {
   float smap_res;
   float smap_thresh;
   bool intensity_correction;
-  char filename[1024];
+  std::string filename;
   int cycle_spins;
-  bool iterative_smaps;
   int walsh_block_sizeX;
   int walsh_block_sizeY;
   int walsh_block_sizeZ;
@@ -192,7 +193,8 @@ class RECON {
   int admm_max_iter;
 
   int max_iter;
-  int export_smaps;
+  bool export_smaps;
+  bool debug_smaps;
   bool prep_done;
   bool pregate_data_flag;
   bool image_scale_normalization;
@@ -201,7 +203,7 @@ class RECON {
 
   RECON(void);
   RECON(int numarg, const char** pstring);
-  static void help_message(void);
+  void help_message(void);
   void parse_external_header(MRI_DATA& data);
   void set_defaults(void);
   void parse_commandline(int numarg, const char** pstring);

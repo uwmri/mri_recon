@@ -326,7 +326,9 @@ void MRI_DATA::demod_kdata(float demod) {
 //
 //  Export for Berkely Advanced Reconstruction Tools
 //
-void MRI_DATA::write_bart_data(const char *fname) {
+void MRI_DATA::write_bart_data(string fname_in) {
+  const char *fname = fname_in.c_str();
+
   // Now determine the size of the ND array
   int total_shots = 0;
   int total_elements = 0;
@@ -536,7 +538,7 @@ void MRI_DATA::write_bart_data(const char *fname) {
 //  Temporary Function to Write Data ( will be replaced by ismrmd )
 //---------------------------------------------------
 
-void MRI_DATA::write_external_data(const char *fname) {
+void MRI_DATA::write_external_data(string fname) {
   HDF5 file = HDF5(fname, "w");
 
   cout << "Exporting Attributes" << endl;
@@ -707,7 +709,7 @@ void MRI_DATA::write_external_data(const char *fname) {
   }
 }
 
-void MRI_DATA::read_external_data(const char *fname) {
+void MRI_DATA::read_external_data(string fname) {
   HDF5 file = HDF5(fname, "r");
 
   cout << "Reading External File " << fname << endl;

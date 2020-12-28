@@ -116,9 +116,9 @@ class MRI_DATA {
   void init_encode(int, int, int, int);
 
   // HDF5 Data
-  void write_external_data(const char *fname);
-  void read_external_data(const char *fname);
-  void write_bart_data(const char *fname);
+  void write_external_data(string fname);
+  void read_external_data(string fname);
+  void write_bart_data(string fname);
 
   // Print to Stdout
   void stats(void);

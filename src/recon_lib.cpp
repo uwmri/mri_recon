@@ -7,6 +7,29 @@ using arma::uvec;
 using arma::vec;
 using namespace NDarray;
 
+// --------------------------------
+//   Call for help without existing classes
+//
+void print_mri_recon_help(void) {
+  cout << "----------------------------------------------" << endl;
+  cout << "   MRI recon options " << endl;
+  cout << "    this uses multiple modules with their own options" << endl;
+  cout << "----------------------------------------------" << endl;
+
+  const char *Oargv[] = {"prog", "-h", NULL};
+  int Oargc = (int)(sizeof(Oargv) / sizeof(Oargv[0])) - 1;
+  RECON recon;
+  recon.parse_commandline(Oargc, Oargv);
+
+  gridFFT::help_message();
+  SPIRIT::help_message();
+  THRESHOLD::help_message();
+  PHANTOM::help_message();
+  GATING::help_message();
+  L2REG::help_message();
+  LOWRANKCOIL::help_message();
+}
+
 // ----------------------
 //  Basic constructor (no args)
 // ----------------------
@@ -44,7 +67,6 @@ void RECON::set_defaults(void) {
 
   smap_res = 8;
   intensity_correction = false;
-  iterative_smaps = false;
   reset_dens = false;
 
   threads = -1;
@@ -53,7 +75,8 @@ void RECON::set_defaults(void) {
   compress_kr = 32;
   whiten = false;
   noise_scale_factor = 1.0;  //  2 doubles noise, 3 triples noise, ...
-  export_smaps = 0;
+  export_smaps = false;
+  debug_smaps = false;
   max_iter = 50;
   smap_use_all_encodes = false;
   smap_nex_encodes = false;
@@ -74,11 +97,6 @@ void RECON::set_defaults(void) {
   extra_blurX = 0.0;
   extra_blurY = 0.0;
   extra_blurZ = 0.0;
-
-  // Gaussian Blur of smaps
-  blurX = 0.0;
-  blurY = 0.0;
-  blurZ = 0.0;
 
   prep_done = false;
 
@@ -126,7 +144,7 @@ RECON::RECON(int numarg, const char **pstring) {
     if ((strcmp(pstring[pos], "-h") == 0) ||
         (strcmp(pstring[pos], "-help") == 0) ||
         (strcmp(pstring[pos], "--help") == 0)) {
-      help_message();
+      print_mri_recon_help();
       exit(0);
     }
   }
@@ -135,287 +153,306 @@ RECON::RECON(int numarg, const char **pstring) {
   parse_commandline(numarg, pstring);
 }
 
-// ----------------------
-// Help Message
-// ----------------------
-void RECON::help_message(void) {
-  cout << "----------------------------------------------" << endl;
-  cout << "   Basic Recon Control " << endl;
-  cout << "----------------------------------------------" << endl;
-  cout << "Usage:" << endl;
-  cout << "   recon_binary -f header.txt [flags]" << endl;
-
-  cout << "Recon Size:" << endl;
-  help_flag("-recon_xres []", "matrix size in x");
-  help_flag("-recon_yres []", "matrix size in y");
-  help_flag("-recon_zres []", "matrix size in z");
-  help_flag("-rcframes []", "reconstructed temporal frames");
-  help_flag("-zoom_x []", "zoom factor in x (external data)");
-  help_flag("-zoom_y []", "zoom factor in y (external data)");
-  help_flag("-zoom_z []", "zoom factor in z (external data)");
-
-  cout << "Recon Types:" << endl;
-  help_flag("-sos", "sum of squares");
-  help_flag("-pils", "pils (coil combine with low resolution images)");
-  help_flag("-clear", "clear (low rank coil aproximation)");
-  help_flag("-ist", "iterative soft thresholding");
-  help_flag("-fista", "fast iterative soft thresholding");
-  help_flag("-cg", "conjugate gradients");
-  help_flag("-complex_diff", "Subtract first encode");
-
-  cout << "Transforms for Compressed Sensing:" << endl;
-  help_flag("-spatial_transform []", "none/wavelet");
-  help_flag("-temporal_transform []", "none/diff/pca/dft/wavelet");
-  help_flag("-encode_transform []", "none/diff");
-
-  cout << "Iterative Recon Control:" << endl;
-  help_flag("-max_iter []", "max iterations for iterative recons");
-  help_flag("-iterative_step_type []", "cauchy/maxeig[default]");
-  help_flag("-image_scale_normalization",
-            "Scale images and k-space weights to be roughly 1");
-
-  cout << "Coil Control:" << endl;
-  help_flag("-espirit", "use ESPIRIT to get coil sensitivies");
-  help_flag("-walsh",
-            "Use eigen vector aproach to estimate coil sensitivities");
-  help_flag("-coil_lowres",
-            "default,use low resolution images to get coil sensitivies");
-  help_flag("-export_smaps", "write sensitivity maps");
-  help_flag("-intensity_correction", "polynomial fit for intensity correction");
-  help_flag("-compress_coils", "compress number of coils during recon");
-  help_flag("-parallel_coils", "parallel recon of coils");
-
-  cout << "Options  Before Recon" << endl;
-  help_flag("-recalc_dcf", "Use iterative calc for density");
-  help_flag("-dcf_iter", "Iterations for DCF");
-  help_flag("-dcf_dwin []", "Size of kernel (default 5.5 -radius)");
-  help_flag("-dcf_scale []", "Scaling of matrix");
-  help_flag("-dcf_acc []",
-            "Increase size of kernel at edge of k-space by this amount");
-  /* Shouldn't be here. It's inherently external to this code
-  help_flag("-external_dcf","Use (precomputed) DCF from external file");
-  help_flag("-dcf_file []","Filename for external DCF usage");
-  */
-
-  gridFFT::help_message();
-  SPIRIT::help_message();
-  THRESHOLD::help_message();
-  PHANTOM::help_message();
-  GATING::help_message();
-  L2REG::help_message();
-  LOWRANKCOIL::help_message();
+inline string help_str(string para, string help_string) {
+  // Padded string to 25 for format
+  string full_help_string(40 - para.length(), ' ');
+  string para_str(para);
+  full_help_string.insert(4, para_str);
+  full_help_string.append(":");
+  full_help_string.append(help_string);
+  return (full_help_string);
 }
 
-/** --------------------
- *  Doxygen test: Read command line and set variables
- * --------------------*/
+inline string help_strIO(string para, string help_string) {
+  // Padded string to 25 for format
+  para.append(" []");
+  string full_help_string(40 - para.length(), ' ');
+  string para_str(para);
+  full_help_string.insert(4, para_str);
+  full_help_string.append(":");
+  full_help_string.append(help_string);
+  return (full_help_string);
+}
+
+// Better method without macros?
+#define trig_flag(num, name, val, message)                         \
+  help_message << help_str(string(name), string(message)) << endl; \
+  for (int ii = 0; ii < numarg; ii++) {                            \
+    if (strcmp(name, pstring[ii]) == 0) {                          \
+      val = num;                                                   \
+    }                                                              \
+  }
+
+#define float_flag(name, val, message)                               \
+  help_message << help_strIO(string(name), string(message)) << endl; \
+  for (int ii = 0; ii < numarg; ii++) {                              \
+    if (strcmp(name, pstring[ii]) == 0) {                            \
+      ii++;                                                          \
+      val = atof(pstring[ii]);                                       \
+    }                                                                \
+  }
+
+#define string_flag(name, val, message)                              \
+  help_message << help_strIO(string(name), string(message)) << endl; \
+  for (int ii = 0; ii < numarg; ii++) {                              \
+    if (strcmp(name, pstring[ii]) == 0) {                            \
+      ii++;                                                          \
+      val = string(pstring[ii]);                                     \
+    }                                                                \
+  }
+
+#define int_flag(name, val, message)                                 \
+  help_message << help_strIO(string(name), string(message)) << endl; \
+  for (int ii = 0; ii < numarg; ii++) {                              \
+    if (strcmp(name, pstring[ii]) == 0) {                            \
+      ii++;                                                          \
+      val = atoi(pstring[ii]);                                       \
+    }                                                                \
+  }
 
 void RECON::parse_commandline(int numarg, const char **pstring) {
-#define trig_flag(num, name, val)             \
-  }                                           \
-  else if (strcmp(name, pstring[pos]) == 0) { \
-    val = num;
-#define float_flag(name, val)                 \
-  }                                           \
-  else if (strcmp(name, pstring[pos]) == 0) { \
-    pos++;                                    \
-    val = atof(pstring[pos]);
-#define int_flag(name, val)                   \
-  }                                           \
-  else if (strcmp(name, pstring[pos]) == 0) { \
-    pos++;                                    \
-    val = atoi(pstring[pos]);
-#define char_flag(name, val)                  \
-  }                                           \
-  else if (strcmp(name, pstring[pos]) == 0) { \
-    pos++;                                    \
-    strcpy(val, pstring[pos]);
+  stringstream help_message;
 
-  for (int pos = 0; pos < numarg; pos++) {
-    if (strcmp("-h", pstring[pos]) == 0) {
-      char_flag("-f", filename);
+  help_message << "----------------------------------------------" << endl;
+  help_message << "   Recon :: Command line options " << endl;
+  help_message << "----------------------------------------------" << endl;
+  string_flag("-f", filename, "File name of MRI_Raw to load");
 
-      // Reconstruction Geometry
-      int_flag("-recon_xres", rcxres);
-      int_flag("-recon_yres", rcyres);
-      int_flag("-recon_zres", rczres);
-      int_flag("-rcframes", rcframes);
-      int_flag("-rc_frame_start", rc_frame_start);
+  // Source of data
+  trig_flag(EXTERNAL, "-external_data", data_type, "load from .h5 file");
+  trig_flag(PHANTOM, "-phantom", data_type, "create and use a phanton");
+  trig_flag(SIMULATE, "-simulate", data_type, "simulate coordinates and data");
+  trig_flag(PSF, "-psf", data_type, "load from .h5 but set data to ones");
 
-      float_flag("-zoom", zoom);
-      float_flag("-zoom_x", zoom_x);
-      float_flag("-zoom_y", zoom_y);
-      float_flag("-zoom_z", zoom_z);
-      trig_flag(true, "-parallel_coils", parallel_coils);
+  help_message << "----------------------------------------------" << endl;
+  help_message << "  Recon :: Resolution and FOV control " << endl;
+  help_message << "----------------------------------------------" << endl;
 
-      // Type of Recons
-      trig_flag(SOS, "-sos", recon_type);
-      trig_flag(CG, "-isense", recon_type);
-      trig_flag(PILS, "-pils", recon_type);
-      trig_flag(IST, "-ist", recon_type);
-      trig_flag(FISTA, "-fista", recon_type);
-      trig_flag(CLEAR, "-clear", recon_type);
-      trig_flag(CG, "-cg", recon_type);
-      trig_flag(ADMM, "-admm", recon_type);
+  // Reconstruction Geometry
+  int_flag("-recon_xres", rcxres, "reconstructed resolution x");
+  int_flag("-recon_yres", rcyres, "reconstructed resolution y");
+  int_flag("-recon_zres", rczres, "reconstructed resolution z");
+  int_flag("-rcframes", rcframes, "reconstructed frames");
+  int_flag("-rc_frame_start", rc_frame_start, "offset to start reconstructing images");
 
-      trig_flag(RECALC_DCF, "-recalc_dcf", dcf_type);
-      trig_flag(RECALC_VOR, "-recalc_vor", dcf_type);
-      int_flag("-dcf_iter", dcf_iter);
-      float_flag("-dcf_dwin", dcf_dwin);
-      float_flag("-dcf_scale", dcf_scale);
-      float_flag("-dcf_overgrid", dcf_overgrid);
-      float_flag("-dcf_acc", dcf_acc);
-      trig_flag(true, "-reset_dens", reset_dens);
+  float_flag("-zoom", zoom, "global zoom in x/y/z");
+  float_flag("-zoom_x", zoom_x, "zoom in x");
+  float_flag("-zoom_y", zoom_y, "zoom in y");
+  float_flag("-zoom_z", zoom_z, "zoom in z");
 
-      float_flag("-demod", demod_freq);
+  help_message << "----------------------------------------------" << endl;
+  help_message << "  Recon :: Recon types and options" << endl;
+  help_message << "----------------------------------------------" << endl;
 
-      // Spatial Transforms
-    } else if (strcmp("-spatial_transform", pstring[pos]) == 0) {
-      pos++;
-      if (pos == numarg) {
+  // Type of Recons
+  trig_flag(SOS, "-sos", recon_type, "coil combination using sum of squares");
+  trig_flag(CG, "-isense", recon_type, "iterative sense using CG");
+  trig_flag(PILS, "-pils", recon_type, "coil combination using derived sensitivity maps");
+  trig_flag(IST, "-ist", recon_type, "gradient descent with iterative soft thresholding");
+  trig_flag(FISTA, "-fista", recon_type, "fast iterative gradient descent with thresholding");
+  trig_flag(CLEAR, "-clear", recon_type, "self calibrating with low rank constraint");
+  trig_flag(CG, "-cg", recon_type, "same as isense");
+  trig_flag(ADMM, "-admm", recon_type, "admm is not working");
+
+  // Spatial Transforms
+  help_message << help_strIO(string("-spatial_transform"), string("none/wavelet"))
+               << endl;
+  for (int ii = 0; ii < numarg; ii++) {
+    if (strcmp("-spatial_transform", pstring[ii]) == 0) {
+      ii++;
+      if (ii == numarg) {
         cout << "Please provide spatial transform type..none/wavelet" << endl;
         exit(1);
-        trig_flag(NONE, "none", cs_spatial_transform);
-        trig_flag(WAVELET, "wavelet", cs_spatial_transform);
+      } else if (strcmp("none", pstring[ii]) == 0) {
+        cs_spatial_transform = NONE;
+      } else if (strcmp("wavelet", pstring[ii]) == 0) {
+        cs_spatial_transform = WAVELET;
       } else {
         cout << "Please provide spatial transform type..none/wavelet" << endl;
         exit(1);
       }
-
-      // Temporal Transforms
-    } else if (strcmp("-temporal_transform", pstring[pos]) == 0) {
-      pos++;
-      if (pos == numarg) {
-        cout << "Please provide temporal transform type..none/dft/diff/pca"
-             << endl;
-        exit(1);
-        trig_flag(NONE, "none", cs_temporal_transform);
-        trig_flag(DIFF, "diff", cs_temporal_transform);
-        trig_flag(DFT, "dft", cs_temporal_transform);
-        trig_flag(PCA, "pca", cs_temporal_transform);
-        trig_flag(WAVELET, "wavelet", cs_temporal_transform);
-        trig_flag(COMPOSITE_DIFF, "composite", cs_temporal_transform);
-
-      } else {
-        cout << "Please provide temporal transform type..none/dft/diff/pca"
-             << endl;
-        exit(1);
-      }
-
-      // Encode Transforms
-    } else if (strcmp("-encode_transform", pstring[pos]) == 0) {
-      pos++;
-      if (pos == numarg) {
-        cout << "Please provide encode transform type..none/dft/diff/pca"
-             << endl;
-        exit(1);
-        trig_flag(NONE, "none", cs_encode_transform);
-        trig_flag(DIFF, "diff", cs_encode_transform);
-        trig_flag(DFT, "dft", cs_encode_transform);
-        trig_flag(PCA, "pca", cs_encode_transform);
-        trig_flag(WAVELET, "wavelet", cs_encode_transform);
-      } else {
-        cout << "Please provide encode transform type..none/dft/wavelet/diff"
-             << endl;
-        exit(1);
-      }
-
-      int_flag("-wavelet_levelsX", wavelet_levelsX);
-      int_flag("-wavelet_levelsY", wavelet_levelsY);
-      int_flag("-wavelet_levelsZ", wavelet_levelsZ);
-      float_flag("-blurX", blurX);
-      float_flag("-blurY", blurY);
-      float_flag("-blurZ", blurZ);
-      trig_flag(true, "-phase_rotation", phase_rotation);
-
-      // Coil Combination
-      trig_flag(ESPIRIT, "-espirit", coil_combine_type);
-      trig_flag(WALSH, "-walsh", coil_combine_type);
-      trig_flag(LOWRES, "-coil_lowres", coil_combine_type);
-      float_flag("-smap_res", smap_res);
-      trig_flag(1, "-export_smaps", export_smaps);
-      trig_flag(true, "-intensity_correction", intensity_correction);
-      trig_flag(true, "-iterative_smaps", iterative_smaps);
-      int_flag("-walsh_block_sizeX", walsh_block_sizeX);
-      int_flag("-walsh_block_sizeY", walsh_block_sizeY);
-      int_flag("-walsh_block_sizeZ", walsh_block_sizeZ);
-      float_flag("-extra_blurX", extra_blurX);
-      float_flag("-extra_blurY", extra_blurY);
-      float_flag("-extra_blurZ", extra_blurZ);
-      trig_flag(true, "-smap_use_all_encodes", smap_use_all_encodes);
-      trig_flag(true, "-smap_nex_encodes", smap_nex_encodes);
-      float_flag("-smap_thresh", smap_thresh);
-      trig_flag(true, "-coil_rejection", coil_rejection_flag);
-      float_flag("-coil_rejection_radius", coil_rejection_radius);
-      int_flag("-coil_rejection_shape", coil_rejection_shape);
-      int_flag("-cauchy_update_number", cauchy_update_number);
-      trig_flag(true, "-image_scale_normalization", image_scale_normalization);
-
-      // Encode Transforms
-    } else if (strcmp("-iterative_step_type", pstring[pos]) == 0) {
-      pos++;
-      if (pos == numarg) {
-        cout << "Please provide step type for gradient descent "
-                "cauchy/maxeig[default]"
-             << endl;
-        exit(1);
-        trig_flag(STEP_CAUCHY, "cauchy", iterative_step_type);
-        trig_flag(STEP_MAXEIG, "maxeig", iterative_step_type);
-      } else {
-        cout << "Please provide step type for gradient descent "
-                "cauchy/maxeig[default]"
-             << endl;
-        exit(1);
-      }
-
-      // Encode Transforms
-    } else if (strcmp("-smap_mask", pstring[pos]) == 0) {
-      pos++;
-      if (pos == numarg) {
-        cout << "Please provide sensitivty map..none/circle/sphere" << endl;
-        exit(1);
-        trig_flag(SMAPMASK_NONE, "none", smap_mask);
-        trig_flag(SMAPMASK_CIRCLE, "circle", smap_mask);
-        trig_flag(SMAPMASK_SPHERE, "sphere", smap_mask);
-      } else {
-        cout << "Please provide sensitivty map..none/circle/sphere" << endl;
-        exit(1);
-      }
-
-      // Source of data
-      trig_flag(EXTERNAL, "-external_data", data_type);
-      trig_flag(PHANTOM, "-phantom", data_type);
-      trig_flag(SIMULATE, "-simulate", data_type);
-      trig_flag(PSF, "-psf", data_type);
-
-      // Data modification
-      int_flag("-acc", acc);
-      float_flag("-compress_coils", compress_coils);
-      float_flag("-compress_kr", compress_kr);
-      trig_flag(true, "-whiten", whiten);
-      float_flag("-noise_scale_factor", noise_scale_factor);
-      trig_flag(true, "-complex_diff", complex_diff);
-
-      // Iterations for IST
-      int_flag("-max_iter", max_iter);
-      int_flag("-cycle_spins", cycle_spins);
-
-      float_flag("-admm_alpha", admm_alpha);
-      float_flag("-admm_gamma", admm_gamma);
-      int_flag("-admm_max_iter", admm_max_iter);
-      float_flag("-admm_rho", admm_rho);
-
-      trig_flag(true, "-pregate_data", pregate_data_flag);
-
-      int_flag("-threads", threads);
     }
   }
 
+  // Temporal Transforms
+  help_message << help_strIO(string("-temporal_transform"), string("none/dft/diff/pca"))
+               << endl;
+  for (int ii = 0; ii < numarg; ii++) {
+    if (strcmp("-temporal_transform", pstring[ii]) == 0) {
+      ii++;
+      if (ii == numarg) {
+        cout << "Please provide temporal transform type..none/dft/diff/pca/composite_diff" << endl;
+        exit(1);
+      } else if (strcmp("none", pstring[ii]) == 0) {
+        cs_temporal_transform = NONE;
+      } else if (strcmp("wavelet", pstring[ii]) == 0) {
+        cs_temporal_transform = WAVELET;
+      } else if (strcmp("dft", pstring[ii]) == 0) {
+        cs_temporal_transform = DFT;
+      } else if (strcmp("pca", pstring[ii]) == 0) {
+        cs_temporal_transform = PCA;
+      } else if (strcmp("composite_diff", pstring[ii]) == 0) {
+        cs_temporal_transform = COMPOSITE_DIFF;
+      } else {
+        cout << "Please provide temporal transform type..none/dft/diff/pca/composite_diff" << endl;
+        exit(1);
+      }
+    }
+  }
+
+  // Temporal Transforms
+  help_message << help_strIO(string("-encode_transform"), string("none/dft/diff/pca/composite_diff"))
+               << endl;
+  for (int ii = 0; ii < numarg; ii++) {
+    if (strcmp("-encode_transform", pstring[ii]) == 0) {
+      ii++;
+      if (ii == numarg) {
+        cout << "Please provide encode transform type..none/dft/diff/pca/composite_diff" << endl;
+        exit(1);
+      } else if (strcmp("none", pstring[ii]) == 0) {
+        cs_temporal_transform = NONE;
+      } else if (strcmp("wavelet", pstring[ii]) == 0) {
+        cs_temporal_transform = WAVELET;
+      } else if (strcmp("dft", pstring[ii]) == 0) {
+        cs_temporal_transform = DFT;
+      } else if (strcmp("pca", pstring[ii]) == 0) {
+        cs_temporal_transform = PCA;
+      } else if (strcmp("composite_diff", pstring[ii]) == 0) {
+        cs_temporal_transform = COMPOSITE_DIFF;
+      } else {
+        cout << "Please provide encode transform type..none/dft/diff/pca/composite_diff" << endl;
+        exit(1);
+      }
+    }
+  }
+
+  int_flag("-cauchy_update_number", cauchy_update_number, "recalc step size this many times before fixing");
+  trig_flag(true, "-image_scale_normalization", image_scale_normalization, "scale images to be roughly 1");
+
+  // Temporal Transforms
+  help_message << help_strIO(string("-iterative_step_type"), string("cauchy/maxeig[default]"))
+               << endl;
+  for (int ii = 0; ii < numarg; ii++) {
+    if (strcmp("-iterative_step_type", pstring[ii]) == 0) {
+      ii++;
+      if (ii == numarg) {
+        cout << "Please provide iterative_step_type type for gradient descent cauchy/maxeig[default]" << endl;
+        exit(1);
+      } else if (strcmp("maxeig", pstring[ii]) == 0) {
+        iterative_step_type = STEP_MAXEIG;
+      } else if (strcmp("cauchy", pstring[ii]) == 0) {
+        iterative_step_type = STEP_CAUCHY;
+      } else {
+        cout << "Please provide iterative_step_type type for gradient descent cauchy/maxeig[default]" << endl;
+        exit(1);
+      }
+    }
+  }
+
+  int_flag("-wavelet_levelsX", wavelet_levelsX, "max number of wavelet levels x");
+  int_flag("-wavelet_levelsY", wavelet_levelsY, "max number of wavelet levels x");
+  int_flag("-wavelet_levelsZ", wavelet_levelsZ, "max number of wavelet levels x");
+
+  // Iterations for IST
+  int_flag("-max_iter", max_iter, "maximum number of iterations");
+  int_flag("-cycle_spins", cycle_spins, "number of shifts to apply to images each iteration");
+
+  float_flag("-admm_alpha", admm_alpha, "");
+  float_flag("-admm_gamma", admm_gamma, "");
+  int_flag("-admm_max_iter", admm_max_iter, "");
+  float_flag("-admm_rho", admm_rho, "");
+
+  help_message << "----------------------------------------------" << endl;
+  help_message << "  Recon :: Data modifications" << endl;
+  help_message << "----------------------------------------------" << endl;
+
+  trig_flag(RECALC_DCF, "-recalc_dcf", dcf_type, "recalculate dcf using Pipe gridding method");
+  trig_flag(RECALC_VOR, "-recalc_vor", dcf_type, "recalculate usin Voronoi diagram");
+  int_flag("-dcf_iter", dcf_iter, "iterations for Pipe method");
+  float_flag("-dcf_dwin", dcf_dwin, "window for Pipe method");
+  float_flag("-dcf_scale", dcf_scale, "resolution scale to perfrom Pipe dcf compensation");
+  float_flag("-dcf_overgrid", dcf_overgrid, "overgridding factor for dcf");
+  float_flag("-dcf_acc", dcf_acc, "acceleration factor to assume for Pipe dcf");
+  trig_flag(true, "-reset_dens", reset_dens, "set dcf to ones");
+  float_flag("-demod", demod_freq, "frequency in Hz to demodulation the data");
+
+  // Data modification
+  int_flag("-acc", acc, "remove data with this acceleration integer");
+  int_flag("-compress_coils", compress_coils, "compress to this many coils using PCA");
+  float_flag("-compress_kr", compress_kr, "kspace radius of data to use for coil compression");
+  trig_flag(true, "-whiten", whiten, "whiten the data using noise samples in MRI raw");
+  float_flag("-noise_scale_factor", noise_scale_factor, "additive noise factor for simulating noisy data");
+  trig_flag(true, "-complex_diff", complex_diff, "perfrom subtraction of first frame");
+
+  help_message << "----------------------------------------------" << endl;
+  help_message << "  Recon :: Coil sensitivity mapping" << endl;
+  help_message << "----------------------------------------------" << endl;
+
+  trig_flag(ESPIRIT, "-espirit", coil_combine_type, "Use ESPiRIT for coil sensitity estimate");
+  trig_flag(WALSH, "-walsh", coil_combine_type, "Use blocked SVT (Walsh et al) for coil sensitity estimate");
+  trig_flag(LOWRES, "-coil_lowres", coil_combine_type, "Use low resolution images for coil sensitity estimate");
+  float_flag("-smap_res", smap_res, "resolution of images for coil sensitity mapping");
+  trig_flag(true, "-export_smaps", export_smaps, "save sensitivity maps to .h5");
+  trig_flag(true, "-debug_smaps", debug_smaps, "save debugging sensitity map images to .h5");
+  trig_flag(true, "-intensity_correction", intensity_correction, "attempt to intensity correct the images");
+  int_flag("-walsh_block_sizeX", walsh_block_sizeX, "size of block in x for Walsh method");
+  int_flag("-walsh_block_sizeY", walsh_block_sizeY, "size of block in y for Walsh method");
+  int_flag("-walsh_block_sizeZ", walsh_block_sizeZ, "size of block in z for Walsh method");
+  float_flag("-extra_blurX", blurX, "Gaussian blurring in x for coil sensitivity mapping");
+  float_flag("-extra_blurY", blurY, "Gaussian blurring in y for coil sensitivity mapping");
+  float_flag("-extra_blurZ", blurZ, "Gaussian blurring in z for coil sensitivity mapping");
+  trig_flag(true, "-phase_rotation", phase_rotation, "rotate the phase of the coil maps to match first coil");
+
+  trig_flag(true, "-smap_use_all_encodes", smap_use_all_encodes, "use all encodes for mapping instead of just the first");
+  trig_flag(true, "-smap_nex_encodes", smap_nex_encodes, "use all encodes for mapping but just add them");
+  float_flag("-smap_thresh", smap_thresh, "fraction of max signal to threshold the images");
+  trig_flag(true, "-coil_rejection", coil_rejection_flag, "turn on coil rejection");
+  float_flag("-coil_rejection_radius", coil_rejection_radius, "fractional radius to reject coils outside of FOV");
+  int_flag("-coil_rejection_shape", coil_rejection_shape, "shape for coil rejection (1=sphere, 2=cylinder");
+
+  help_message << help_strIO(string("-smap_mask"), string("none/circle/sphere"))
+               << endl;
+  for (int ii = 0; ii < numarg; ii++) {
+    if (strcmp("-smap_mask", pstring[ii]) == 0) {
+      ii++;
+      if (ii == numarg) {
+        cout << "Please provide sensitivty map..none/circle/sphere" << endl;
+        exit(1);
+      } else if (strcmp("none", pstring[ii]) == 0) {
+        smap_mask = SMAPMASK_NONE;
+      } else if (strcmp("circle", pstring[ii]) == 0) {
+        smap_mask = SMAPMASK_CIRCLE;
+      } else if (strcmp("sphere", pstring[ii]) == 0) {
+        smap_mask = SMAPMASK_SPHERE;
+      } else {
+        cout << "Please provide sensitivty map..none/circle/sphere" << endl;
+        exit(1);
+      }
+    }
+  }
+
+  help_message << help_strIO(string("-smap_skip_encode"), string("skip this encode for sensitivity mapping"))
+               << endl;
   for (int ii = 0; ii < numarg; ii++) {
     if (strcmp("-smap_skip_encode", pstring[ii]) == 0) {
       ii++;
       smap_skip_encode.resizeAndPreserve(smap_skip_encode.numElements() + 1);
       smap_skip_encode(smap_skip_encode.numElements() - 1) = atoi(pstring[ii]);
+    }
+  }
+
+  help_message << "----------------------------------------------" << endl;
+  help_message << "  Recon :: Fine/compute control " << endl;
+  help_message << "----------------------------------------------" << endl;
+
+  trig_flag(true, "-parallel_coils", parallel_coils, "parallize over coils, uses more memory");
+  int_flag("-threads", threads, "set number of threads");
+  trig_flag(true, "-pregate_data", pregate_data_flag, "gate the data prior to reconstructing");
+
+  // First scan for help message
+  for (int pos = 0; pos < numarg; pos++) {
+    if (strcmp("-h", pstring[pos]) == 0) {
+      cout << help_message.str();
     }
   }
 }
@@ -896,7 +933,7 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
     for (Array<Array<complex<float>, 3>, 2>::iterator miter =
              image_store.begin();
          miter != image_store.end(); miter++) {
-      gaussian_blur(*miter, blurX, blurY, blurZ);  // TEMP
+      gaussian_blur(*miter, extra_blurX, extra_blurY, extra_blurZ);  // TEMP
       float temp = max(abs(*miter));
       max_val += temp * temp;
     }
@@ -3096,10 +3133,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
   //  Get coil sensitivity map ( move into function)
   // ------------------------------------
 
-  HDF5 SmapsOut;
-  if (export_smaps) {
-    cout << "Exporting Smaps to SenseMaps.h5" << endl;
-    SmapsOut = HDF5("SenseMaps.h5", "w");
+  HDF5 SmapsDebug;
+  if (debug_smaps) {
+    cout << "Exporting Smaps debuging to DebugSenseMaps.h5" << endl;
+    SmapsDebug = HDF5("DebugSenseMaps.h5", "w");
   }
 
   switch (recon_type) {
@@ -3229,12 +3266,16 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       }
       gridding.k_rad = 9999;
 
-      if (export_smaps) {
+      if (debug_smaps) {
         for (int encode = 0; encode < image_store.length(firstDim); encode++) {
           for (int coil = 0; coil < data.Num_Coils; coil++) {
             char name[512];
             sprintf(name, "Encode_%03d_Coil_%03d", encode, coil);
-            SmapsOut.AddH5Array("Images", name, image_store(encode, coil));
+            SmapsDebug.AddH5Array("Images", name, image_store(encode, coil));
+
+            Array<float, 3> Imag(image_store(encode, coil).shape(), ColumnMajorArray<3>());
+            Imag = abs(image_store(encode, coil));
+            SmapsDebug.AddH5Array("MagImages", name, Imag);
           }
         }
       }
@@ -3355,14 +3396,14 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       }
 
       // Export
-      if (export_smaps == 1) {
+      if (export_smaps || debug_smaps) {
+        HDF5 SmapsOut = HDF5("SenseMaps.h5", "w");
         for (int coil = 0; coil < smaps.length(firstDim); coil++) {
           char name[256];
           sprintf(name, "SenseMaps_%d", coil);
           SmapsOut.AddH5Array("Maps", name, smaps(coil));
         }
       }
-
     } break;
 
     case (SOS): {
