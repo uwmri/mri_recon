@@ -3064,6 +3064,16 @@ void RECON::autofov(MRI_DATA &data, AutoFovMode automode) {
   int new_rcyres = 2 * max(sos_image.length(secondDim) / 2 - min_y, max_y - sos_image.length(secondDim) / 2);
   int new_rczres = 2 * max(sos_image.length(thirdDim) / 2 - min_z, max_z - sos_image.length(thirdDim) / 2);
 
+  // Make a multiple of 8 for FFT and block operators
+  new_rcxres = 8 * (int)std::ceil((float)new_rcxres / 8.0);
+  new_rcyres = 8 * (int)std::ceil((float)new_rcyres / 8.0);
+  new_rczres = 8 * (int)std::ceil((float)new_rczres / 8.0);
+
+  // Don't increase the resolution due to rounding
+  new_rcxres = std::min(new_rcxres, data.xres);
+  new_rcyres = std::min(new_rcyres, data.yres);
+  new_rczres = std::min(new_rczres, data.zres);
+
   std::cout << "AUTOFOV :: X  [ " << min_x << " " << max_x << " ] -> recon to " << new_rcxres << std::endl;
   std::cout << "AUTOFOV :: Y  [ " << min_y << " " << max_y << " ] -> recon to " << new_rcyres << std::endl;
   std::cout << "AUTOFOV :: Z  [ " << min_z << " " << max_z << " ] -> recon to " << new_rczres << std::endl;
@@ -3085,6 +3095,12 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
   // ------------------------------------
   //  Get coil sensitivity map ( move into function)
   // ------------------------------------
+
+  HDF5 SmapsOut;
+  if (export_smaps) {
+    cout << "Exporting Smaps to SenseMaps.h5" << endl;
+    SmapsOut = HDF5("SenseMaps.h5", "w");
+  }
 
   switch (recon_type) {
     case (CLEAR): {
@@ -3125,9 +3141,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       cout << "Allocate Sense Maps" << endl
            << flush;
       {
-        Array<Array<complex<float>, 3>, 1> temp =
-            Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres,
-                                              data.Num_Coils);
+        Array<Array<complex<float>, 3>, 1> temp = Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres, data.Num_Coils);
         smaps.reference(temp);
       }
 
@@ -3146,17 +3160,12 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       int smap_num_encodes = 1;
       if (smap_use_all_encodes) {
         cout << "Using all encodes for coil maps" << endl;
-        smap_num_encodes =
-            data.Num_Encodings - this->smap_skip_encode.length(firstDim);
-        Array<Array<complex<float>, 3>, 2> temp =
-            Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres,
-                                              smap_num_encodes, data.Num_Coils);
+        smap_num_encodes = data.Num_Encodings - this->smap_skip_encode.length(firstDim);
+        Array<Array<complex<float>, 3>, 2> temp = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, smap_num_encodes, data.Num_Coils);
         image_store.reference(temp);
       } else if (coil_combine_type == WALSH) {
         cout << "Using one encodes for coil maps" << endl;
-        Array<Array<complex<float>, 3>, 2> temp =
-            Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, 1,
-                                              data.Num_Coils);
+        Array<Array<complex<float>, 3>, 2> temp = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, 1, data.Num_Coils);
         image_store.reference(temp);
       } else {
         // Point to Smaps
@@ -3219,6 +3228,16 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         }
       }
       gridding.k_rad = 9999;
+
+      if (export_smaps) {
+        for (int encode = 0; encode < image_store.length(firstDim); encode++) {
+          for (int coil = 0; coil < data.Num_Coils; coil++) {
+            char name[512];
+            sprintf(name, "Encode_%03d_Coil_%03d", encode, coil);
+            SmapsOut.AddH5Array("Images", name, image_store(encode, coil));
+          }
+        }
+      }
 
       Array<float, 3> IC;
       if (intensity_correction) {
@@ -3337,8 +3356,6 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
 
       // Export
       if (export_smaps == 1) {
-        cout << "Exporting Smaps" << endl;
-        HDF5 SmapsOut("SenseMaps.h5", "w");
         for (int coil = 0; coil < smaps.length(firstDim); coil++) {
           char name[256];
           sprintf(name, "SenseMaps_%d", coil);
@@ -3353,9 +3370,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       cout << "Allocate Sense Maps (SOS)" << endl
            << flush;
       {
-        Array<Array<complex<float>, 3>, 1> temp =
-            Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres,
-                                              data.Num_Coils);
+        Array<Array<complex<float>, 3>, 1> temp = Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres, data.Num_Coils);
         smaps.reference(temp);
       }
 

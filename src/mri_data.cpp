@@ -58,9 +58,9 @@ void MRI_DATA::scale_fov(float scale_x, float scale_y, float scale_z) {
   }
 
   // Multiple image by scale
-  zfov *= scale_z;
-  yfov *= scale_y;
-  xfov *= scale_x;
+  zfov *= std::abs(scale_z);
+  yfov *= std::abs(scale_y);
+  xfov *= std::abs(scale_x);
 
   if (sms_type == SMSon) {
     for (Array<Array<float, 3>, 2>::iterator miter = z.begin(); miter != z.end(); miter++) {
