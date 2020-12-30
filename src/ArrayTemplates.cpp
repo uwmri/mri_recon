@@ -1,4 +1,5 @@
 #include "ArrayTemplates.hpp"
+using namespace NDarray;
 
 void NDarray::fftshift(Array<complex<float>, 3> &temp) {
   for (int k = 0; k < temp.extent(thirdDim); k++) {
@@ -455,8 +456,6 @@ void NDarray::fft3(Array<complex<float>, 3> &temp, int dim, int direction,
   fftwf_destroy_plan(plan);
 }
 
-
-
 void NDarray::gaussian_filter(Array<float, 2> &temp, int fsize) {
   int Nx = temp.length(firstDim);
   float *filter_bank = new float[Nx];
@@ -488,6 +487,148 @@ void NDarray::gaussian_filter(Array<float, 2> &temp, int fsize) {
   }
 
   delete[] filter_bank;
+}
+
+complex<float> NDarray::conj_sum(Array<complex<float>, 3> P, Array<complex<float>, 3> R) {
+  complex<float> s(0, 0);
+  complex<float> *stemp = new complex<float>[R.length(thirdDim)];
+
+#pragma omp parallel for
+  for (int k = 0; k < R.length(thirdDim); k++) {
+    stemp[k] = complex<float>(0.0, 0.0);
+    for (int j = 0; j < R.length(secondDim); j++) {
+      for (int i = 0; i < R.length(firstDim); i++) {
+        stemp[k] += P(i, j, k) * conj(R(i, j, k));
+      }
+    }
+  }
+
+  for (int k = 0; k < R.length(thirdDim); k++) {
+    s += stemp[k];
+  }
+
+  delete[] stemp;
+  return (s);
+}
+
+inline float sqr(float x) {
+  return x * x;
+}
+
+template <typename D>
+void gaussian_blur_template(Array<D, 3> &In, float sigmaX, float sigmaY, float sigmaZ) {
+  // Extent of kernel
+  int dwinX = (int)(5 * sigmaX);
+  int dwinY = (int)(5 * sigmaY);
+  int dwinZ = (int)(5 * sigmaZ);
+
+  int rcxres = In.length(firstDim);
+  int rcyres = In.length(secondDim);
+  int rczres = In.length(thirdDim);
+
+  if (sigmaX > 0) {
+    // Kernel to reduce calls to exp
+    Array<float, 1> kern(2 * dwinX + 1);
+    for (int t = 0; t < (2 * dwinX + 1); t++) {
+      kern(t) = exp(-sqr((float)t - dwinX) / (2.0 * sqr(sigmaX)));
+    }
+    kern /= sum(kern);
+
+    // Gaussian Blur in X
+#pragma omp parallel for
+    for (int k = 0; k < rczres; k++) {
+      for (int j = 0; j < rcyres; j++) {
+        Array<D, 1> TEMP(rcxres);
+        for (int i = 0; i < rcxres; i++) {
+          TEMP(i) = In(i, j, k);
+          In(i, j, k) = 0.0;
+        }
+
+        for (int i = 0; i < rcxres; i++) {
+          int sx = max(i - dwinX, 0);
+          int ex = min(i + dwinX, rcxres);
+          int ks = sx - (i - dwinX);
+
+          for (int ii = sx; ii < ex; ii++) {
+            In(i, j, k) += kern(ks) * TEMP(ii);
+            ks++;
+          }
+        }
+      }
+    }
+  }
+
+  if (sigmaY > 0) {
+    // Kernel to reduce calls to exp
+    Array<float, 1> kern(2 * dwinY + 1);
+    for (int t = 0; t < (2 * dwinY + 1); t++) {
+      kern(t) = exp(-sqr((float)t - dwinY) / (2.0 * sqr(sigmaY)));
+    }
+    kern /= sum(kern);
+
+    // Gaussian Blur in Y
+#pragma omp parallel for
+    for (int k = 0; k < rczres; k++) {
+      for (int i = 0; i < rcxres; i++) {
+        Array<D, 1> TEMP(rcyres);
+        for (int j = 0; j < rcyres; j++) {
+          TEMP(j) = In(i, j, k);
+          In(i, j, k) = 0.0;
+        }
+
+        for (int j = 0; j < rcyres; j++) {
+          int sy = max(j - dwinY, 0);
+          int ey = min(j + dwinY, rcyres);
+          int ks = sy - (j - dwinY);
+
+          for (int ii = sy; ii < ey; ii++) {
+            In(i, j, k) += kern(ks) * TEMP(ii);
+            ks++;
+          }
+        }
+      }
+    }
+  }
+
+  if (sigmaZ > 0) {
+    // Kernel to reduce calls to exp
+    Array<float, 1> kern(2 * dwinZ + 1);
+    for (int t = 0; t < (2 * dwinZ + 1); t++) {
+      kern(t) = exp(-sqr((float)t - dwinZ) / (2.0 * sqr(sigmaZ)));
+    }
+    kern /= sum(kern);
+
+    // Gaussian Blur in X;
+#pragma omp parallel for
+    for (int j = 0; j < rcyres; j++) {
+      for (int i = 0; i < rcxres; i++) {
+        Array<D, 1> TEMP(rczres);
+        for (int k = 0; k < rczres; k++) {
+          TEMP(k) = In(i, j, k);
+          In(i, j, k) = 0.0;
+        }
+
+        for (int k = 0; k < rczres; k++) {
+          int sz = max(k - dwinZ, 0);
+          int ez = min(k + dwinZ, rczres);
+          int ks = sz - (k - dwinZ);
+
+          for (int ii = sz; ii < ez; ii++) {
+            In(i, j, k) += kern(ks) * TEMP(ii);
+            ks++;
+          }
+        }
+      }
+    }
+  }
+}
+
+void NDarray::gaussian_blur(Array<complex<float>, 3> &In, float sigX, float sigY, float sigZ) {
+  gaussian_blur_template<complex<float> >(In, sigX, sigY, sigZ);
+}
+
+void NDarray::gaussian_blur(Array<float, 3> &In, float sigX, float sigY, float sigZ) {
+  gaussian_blur_template<float>(In, sigX, sigY, sigZ);
 }
 
 void NDarray::gaussian_filter(Array<complex<float>, 2> &temp, int fsize) {

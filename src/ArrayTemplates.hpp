@@ -33,6 +33,9 @@ void fft3(Array<complex<float>, 3> &temp, int, int, bool);
 
 void gaussian_filter(Array<float, 2> &, int);
 void gaussian_filter(Array<complex<float>, 2> &, int);
+complex<float> conj_sum(Array<complex<float>, 3> P, Array<complex<float>, 3> R);
+void gaussian_blur(Array<complex<float>, 3> &In, float sigX, float sigY, float sigZ);
+void gaussian_blur(Array<float, 3> &In, float sigX, float sigY, float sigZ);
 
 inline void endian_swap(int &x) {
   x = (x << 24 & 0xFF000000) | (x << 8 & 0x00FF0000) | (x >> 8 & 0x0000FF00) |

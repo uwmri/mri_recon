@@ -228,8 +228,6 @@ class RECON {
   void eigen_coils(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& smaps, NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& image);
   void dcf_calc(MRI_DATA& data);
   void dcf_calc(MRI_DATA& data, GATING& gate);
-  void gaussian_blur(NDarray::Array<complex<float>, 3>& In, float, float, float);
-  void gaussian_blur(NDarray::Array<float, 3>& In, float, float, float);
   void normalized_gaussian_blur(const NDarray::Array<float, 3>& In, NDarray::Array<float, 3>& out, float sigma);
   void intensity_correct(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& smaps);
   void pregate_data(MRI_DATA&);
