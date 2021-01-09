@@ -448,6 +448,7 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   trig_flag(true, "-parallel_coils", parallel_coils, "parallize over coils, uses more memory");
   int_flag("-threads", threads, "set number of threads");
   trig_flag(true, "-pregate_data", pregate_data_flag, "gate the data prior to reconstructing");
+  int_flag("-max_eigen_iterations", max_eigen_iterations, "power iterations for max eigen calculations");
 
   // First scan for help message
   for (int pos = 0; pos < numarg; pos++) {
@@ -930,6 +931,7 @@ Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
       case (WALSH): {
         // Image space eigen Method
         eigen_coils(smaps, image_store);
+        sos_normalize(smaps);
       } break;
 
       case (LOWRES): {
@@ -3332,6 +3334,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         case (WALSH): {
           // Image space eigen Method
           eigen_coils(smaps, image_store);
+          sos_normalize(smaps);
         } break;
 
         case (LOWRES): {  // E-spirit Code
@@ -3760,66 +3763,61 @@ void RECON::eigen_coils(Array<Array<complex<float>, 3>, 1> &smaps,
   int block_hsize_y = block_size_y / 2;
   int block_hsize_z = block_size_z / 2;
 
+  // Get the block stride
+  int block_stride_x = 1;
+  int block_stride_y = 1;
+  int block_stride_z = 1;
+
+  // Size of eigen block
   int Np = block_size_x * block_size_y * block_size_z * Nencodes;
 
-  cout << "Eigen Coil ( " << Nx << " x " << Ny << " x " << Nz << " x " << Ncoils
-       << " x " << Nencodes << endl;
-  cout << "Actual Block Size = " << block_size_x << " x " << block_size_y
-       << " x " << block_size_z << endl;
-  cout << "Getting Low Rank threshold (N=" << Ncoils << ")(Np = " << Np << ")"
-       << endl;
+  cout << "Eigen Coil ( " << Nx << " x " << Ny << " x " << Nz << " x " << Ncoils << " x " << Nencodes << endl;
+  cout << "Actual Block Size = " << block_size_x << " x " << block_size_y << " x " << block_size_z << endl;
+  cout << "Getting Low Rank threshold (N=" << Ncoils << ")(Np = " << Np << ")" << endl;
+  cout << "Block stride = ( " << block_stride_x << "," << block_stride_y << "," << block_stride_z << ")" << endl;
 
-  int block_Nx = (int)(Nx / block_size_x);
-  int block_Ny = (int)(Ny / block_size_y);
-  int block_Nz = (int)(Nz / block_size_z);
+  int block_Nx = (int)(Nx / block_stride_x);
+  int block_Ny = (int)(Ny / block_stride_y);
+  int block_Nz = (int)(Nz / block_stride_z);
+
+  // Center the block
+  int block_offset_x = block_stride_x / 2;
+  int block_offset_y = block_stride_y / 2;
+  int block_offset_z = block_stride_z / 2;
 
   int total_blocks = block_Nx * block_Ny * block_Nz;
-  cout << "Total Block Size" << total_blocks << " ( " << block_Nx << ","
-       << block_Ny << "," << block_Nz << ")" << endl;
+  cout << "Total Block Number" << total_blocks << " ( " << block_Nx << "," << block_Ny << "," << block_Nz << ")" << endl;
 
-  // This code is for accelerating the calculation
-  int EaccX = 1;
-  int EaccY = 1;
-  int EaccZ = 1;
-
-  cout << "Eigen Acceleration ( " << EaccX << " x " << EaccY << " x " << EaccZ
-       << " ) " << endl;
-
-  int NNx = max(Nx / EaccX, 1);
-  int NNy = max(Ny / EaccY, 1);
-  int NNz = max(Nz / EaccZ, 1);
-
-  cout << "Eigen Size ( " << NNx << " x " << NNy << " x " << NNz << " ) "
-       << endl;
-
+  // This is for nested workaround in old versions of openmp
   int *N = new int[3];
-  N[0] = NNx;
-  N[1] = NNy;
-  N[2] = NNz;
+  N[0] = block_Nx;
+  N[1] = block_Ny;
+  N[2] = block_Nz;
 
   tictoc T;
   T.tic();
 
 #pragma omp parallel for
-  for (int block = 0; block < (NNx * NNy * NNz); block++) {
+  for (int block = 0; block < total_blocks; block++) {
     // cout << "Block " << block << " of " << total_blocks << endl;
 
     // Get the actual position
     int *ID = new int[3];
     nested_workaround(block, N, ID, 3);
-    int i = ID[0] * EaccX;
-    int j = ID[1] * EaccY;
-    int k = ID[2] * EaccZ;
+    int i = ID[0] * block_stride_x + block_offset_x;
+    int j = ID[1] * block_stride_y + block_offset_y;
+    int k = ID[2] * block_stride_z + block_offset_z;
     delete[] ID;
 
     //-----------------------------------------------------
-    //   Block coordinates
+    //   Gather Block coordinates
     //-----------------------------------------------------
     int kstart = k - block_hsize_z;
-    int kstop = k - block_hsize_z + block_size_z;
+    int kstop = k + block_hsize_z;
+
     if (kstart < 0) {
       kstart = 0;
-      kstart = k + block_size_z;
+      kstop = block_size_z;
     }
 
     if (kstop > Nz) {
@@ -3828,10 +3826,10 @@ void RECON::eigen_coils(Array<Array<complex<float>, 3>, 1> &smaps,
     }
 
     int jstart = j - block_hsize_y;
-    int jstop = j - block_hsize_y + block_size_y;
+    int jstop = j + block_hsize_y;
     if (jstart < 0) {
       jstart = 0;
-      jstart = j + block_size_y;
+      jstop = block_size_y;
     }
 
     if (jstop > Ny) {
@@ -3840,10 +3838,10 @@ void RECON::eigen_coils(Array<Array<complex<float>, 3>, 1> &smaps,
     }
 
     int istart = i - block_hsize_x;
-    int istop = i - block_hsize_x + block_size_x;
+    int istop = i + block_hsize_x;
     if (istart < 0) {
       istart = 0;
-      istart = i + block_size_x;
+      istop = block_size_x;
     }
 
     if (istop > Nx) {
@@ -3852,10 +3850,22 @@ void RECON::eigen_coils(Array<Array<complex<float>, 3>, 1> &smaps,
     }
 
     //-----------------------------------------------------
+    //   Scatter Block coordinates
+    //----------------------------------------------------
+    int scatter_istart = i;
+    int scatter_istop = i + block_stride_x;
+
+    int scatter_jstart = j;
+    int scatter_jstop = j + block_stride_y;
+
+    int scatter_kstart = k;
+    int scatter_kstop = k + block_stride_z;
+
+    //-----------------------------------------------------
     //   Collect a Block
     //-----------------------------------------------------
 
-    arma::cx_mat R;
+    arma::cx_fmat R;
     R.zeros(Ncoils, Np);
     for (int c = 0; c < Ncoils; c++) {
       int count = 0;
@@ -3872,93 +3882,26 @@ void RECON::eigen_coils(Array<Array<complex<float>, 3>, 1> &smaps,
     }
 
     // SVD to Get Eigen Vector
-    arma::cx_mat U;
-    arma::cx_mat V;
-    arma::vec s;
+    arma::cx_fmat U;
+    arma::cx_fmat V;
+    arma::fvec s;
     arma::svd_econ(U, s, V, R, "left");
 
+    // Scatter the sensitivity
     for (int c = 0; c < Ncoils; c++) {
-      complex<double> temp =
-          sqrt(s(0)) * U(c, 0) * polar<double>(1.0, -arg(U(ref_coil, 0)));
-      smaps(c)(i, j, k) = complex<float>((float)real(temp), (float)imag(temp));
+      // Sensitivty for the map
+      complex<float> temp = sqrt(s(0)) * U(c, 0) * polar<float>(1.0, -arg(U(ref_coil, 0)));
+
+      // Scatter to the block
+      for (int kk = scatter_kstart; kk < scatter_kstop; kk++) {
+        for (int jj = scatter_jstart; jj < scatter_jstop; jj++) {
+          for (int ii = scatter_istart; ii < scatter_istop; ii++) {
+            smaps(c)(ii, jj, kk) = temp;
+          }
+        }
+      }
     }
 
   }  // Block (threaded)
-  cout << "(eigen coil took " << T << ")" << endl
-       << flush;
-
-  //-----------------------------------------------------
-  //   Interpolate for acclerated calculation
-  //-----------------------------------------------------
-  T.tic();
-  if ((EaccX != 1) || (EaccY != 1) || (EaccZ != 1)) {
-    cout << "Interpolating Smaps" << endl;
-
-// Actually do the convolution
-#pragma omp parallel for
-    for (int k = 0; k < Nz; k++) {
-      for (int j = 0; j < Ny; j++) {
-        for (int i = 0; i < Nx; i++) {
-          // Skip points already computed
-          if (((i % EaccX) == 0) && ((j % EaccY) == 0) && ((k % EaccZ) == 0)) {
-            continue;
-          }
-
-          // Grab nearest 8 points
-          int i0 = i - i % EaccX;
-          int j0 = j - j % EaccY;
-          int k0 = k - k % EaccZ;
-
-          int i1 = (i + EaccX + Nx) % Nx;
-          int j1 = (j + EaccY + Ny) % Ny;
-          int k1 = (k + EaccZ + Nz) % Nz;
-
-          // Create the matrix
-          arma::cx_mat C;
-          C.zeros(Ncoils, 8);
-          for (int c = 0; c < Ncoils; c++) {
-            C(c, 0) = smaps(c)(i0, j0, k0);
-            C(c, 1) = smaps(c)(i1, j0, k0);
-            C(c, 2) = smaps(c)(i0, j0, k0);
-            C(c, 3) = smaps(c)(i1, j0, k0);
-            C(c, 4) = smaps(c)(i0, j1, k1);
-            C(c, 5) = smaps(c)(i1, j1, k1);
-            C(c, 6) = smaps(c)(i0, j1, k1);
-            C(c, 7) = smaps(c)(i1, j1, k1);
-          }
-
-          // Phase the matrix via SVD
-          arma::cx_mat U;
-          arma::cx_mat V;
-          arma::vec s;
-          arma::svd_econ(U, s, V, C, "left");
-
-          // Copy back
-          for (int c = 0; c < Ncoils; c++) {
-            smaps(c)(i, j, k) =
-                complex<float>((float)real(C(c, 0)), (float)imag(C(c, 0)));
-          }
-        }
-      }
-    }  // i,j,k
-    cout << "Interpolation took " << T << endl;
-  }
-
-// Normalize the maps
-#pragma omp parallel for
-  for (int k = 0; k < Nz; k++) {
-    for (int j = 0; j < Ny; j++) {
-      for (int i = 0; i < Nx; i++) {
-        double SS = 0;
-        for (int c = 0; c < Ncoils; c++) {
-          SS += norm(smaps(c)(i, j, k));
-        }
-        SS = 1. / sqrt(SS);
-
-        for (int c = 0; c < Ncoils; c++) {
-          smaps(c)(i, j, k) *= SS;
-        }
-      }
-    }
-  }
+  cout << "(eigen coil took " << T << ")" << endl;
 }

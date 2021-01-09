@@ -367,8 +367,7 @@ void LOWRANKCOIL::thresh(Array<Array<complex<float>, 3>, 2> &image, int dim) {
   int total_blocks = block_Nx * block_Ny * block_Nz;
 
   int N = image.extent(dim);
-  int Np =
-      image.extent((dim + 1) % 2) * block_size_x * block_size_y * block_size_z;
+  int Np = image.extent((dim + 1) % 2) * block_size_x * block_size_y * block_size_z;
 
   cout << " Low Rank threshold (N=" << N << ")(Np = " << Np << ")" << endl;
 
