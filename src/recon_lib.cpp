@@ -3081,10 +3081,10 @@ void RECON::autofov(MRI_DATA &data, AutoFovMode automode) {
   int new_rcyres = 2 * max(sos_image.length(secondDim) / 2 - min_y, max_y - sos_image.length(secondDim) / 2);
   int new_rczres = 2 * max(sos_image.length(thirdDim) / 2 - min_z, max_z - sos_image.length(thirdDim) / 2);
 
-  // Make a multiple of 8 for FFT and block operators
-  new_rcxres = 8 * (int)std::ceil((float)new_rcxres / 8.0);
-  new_rcyres = 8 * (int)std::ceil((float)new_rcyres / 8.0);
-  new_rczres = 8 * (int)std::ceil((float)new_rczres / 8.0);
+  // Make a multiple of 16 for FFT and block operators
+  new_rcxres = 16 * (int)std::ceil((float)new_rcxres / 16.0);
+  new_rcyres = 16 * (int)std::ceil((float)new_rcyres / 16.0);
+  new_rczres = 16 * (int)std::ceil((float)new_rczres / 16.0);
 
   // Don't increase the resolution due to rounding
   new_rcxres = std::min(new_rcxres, data.xres);
