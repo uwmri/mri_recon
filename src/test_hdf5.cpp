@@ -85,7 +85,7 @@ int main(void) {
         }
       }
     }
-    
+
     Array<short, 3> TEMPF;
     file.ReadH5Array("Kdata", "F", TEMPF);
 
@@ -97,7 +97,6 @@ int main(void) {
         }
       }
     }
-    
   }
 
   return 0;

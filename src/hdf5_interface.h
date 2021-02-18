@@ -146,7 +146,7 @@ class HDF5 {
                   NDarray::Array<short, 5> &A);
   int ReadH5Array(std::string GroupName, std::string Name,
                   NDarray::Array<short, 6> &A);
-                  
+
   int AddH5Scaler(std::string GroupName, std::string Name, int A);
   int AddH5Scaler(std::string GroupName, std::string Name, float A);
   int AddH5Char(std::string GroupName, std::string Name, std::string A);
@@ -303,7 +303,7 @@ void H5ArrayWrite(H5::H5File &file, std::string GroupName, std::string Name,
   dataset.write(A.data(), H5::PredType::NATIVE_FLOAT, dataspace);
 }
 
-// Template to write a short int 
+// Template to write a short int
 template <int N>
 void H5ArrayWrite(H5::H5File &file, std::string GroupName, std::string Name,
                   NDarray::Array<short, N> &A) {
