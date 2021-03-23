@@ -17,6 +17,19 @@ class HDF5 {
 
   // Allow Adding of Arrays
   int AddH5Array(std::string GroupName, std::string Name,
+                 NDarray::Array<short int, 1> &A);
+  int AddH5Array(std::string GroupName, std::string Name,
+                 NDarray::Array<short int, 2> &A);
+  int AddH5Array(std::string GroupName, std::string Name,
+                 NDarray::Array<short int, 3> &A);
+  int AddH5Array(std::string GroupName, std::string Name,
+                 NDarray::Array<short int, 4> &A);
+  int AddH5Array(std::string GroupName, std::string Name,
+                 NDarray::Array<short int, 5> &A);
+  int AddH5Array(std::string GroupName, std::string Name,
+                 NDarray::Array<short int, 6> &A);
+
+  int AddH5Array(std::string GroupName, std::string Name,
                  NDarray::Array<float, 1> &A);
   int AddH5Array(std::string GroupName, std::string Name,
                  NDarray::Array<float, 2> &A);
@@ -120,6 +133,19 @@ class HDF5 {
                   NDarray::Array<complex<double>, 5> &A);
   int ReadH5Array(std::string GroupName, std::string Name,
                   NDarray::Array<complex<double>, 6> &A);
+
+  int ReadH5Array(std::string GroupName, std::string Name,
+                  NDarray::Array<short, 1> &A);
+  int ReadH5Array(std::string GroupName, std::string Name,
+                  NDarray::Array<short, 2> &A);
+  int ReadH5Array(std::string GroupName, std::string Name,
+                  NDarray::Array<short, 3> &A);
+  int ReadH5Array(std::string GroupName, std::string Name,
+                  NDarray::Array<short, 4> &A);
+  int ReadH5Array(std::string GroupName, std::string Name,
+                  NDarray::Array<short, 5> &A);
+  int ReadH5Array(std::string GroupName, std::string Name,
+                  NDarray::Array<short, 6> &A);
 
   int AddH5Scaler(std::string GroupName, std::string Name, int A);
   int AddH5Scaler(std::string GroupName, std::string Name, float A);
@@ -275,6 +301,25 @@ void H5ArrayWrite(H5::H5File &file, std::string GroupName, std::string Name,
   H5::DataSet dataset(
       group.createDataSet(Name, H5::PredType::NATIVE_FLOAT, dataspace));
   dataset.write(A.data(), H5::PredType::NATIVE_FLOAT, dataspace);
+}
+
+// Template to write a short int
+template <int N>
+void H5ArrayWrite(H5::H5File &file, std::string GroupName, std::string Name,
+                  NDarray::Array<short, N> &A) {
+  H5::Exception::dontPrint();
+  H5::Group group = HDF5::create_group(file, GroupName);
+
+  // Create DataSet
+  hsize_t dimsf[N];  // dataset dimensions
+  for (int i = 0; i < N; i++) {
+    dimsf[i] = A.length(N - i - 1);
+  }
+  H5::DataSpace dataspace(N, dimsf);
+
+  H5::DataSet dataset(
+      group.createDataSet(Name, H5::PredType::NATIVE_SHORT, dataspace));
+  dataset.write(A.data(), H5::PredType::NATIVE_SHORT, dataspace);
 }
 
 #endif

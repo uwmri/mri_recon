@@ -10,6 +10,7 @@ int main(void) {
 
     Array<float, 3> TEMP(2, 3, 4, ColumnMajorArray<3>());
     Array<complex<float>, 3> TEMPC(4, 3, 2, ColumnMajorArray<3>());
+    Array<short, 3> TEMPS(2, 3, 4, ColumnMajorArray<3>());
 
     for (int k = 0; k < TEMPC.length(thirdDim); k++) {
       for (int j = 0; j < TEMPC.length(secondDim); j++) {
@@ -23,6 +24,7 @@ int main(void) {
       for (int j = 0; j < TEMP.length(secondDim); j++) {
         for (int i = 0; i < TEMP.length(firstDim); i++) {
           TEMP(i, j, k) = 100 * k + 10 * j + i;
+          TEMPS(i, j, k) = 100 * k + 10 * j + i - 2;
         }
       }
     }
@@ -37,6 +39,7 @@ int main(void) {
     file.AddH5Char("Kdata", "C", C.c_str());
     file.AddH5Array("Kdata", "D", TEMP);
     file.AddH5Array("Kdata", "E", TEMPC);
+    file.AddH5Array("Kdata", "F", TEMPS);
   }
 
   // Write Section
@@ -79,6 +82,18 @@ int main(void) {
         for (int i = 0; i < TEMPC.length(firstDim); i++) {
           cout << "k=" << k << ",j=" << j << ",i=" << i << " = "
                << TEMPC(i, j, k) << endl;
+        }
+      }
+    }
+
+    Array<short, 3> TEMPF;
+    file.ReadH5Array("Kdata", "F", TEMPF);
+
+    for (int k = 0; k < TEMPF.length(thirdDim); k++) {
+      for (int j = 0; j < TEMPF.length(secondDim); j++) {
+        for (int i = 0; i < TEMPF.length(firstDim); i++) {
+          cout << "k=" << k << ",j=" << j << ",i=" << i << " = "
+               << TEMPF(i, j, k) << endl;
         }
       }
     }

@@ -176,6 +176,31 @@ int HDF5::AddH5Char(string GroupName, string Name, string S) {
   return (0);
 }
 
+int HDF5::AddH5Array(string GroupName, string Name, Array<short, 1> &A) {
+  H5ArrayWrite<1>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<short, 2> &A) {
+  H5ArrayWrite<2>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<short, 3> &A) {
+  H5ArrayWrite<3>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<short, 4> &A) {
+  H5ArrayWrite<4>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<short, 5> &A) {
+  H5ArrayWrite<5>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<short, 6> &A) {
+  H5ArrayWrite<6>(file, GroupName, Name, A);
+  return (0);
+}
+
 int HDF5::AddH5Array(string GroupName, string Name, Array<float, 1> &A) {
   H5ArrayWrite<1>(file, GroupName, Name, A);
   return (0);
@@ -397,5 +422,36 @@ int HDF5::ReadH5Array(string GroupName, string Name,
 int HDF5::ReadH5Array(string GroupName, string Name,
                       Array<complex<double>, 6> &A) {
   H5ArrayRead<complex<double>, 6>(file, GroupName, Name, A);
+  return (0);
+}
+
+int HDF5::ReadH5Array(string GroupName, string Name,
+                      Array<short, 1> &A) {
+  H5ArrayRead<short, 1>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name,
+                      Array<short, 2> &A) {
+  H5ArrayRead<short, 2>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name,
+                      Array<short, 3> &A) {
+  H5ArrayRead<short, 3>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name,
+                      Array<short, 4> &A) {
+  H5ArrayRead<short, 4>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name,
+                      Array<short, 5> &A) {
+  H5ArrayRead<short, 5>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name,
+                      Array<short, 6> &A) {
+  H5ArrayRead<short, 6>(file, GroupName, Name, A);
   return (0);
 }
