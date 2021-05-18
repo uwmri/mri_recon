@@ -287,6 +287,8 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
         cs_temporal_transform = NONE;
       } else if (strcmp("wavelet", pstring[ii]) == 0) {
         cs_temporal_transform = WAVELET;
+      } else if (strcmp("diff", pstring[ii]) == 0) {
+        cs_temporal_transform = DIFF;
       } else if (strcmp("dft", pstring[ii]) == 0) {
         cs_temporal_transform = DFT;
       } else if (strcmp("pca", pstring[ii]) == 0) {
