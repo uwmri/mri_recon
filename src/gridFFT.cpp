@@ -64,14 +64,13 @@ gridFFT::gridFFT() {
 //----------------------------------------
 
 void gridFFT::alloc_grid() {
+  // Alloc the oversized array
   k3d_grid.setStorage(ColumnMajorArray<3>());
   k3d_grid.resize(Sx, Sy, Sz);
   k3d_grid = 0;
 
-  // Get a subarray
-  Array<complex<float>, 3> image2 =
-      k3d_grid(Range(og_sx, og_ex - 1), Range(og_sy, og_ey - 1),
-               Range(og_sz, og_ez - 1));
+  // Get a subarray representing the sub array
+  Array<complex<float>, 3> image2 = k3d_grid(Range(og_sx, og_ex - 1), Range(og_sy, og_ey - 1), Range(og_sz, og_ez - 1));
   image.reference(image2);
 }
 
@@ -123,21 +122,17 @@ void gridFFT::plan_fft(void) {
   cout << " Planning FFT " << endl
        << flush;
   if (fast_fft_plan) {
-    fft_plan =
-        fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_FORWARD, FFTW_ESTIMATE);
+    fft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_FORWARD, FFTW_ESTIMATE);
   } else {
-    fft_plan =
-        fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_FORWARD, FFTW_MEASURE);
+    fft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_FORWARD, FFTW_MEASURE);
   }
 
   cout << " Planning Inverse FFT" << endl
        << flush;
   if (fast_fft_plan) {
-    ifft_plan =
-        fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_BACKWARD, FFTW_ESTIMATE);
+    ifft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_BACKWARD, FFTW_ESTIMATE);
   } else {
-    ifft_plan =
-        fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_BACKWARD, FFTW_MEASURE);
+    ifft_plan = fftwf_plan_dft_3d(Sz, Sy, Sx, ptr, ptr, FFTW_BACKWARD, FFTW_MEASURE);
   }
 
   /*In case New Knowledge Was Gained*/
@@ -548,8 +543,7 @@ void gridFFT::precalc_gridding(int NzT, int NyT, int NxT, MRI_DATA &data) {
   printf("\n\nGridding Kernel Info\n");
   printf("Dwin 		%f %f %f\n", dwinX, dwinY, dwinZ);
   printf("Mod 		%f %f %f\n", grid_modX, grid_modY, grid_modZ);
-  printf("Og %d-%d x %d-%d x %d-%d\n", og_sx, og_ex, og_sy, og_ey, og_sz,
-         og_ez);
+  printf("Og %d-%d x %d-%d x %d-%d\n", og_sx, og_ex, og_sy, og_ey, og_sz, og_ez);
   printf("Grid in x=%d, y=%d, z=%d\n", grid_in_x, grid_in_y, grid_in_z);
   printf("FFT in x=%d, y=%d, z=%d\n", fft_in_x, fft_in_y, fft_in_z);
 
@@ -922,10 +916,8 @@ void gridFFT::deapp(void) {
     for (int j = 0; j < Ny; j++) {
       float wty = wtz * winy(j + og_sy);
       for (int i = 0; i < Nx; i++) {
-        image(i, j, k) *=
-            wty *
-            winx(i +
-                 og_sx); /* Don't just sum coils when no sense map is given*/
+        /* Don't just sum coils when no sense map is given*/
+        image(i, j, k) *= wty * winx(i + og_sx);
       }
     }
   }
@@ -973,7 +965,6 @@ void gridFFT::accumulate_sos(Array<complex<float>, 3> &X) {
       for (int i = 0; i < Nx; i++) {
         // Acumulate in a thread safe manner
         X(i, j, k) += image(i, j, k) * conj(image(i, j, k));
-        ;
       }
     }
   }
