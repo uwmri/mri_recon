@@ -522,6 +522,7 @@ void gaussian_blur_template(Array<D, 3> &In, float sigmaX, float sigmaY, float s
   int dwinY = (int)(5 * sigmaY);
   int dwinZ = (int)(5 * sigmaZ);
 
+  // Grab resolution
   int rcxres = In.length(firstDim);
   int rcyres = In.length(secondDim);
   int rczres = In.length(thirdDim);
@@ -538,12 +539,14 @@ void gaussian_blur_template(Array<D, 3> &In, float sigmaX, float sigmaY, float s
 #pragma omp parallel for
     for (int k = 0; k < rczres; k++) {
       for (int j = 0; j < rcyres; j++) {
+        // Grab a line in the image
         Array<D, 1> TEMP(rcxres);
         for (int i = 0; i < rcxres; i++) {
           TEMP(i) = In(i, j, k);
           In(i, j, k) = 0.0;
         }
 
+        // Convolution using zero padding
         for (int i = 0; i < rcxres; i++) {
           int sx = max(i - dwinX, 0);
           int ex = min(i + dwinX, rcxres);
@@ -570,12 +573,14 @@ void gaussian_blur_template(Array<D, 3> &In, float sigmaX, float sigmaY, float s
 #pragma omp parallel for
     for (int k = 0; k < rczres; k++) {
       for (int i = 0; i < rcxres; i++) {
+        // Grab a line
         Array<D, 1> TEMP(rcyres);
         for (int j = 0; j < rcyres; j++) {
           TEMP(j) = In(i, j, k);
           In(i, j, k) = 0.0;
         }
 
+        // Convolution using zero padding
         for (int j = 0; j < rcyres; j++) {
           int sy = max(j - dwinY, 0);
           int ey = min(j + dwinY, rcyres);
@@ -602,12 +607,14 @@ void gaussian_blur_template(Array<D, 3> &In, float sigmaX, float sigmaY, float s
 #pragma omp parallel for
     for (int j = 0; j < rcyres; j++) {
       for (int i = 0; i < rcxres; i++) {
+        // Grab a line
         Array<D, 1> TEMP(rczres);
         for (int k = 0; k < rczres; k++) {
           TEMP(k) = In(i, j, k);
           In(i, j, k) = 0.0;
         }
 
+        // Convolution using zero padding
         for (int k = 0; k < rczres; k++) {
           int sz = max(k - dwinZ, 0);
           int ez = min(k + dwinZ, rczres);

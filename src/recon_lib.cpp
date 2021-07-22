@@ -3030,6 +3030,7 @@ void RECON::autofov(MRI_DATA &data, AutoFovMode automode, float autofov_thresh) 
   Array<float, 3> sos_image;
   sos_image.setStorage(ColumnMajorArray<3>());
   sos_image.resize(autofov_grid.image.shape());
+  sos_image = 0.0;
 
   Array<complex<float>, 3> complex_image;
   complex_image.setStorage(ColumnMajorArray<3>());
@@ -3050,7 +3051,8 @@ void RECON::autofov(MRI_DATA &data, AutoFovMode automode, float autofov_thresh) 
   cout << "AUTOFOV :: Shape" << sos_image.shape() << endl;
 
   // Blur in place
-  //gaussian_blur(sos_image, 5.0, 5.0, 5.0);
+  AutoFovDebug.AddH5Array("Images", "SOS_PreBlur", sos_image);
+  gaussian_blur(sos_image, 5.0, 5.0, 5.0);
 
   // Temp write to disk (remove once tested)
   AutoFovDebug.AddH5Array("Images", "SOS", sos_image);
