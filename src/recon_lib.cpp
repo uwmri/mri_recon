@@ -3017,7 +3017,7 @@ void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
 
 inline float sqr(float x) { return (x * x); }
 
-void RECON::autofov(MRI_DATA &data, AutoFovMode automode) {
+void RECON::autofov(MRI_DATA &data, AutoFovMode automode, float autofov_thresh) {
   std::cout << "AUTOFOV :: Reconstruct images" << std::endl;
   std::cout << "AUTOFOV :: Native size " << data.xres << " x " << data.yres << " x " << data.zres << std::endl;
 
@@ -3057,7 +3057,7 @@ void RECON::autofov(MRI_DATA &data, AutoFovMode automode) {
   // ArrayWrite(sos_image, "AutoFov.dat");
 
   // Now we find the bounding box using a threshold
-  float thresh = 0.2 * max(sos_image);
+  float thresh = autofov_thresh * max(sos_image);
   int max_x = 0;
   int max_y = 0;
   int max_z = 0;
@@ -3072,6 +3072,12 @@ void RECON::autofov(MRI_DATA &data, AutoFovMode automode) {
           float rad = pow(2.0 * (float)i / (float)sos_image.length(firstDim) - 1.0, 2);
           rad += pow(2.0 * (float)j / (float)sos_image.length(secondDim) - 1.0, 2);
           rad += pow(2.0 * (float)k / (float)sos_image.length(thirdDim) - 1.0, 2);
+          if (rad > 1.0) {
+            continue;
+          }
+        } else if (automode == AUTOFOVCYLINDER) {
+          float rad = pow(2.0 * (float)i / (float)sos_image.length(firstDim) - 1.0, 2);
+          rad += pow(2.0 * (float)j / (float)sos_image.length(secondDim) - 1.0, 2);
           if (rad > 1.0) {
             continue;
           }
