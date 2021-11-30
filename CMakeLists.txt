@@ -184,7 +184,14 @@ endif(VORO_FOUND)
 
 add_library(RECONLIB STATIC ${RECONLIB_SOURCES}	)
 target_link_libraries(RECONLIB ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} )
-set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 98)
+
+if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5)
+	set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 11)
+	message(STATUS "Using C++11 Standard")
+else()
+	set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 98)
+	message(STATUS "Using C++98 Standard")
+endif()
 
 #--------------------------------------
 # Support for Command Line Binary
