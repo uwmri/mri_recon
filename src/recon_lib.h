@@ -159,6 +159,7 @@ class RECON {
   float noise_scale_factor;
   bool coil_rejection_flag;
   float coil_rejection_radius;
+  float coil_rejection_thresh;
   int coil_rejection_shape;
   float demod_freq;
 

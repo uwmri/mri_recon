@@ -86,6 +86,7 @@ void RECON::set_defaults(void) {
   coil_rejection_flag = false;
   coil_rejection_radius = 0.5;
   coil_rejection_shape = 1;
+  coil_rejection_thresh = 0.05;
 
   cycle_spins = 4;
 
@@ -410,6 +411,7 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   float_flag("-smap_thresh", smap_thresh, "fraction of max signal to threshold the images");
   trig_flag(true, "-coil_rejection", coil_rejection_flag, "turn on coil rejection");
   float_flag("-coil_rejection_radius", coil_rejection_radius, "fractional radius to reject coils outside of FOV");
+  float_flag("-coil_rejection_thresh", coil_rejection_thresh, "threshold to reject coils outside of FOV");
   int_flag("-coil_rejection_shape", coil_rejection_shape, "shape for coil rejection (1=sphere, 2=cylinder");
 
   help_message << help_strIO(string("-smap_mask"), string("none/circle/sphere"))
@@ -3287,59 +3289,95 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       }
 
       if (this->coil_rejection_flag) {
+        float cx = smaps(0).length(firstDim) / 2;
+        float cy = smaps(0).length(secondDim) / 2;
+        float cz = smaps(0).length(thirdDim) / 2;
+
+        Array<double, 1> SignalFraction(data.Num_Coils);
+        SignalFraction = 0.0;
+
+        // Get the coils contribution to the image in the center
+        switch (this->coil_rejection_shape) {
+          default:
+          case (0): {
+            for (int coil = 0; coil < data.Num_Coils; coil++) {
+              for (int e = 0; e < image_store.length(firstDim); e++) {
+                for (int k = 0; k < smaps(0).length(thirdDim); k++) {
+                  for (int j = 0; j < smaps(0).length(secondDim); j++) {
+                    for (int i = 0; i < smaps(0).length(firstDim); i++) {
+                      float x = ((float)i - cx) / (2.0 * cx);
+                      float y = ((float)j - cy) / (2.0 * cy);
+                      float z = ((float)k - cz) / (2.0 * cz);
+
+                      // Check the radius
+                      if ((x * x + y * y + z * z) < (this->coil_rejection_radius * this->coil_rejection_radius)) {
+                        SignalFraction(coil) += abs(image_store(e, coil)(i, j, k));
+                      }
+                    }  //i
+                  }    //j
+                }      //k
+              }        //e
+            }          // coil
+
+          } break;
+
+          case (1): {
+            for (int coil = 0; coil < data.Num_Coils; coil++) {
+              for (int e = 0; e < image_store.length(firstDim); e++) {
+                for (int k = 0; k < smaps(0).length(thirdDim); k++) {
+                  // Check the radius
+                  float z = ((float)k - cz) / (2.0 * cz);
+                  if (abs(z) > this->coil_rejection_radius) {
+                    continue;
+                  }
+
+                  for (int j = 0; j < smaps(0).length(secondDim); j++) {
+                    // Check the radius
+                    float y = ((float)j - cy) / (2.0 * cy);
+                    if (abs(y) > this->coil_rejection_radius) {
+                      continue;
+                    }
+
+                    for (int i = 0; i < smaps(0).length(firstDim); i++) {
+                      // Check the radius
+                      float x = ((float)i - cx) / (2.0 * cx);
+                      if (abs(x) > this->coil_rejection_radius) {
+                        continue;
+                      }
+
+                      SignalFraction(coil) += abs(image_store(e, coil)(i, j, k));
+
+                    }  //i
+                  }    //j
+                }      //k
+              }        //e
+            }          // coil
+
+          } break;
+
+        }  // shape switch
+
+        // Get the total signal
+        double total_signal = 0.0;
         for (int coil = 0; coil < data.Num_Coils; coil++) {
-          double sumI = 0;
-          double sumIX = 0;
-          double sumIY = 0;
-          double sumIZ = 0;
-          double cx = 0.5 * (double)smaps(0).length(firstDim) - 0.5;
-          double cy = 0.5 * (double)smaps(0).length(secondDim) - 0.5;
-          double cz = 0.5 * (double)smaps(0).length(thirdDim) - 0.5;
+          total_signal += SignalFraction(coil);
+        }
 
-          // Get the coil center
-          for (int e = 0; e < image_store.length(firstDim); e++) {
-            for (int k = 0; k < smaps(0).length(thirdDim); k++) {
-              for (int j = 0; j < smaps(0).length(secondDim); j++) {
-                for (int i = 0; i < smaps(0).length(firstDim); i++) {
-                  double val = norm(image_store(e, coil)(i, j, k));
-                  val *= val;
-                  sumI += val;
-                  sumIX += (val) * ((double)i - cx);
-                  sumIY += (val) * ((double)j - cy);
-                  sumIZ += (val) * ((double)k - cz);
-                }
-              }
-            }
-          }
+        //Normalize
+        for (int coil = 0; coil < data.Num_Coils; coil++) {
+          SignalFraction(coil) /= total_signal;
+        }
 
-          double coil_cx = 2.0 * sumIX / sumI / (double)smaps(0).length(firstDim);
-          double coil_cy = 2.0 * sumIY / sumI / (double)smaps(0).length(secondDim);
-          double coil_cz = 2.0 * sumIZ / sumI / (double)smaps(0).length(thirdDim);
-
-          std::cout << "Coil = " << coil << "center=" << coil_cx << ","
-                    << coil_cy << "," << coil_cz << std::endl;
-
-          double coil_radius;
-          switch (this->coil_rejection_shape) {
-            default:
-            case (0): {
-              coil_radius = sqrt(coil_cx * coil_cx + coil_cy * coil_cy +
-                                 coil_cz * coil_cz);
-            } break;
-
-            case (1): {
-              coil_radius = sqrt(coil_cx * coil_cx + coil_cy * coil_cy);
-            } break;
-          }
-
-          if (coil_radius > this->coil_rejection_radius) {
+        for (int coil = 0; coil < data.Num_Coils; coil++) {
+          std::cout << "Coil = " << coil << "Signal Fraction =" << SignalFraction(coil) << std::endl;
+          if (SignalFraction(coil) < this->coil_rejection_thresh) {
             std::cout << "REJECTING COIL " << coil << std::endl;
             for (int e = 0; e < image_store.length(firstDim); e++) {
               image_store(e, coil) = complex<float>(0.0, 0.0);
             }
           }
-        }
-      }
+        }  //coil
+      }    //coil rejection
 
       // Spirit Code
       switch (coil_combine_type) {
