@@ -99,8 +99,8 @@ class MRI_DATA {
 
   // Data Operations (move?)
   void coilcompress(float, float);
-  static arma::cx_fmat get_whitening_matrix(const NDarray::Array<complex<double>, 2> &noise_samples);
-  static arma::cx_fmat get_whitening_matrix(const NDarray::Array<complex<float>, 2> &noise_samples);
+  static arma::cx_fmat get_whitening_matrix(const NDarray::Array<complex<double>, 2> &noise_samples, int reference_coil = 0);
+  static arma::cx_fmat get_whitening_matrix(const NDarray::Array<complex<float>, 2> &noise_samples, int reference_coil = 0);
 
   void whiten();
   void add_noise(float);  // -add_noise(2) doubles noise, add_noise(3) triples noise, ...

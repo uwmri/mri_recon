@@ -970,8 +970,10 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
 }
 
 template <typename T>
-arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noise_samples) {
+arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noise_samples, int reference_coil) {
   std::cout << "Noise Samples : " << noise_samples.length(firstDim) << std::endl;
+  std::cout << "Noise Coils : " << noise_samples.length(secondDim) << std::endl;
+  std::cout << "Noise Coil Reference : " << reference_coil << std::endl;
   std::cout << "Noise Pre-Whitening" << std::endl;
 
   // Copy into matrix (coil x samples)
@@ -983,6 +985,9 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
     }
   }
 
+  // Swap coils to the reference coil
+  NoiseData.swap_rows(0, reference_coil); 
+
   std::cout << "Calc Cov" << std::endl;
   arma::cx_mat CV = NoiseData * NoiseData.t();
 
@@ -991,23 +996,28 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
   arma::cx_mat VT = V.t();
   arma::cx_mat Decorr = VT.i();
 
-  // Test Whitening
-  arma::cx_mat W = NoiseData;
-  arma::cx_mat temp = arma::randu<arma::cx_mat>(Num_Coils);
-  for (int i = 0; i < noise_samples.length(firstDim); i++) {
-    for (int coil = 0; coil < Num_Coils; coil++) {
-      temp(coil, 0) = W(coil, i);
-    }
-    arma::cx_mat temp2 = Decorr * temp;
+  // Swap the data back in the noise data
+  NoiseData.swap_rows(0, reference_coil);
+  Decorr.swap_cols(0, reference_coil);
 
-    for (int coil = 0; coil < Num_Coils; coil++) {
-      W(coil, i) = temp2(coil, 0);
-    }
-  }
-  //arma::cx_mat CV_POST = W * W.t();
-  //cout << "Noise Covariance post whiten" << endl;
-  //cout << "  size = " << W.n_rows << " x " << W.n_cols << endl;
-  //cout << CV_POST << endl;
+  // // Test Whitening
+  // arma::cx_mat W = NoiseData;
+  // arma::cx_mat temp = arma::randu<arma::cx_mat>(Num_Coils);
+  // for (int i = 0; i < noise_samples.length(firstDim); i++) {
+  //   for (int coil = 0; coil < Num_Coils; coil++) {
+  //     temp(coil, 0) = W(coil, i);
+  //   }
+  //   arma::cx_mat temp2 = Decorr * temp;
+
+  //   for (int coil = 0; coil < Num_Coils; coil++) {
+  //     W(coil, i) = temp2(coil, 0);
+  //   }
+  // }
+
+  // arma::cx_mat CV_POST = W * W.t();
+  // cout << "Noise Covariance post whiten" << endl;
+  // cout << "  size = " << W.n_rows << " x " << W.n_cols << endl;
+  // cout << CV_POST << endl;
 
   arma::cx_fmat whitening_matrix;
   whitening_matrix.copy_size(Decorr);
@@ -1020,13 +1030,13 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
   return whitening_matrix;
 }
 
-arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<float>, 2> &noise_samples) {
-  arma::cx_fmat decorr = whitening_matrix_calc<float>(noise_samples);
+arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<float>, 2> &noise_samples, int reference_coil) {
+  arma::cx_fmat decorr = whitening_matrix_calc<float>(noise_samples, reference_coil);
   return (decorr);
 }
 
-arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<double>, 2> &noise_samples) {
-  arma::cx_fmat decorr = whitening_matrix_calc<double>(noise_samples);
+arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<double>, 2> &noise_samples, int reference_coil) {
+  arma::cx_fmat decorr = whitening_matrix_calc<double>(noise_samples, reference_coil);
   return (decorr);
 }
 

@@ -128,6 +128,10 @@ void RECON::set_defaults(void) {
   max_eigen_iterations = 30;
   iterative_step_type = STEP_MAXEIG;
   image_scale_normalization = false;
+
+  autofov_shape = AUTOFOVSPHERE;
+  autofov_thresh = 0.2;
+
 }
 
 // ----------------------
@@ -378,6 +382,11 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   float_flag("-dcf_acc", dcf_acc, "acceleration factor to assume for Pipe dcf");
   trig_flag(true, "-reset_dens", reset_dens, "set dcf to ones");
   float_flag("-demod", demod_freq, "frequency in Hz to demodulation the data");
+
+  float_flag("-autofov_tresh", autofov_thresh, "Fraction of max signal to threshold image");
+  trig_flag(AUTOFOVSPHERE,"-autofov_sphere", autofov_shape,"Use sphere for autofov");
+  trig_flag(AUTOFOVCYLINDER,"-autofov_cylinder", autofov_shape,"Use cylinder for autofov");
+  trig_flag(AUTOFOVRECT,"-autofov_rect", autofov_shape, "Use rect for autofov");
 
   // Data modification
   int_flag("-acc", acc, "remove data with this acceleration integer");
@@ -3019,7 +3028,7 @@ void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
 
 inline float sqr(float x) { return (x * x); }
 
-void RECON::autofov(MRI_DATA &data, AutoFovMode automode, float autofov_thresh) {
+void RECON::autofov(MRI_DATA &data) {
   std::cout << "AUTOFOV :: Reconstruct images" << std::endl;
   std::cout << "AUTOFOV :: Native size " << data.xres << " x " << data.yres << " x " << data.zres << std::endl;
 
@@ -3072,14 +3081,14 @@ void RECON::autofov(MRI_DATA &data, AutoFovMode automode, float autofov_thresh) 
     for (int j = 0; j < sos_image.length(secondDim); j++) {
       for (int i = 0; i < sos_image.length(firstDim); i++) {
         // Check for spherical mask
-        if (automode == AUTOFOVSPHERE) {
+        if (autofov_shape == AUTOFOVSPHERE) {
           float rad = pow(2.0 * (float)i / (float)sos_image.length(firstDim) - 1.0, 2);
           rad += pow(2.0 * (float)j / (float)sos_image.length(secondDim) - 1.0, 2);
           rad += pow(2.0 * (float)k / (float)sos_image.length(thirdDim) - 1.0, 2);
           if (rad > 1.0) {
             continue;
           }
-        } else if (automode == AUTOFOVCYLINDER) {
+        } else if (autofov_shape == AUTOFOVCYLINDER) {
           float rad = pow(2.0 * (float)i / (float)sos_image.length(firstDim) - 1.0, 2);
           rad += pow(2.0 * (float)j / (float)sos_image.length(secondDim) - 1.0, 2);
           if (rad > 1.0) {

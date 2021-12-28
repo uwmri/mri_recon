@@ -214,7 +214,10 @@ class RECON {
   enum AutoFovMode { AUTOFOVSPHERE,
                      AUTOFOVRECT,
                      AUTOFOVCYLINDER };
-  void autofov(MRI_DATA& data, AutoFovMode = AUTOFOVSPHERE, float autofov_tresh = 0.2);
+  float autofov_thresh;
+  AutoFovMode autofov_shape;
+  
+  void autofov(MRI_DATA& data);
 
   void L1_threshold(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>&);
   void transform_in_time(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>&, TransformDirection);
