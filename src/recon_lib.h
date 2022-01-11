@@ -165,7 +165,12 @@ class RECON {
 
   float smap_res;
   float smap_thresh;
-  bool intensity_correction;
+
+  enum IntensityCorrectionType { IC_NONE,
+                                 IC_GAUSSIAN,
+                                 IC_POLYNOMIAL };
+  IntensityCorrectionType intensity_correction;
+
   std::string filename;
   int cycle_spins;
   int walsh_block_sizeX;
@@ -199,6 +204,7 @@ class RECON {
   bool prep_done;
   bool pregate_data_flag;
   bool image_scale_normalization;
+  bool body_coil_smaps;
 
   NDarray::Array<NDarray::Array<complex<float>, 3>, 2> test_sms(MRI_DATA&, MRI_DATA&, int numarg, const char** pstring);
 
@@ -215,8 +221,9 @@ class RECON {
                      AUTOFOVRECT,
                      AUTOFOVCYLINDER };
   float autofov_thresh;
+  int autofov_pad;
   AutoFovMode autofov_shape;
-  
+
   void autofov(MRI_DATA& data);
 
   void L1_threshold(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>&);
@@ -234,9 +241,13 @@ class RECON {
   void dcf_calc(MRI_DATA& data);
   void dcf_calc(MRI_DATA& data, GATING& gate);
   void normalized_gaussian_blur(const NDarray::Array<float, 3>& In, NDarray::Array<float, 3>& out, float sigma);
-  void intensity_correct(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& smaps);
+
+  void intensity_correct(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& smaps);
+  void intensity_correct_guassian(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& smaps);
+  void intensity_correct_polynomial(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& smaps);
   void pregate_data(MRI_DATA&);
   void sos_normalize(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>&);
+  void body_coil_normalize(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>&);
 
   void export_slice(NDarray::Array<complex<float>, 3>& temp, const char* fname);
 

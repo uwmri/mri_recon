@@ -19,14 +19,24 @@ class POLYFIT {
   void poly_fitting3d(NDarray::Array<float, 3> &back_mag /*Binary Matrix*/,
                       blitz::Array<float, 3> &image, int);
 
-  /* Subtraction */
+  // Return image
+  NDarray::Array<float, 3> image(void);
+
+  /* Operations */
   void poly_subtract3d(NDarray::Array<float, 3> &);
+  void poly_divide(NDarray::Array<float, 3> &);
+  void poly_multiply(NDarray::Array<float, 3> &);
+  void poly_add(NDarray::Array<float, 3> &);
 
  private:
+  int poly_exists;
   int number;
   arma::vec alpha;
-  arma::vec px;
-  arma::vec py;
-  arma::vec pz;
+  arma::Col<int> px;
+  arma::Col<int> py;
+  arma::Col<int> pz;
+
+  NDarray::TinyVector<int, 3> image_res;
+  NDarray::TinyVector<int, 3> image_center;
 };
 #endif
