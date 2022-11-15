@@ -9,11 +9,11 @@
 #include <string>
 #include <vector>
 
-#include <armadillo>
 #include "ArrayTemplates.hpp"
 #include "gridFFT.h"
 #include "mri_data.h"
 #include "tictoc.hpp"
+#include <armadillo>
 
 // View sharing modes
 #define VS_NONE 0

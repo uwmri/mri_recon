@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.13)
 
 project(MRI_RECON)
 set(PROGNAME recon_binary)
@@ -55,31 +55,17 @@ if ( ENABLE_ORCHESTRA )
 	include (${TOPDIR}/recon/SDK/product.cmake)
 
 	# Override 3P libs to include only those libs required by SDK executables
-	# Original set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${Z_LIBS})
-	set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${Z_LIBS})
-
-	# Set 3p include directories
-	set(OX_3P_INCLUDES
-		${MATLAB_ROOT}/extern/include
-		${ANTS_ROOT}/include/Examples
-		${ANTS_ROOT}/include/ImageRegistration
-		${ANTS_ROOT}/include/Tensor
-		${ANTS_ROOT}/include/Utilities
-		${BLITZ_ROOT}/include
-		${BOOST_ROOT}/include
-		${DCMTK_ROOT}/include
-		${FFTW_ROOT}/include
-		${HDF5_ROOT}/include
-		${ITK_ROOT}/include/ITK-4.9
-		${ZLIB_ROOT}/include)
+	#set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${ITK_LIBS} ${Z_LIBS})
+  	set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${ITK_LIBS} ${Z_LIBS})
 
 	message("Using Orchestra 3p: ${OX_3P_LIBS} ")
 	message("Using Orchestra Os: ${OX_OS_LIBS} ")
+	message("Using Orchestra Includes: ${OX_3P_INCLUDES} ")
+	
 
 	# This code only requires a few libraries
-	set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Hdf5 Common)
-
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -m64")
+	set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Common)
+	#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -m64")
 else (ENABLE_ORCHESTRA)
 
 	#--------------------------------------
@@ -94,17 +80,10 @@ else (ENABLE_ORCHESTRA)
 	include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
 	set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
-	set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
+	#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+	#set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
 endif(ENABLE_ORCHESTRA)
-
-ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Werror -Wall -Wextra -m64 -pedantic-errors")
-set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
-
-# Find static libraries for portability
-#SET(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
 
 # Find Required Libraries
 message( STATUS "Check for required libraries ")
@@ -119,11 +98,22 @@ else (VORO_FOUND)
 	message(WARNING " Compiling without Voronoi support - Install Voro++ to enable")
 endif (VORO_FOUND)
 
-#Find Armadillo
-#find_package(Armadillo REQUIRED)
-include(FindARMADILLO)
-include_directories( BEFORE ${ARMADILLO_INCLUDE_DIRS} )
 
+# Find MKL
+set(MKL_INTERFACE lp64)
+set(MKL_LINK static)
+set(MKL_THREADING gnu_thread)
+find_package(MKL CONFIG REQUIRED)
+message(STATUS "Found MKL ${MKL_IMPORTED_TARGETS}") #Provides available list of targets based on input
+message(STATUS "Include MKL ${MKL_INCLUDE_DIRS}") #Provides available list of targets based on input
+message(STATUS "MKL Libs ${MKL_LIBRARIES}") #Provides available list of targets based on input
+message(STATUS "MKL Link Link $MKL::MKL") #Provides available list of targets based on input
+message(STATUS "MKL ${MKL_INCLUDE}")
+
+#Find Armadillo
+find_package(Armadillo REQUIRED)
+include_directories( BEFORE ${ARMADILLO_INCLUDE_DIRS} )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_DONT_USE_WRAPPER -DARMA_USE_LAPACK -DARMA_USE_BLAS -DARMA_USE_HDF5 -DARMA_USE_OPENMP")
 
 MESSAGE(STATUS "   Local Libraries = ${LOCAL_LIBS}")
 message(STATUS " ARMADILLO_FOUND  = ${ARMADILLO_FOUND}")
@@ -135,7 +125,6 @@ message(STATUS " ARMADILLO_VERSION_PATCH  = ${ARMADILLO_VERSION_PATCH}")
 message(STATUS " ARMADILLO_VERSION_STRING  = ${ARMADILLO_VERSION_STRING}")
 message(STATUS " ARMADILLO_VERSION_NAME  = ${ARMADILLO_VERSION_NAME}")
 
-
 find_package(OpenMP)
 if (OPENMP_FOUND)
 	message(STATUS "Open CXX Flags ${OpenMP_C_FLAGS}" )
@@ -144,14 +133,12 @@ if (OPENMP_FOUND)
     set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-
-# TEMP EXPORT ALL
-#get_cmake_property(_variableNames VARIABLES)
-#list (SORT _variableNames)
-#foreach (_variableName ${_variableNames})
+# #TEMP EXPORT ALL
+# get_cmake_property(_variableNames VARIABLES)
+# list (SORT _variableNames)
+# foreach (_variableName ${_variableNames})
 #    message(STATUS "${_variableName}=${${_variableName}}")
-#endforeach()
-
+# endforeach()
 
 #--------------------------------------
 # Target Library
@@ -183,34 +170,42 @@ if (VORO_FOUND)
 endif(VORO_FOUND)
 
 add_library(RECONLIB STATIC ${RECONLIB_SOURCES}	)
-target_link_libraries(RECONLIB ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} )
-
-if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5)
-	set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 11)
-	message(STATUS "Using C++11 Standard")
-else()
-	set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 98)
-	message(STATUS "Using C++98 Standard")
-endif()
+target_link_libraries(RECONLIB ${LOCAL_LIBS} )
 
 #--------------------------------------
 # Support for Command Line Binary
 #--------------------------------------
+
 add_executable(uwmri_recon src/commandline_recon.cxx ${LOCAL_INCS})
-target_link_libraries(uwmri_recon ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB)
+target_link_libraries(uwmri_recon PUBLIC ${LOCAL_LIBS} RECONLIB)
+target_compile_options(uwmri_recon PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+target_include_directories(uwmri_recon PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(uwmri_recon PUBLIC $<LINK_ONLY:MKL::MKL>)
 
 add_executable(fractal_binary src/commandline_fractal.cpp ${LOCAL_INCS})
-target_link_libraries(fractal_binary ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB)
+target_link_libraries(fractal_binary PUBLIC ${LOCAL_LIBS} RECONLIB)
+target_compile_options(fractal_binary PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+target_include_directories(fractal_binary PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(fractal_binary PUBLIC $<LINK_ONLY:MKL::MKL>)
 
 add_executable(ops_test src/test_array_ops.cpp ${LOCAL_INCS})
-target_link_libraries(ops_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
+target_link_libraries(ops_test PUBLIC ${LOCAL_LIBS} RECONLIB)
+target_compile_options(ops_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+target_include_directories(ops_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(ops_test PUBLIC $<LINK_ONLY:MKL::MKL>)
 
 add_executable(hdf5_test src/test_hdf5.cpp ${LOCAL_INCS})
-target_link_libraries(hdf5_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
+target_link_libraries(hdf5_test PUBLIC ${LOCAL_LIBS} RECONLIB)
+target_compile_options(hdf5_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+target_include_directories(hdf5_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+target_link_libraries(hdf5_test PUBLIC $<LINK_ONLY:MKL::MKL>)
 
 if(VORO_FOUND)
 	add_executable(voronoi_test src/test_voronoi.cpp ${LOCAL_INCS})
-	target_link_libraries(voronoi_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
+	target_link_libraries(voronoi_test PUBLIC ${LOCAL_LIBS} RECONLIB)
+	target_compile_options(voronoi_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_COMPILE_OPTIONS>)
+	target_include_directories(voronoi_test PUBLIC $<TARGET_PROPERTY:MKL::MKL,INTERFACE_INCLUDE_DIRECTORIES>)
+	target_link_libraries(voronoi_test PUBLIC $<LINK_ONLY:MKL::MKL>)
 endif(VORO_FOUND)
 
 #--------------------------------------

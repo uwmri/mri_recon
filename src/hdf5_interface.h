@@ -1,8 +1,7 @@
-#include "ArrayTemplates.hpp"
-
 #ifndef HDF_INTERFACE
 #define HDF_INTERFACE
 
+#include "ArrayTemplates.hpp"
 #include <H5Cpp.h>
 #include <string>
 
@@ -169,10 +168,10 @@ void H5ArrayRead(H5::H5File &file, std::string GroupName, std::string Name,
   H5::Group group;
   try {
     group = HDF5::open_group(file, GroupName);
-  } catch (H5::FileIException) {
+  } catch (H5::FileIException &) {
     std::cout << "Can open " << GroupName << " : File Exception" << std::endl;
     throw;
-  } catch (H5::GroupIException) {
+  } catch (H5::GroupIException &) {
     std::cout << "Can open " << GroupName << " : Group Exception" << std::endl;
     throw;
   }

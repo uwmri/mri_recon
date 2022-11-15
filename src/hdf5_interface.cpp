@@ -24,7 +24,7 @@ H5::Group HDF5::create_group(H5::H5File &act_file, string GroupName) {
   try {
     // cout << "Trying to Open: " << GroupName << endl;
     group = H5::Group(act_file.openGroup(GroupName));
-  } catch (H5::FileIException error) {
+  } catch (H5::FileIException &error) {
     // cout << "Group does not exist-Creating" << endl;
     string x(GroupName);
     x.insert(0, "/");
@@ -40,7 +40,7 @@ H5::Group HDF5::open_group(H5::H5File &act_file, string GroupName) {
   H5::Group group;
   try {
     group = H5::Group(act_file.openGroup(GroupName));
-  } catch (H5::FileIException error) {
+  } catch (H5::FileIException &error) {
     // cout << "Group does not exist-Creating" << endl;
     string x(GroupName);
     x.insert(0, "/");
@@ -60,7 +60,7 @@ int HDF5::ReadH5Scaler(string GroupName, string Name, int *out) {
   H5::Attribute att;
   try {
     att = group.openAttribute(Name);
-  } catch (H5::FileIException error) {
+  } catch (H5::FileIException &error) {
     cout << "HDF5 Read :  " << GroupName << " attribute " << Name
          << " does not exist" << endl;
   }
@@ -103,7 +103,7 @@ int HDF5::ReadH5Scaler(string GroupName, string Name, float *out) {
   H5::Attribute att;
   try {
     att = group.openAttribute(Name);
-  } catch (H5::FileIException error) {
+  } catch (H5::FileIException &error) {
     cout << "HDF5 Read :  " << GroupName << " attribute " << Name
          << " does not exist" << endl;
   }
@@ -146,7 +146,7 @@ int HDF5::ReadH5Char(string GroupName, string Name, string &out) {
   H5::Attribute att;
   try {
     att = group.openAttribute(Name);
-  } catch (H5::FileIException error) {
+  } catch (H5::FileIException &error) {
     cout << "HDF5 Read :  " << GroupName << " attribute " << Name
          << " does not exist" << endl;
   }
