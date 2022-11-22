@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hGATINGLIB
+#define hGATINGLIB
 
 #include <omp.h>
 #include <algorithm>
@@ -9,11 +10,12 @@
 #include <string>
 #include <vector>
 
+#include <armadillo>
+
 #include "ArrayTemplates.hpp"
 #include "gridFFT.h"
 #include "mri_data.h"
 #include "tictoc.hpp"
-#include <armadillo>
 
 // View sharing modes
 #define VS_NONE 0
@@ -105,3 +107,5 @@ class GATING {
 
  private:
 };
+
+#endif 

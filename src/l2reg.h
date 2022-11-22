@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hL2REGLIB
+#define hL2REGLIB
 
 #include <iostream>
 
@@ -28,3 +29,5 @@ class L2REG {
   void set_scale(float, NDarray::Array<NDarray::Array<complex<float>, 3>, 2> &);
   void set_scale(float, NDarray::Array<complex<float>, 3> &);
 };
+
+#endif

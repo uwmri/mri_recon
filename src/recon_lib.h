@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hRECON_LIB
+#define hRECON_LIB
 
 // Standard Libraries
 #include <omp.h>
@@ -240,3 +241,5 @@ class RECON {
  private:
   NDarray::Array<bool, 1> smap_skip_encode;
 };
+
+#endif

@@ -1,9 +1,10 @@
 #ifndef HDF_INTERFACE
 #define HDF_INTERFACE
 
-#include "ArrayTemplates.hpp"
 #include <H5Cpp.h>
 #include <string>
+
+#include "ArrayTemplates.hpp"
 
 class HDF5 {
  public:

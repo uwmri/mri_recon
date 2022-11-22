@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hDCFGRID
+#define hDCFGRID
 
 #include <fftw3.h>
 #include <omp.h>
@@ -92,3 +93,5 @@ class DCFgridFFT {
 
  private:
 };
+
+#endif

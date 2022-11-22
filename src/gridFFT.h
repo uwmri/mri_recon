@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hGRIDFFT
+#define hGRIDFFT
 
 #include <fftw3.h>
 #include <omp.h>
@@ -10,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+
 #include "ArrayTemplates.hpp"
 #include "mri_data.h"
 
@@ -190,3 +192,5 @@ class gridFFT {
 
  private:
 };
+
+#endif

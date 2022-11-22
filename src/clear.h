@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hCLEARLIB
+#define hCLEARLIB
 
 #include <iostream>
 
@@ -47,3 +48,5 @@ class LOWRANKCOIL {
   void thresh(NDarray::Array<NDarray::Array<complex<float>, 3>, 3> &image, int);
   void combine(NDarray::Array<NDarray::Array<complex<float>, 3>, 3> &image, NDarray::Array<NDarray::Array<complex<float>, 3>, 2> &out);
 };
+
+#endif
