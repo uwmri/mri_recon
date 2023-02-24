@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hPHANTOM_LIB
+#define hPHANTOM_LIB
 
 #include <omp.h>
 #include <algorithm>
@@ -9,9 +10,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "ArrayTemplates.hpp"
-
 #include <armadillo>
+
+#include "ArrayTemplates.hpp"
 #include "tictoc.hpp"
 
 #ifndef PI
@@ -130,3 +131,5 @@ class PHANTOM {
  private:
   bool debug;
 };
+
+#endif

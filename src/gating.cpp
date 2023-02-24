@@ -693,8 +693,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
   }
 
   // Get Range
-  double max_time;
-  double min_time;
+  double max_time=0;
+  double min_time=0;
 
   switch (gate_type) {
     case (RETRO_ECG): {

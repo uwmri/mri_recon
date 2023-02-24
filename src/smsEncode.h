@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hSMS_LIB
+#define hSMS_LIB
 
 #include <fftw3.h>
 #include <omp.h>
@@ -10,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+
 #include "ArrayTemplates.hpp"
 #include "mri_data.h"
 
@@ -159,3 +161,5 @@ class smsEncode {
 
  private:
 };
+
+#endif

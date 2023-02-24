@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hARRAYTEMPLATE
+#define hARRAYTEMPLATE
 
 // Switching to Blitz Based Arrays
 #include <blitz/array.h>
@@ -440,3 +441,5 @@ double Dmin(const Array<Array<double, 2>, 1> &A);
 void nested_workaround(long index, int *N, int *idx, int total);
 
 }  // namespace NDarray
+
+#endif 

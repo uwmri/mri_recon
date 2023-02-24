@@ -55,31 +55,17 @@ if ( ENABLE_ORCHESTRA )
 	include (${TOPDIR}/recon/SDK/product.cmake)
 
 	# Override 3P libs to include only those libs required by SDK executables
-	# Original set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${Z_LIBS})
-	set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${Z_LIBS})
-
-	# Set 3p include directories
-	set(OX_3P_INCLUDES
-		${MATLAB_ROOT}/extern/include
-		${ANTS_ROOT}/include/Examples
-		${ANTS_ROOT}/include/ImageRegistration
-		${ANTS_ROOT}/include/Tensor
-		${ANTS_ROOT}/include/Utilities
-		${BLITZ_ROOT}/include
-		${BOOST_ROOT}/include
-		${DCMTK_ROOT}/include
-		${FFTW_ROOT}/include
-		${HDF5_ROOT}/include
-		${ITK_ROOT}/include/ITK-4.9
-		${ZLIB_ROOT}/include)
+	#set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${ITK_LIBS} ${Z_LIBS})
+  	set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${ITK_LIBS} ${Z_LIBS})
 
 	message("Using Orchestra 3p: ${OX_3P_LIBS} ")
 	message("Using Orchestra Os: ${OX_OS_LIBS} ")
+	message("Using Orchestra Includes: ${OX_3P_INCLUDES} ")
+
 
 	# This code only requires a few libraries
-	set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Hdf5 Common)
-
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -m64")
+	set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Common)
+	#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -m64")
 else (ENABLE_ORCHESTRA)
 
 	#--------------------------------------
@@ -94,17 +80,10 @@ else (ENABLE_ORCHESTRA)
 	include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
 	set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
-	set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
+	#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+	#set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
 
 endif(ENABLE_ORCHESTRA)
-
-ADD_DEFINITIONS(-DLINUX -DRECON_64BIT -D_FILE_OFFSET_BITS=64)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Werror -Wall -Wextra -m64 -pedantic-errors")
-set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
-
-# Find static libraries for portability
-#SET(CMAKE_FIND_LIBRARY_SUFFIXES .a ${CMAKE_FIND_LIBRARY_SUFFIXES})
 
 # Find Required Libraries
 message( STATUS "Check for required libraries ")
@@ -121,6 +100,8 @@ endif (VORO_FOUND)
 
 #Find Armadillo
 #find_package(Armadillo REQUIRED)
+#include_directories( BEFORE ${ARMADILLO_INCLUDE_DIRS} )
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARMA_DONT_USE_WRAPPER -DARMA_USE_LAPACK -DARMA_USE_BLAS -DARMA_USE_HDF5 -DARMA_USE_OPENMP")
 include(FindARMADILLO)
 include_directories( BEFORE ${ARMADILLO_INCLUDE_DIRS} )
 

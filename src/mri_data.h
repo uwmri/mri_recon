@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hMRI_DATA_LIB
+#define hMRI_DATA_LIB
 
 // System Libraries
 #include <omp.h>
@@ -129,3 +130,5 @@ class MRI_DATA {
 };
 
 arma::cx_fmat covariance(arma::cx_fmat, int, int);
+
+#endif 
