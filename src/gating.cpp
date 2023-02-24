@@ -832,13 +832,14 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
     } break;
 
     case (HIST_MODE): {
-      cout << "Sorting Data into Histogram" << endl;
+      cout << "gating::histmode::Sorting Data into Histogram" << endl;
 
       // Use Aradillo Sort function
       int total_views = 0;
       for (int e = 0; e < this->gate_times.length(firstDim); e++) {
         total_views += this->gate_times(e).numElements();
       }
+      cout << "gating::histmode::Total views = " << total_views << endl;
 
       arma::vec time_sort(total_views);
 
@@ -865,6 +866,10 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
           count++;
         }
       }
+
+      cout << "gating::histmode::Max gate time = " << Dmin(gate_times) << endl;
+      cout << "gating::histmode::Min gate time = " << Dmax(gate_times) << endl;
+
     } break;
   }  // Switch vs_type
 }

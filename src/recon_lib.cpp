@@ -85,8 +85,9 @@ void RECON::set_defaults(void) {
 
   coil_rejection_flag = false;
   coil_rejection_radius = 0.5;
+  coil_rejection_height = 0.5;
   coil_rejection_shape = 1;
-  coil_rejection_thresh = 0.05;
+  coil_rejection_thresh = 0.7;
 
   cycle_spins = 4;
 
@@ -411,8 +412,9 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   float_flag("-smap_thresh", smap_thresh, "fraction of max signal to threshold the images");
   trig_flag(true, "-coil_rejection", coil_rejection_flag, "turn on coil rejection");
   float_flag("-coil_rejection_radius", coil_rejection_radius, "fractional radius to reject coils outside of FOV");
+  float_flag("-coil_rejection_height", coil_rejection_height, "height of cylinder to reject outside of FOV");
   float_flag("-coil_rejection_thresh", coil_rejection_thresh, "threshold to reject coils outside of FOV");
-  int_flag("-coil_rejection_shape", coil_rejection_shape, "shape for coil rejection (1=sphere, 2=cylinder");
+  int_flag("-coil_rejection_shape", coil_rejection_shape, "shape for coil rejection (0=sphere, 1=cylinder");
 
   help_message << help_strIO(string("-smap_mask"), string("none/circle/sphere"))
                << endl;
@@ -3293,9 +3295,12 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         float cy = smaps(0).length(secondDim) / 2;
         float cz = smaps(0).length(thirdDim) / 2;
 
-        Array<double, 1> SignalFraction(data.Num_Coils);
-        SignalFraction = 0.0;
-
+        Array<double, 1> SignalFractionIn(data.Num_Coils);
+        Array<double, 1> SignalFractionTotal(data.Num_Coils);
+        
+        SignalFractionIn = 0.0;
+        SignalFractionTotal = 0.0;
+ 
         // Get the coils contribution to the image in the center
         switch (this->coil_rejection_shape) {
           default:
@@ -3311,8 +3316,9 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
 
                       // Check the radius
                       if ((x * x + y * y + z * z) < (this->coil_rejection_radius * this->coil_rejection_radius)) {
-                        SignalFraction(coil) += abs(image_store(e, coil)(i, j, k));
+                          SignalFractionIn(coil) += abs(image_store(e, coil)(i, j, k));
                       }
+                      SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
                     }  //i
                   }    //j
                 }      //k
@@ -3325,28 +3331,23 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
             for (int coil = 0; coil < data.Num_Coils; coil++) {
               for (int e = 0; e < image_store.length(firstDim); e++) {
                 for (int k = 0; k < smaps(0).length(thirdDim); k++) {
-                  // Check the radius
-                  float z = ((float)k - cz) / (2.0 * cz);
-                  if (abs(z) > this->coil_rejection_radius) {
-                    continue;
-                  }
-
+                  
                   for (int j = 0; j < smaps(0).length(secondDim); j++) {
-                    // Check the radius
-                    float y = ((float)j - cy) / (2.0 * cy);
-                    if (abs(y) > this->coil_rejection_radius) {
-                      continue;
-                    }
-
                     for (int i = 0; i < smaps(0).length(firstDim); i++) {
+                      
                       // Check the radius
+                      float z = ((float)k - cz) / (2.0 * cz);
+                      float y = ((float)j - cy) / (2.0 * cy);
                       float x = ((float)i - cx) / (2.0 * cx);
-                      if (abs(x) > this->coil_rejection_radius) {
-                        continue;
+
+                      // Check the radius
+                      if( abs(z) < this->coil_rejection_height){ 
+                        if( (y*y+x*x) < this->coil_rejection_radius*this->coil_rejection_radius){
+                          SignalFractionIn(coil) += abs(image_store(e, coil)(i, j, k));
+                        }
                       }
-
-                      SignalFraction(coil) += abs(image_store(e, coil)(i, j, k));
-
+                      SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
+                  
                     }  //i
                   }    //j
                 }      //k
@@ -3357,21 +3358,17 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
 
         }  // shape switch
 
-        // Get the total signal
-        double total_signal = 0.0;
-        for (int coil = 0; coil < data.Num_Coils; coil++) {
-          total_signal += SignalFraction(coil);
-        }
-
         //Normalize
         for (int coil = 0; coil < data.Num_Coils; coil++) {
-          SignalFraction(coil) /= total_signal;
+          cout << "Coil = " << coil << "Signal In=" << SignalFractionIn(coil) << " Signal Out=" << SignalFractionTotal(coil);
+          SignalFractionIn(coil) /= SignalFractionTotal(coil);
+          cout << " Fraction=" << SignalFractionIn(coil) << endl; 
         }
 
         for (int coil = 0; coil < data.Num_Coils; coil++) {
-          std::cout << "Coil = " << coil << "Signal Fraction =" << SignalFraction(coil) << std::endl;
-          if (SignalFraction(coil) < this->coil_rejection_thresh) {
-            std::cout << "REJECTING COIL " << coil << std::endl;
+          std::cout << "Coil = " << coil << "Signal Fraction =" << SignalFractionIn(coil) << std::endl;
+          if (SignalFractionIn(coil) < this->coil_rejection_thresh) {
+            std::cout << "    REJECTING COIL " << coil << std::endl;
             for (int e = 0; e < image_store.length(firstDim); e++) {
               image_store(e, coil) = complex<float>(0.0, 0.0);
             }
