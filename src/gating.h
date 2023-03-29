@@ -40,6 +40,7 @@ class GATING {
                   PREP };
   enum RespGateType { RESP_NONE,
                       RESP_THRESH,
+                      RESP_PHASE,
                       RESP_WEIGHT,
                       RESP_HARD };
 
@@ -73,7 +74,11 @@ class GATING {
   // Control of Retrospective Respiratory Gating
   RespGateType resp_gate_type;
   int correct_resp_drift;
+  float resp_filter_size;
   float resp_gate_efficiency;
+  float resp_phase_lower;
+  float resp_phase_upper;
+  float resp_phase_type;
   float resp_gate_weight;
 
   // Respiratory Signal

@@ -74,7 +74,11 @@ GATING::GATING(int numarg, const char **pstring) {
 
   // Respiratory Efficiency
   correct_resp_drift = 0;
+  resp_filter_size = 5.0;
   resp_gate_efficiency = 0.5;
+  resp_phase_lower = 0.2;
+  resp_phase_upper = 0.8;
+  resp_phase_type = 0;
   resp_gate_weight = 3;  // This controls exponential decay of resp weights for soft-thresholding.
   resp_gate_type = RESP_NONE;
   resp_gate_signal = BELLOWS;
@@ -140,6 +144,7 @@ GATING::GATING(int numarg, const char **pstring) {
              << endl;
         exit(1);
         trig_flag(RESP_THRESH, "thresh", resp_gate_type);
+        trig_flag(RESP_PHASE, "phase", resp_gate_type);
         trig_flag(RESP_WEIGHT, "weight", resp_gate_type);
         trig_flag(RESP_HARD, "hard", resp_gate_type);
 
@@ -170,6 +175,10 @@ GATING::GATING(int numarg, const char **pstring) {
       int_flag("-vs_wdth_high", wdth_high);
       trig_flag(1, "-correct_resp_drift", correct_resp_drift);
       float_flag("-resp_gate_efficiency", resp_gate_efficiency);
+      float_flag("-resp_filter_size", resp_filter_size);
+      float_flag("-resp_phase_lower", resp_phase_lower);
+      float_flag("-resp_phase_upper", resp_phase_upper);
+      float_flag("-resp_phase_type", resp_phase_type);
       float_flag("-resp_gate_weight", resp_gate_weight);
       float_flag("-resp_sign", resp_sign);
       float_flag("-gate_min_quantile", gate_min_quantile);
@@ -179,6 +188,8 @@ GATING::GATING(int numarg, const char **pstring) {
 
   if (resp_gate_type == RESP_THRESH) {
     cout << "Using moving average threshold based respiratory gating" << endl;
+  } else if (resp_gate_type == RESP_PHASE) {
+    cout << "Using thresholding with arbitrary limits for respiratory gating" << endl;
   } else if (resp_gate_type == RESP_WEIGHT) {
     cout << "Using (fuzzy) weight based respiratory gating" << endl;
   } else if (resp_gate_type == RESP_HARD) {
@@ -204,7 +215,8 @@ void GATING::help_message() {
   help_flag("", "  prep = bin by time from prep pulses");
 
   help_flag("-resp_gate []", "In addition to other gating, perform respiratory gating");
-  help_flag("", "  thresh = threshold values");
+  help_flag("", "  thresh = threshold respiratory values");
+  help_flag("", "  phase = threshold with upper and lower bounds");
   help_flag("", "  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
 
   help_flag("-resp_gate_signal", "Specify source for the data used to estimate respiratory phase");
@@ -224,6 +236,11 @@ void GATING::help_message() {
   cout << "Control for Resp Data" << endl;
   help_flag("-correct_resp_drift", "Median filter with 10s interval");
   help_flag("-resp_gate_efficiency", "Fraction of data to accept");
+  help_flag("-resp_sign", "Flips respiratory waveform");
+  help_flag("-resp_filter_size", "Sets the window size for respiratory thresholding (default=5.0s)");
+  help_flag("-resp_phase_lower", "Lower bound of threshold");
+  help_flag("-resp_phase_upper", "Upper bound of threshold");
+  help_flag("-resp_phase_type", "Phase of respiratory waveform to reconstruct (1=expiration, 2=inspiration, 0=both)");
   help_flag("-resp_gate_weight", "Soft-Gating Decay Constant (Exponential)");
   help_flag("-adaptive_resp_window", "Length of window to use for thresholding");
 
@@ -491,7 +508,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         // Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
+        int fsize = (int)(resp_filter_size / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
 
         // Now Filter
         cout << "Thresholding Data Frame Size = " << fsize << endl;
@@ -517,6 +534,98 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         }
         time_sort_resp_weight.save("TimeWeight.txt", arma::raw_ascii);
         arma_resp_weight.save("Weight.txt", arma::raw_ascii);
+
+        // Copy Back
+        vec_to_array(this->resp_weight, arma_resp_weight);
+
+      } break;
+
+      case (RESP_PHASE): {
+        cout << "Time Sorting Data with Upper and Lower Bounds" << endl;
+
+        // Use Aradillo Sort function
+        arma::vec time = array_to_vec(data.time);
+        arma::vec resp = array_to_vec(this->resp_weight);
+        time.save("Time.txt", arma::raw_ascii);
+        resp.save("Resp.txt", arma::raw_ascii);
+
+        // Vectors for working on data
+        int N = resp.n_elem;
+        arma::vec arma_resp_weight = arma::zeros<arma::vec>(N);
+        arma::vec time_linear_resp = arma::zeros<arma::vec>(N);
+        arma::vec time_sort_resp_weight = arma::zeros<arma::vec>(N);
+        arma::vec derivatives = arma::zeros<arma::vec>(N);
+
+        // Sort
+        arma::uvec time_idx = arma::sort_index(time);
+        time_idx.save("Sorted.txt", arma::raw_ascii);
+
+        // Copy Resp
+        for (int i = 0; i < N; i++) {
+          time_linear_resp(i) = resp(time_idx(i));
+        }
+        time_linear_resp.save("TimeResp.txt", arma::raw_ascii);
+
+        // Size of histogram
+        cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
+        int fsize = (int)(resp_filter_size / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+        int slope_window = (int) fsize/(resp_filter_size*10);                                       // 100 ms window for determining slope
+        
+        // Now Filter
+        cout << "Thresholding Window Size = " << fsize << " (" << resp_filter_size << "s filter)" << endl;
+        cout << "Phase Window Size (0.1s filter) = " << slope_window << endl;
+        for (int i = 0; i < N; i++) {
+          int start = i - fsize;
+          int stop = i + fsize;
+          int slope_start = i - slope_window;
+          int slope_stop = i + slope_window;
+          if (start < 0) {
+            stop = 2 * fsize;
+            start = 0;
+          }
+          if (stop >= N) {
+            stop = N - 1;
+            start = time_linear_resp.n_elem - 1 - 2 * fsize;
+          }
+
+          if (slope_start < 0) {
+            slope_stop = 2 * slope_window;
+            slope_start = 0;
+          }
+          if (slope_stop >= N) {
+            slope_stop = N - 1;
+            slope_start = time_linear_resp.n_elem - 1 - 2 * slope_window;
+          }
+
+          arma::vec temp = time_linear_resp.rows(start, stop);
+          arma::vec temp2 = sort(temp);
+
+          arma::vec temp3 = time_linear_resp.rows(slope_start, slope_stop);
+          double deriv = (arma::mean(arma::diff(temp3)) >= 0) ? (1.0) : (-1.0);
+          derivatives(i) = deriv;
+
+          double thresh1 = temp2((int)((double)temp2.n_elem * (1.0 - resp_phase_upper)));
+          double thresh2;
+          if (resp_phase_lower == 0.0) {
+            thresh2 = temp2((int)(temp2.n_elem-1));
+          } else {
+            thresh2 = temp2((int)((double)temp2.n_elem * (1.0 - resp_phase_lower)));
+          }
+          
+          if (resp_phase_type == 0) {
+            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) ? (1.0) : (0.0);
+          } else if (resp_phase_type == 1) {
+            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (deriv == 1.0) ? (1.0) : (0.0);
+          } else if (resp_phase_type == 2) {
+            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (deriv == -1.0) ? (1.0) : (0.0);
+          } else {
+            cout << "invalid argument for resp_phase_type" << endl;
+          }
+          time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
+        }
+        time_sort_resp_weight.save("TimeWeight.txt", arma::raw_ascii);
+        arma_resp_weight.save("Weight.txt", arma::raw_ascii);
+        derivatives.save("RespDerivatives.txt", arma::raw_ascii);
 
         // Copy Back
         vec_to_array(this->resp_weight, arma_resp_weight);
@@ -875,6 +984,7 @@ void GATING::weight_data(Array<float, 3> &Tw, int e, const Array<float, 3> &kx,
   switch (resp_gate_type) {
     case (RESP_HARD):
     case (RESP_THRESH):
+    case (RESP_PHASE):
     case (RESP_WEIGHT): {
       for (int k = 0; k < Tw.length(thirdDim); k++) {
         for (int j = 0; j < Tw.length(secondDim); j++) {
