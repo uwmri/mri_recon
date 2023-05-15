@@ -128,6 +128,7 @@ void RECON::set_defaults(void) {
   cauchy_update_number = 30;
   max_eigen_iterations = 30;
   iterative_step_type = STEP_MAXEIG;
+  fast_maxeig = false;
   image_scale_normalization = false;
 }
 
@@ -455,6 +456,7 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   int_flag("-threads", threads, "set number of threads");
   trig_flag(true, "-pregate_data", pregate_data_flag, "gate the data prior to reconstructing");
   int_flag("-max_eigen_iterations", max_eigen_iterations, "power iterations for max eigen calculations");
+  trig_flag(true,"-fast_maxeig", fast_maxeig, "Calc step size on single frame");
 
   // First scan for help message
   for (int pos = 0; pos < numarg; pos++) {
@@ -2261,15 +2263,26 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
       if (iterative_step_type == STEP_MAXEIG) {
         // Initialize x to random number
+        std::cout << "Max Eigen Calc for Step size" << std::endl;
         std::cout << "Seeding X" << std::endl;
-        for (int e = 0; e < rcencodes; e++) {
-          for (int t = 0; t < Nt; t++) {
+
+        int max_encode = rcencodes;
+        int max_frame = Nt;
+        if( fast_maxeig ){
+          max_encode = 1;
+          max_frame = 1;
+        }
+
+        for (int e = 0; e < max_encode; e++) {
+          for (int t = 0; t < max_frame; t++) {
+
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  arma::fvec N = arma::randn<arma::fvec>(2);
-                  X(t, e)
-                  (i, j, k) = complex<float>(N(0), N(1));
+                  float tmp_r = std::rand()/RAND_MAX - 0.5;
+                  float tmp_i = std::rand()/RAND_MAX - 0.5;
+                  X(t, e)(i, j, k) = complex<float>(tmp_r, tmp_i);
+
                 }
               }
             }
@@ -2279,14 +2292,15 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         // Now use iterations through power method
         for (int iteration = 0; iteration < max_eigen_iterations; iteration++) {
           // Get Residue
-          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-               riter != R.end(); riter++) {
-            *riter = 0;
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
+              R(t, e) = 0.0;
+            }
           }
 
           // Get EH*E*x
-          for (int e = 0; e < rcencodes; e++) {
-            for (int t = 0; t < Nt; t++) {
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
               int act_t = times(t);
               int store_t = times_store(t);
               int act_e = (pregate_data_flag) ? (e * Nt + act_t) : (e);
@@ -2313,48 +2327,36 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
                     *titer = 0.1;
                   }
                 }
-                gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t,
-                                 GATING::ITERATIVE, frame_type);
+                gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t, GATING::ITERATIVE, frame_type);
               } else {
                 TimeWeight.resize(kwE.shape());
                 TimeWeight = kwE;
-                gate.weight_data(TimeWeight, e, kxE, kwE, kzE, act_t,
-                                 GATING::ITERATIVE, frame_type);
+                gate.weight_data(TimeWeight, e, kxE, kwE, kzE, act_t, GATING::ITERATIVE, frame_type);
               }
 
               // Differences (Ex)
-              Array<complex<float>, 3> diff_data(kxE.shape(),
-                                                 ColumnMajorArray<3>());
+              Array<complex<float>, 3> diff_data(kxE.shape(), ColumnMajorArray<3>());
               Array<Array<complex<float>, 3>, 1> diff_data_all;
 
               if (this->parallel_coils) {
                 // K-space to Image
-                Array<Array<complex<float>, 3>, 1> TEMP_KDATA =
-                    data.kdata(act_e, Range::all());
-                Array<Array<complex<float>, 3>, 1> TEMP_POINT =
-                    Alloc4DContainer<complex<float> >(
-                        kxE.length(firstDim), kxE.length(secondDim),
-                        kxE.length(thirdDim), data.Num_Coils);
+                Array<Array<complex<float>, 3>, 1> TEMP_KDATA = data.kdata(act_e, Range::all());
+                Array<Array<complex<float>, 3>, 1> TEMP_POINT = Alloc4DContainer<complex<float> >(
+                        kxE.length(firstDim), kxE.length(secondDim), kxE.length(thirdDim), data.Num_Coils);
                 diff_data_all.reference(TEMP_POINT);
 
                 // Ex
-                gridding_CoilThreaded.backward(X(store_t, e), smaps,
-                                               diff_data_all, kxE, kyE, kzE,
-                                               TimeWeight);
+                gridding_CoilThreaded.backward(X(store_t, e), smaps, diff_data_all, kxE, kyE, kzE, TimeWeight);
 
                 // E'Ex
-                gridding_CoilThreaded.forward(R(store_t, e), smaps,
-                                              diff_data_all, kxE, kyE, kzE,
-                                              TimeWeight);
+                gridding_CoilThreaded.forward(R(store_t, e), smaps, diff_data_all, kxE, kyE, kzE, TimeWeight);
               } else {
                 for (int coil = 0; coil < data.Num_Coils; coil++) {
                   // Ex
-                  gridding.backward(X(store_t, e), smaps(coil), diff_data, kxE,
-                                    kyE, kzE, TimeWeight);
+                  gridding.backward(X(store_t, e), smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight);
 
                   // E'Ex
-                  gridding.forward(R(store_t, e), smaps(coil), diff_data, kxE,
-                                   kyE, kzE, TimeWeight);
+                  gridding.forward(R(store_t, e), smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight);
                 }  // Coils
               }
             }
@@ -2362,15 +2364,16 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
           // Power Methods
           double max_eig = 0.0;
-          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-               riter != R.end(); riter++) {
-            max_eig += ArrayEnergy(*riter);
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
+              max_eig += ArrayEnergy(R(t, e));
+            }
           }
           max_eig = sqrt(max_eig);
 
           complex<float> scale = complex<float>(1. / max_eig, 0.0);
-          for (int e = 0; e < rcencodes; e++) {
-            for (int t = 0; t < Nt; t++) {
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
               X(t, e) = scale * R(t, e);
             }
           }
@@ -2389,8 +2392,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       }
 
       // Reset X after max_eigen calculation
-      for (Array<Array<complex<float>, 3>, 2>::iterator riter = X.begin();
-           riter != X.end(); riter++) {
+      for (Array<Array<complex<float>, 3>, 2>::iterator riter = X.begin(); riter != X.end(); riter++) {
         *riter = 0;
       }
 

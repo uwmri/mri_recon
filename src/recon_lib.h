@@ -124,6 +124,7 @@ class RECON {
   enum IterativeStepType { STEP_CAUCHY,
                            STEP_MAXEIG };
   IterativeStepType iterative_step_type;
+  bool fast_maxeig;
 
   // Code to rotate into low resolution images
   bool phase_rotation;
