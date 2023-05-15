@@ -1,13 +1,12 @@
 #ifndef hSPIRIT_LIB
 #define hSPIRIT_LIB
 
-
 #include <iostream>
 
 #include <fftw3.h>
 #include <omp.h>
-#include <cmath>
 #include <armadillo>
+#include <cmath>
 
 #include "ArrayTemplates.hpp"
 #include "tictoc.hpp"

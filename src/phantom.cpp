@@ -339,10 +339,10 @@ void PHANTOM::update_smap_biotsavart(int coil, int Ncoils) {
   arma::fmat R;
   float a = 2 * PI / (float)Ncoils * (float)coil;
 
-  R = { {cos(a), sin(a), 0.0},
-        {-sin(a), cos(a), 0.0},
-        {0.0, 0.0, 0.0} };
-  
+  R = {{cos(a), sin(a), 0.0},
+       {-sin(a), cos(a), 0.0},
+       {0.0, 0.0, 0.0}};
+
   loop_pos = R * loop_pos;
 
   //----------------------------------------------

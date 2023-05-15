@@ -108,4 +108,4 @@ class GATING {
  private:
 };
 
-#endif 
+#endif

@@ -131,4 +131,4 @@ class MRI_DATA {
 
 arma::cx_fmat covariance(arma::cx_fmat, int, int);
 
-#endif 
+#endif

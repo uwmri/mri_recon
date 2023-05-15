@@ -442,4 +442,4 @@ void nested_workaround(long index, int *N, int *idx, int total);
 
 }  // namespace NDarray
 
-#endif 
+#endif

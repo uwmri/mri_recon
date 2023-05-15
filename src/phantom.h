@@ -3,6 +3,7 @@
 
 #include <omp.h>
 #include <algorithm>
+#include <armadillo>
 #include <cmath>
 #include <complex>
 #include <cstring>
@@ -10,7 +11,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <armadillo>
 
 #include "ArrayTemplates.hpp"
 #include "tictoc.hpp"
