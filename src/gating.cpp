@@ -72,12 +72,16 @@ GATING::GATING(int numarg, const char **pstring) {
   kmax = 128;            // TEMP
   gate_type = GATE_NONE;
 
+  // Retrospective scan time control (s)
+  start_proj = 0;
+  end_proj = 100;
+
   // Respiratory Efficiency
   correct_resp_drift = 0;
-  resp_filter_size = 5.0;
+  adaptive_resp_window = 5.0;
   resp_gate_efficiency = 0.5;
-  resp_phase_lower = 0.2;
-  resp_phase_upper = 0.8;
+  resp_phase_lower = 0.0;
+  resp_phase_upper = 0.5;
   resp_phase_type = 0;
   resp_gate_weight = 3;  // This controls exponential decay of resp weights for soft-thresholding.
   resp_gate_type = RESP_NONE;
@@ -111,14 +115,14 @@ GATING::GATING(int numarg, const char **pstring) {
     if (strcmp("-viewshare_type", pstring[pos]) == 0) {
       pos++;
       if (pos == numarg) {
-        cout << "Please provide vieshare type (-h for usage)" << endl;
+        cout << "Please provide viewshare type (-h for usage)" << endl;
         exit(1);
         trig_flag(TORNADO, "tornado", vs_type);
         trig_flag(HIST_MODE, "hist", vs_type);
         trig_flag(NONE, "none", vs_type);
 
       } else {
-        cout << "Please provide vieshare type (-h for usage)" << endl;
+        cout << "Please provide viewshare type (-h for usage)" << endl;
         exit(1);
       }
     } else if (strcmp("-gating_type", pstring[pos]) == 0) {
@@ -175,7 +179,7 @@ GATING::GATING(int numarg, const char **pstring) {
       int_flag("-vs_wdth_high", wdth_high);
       trig_flag(1, "-correct_resp_drift", correct_resp_drift);
       float_flag("-resp_gate_efficiency", resp_gate_efficiency);
-      float_flag("-resp_filter_size", resp_filter_size);
+      float_flag("-adaptive_resp_window", adaptive_resp_window);
       float_flag("-resp_phase_lower", resp_phase_lower);
       float_flag("-resp_phase_upper", resp_phase_upper);
       float_flag("-resp_phase_type", resp_phase_type);
@@ -183,6 +187,10 @@ GATING::GATING(int numarg, const char **pstring) {
       float_flag("-resp_sign", resp_sign);
       float_flag("-gate_min_quantile", gate_min_quantile);
       float_flag("-gate_max_quantile", gate_max_quantile);
+
+      trig_flag(1, "-retro_scan_time", retro_scan_time);
+      float_flag("-start_proj", start_proj);
+      float_flag("-end_proj", end_proj);
     }
   }
 
@@ -237,15 +245,19 @@ void GATING::help_message() {
   help_flag("-correct_resp_drift", "Median filter with 10s interval");
   help_flag("-resp_gate_efficiency", "Fraction of data to accept");
   help_flag("-resp_sign", "Flips respiratory waveform");
-  help_flag("-resp_filter_size", "Sets the window size for respiratory thresholding (default=5.0s)");
   help_flag("-resp_phase_lower", "Lower bound of threshold");
   help_flag("-resp_phase_upper", "Upper bound of threshold");
   help_flag("-resp_phase_type", "Phase of respiratory waveform to reconstruct (1=expiration, 2=inspiration, 0=both)");
   help_flag("-resp_gate_weight", "Soft-Gating Decay Constant (Exponential)");
-  help_flag("-adaptive_resp_window", "Length of window to use for thresholding");
+  help_flag("-adaptive_resp_window", "Length of window to use for thresholding (default=5.0s)");
 
   cout << "Control for ECG Data" << endl;
   help_flag("-bad_ecg_filter", "Filter Bad ECG Vals (>10,000ms)");
+
+  cout << "Control for retrospective scan time adjustment" << endl;
+  help_flag("-retro_scan_time", "Use a subset of acquired projections (time sorted) to reconstruct");
+  help_flag("-start_proj", "Projection range start");
+  help_flag("-end_proj", "Projection range end");
 }
 
 /*----------------------------------------------
@@ -484,7 +496,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
       case (RESP_THRESH): {
         cout << "Time Sorting Data" << endl;
 
-        // Use Aradillo Sort function
+        // Use Armadillo Sort function
         arma::vec time = array_to_vec(data.time);
         arma::vec resp = array_to_vec(this->resp_weight);
         time.save("Time.txt", arma::raw_ascii);
@@ -508,7 +520,18 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         // Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(resp_filter_size / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+        int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+
+        float min_proj;
+        float max_proj;
+        if (retro_scan_time) {
+          min_proj = start_proj;
+          max_proj = end_proj;
+          cout << "Retrospective projection range = " << min_proj << " to " << max_proj << endl;
+        } else {
+          min_proj = 0;
+          max_proj = N;
+        }
 
         // Now Filter
         cout << "Thresholding Data Frame Size = " << fsize << endl;
@@ -529,7 +552,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
           arma::vec temp2 = sort(temp);
           double thresh = temp2((int)((double)temp2.n_elem * (1.0 - resp_gate_efficiency)));
 
-          arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh) ? (1.0) : (0.0);
+          arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh) && (i >= min_proj) && (i < max_proj) ? (1.0) : (0.0);
           time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
         }
         time_sort_resp_weight.save("TimeWeight.txt", arma::raw_ascii);
@@ -568,11 +591,22 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         // Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(resp_filter_size / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
-        int slope_window = (int) fsize/(resp_filter_size*10);                                       // 100 ms window for determining slope
+        int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+        int slope_window = (int) fsize/(adaptive_resp_window*10);                                       // 100 ms window for determining slope
         
+        float min_proj;
+        float max_proj;
+        if (retro_scan_time) {
+          min_proj = start_proj;
+          max_proj = end_proj;
+          cout << "Retrospective projection range = " << min_proj << " to " << max_proj << endl;
+        } else {
+          min_proj = 0;
+          max_proj = N;
+        }
+
         // Now Filter
-        cout << "Thresholding Window Size = " << fsize << " (" << resp_filter_size << "s filter)" << endl;
+        cout << "Thresholding Window Size = " << fsize << " (" << adaptive_resp_window << "s filter)" << endl;
         cout << "Phase Window Size (0.1s filter) = " << slope_window << endl;
         for (int i = 0; i < N; i++) {
           int start = i - fsize;
@@ -613,11 +647,11 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
           }
           
           if (resp_phase_type == 0) {
-            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) ? (1.0) : (0.0);
+            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (i >= min_proj) && (i < max_proj) ? (1.0) : (0.0);
           } else if (resp_phase_type == 1) {
-            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (deriv == 1.0) ? (1.0) : (0.0);
+            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (deriv == 1.0) && (i >= min_proj) && (i < max_proj) ? (1.0) : (0.0);
           } else if (resp_phase_type == 2) {
-            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (deriv == -1.0) ? (1.0) : (0.0);
+            arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (deriv == -1.0) && (i >= min_proj) && (i < max_proj) ? (1.0) : (0.0);
           } else {
             cout << "invalid argument for resp_phase_type" << endl;
           }
@@ -639,6 +673,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         // Use Aradillo Sort function
         arma::vec resp = array_to_vec(this->resp_weight);
         resp.save("Resp.txt", arma::raw_ascii);
+        int N = resp.n_elem;
 
         // Sort
         arma::vec resp_sorted = arma::sort(resp);
@@ -648,10 +683,21 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         float resp_thresh = resp_sorted(thresh_idx);
         cout << "Hard resp thresh = " << resp_thresh << endl;
 
+        float min_proj;
+        float max_proj;
+        if (retro_scan_time) {
+          min_proj = start_proj;
+          max_proj = end_proj;
+          cout << "Retrospective projection range = " << min_proj << " to " << max_proj << endl;
+        } else {
+          min_proj = 0;
+          max_proj = N;
+        }
+
         // Copy to weight
         arma::vec arma_resp_weight = arma::zeros<arma::vec>(resp.n_elem);
         for (int i = 0; i < (int)resp.n_elem; i++) {
-          arma_resp_weight(i) = (resp(i) > resp_thresh) ? (1.0) : (0.0);
+          arma_resp_weight(i) = (resp(i) > resp_thresh) && (i >= min_proj) && (i < max_proj) ? (1.0) : (0.0);
         }
 
         // Copy Back
@@ -699,12 +745,22 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         double decay_const = resp_gate_weight / arma::max(temp);
         // cout << "Decay Const: " << decay_const << endl;
 
+        float min_proj;
+        float max_proj;
+        if (retro_scan_time) {
+          min_proj = start_proj;
+          max_proj = end_proj;
+        } else {
+          min_proj = 0;
+          max_proj = N;
+        }
+
         // Now Filter
         cout << "Stencil Radius = " << fsize << endl;
         for (int i = 0; i < N; i++) {
           // For exponentially decaying weights. Implemented Soft-Gating as in:
           // https://doi.org/10.1002/mrm.26958
-          arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh) ? (1.0) : (exp(-decay_const * ((thresh - time_linear_resp(i)))));
+          arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh) && (i >= min_proj) && (i < max_proj) ? (1.0) : (exp(-decay_const * ((thresh - time_linear_resp(i)))));
 
           time_sort_resp_weight(i) = arma_resp_weight(time_idx(i));
         }

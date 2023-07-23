@@ -68,13 +68,18 @@ class GATING {
   ViewshareType vs_type;
   GateType gate_type;
 
+  // Modify scan time retrospectively
+  int retro_scan_time;
+  float start_proj;
+  float end_proj;
+
   NDarray::Array<NDarray::Array<double, 2>, 1> gate_times;
   NDarray::Array<NDarray::Array<double, 2>, 1> resp_weight;
 
   // Control of Retrospective Respiratory Gating
   RespGateType resp_gate_type;
   int correct_resp_drift;
-  float resp_filter_size;
+  float adaptive_resp_window;
   float resp_gate_efficiency;
   float resp_phase_lower;
   float resp_phase_upper;
