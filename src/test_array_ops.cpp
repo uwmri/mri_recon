@@ -34,6 +34,37 @@ int main(void) {
     cout << "Took " << T << endl;
   }
 
+  {
+    cout << "Check chol" << endl;
+    int N = 18;
+    int Np = 1024;
+
+    // preallocate some arrays
+    arma::cx_mat A = arma::randn<arma::cx_mat>(N, Np);
+
+    arma::cx_mat CV = A * A.t();
+    arma::cx_mat V = chol(CV);
+    arma::cx_mat VT = V.t();
+    arma::cx_mat Decorr = VT.i();
+  }
+
+  {
+    cout << "Check solve" << endl;
+    int N = 18;
+    int Np = 18;
+
+    // preallocate some arrays
+    arma::cx_mat A = arma::randn<arma::cx_mat>(N, Np);
+    arma::cx_mat x = arma::randn<arma::cx_mat>(Np, 1);
+    arma::cx_mat b = A * x;
+
+    // Solve and check
+    auto x_est = arma::solve(A, b);
+    auto diff = arma::abs(x - x_est);
+
+    cout << "Arma solve error = " << diff.max() << endl;
+  }
+
   T.tic();
   {
     cout << "Check BART Export" << endl;

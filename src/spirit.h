@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hSPIRIT_LIB
+#define hSPIRIT_LIB
 
 #include <iostream>
 
@@ -6,6 +7,7 @@
 #include <omp.h>
 #include <armadillo>
 #include <cmath>
+
 #include "ArrayTemplates.hpp"
 #include "tictoc.hpp"
 
@@ -70,3 +72,5 @@ class SPIRIT {
   void getcoils(NDarray::Array<NDarray::Array<complex<float>, 3>, 1> &);
   void phase_correct(NDarray::Array<NDarray::Array<complex<float>, 3>, 1> &);
 };
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hGATINGLIB
+#define hGATINGLIB
 
 #include <omp.h>
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include <armadillo>
+
 #include "ArrayTemplates.hpp"
 #include "gridFFT.h"
 #include "mri_data.h"
@@ -115,3 +117,5 @@ class GATING {
 
  private:
 };
+
+#endif

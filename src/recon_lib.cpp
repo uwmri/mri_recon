@@ -85,8 +85,9 @@ void RECON::set_defaults(void) {
 
   coil_rejection_flag = false;
   coil_rejection_radius = 0.5;
+  coil_rejection_height = 0.5;
   coil_rejection_shape = 1;
-  coil_rejection_thresh = 0.05;
+  coil_rejection_thresh = 0.7;
 
   cycle_spins = 4;
 
@@ -127,6 +128,7 @@ void RECON::set_defaults(void) {
   cauchy_update_number = 30;
   max_eigen_iterations = 30;
   iterative_step_type = STEP_MAXEIG;
+  fast_maxeig = false;
   image_scale_normalization = false;
 }
 
@@ -411,8 +413,9 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   float_flag("-smap_thresh", smap_thresh, "fraction of max signal to threshold the images");
   trig_flag(true, "-coil_rejection", coil_rejection_flag, "turn on coil rejection");
   float_flag("-coil_rejection_radius", coil_rejection_radius, "fractional radius to reject coils outside of FOV");
+  float_flag("-coil_rejection_height", coil_rejection_height, "height of cylinder to reject outside of FOV");
   float_flag("-coil_rejection_thresh", coil_rejection_thresh, "threshold to reject coils outside of FOV");
-  int_flag("-coil_rejection_shape", coil_rejection_shape, "shape for coil rejection (1=sphere, 2=cylinder");
+  int_flag("-coil_rejection_shape", coil_rejection_shape, "shape for coil rejection (0=sphere, 1=cylinder");
 
   help_message << help_strIO(string("-smap_mask"), string("none/circle/sphere"))
                << endl;
@@ -453,6 +456,7 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   int_flag("-threads", threads, "set number of threads");
   trig_flag(true, "-pregate_data", pregate_data_flag, "gate the data prior to reconstructing");
   int_flag("-max_eigen_iterations", max_eigen_iterations, "power iterations for max eigen calculations");
+  trig_flag(true, "-fast_maxeig", fast_maxeig, "Calc step size on single frame");
 
   // First scan for help message
   for (int pos = 0; pos < numarg; pos++) {
@@ -2259,15 +2263,25 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
       if (iterative_step_type == STEP_MAXEIG) {
         // Initialize x to random number
+        std::cout << "Max Eigen Calc for Step size" << std::endl;
         std::cout << "Seeding X" << std::endl;
-        for (int e = 0; e < rcencodes; e++) {
-          for (int t = 0; t < Nt; t++) {
+
+        int max_encode = rcencodes;
+        int max_frame = Nt;
+        if (fast_maxeig) {
+          max_encode = 1;
+          max_frame = 1;
+        }
+
+        for (int e = 0; e < max_encode; e++) {
+          for (int t = 0; t < max_frame; t++) {
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  arma::fvec N = arma::randn<arma::fvec>(2);
+                  float tmp_r = std::rand() / RAND_MAX - 0.5;
+                  float tmp_i = std::rand() / RAND_MAX - 0.5;
                   X(t, e)
-                  (i, j, k) = complex<float>(N(0), N(1));
+                  (i, j, k) = complex<float>(tmp_r, tmp_i);
                 }
               }
             }
@@ -2277,14 +2291,15 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         // Now use iterations through power method
         for (int iteration = 0; iteration < max_eigen_iterations; iteration++) {
           // Get Residue
-          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-               riter != R.end(); riter++) {
-            *riter = 0;
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
+              R(t, e) = 0.0;
+            }
           }
 
           // Get EH*E*x
-          for (int e = 0; e < rcencodes; e++) {
-            for (int t = 0; t < Nt; t++) {
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
               int act_t = times(t);
               int store_t = times_store(t);
               int act_e = (pregate_data_flag) ? (e * Nt + act_t) : (e);
@@ -2311,48 +2326,36 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
                     *titer = 0.1;
                   }
                 }
-                gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t,
-                                 GATING::ITERATIVE, frame_type);
+                gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t, GATING::ITERATIVE, frame_type);
               } else {
                 TimeWeight.resize(kwE.shape());
                 TimeWeight = kwE;
-                gate.weight_data(TimeWeight, e, kxE, kwE, kzE, act_t,
-                                 GATING::ITERATIVE, frame_type);
+                gate.weight_data(TimeWeight, e, kxE, kwE, kzE, act_t, GATING::ITERATIVE, frame_type);
               }
 
               // Differences (Ex)
-              Array<complex<float>, 3> diff_data(kxE.shape(),
-                                                 ColumnMajorArray<3>());
+              Array<complex<float>, 3> diff_data(kxE.shape(), ColumnMajorArray<3>());
               Array<Array<complex<float>, 3>, 1> diff_data_all;
 
               if (this->parallel_coils) {
                 // K-space to Image
-                Array<Array<complex<float>, 3>, 1> TEMP_KDATA =
-                    data.kdata(act_e, Range::all());
-                Array<Array<complex<float>, 3>, 1> TEMP_POINT =
-                    Alloc4DContainer<complex<float> >(
-                        kxE.length(firstDim), kxE.length(secondDim),
-                        kxE.length(thirdDim), data.Num_Coils);
+                Array<Array<complex<float>, 3>, 1> TEMP_KDATA = data.kdata(act_e, Range::all());
+                Array<Array<complex<float>, 3>, 1> TEMP_POINT = Alloc4DContainer<complex<float> >(
+                    kxE.length(firstDim), kxE.length(secondDim), kxE.length(thirdDim), data.Num_Coils);
                 diff_data_all.reference(TEMP_POINT);
 
                 // Ex
-                gridding_CoilThreaded.backward(X(store_t, e), smaps,
-                                               diff_data_all, kxE, kyE, kzE,
-                                               TimeWeight);
+                gridding_CoilThreaded.backward(X(store_t, e), smaps, diff_data_all, kxE, kyE, kzE, TimeWeight);
 
                 // E'Ex
-                gridding_CoilThreaded.forward(R(store_t, e), smaps,
-                                              diff_data_all, kxE, kyE, kzE,
-                                              TimeWeight);
+                gridding_CoilThreaded.forward(R(store_t, e), smaps, diff_data_all, kxE, kyE, kzE, TimeWeight);
               } else {
                 for (int coil = 0; coil < data.Num_Coils; coil++) {
                   // Ex
-                  gridding.backward(X(store_t, e), smaps(coil), diff_data, kxE,
-                                    kyE, kzE, TimeWeight);
+                  gridding.backward(X(store_t, e), smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight);
 
                   // E'Ex
-                  gridding.forward(R(store_t, e), smaps(coil), diff_data, kxE,
-                                   kyE, kzE, TimeWeight);
+                  gridding.forward(R(store_t, e), smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight);
                 }  // Coils
               }
             }
@@ -2360,15 +2363,16 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
           // Power Methods
           double max_eig = 0.0;
-          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-               riter != R.end(); riter++) {
-            max_eig += ArrayEnergy(*riter);
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
+              max_eig += ArrayEnergy(R(t, e));
+            }
           }
           max_eig = sqrt(max_eig);
 
           complex<float> scale = complex<float>(1. / max_eig, 0.0);
-          for (int e = 0; e < rcencodes; e++) {
-            for (int t = 0; t < Nt; t++) {
+          for (int e = 0; e < max_encode; e++) {
+            for (int t = 0; t < max_frame; t++) {
               X(t, e) = scale * R(t, e);
             }
           }
@@ -2387,8 +2391,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       }
 
       // Reset X after max_eigen calculation
-      for (Array<Array<complex<float>, 3>, 2>::iterator riter = X.begin();
-           riter != X.end(); riter++) {
+      for (Array<Array<complex<float>, 3>, 2>::iterator riter = X.begin(); riter != X.end(); riter++) {
         *riter = 0;
       }
 
@@ -3293,8 +3296,11 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         float cy = smaps(0).length(secondDim) / 2;
         float cz = smaps(0).length(thirdDim) / 2;
 
-        Array<double, 1> SignalFraction(data.Num_Coils);
-        SignalFraction = 0.0;
+        Array<double, 1> SignalFractionIn(data.Num_Coils);
+        Array<double, 1> SignalFractionTotal(data.Num_Coils);
+
+        SignalFractionIn = 0.0;
+        SignalFractionTotal = 0.0;
 
         // Get the coils contribution to the image in the center
         switch (this->coil_rejection_shape) {
@@ -3311,8 +3317,9 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
 
                       // Check the radius
                       if ((x * x + y * y + z * z) < (this->coil_rejection_radius * this->coil_rejection_radius)) {
-                        SignalFraction(coil) += abs(image_store(e, coil)(i, j, k));
+                        SignalFractionIn(coil) += abs(image_store(e, coil)(i, j, k));
                       }
+                      SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
                     }  //i
                   }    //j
                 }      //k
@@ -3325,27 +3332,20 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
             for (int coil = 0; coil < data.Num_Coils; coil++) {
               for (int e = 0; e < image_store.length(firstDim); e++) {
                 for (int k = 0; k < smaps(0).length(thirdDim); k++) {
-                  // Check the radius
-                  float z = ((float)k - cz) / (2.0 * cz);
-                  if (abs(z) > this->coil_rejection_radius) {
-                    continue;
-                  }
-
                   for (int j = 0; j < smaps(0).length(secondDim); j++) {
-                    // Check the radius
-                    float y = ((float)j - cy) / (2.0 * cy);
-                    if (abs(y) > this->coil_rejection_radius) {
-                      continue;
-                    }
-
                     for (int i = 0; i < smaps(0).length(firstDim); i++) {
                       // Check the radius
+                      float z = ((float)k - cz) / (2.0 * cz);
+                      float y = ((float)j - cy) / (2.0 * cy);
                       float x = ((float)i - cx) / (2.0 * cx);
-                      if (abs(x) > this->coil_rejection_radius) {
-                        continue;
-                      }
 
-                      SignalFraction(coil) += abs(image_store(e, coil)(i, j, k));
+                      // Check the radius
+                      if (abs(z) < this->coil_rejection_height) {
+                        if ((y * y + x * x) < this->coil_rejection_radius * this->coil_rejection_radius) {
+                          SignalFractionIn(coil) += abs(image_store(e, coil)(i, j, k));
+                        }
+                      }
+                      SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
 
                     }  //i
                   }    //j
@@ -3357,21 +3357,17 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
 
         }  // shape switch
 
-        // Get the total signal
-        double total_signal = 0.0;
-        for (int coil = 0; coil < data.Num_Coils; coil++) {
-          total_signal += SignalFraction(coil);
-        }
-
         //Normalize
         for (int coil = 0; coil < data.Num_Coils; coil++) {
-          SignalFraction(coil) /= total_signal;
+          cout << "Coil = " << coil << "Signal In=" << SignalFractionIn(coil) << " Signal Out=" << SignalFractionTotal(coil);
+          SignalFractionIn(coil) /= SignalFractionTotal(coil);
+          cout << " Fraction=" << SignalFractionIn(coil) << endl;
         }
 
         for (int coil = 0; coil < data.Num_Coils; coil++) {
-          std::cout << "Coil = " << coil << "Signal Fraction =" << SignalFraction(coil) << std::endl;
-          if (SignalFraction(coil) < this->coil_rejection_thresh) {
-            std::cout << "REJECTING COIL " << coil << std::endl;
+          std::cout << "Coil = " << coil << "Signal Fraction =" << SignalFractionIn(coil) << std::endl;
+          if (SignalFractionIn(coil) < this->coil_rejection_thresh) {
+            std::cout << "    REJECTING COIL " << coil << std::endl;
             for (int e = 0; e < image_store.length(firstDim); e++) {
               image_store(e, coil) = complex<float>(0.0, 0.0);
             }

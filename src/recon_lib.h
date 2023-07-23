@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hRECON_LIB
+#define hRECON_LIB
 
 // Standard Libraries
 #include <omp.h>
@@ -123,6 +124,7 @@ class RECON {
   enum IterativeStepType { STEP_CAUCHY,
                            STEP_MAXEIG };
   IterativeStepType iterative_step_type;
+  bool fast_maxeig;
 
   // Code to rotate into low resolution images
   bool phase_rotation;
@@ -159,6 +161,7 @@ class RECON {
   float noise_scale_factor;
   bool coil_rejection_flag;
   float coil_rejection_radius;
+  float coil_rejection_height;
   float coil_rejection_thresh;
   int coil_rejection_shape;
   float demod_freq;
@@ -240,3 +243,5 @@ class RECON {
  private:
   NDarray::Array<bool, 1> smap_skip_encode;
 };
+
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hGRIDFFTCOILTHREADED
+#define hGRIDFFTCOILTHREADED
 
 #include <fftw3.h>
 #include <omp.h>
@@ -188,3 +189,5 @@ class gridFFT_CoilThreaded {
 
  private:
 };
+
+#endif

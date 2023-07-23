@@ -1,4 +1,5 @@
-#pragma once
+#ifndef hIOTEMPLATES
+#define hIOTEMPLATES
 
 inline void help_flag(std::string para, std::string help_string) {
   // Padded string to 25 for format
@@ -9,3 +10,5 @@ inline void help_flag(std::string para, std::string help_string) {
   full_help_string.append(help_string);
   std::cout << full_help_string << std::endl;
 }
+
+#endif
