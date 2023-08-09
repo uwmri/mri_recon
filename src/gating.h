@@ -70,8 +70,8 @@ class GATING {
   ViewshareType vs_type;
   GateType gate_type;
 
-  // Modify scan time retrospectively
-  int retro_scan_time;
+  // Retrospective projection selection
+  int retro_proj_flag;
   float start_proj;
   float end_proj;
 

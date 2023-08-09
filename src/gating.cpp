@@ -188,7 +188,7 @@ GATING::GATING(int numarg, const char **pstring) {
       float_flag("-gate_min_quantile", gate_min_quantile);
       float_flag("-gate_max_quantile", gate_max_quantile);
 
-      trig_flag(1, "-retro_scan_time", retro_scan_time);
+      trig_flag(1, "-retro_proj_flag", retro_proj_flag);
       float_flag("-start_proj", start_proj);
       float_flag("-end_proj", end_proj);
     }
@@ -254,8 +254,8 @@ void GATING::help_message() {
   cout << "Control for ECG Data" << endl;
   help_flag("-bad_ecg_filter", "Filter Bad ECG Vals (>10,000ms)");
 
-  cout << "Control for retrospective scan time adjustment" << endl;
-  help_flag("-retro_scan_time", "Use a subset of acquired projections (time sorted) to reconstruct");
+  cout << "Control for retrospective projection selection" << endl;
+  help_flag("-retro_proj_flag", "Reconstruction using a subset of acquired projections (time sorted)");
   help_flag("-start_proj", "Projection range start");
   help_flag("-end_proj", "Projection range end");
 }
@@ -524,7 +524,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         float min_proj;
         float max_proj;
-        if (retro_scan_time) {
+        if (retro_proj_flag) {
           min_proj = start_proj;
           max_proj = end_proj;
           cout << "Retrospective projection range = " << min_proj << " to " << max_proj << endl;
@@ -596,7 +596,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         
         float min_proj;
         float max_proj;
-        if (retro_scan_time) {
+        if (retro_proj_flag) {
           min_proj = start_proj;
           max_proj = end_proj;
           cout << "Retrospective projection range = " << min_proj << " to " << max_proj << endl;
@@ -685,7 +685,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         float min_proj;
         float max_proj;
-        if (retro_scan_time) {
+        if (retro_proj_flag) {
           min_proj = start_proj;
           max_proj = end_proj;
           cout << "Retrospective projection range = " << min_proj << " to " << max_proj << endl;
@@ -747,7 +747,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         float min_proj;
         float max_proj;
-        if (retro_scan_time) {
+        if (retro_proj_flag) {
           min_proj = start_proj;
           max_proj = end_proj;
         } else {
