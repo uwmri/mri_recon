@@ -440,8 +440,6 @@ double Dmin(const Array<Array<double, 2>, 1> &A);
 
 void nested_workaround(long index, int *N, int *idx, int total);
 
-
-
 template <typename T>
 void Image_Flip(Array<T, 3> &temp, int dir) {
   switch (dir) {
@@ -493,8 +491,6 @@ void Image_Flip(Array<T, 3> &temp, int dir) {
     } break;
   }
 }
-
-
 
 }  // namespace NDarray
 
