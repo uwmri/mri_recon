@@ -828,9 +828,11 @@ void MRI_DATA::read_external_data(string fname) {
   }
 
   // Noise Samples
-  cout << "Read Noise Samples" << endl
-       << flush;
-  file.ReadH5Array("Kdata", "Noise", noise_samples);
+  try {
+    file.ReadH5Array("Kdata", "Noise", noise_samples);
+  } catch (...) {
+    cout << "Can't import noise samples " << endl;
+  }
 
   // file.ReadH5Array( "Gating","kdata_gating",kdata_gating);
 }
