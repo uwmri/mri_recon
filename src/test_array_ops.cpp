@@ -46,7 +46,6 @@ int main(void) {
     arma::cx_mat V = chol(CV);
     arma::cx_mat VT = V.t();
     arma::cx_mat Decorr = VT.i();
-    
   }
 
   {
@@ -60,13 +59,11 @@ int main(void) {
     arma::cx_mat b = A * x;
 
     // Solve and check
-    auto x_est = arma::solve(A,b);
+    auto x_est = arma::solve(A, b);
     auto diff = arma::abs(x - x_est);
 
     cout << "Arma solve error = " << diff.max() << endl;
-
   }
-
 
   T.tic();
   {
