@@ -440,6 +440,58 @@ double Dmin(const Array<Array<double, 2>, 1> &A);
 
 void nested_workaround(long index, int *N, int *idx, int total);
 
+template <typename T>
+void Image_Flip(Array<T, 3> &temp, int dir) {
+  switch (dir) {
+    case (0): {
+      for (int k = 0; k < temp.extent(thirdDim); k++) {
+        for (int j = 0; j < temp.extent(secondDim); j++) {
+          int start = 0;
+          int stop = temp.extent(firstDim) - 1;
+          for (; start < temp.extent(firstDim) / 2; start++, stop--) {
+            T val_start = temp(start, j, k);
+            temp(start, j, k) = temp(stop, j, k);
+            temp(stop, j, k) = val_start;
+          }
+        }
+      }
+    } break;
+
+    case (1): {
+      for (int k = 0; k < temp.extent(thirdDim); k++) {
+        for (int i = 0; i < temp.extent(firstDim); i++) {
+          int start = 0;
+          int stop = temp.extent(secondDim) - 1;
+          for (; start < temp.extent(secondDim) / 2; start++, stop--) {
+            T val_start = temp(i, start, k);
+            temp(i, start, k) = temp(i, stop, k);
+            temp(i, stop, k) = val_start;
+          }
+        }
+      }
+    } break;
+
+    case (2): {
+      for (int j = 0; j < temp.extent(secondDim); j++) {
+        for (int i = 0; i < temp.extent(firstDim); i++) {
+          int start = 0;
+          int stop = temp.extent(thirdDim) - 1;
+          for (; start < temp.extent(thirdDim) / 2; start++, stop--) {
+            T val_start = temp(i, j, start);
+            temp(i, j, start) = temp(i, j, stop);
+            temp(i, j, stop) = val_start;
+          }
+        }
+      }
+
+    } break;
+
+    default: {
+      throw std::invalid_argument("Image Flip direction must be 0, 1, 2");
+    } break;
+  }
+}
+
 }  // namespace NDarray
 
 #endif
