@@ -3022,46 +3022,57 @@ void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
 
 inline float sqr(float x) { return (x * x); }
 
-void RECON::autofov(MRI_DATA &data, AutoFovMode automode, float autofov_thresh) {
-  std::cout << "AUTOFOV :: Reconstruct images" << std::endl;
-  std::cout << "AUTOFOV :: Native size " << data.xres << " x " << data.yres << " x " << data.zres << std::endl;
-
-  HDF5 AutoFovDebug;
-  AutoFovDebug = HDF5("DebugAutoFOV.h5", "w");
-
-  gridFFT autofov_grid;
-  autofov_grid.precalc_gridding(data.zres, data.yres, data.xres, data);
-
+void RECON::autofov(MRI_DATA &data, string &autofov_path, AutoFovMode automode, float autofov_thresh) {
   Array<float, 3> sos_image;
-  sos_image.setStorage(ColumnMajorArray<3>());
-  sos_image.resize(autofov_grid.image.shape());
-  sos_image = 0.0;
+  if (!autofov_path.empty()) {
+    // read in existing autofov h5 file if flag is passed
+    std::cout << "AUTOFOV :: Read in existing autofov file" << std::endl;
 
-  Array<complex<float>, 3> complex_image;
-  complex_image.setStorage(ColumnMajorArray<3>());
-  complex_image.resize(autofov_grid.image.shape());
+    HDF5 AutoFovDebug;
+    AutoFovDebug = HDF5(autofov_path, "r");
+    AutoFovDebug.ReadH5Array("Images", "SOS", sos_image);
 
-  for (int coil = 0; coil < data.Num_Coils; coil++) {
-    complex_image = complex<float>(0.0, 0.0);
-    for (int e = 0; e < 1; e++) {
-      cout << "AUTOFOV :: Coil " << coil << "Encode " << e << endl;
+  } else {
+    std::cout << "AUTOFOV :: Reconstruct images" << std::endl;
+    std::cout << "AUTOFOV :: Native size " << data.xres << " x " << data.yres << " x " << data.zres << std::endl;
 
-      // Simple gridding
+    HDF5 AutoFovDebug;
+    AutoFovDebug = HDF5("DebugAutoFOV.h5", "w");
+
+    gridFFT autofov_grid;
+    autofov_grid.precalc_gridding(data.zres, data.yres, data.xres, data);
+
+    sos_image.setStorage(ColumnMajorArray<3>());
+    sos_image.resize(autofov_grid.image.shape());
+    sos_image = 0.0;
+
+    Array<complex<float>, 3> complex_image;
+    complex_image.setStorage(ColumnMajorArray<3>());
+    complex_image.resize(autofov_grid.image.shape());
+
+    for (int coil = 0; coil < data.Num_Coils; coil++) {
       complex_image = complex<float>(0.0, 0.0);
-      autofov_grid.forward(complex_image, data.kdata(e, coil), data.kx(e), data.ky(e), data.kz(e), data.kw(e));
-      sos_image += norm(complex_image);
+      for (int e = 0; e < 1; e++) {
+        cout << "AUTOFOV :: Coil " << coil << "Encode " << e << endl;
+
+        // Simple gridding
+        complex_image = complex<float>(0.0, 0.0);
+        autofov_grid.forward(complex_image, data.kdata(e, coil), data.kx(e), data.ky(e), data.kz(e), data.kw(e));
+        sos_image += norm(complex_image);
+      }
     }
+    sos_image = sqrt(sos_image);
+    cout << "AUTOFOV :: Shape" << sos_image.shape() << endl;
+
+    // Blur in place
+    AutoFovDebug.AddH5Array("Images", "SOS_PreBlur", sos_image);
+    gaussian_blur(sos_image, 5.0, 5.0, 5.0);
+
+    // Temp write to disk (remove once tested)
+    AutoFovDebug.AddH5Array("Images", "SOS", sos_image);
+    // ArrayWrite(sos_image, "AutoFov.dat");
+
   }
-  sos_image = sqrt(sos_image);
-  cout << "AUTOFOV :: Shape" << sos_image.shape() << endl;
-
-  // Blur in place
-  AutoFovDebug.AddH5Array("Images", "SOS_PreBlur", sos_image);
-  gaussian_blur(sos_image, 5.0, 5.0, 5.0);
-
-  // Temp write to disk (remove once tested)
-  AutoFovDebug.AddH5Array("Images", "SOS", sos_image);
-  // ArrayWrite(sos_image, "AutoFov.dat");
 
   // Now we find the bounding box using a threshold
   float thresh = autofov_thresh * max(sos_image);
