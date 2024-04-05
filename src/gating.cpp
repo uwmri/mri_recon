@@ -73,6 +73,7 @@ GATING::GATING(int numarg, const char **pstring) {
   gate_type = GATE_NONE;
 
   // Retrospective scan time control (s)
+  retro_proj_flag = 0;
   start_proj = 0;
   end_proj = 100;
 
@@ -270,7 +271,7 @@ void GATING::filter_resp(const MRI_DATA &data) {
   cout << "Time range [ " << min_time << " to " << max_time << " ] span = " << (max_time - min_time) << endl;
 
   // Time in seconds to grab median from
-  double fsize = 5.0;
+  double fsize = adaptive_resp_window;
 
   // Gate times
   cout << "Sorting Gate Data by Acquisition Time" << endl;
@@ -521,6 +522,9 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         // Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
         int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+        if ((2 * fsize) >= N) {
+          fsize = fsize / 2;
+        }
 
         float min_proj;
         float max_proj;
@@ -545,7 +549,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
           if (stop >= N) {
             stop = N - 1;
-            start = time_linear_resp.n_elem - 1 - 2 * fsize;
+            start = N - 1 - 2 * fsize;
           }
 
           arma::vec temp = time_linear_resp.rows(start, stop);
@@ -592,6 +596,9 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         // Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
         int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+        if ((2 * fsize) > N) {
+          fsize = fsize / 2;
+        }
         int slope_window = (int) fsize/(adaptive_resp_window*10);                                       // 100 ms window for determining slope
         
         float min_proj;
@@ -619,7 +626,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
           }
           if (stop >= N) {
             stop = N - 1;
-            start = time_linear_resp.n_elem - 1 - 2 * fsize;
+            start = N - 1 - 2 * fsize;
           }
 
           if (slope_start < 0) {
@@ -628,7 +635,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
           }
           if (slope_stop >= N) {
             slope_stop = N - 1;
-            slope_start = time_linear_resp.n_elem - 1 - 2 * slope_window;
+            slope_start = N - 1 - 2 * slope_window;
           }
 
           arma::vec temp = time_linear_resp.rows(start, stop);
@@ -737,7 +744,10 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         // This version uses a 10 second window to define the threshold and
         // weights. Size of histogram
         cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
+        int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
+        if ((2 * fsize) > N) {
+          fsize = fsize / 2;
+        }
 
         arma::vec temp = time_linear_resp;
         arma::vec temp2 = sort(temp);
