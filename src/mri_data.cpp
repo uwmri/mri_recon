@@ -862,8 +862,7 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   int Num_Pixels = 0;
   float kr_thresh_squared = kr_thresh * kr_thresh;
 
-#pragma omp parallel for reduction(+ \
-                                   : Num_Pixels)
+#pragma omp parallel for reduction(+ : Num_Pixels)
   for (int encode = 0; encode < kx.length(firstDim); encode++) {
     // Assign iterators to go over the data
     Array<float, 3>::const_iterator kx_iter = this->kx(encode).begin();
@@ -907,9 +906,9 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             idx++;
           }
         }  // pos
-      }    // view
-    }      // slice
-  }        // encode
+      }  // view
+    }  // slice
+  }  // encode
   cout << "Copied pixels = " << idx << endl
        << flush;
   cout << "took " << ctimer << " s to copy data" << endl;
@@ -950,10 +949,10 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             }  // coil
             kdata(encode, vcoil)(pos, view, slice) = tmp;
           }  // vcoil
-        }    // pos
-      }      // view
-    }        // slice
-  }          // encode
+        }  // pos
+      }  // view
+    }  // slice
+  }  // encode
   cout << "took " << ctimer << " s to rotate data" << endl;
 
   /* Temp data structure
@@ -972,9 +971,10 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
 }
 
 template <typename T>
-arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noise_samples) {
-  std::cout << "Noise Samples : " << noise_samples.length(firstDim) << std::endl;
-  std::cout << "Noise Pre-Whitening" << std::endl;
+arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noise_samples, int reference_coil) {
+  std::cout << "WHITEN::Noise Samples : " << noise_samples.length(firstDim) << std::endl;
+  std::cout << "WHITEN::Reference coil : " << reference_coil << std::endl;
+  std::cout << "WHITEN::Noise Pre-Whitening" << std::endl;
 
   // Copy into matrix (coil x samples)
   int Num_Coils = noise_samples.length(secondDim);
@@ -985,31 +985,58 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
     }
   }
 
-  std::cout << "Calc Cov" << std::endl;
-  arma::cx_mat CV = NoiseData * NoiseData.t();
+  // Swap reference coil to first coil to avoid rotation
+  arma::cx_mat CSWAP = arma::eye<arma::cx_mat>(Num_Coils, Num_Coils);
+  if (reference_coil != 0) {
+    std::cout << "WHITEN::Swap " << reference_coil << " to 0 for referencing" << std::endl;
+    CSWAP.swap_rows(0, reference_coil);
+  }
+  NoiseData = CSWAP * NoiseData;
 
-  std::cout << "Whiten" << std::endl;
+  std::cout << "WHITEN::Calc Cov" << std::endl;
+  arma::cx_mat CV = NoiseData * NoiseData.t();
+  arma::mat CV_ABS = arma::abs(CV);
+  cout << "WHITEN::Noise Covariance" << endl;
+  cout << "  size = " << CV_ABS.n_rows << " x " << CV_ABS.n_cols << endl;
+  cout << CV_ABS << endl;
+
+  std::cout << "WHITEN::Calc whitening matrix" << std::endl;
   arma::cx_mat V = chol(CV);
   arma::cx_mat VT = V.t();
   arma::cx_mat Decorr = VT.i();
+
+  // Swap the rotation matrix back
+  if (reference_coil != 0) {
+    Decorr = CSWAP * Decorr * CSWAP;
+
+    cout << "WHITEN::Noise Decorrelation matrix" << endl;
+    cout << "  size = " << Decorr.n_rows << " x " << Decorr.n_cols << endl;
+    cout << Decorr << endl;
+  }
 
   // Test Whitening
   arma::cx_mat W = NoiseData;
   arma::cx_mat temp = arma::randu<arma::cx_mat>(Num_Coils);
   for (int i = 0; i < noise_samples.length(firstDim); i++) {
+    // Copy coil data
     for (int coil = 0; coil < Num_Coils; coil++) {
-      temp(coil, 0) = W(coil, i);
+      temp(coil, 0) = noise_samples(i, coil);
     }
+
+    // Whiten
     arma::cx_mat temp2 = Decorr * temp;
 
+    // Copy back
     for (int coil = 0; coil < Num_Coils; coil++) {
       W(coil, i) = temp2(coil, 0);
     }
   }
-  //arma::cx_mat CV_POST = W * W.t();
-  //cout << "Noise Covariance post whiten" << endl;
-  //cout << "  size = " << W.n_rows << " x " << W.n_cols << endl;
-  //cout << CV_POST << endl;
+
+  arma::cx_mat CV_POST = W * W.t();
+  arma::mat CV_POST_ABS = arma::abs(CV_POST);
+  cout << "WHITEN::Noise Covariance post whiten" << endl;
+  cout << "  size = " << W.n_rows << " x " << W.n_cols << endl;
+  cout << CV_POST_ABS << endl;
 
   arma::cx_fmat whitening_matrix;
   whitening_matrix.copy_size(Decorr);
@@ -1022,13 +1049,13 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
   return whitening_matrix;
 }
 
-arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<float>, 2> &noise_samples) {
-  arma::cx_fmat decorr = whitening_matrix_calc<float>(noise_samples);
+arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<float>, 2> &noise_samples, int reference_coil) {
+  arma::cx_fmat decorr = whitening_matrix_calc<float>(noise_samples, reference_coil);
   return (decorr);
 }
 
-arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<double>, 2> &noise_samples) {
-  arma::cx_fmat decorr = whitening_matrix_calc<double>(noise_samples);
+arma::cx_fmat MRI_DATA::get_whitening_matrix(const Array<complex<double>, 2> &noise_samples, int reference_coil) {
+  arma::cx_fmat decorr = whitening_matrix_calc<double>(noise_samples, reference_coil);
   return (decorr);
 }
 
@@ -1043,7 +1070,7 @@ void MRI_DATA::whiten(void) {
   }
 
   // Get the whitening matrix
-  arma::cx_fmat Decorr = MRI_DATA::get_whitening_matrix(noise_samples);
+  arma::cx_fmat Decorr = MRI_DATA::get_whitening_matrix(noise_samples, 0);
 
   // Now Whiten Actual Data
   cout << "Whiten all data" << endl;
@@ -1076,11 +1103,8 @@ void MRI_DATA::whiten(void) {
 }
 
 void MRI_DATA::add_noise(float noise_factor) {
-  cout << "Adding " << (100.0 * (noise_factor - 1.0)) << "% more noise."
-       << endl;
-  float noise_std =
-      sqrt(noise_factor * noise_factor - 1.0) /
-      sqrt(2.0);  // variance is additive but standard deviation is not
+  cout << "Adding " << (100.0 * (noise_factor - 1.0)) << "% more noise." << endl;
+  float noise_std = sqrt(noise_factor * noise_factor - 1.0) / sqrt(2.0);  // variance is additive but standard deviation is not
   for (int e = 0; e < Num_Encodings; e++) {
     for (int coil = 0; coil < Num_Coils; coil++) {
       arma::cube noise_real = arma::randn<arma::cube>(
