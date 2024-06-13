@@ -862,7 +862,8 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   int Num_Pixels = 0;
   float kr_thresh_squared = kr_thresh * kr_thresh;
 
-#pragma omp parallel for reduction(+ : Num_Pixels)
+#pragma omp parallel for reduction(+ \
+                                   : Num_Pixels)
   for (int encode = 0; encode < kx.length(firstDim); encode++) {
     // Assign iterators to go over the data
     Array<float, 3>::const_iterator kx_iter = this->kx(encode).begin();
@@ -906,9 +907,9 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             idx++;
           }
         }  // pos
-      }  // view
-    }  // slice
-  }  // encode
+      }    // view
+    }      // slice
+  }        // encode
   cout << "Copied pixels = " << idx << endl
        << flush;
   cout << "took " << ctimer << " s to copy data" << endl;
@@ -949,10 +950,10 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             }  // coil
             kdata(encode, vcoil)(pos, view, slice) = tmp;
           }  // vcoil
-        }  // pos
-      }  // view
-    }  // slice
-  }  // encode
+        }    // pos
+      }      // view
+    }        // slice
+  }          // encode
   cout << "took " << ctimer << " s to rotate data" << endl;
 
   /* Temp data structure

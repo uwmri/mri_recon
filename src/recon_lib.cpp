@@ -910,7 +910,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
   }
 
   // Final Image Solution
-  cout << "Alloc Container for Solution " << "( " << rcxres << "," << rcyres << "," << rczres << ") x (" << Nt << "," << rcencodes << ")" << endl
+  cout << "Alloc Container for Solution "
+       << "( " << rcxres << "," << rcyres << "," << rczres << ") x (" << Nt << "," << rcencodes << ")" << endl
        << flush;
   Array<Array<complex<float>, 3>, 2> X = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
 
@@ -1070,7 +1071,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
             // cout << e << "," << t << "took " << T << "s" << endl;
           }  // Time
-        }  // Encode
+        }    // Encode
 
         // Get Scaling Factor R'P / R'R
         complex<double> scale_RhR = complex<double>(ArrayEnergy(RR), 0);
@@ -1328,7 +1329,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               LHS(t, e) += admm_rho * P(t, e);
 
             }  // t
-          }  // e
+          }    // e
 
           //----------------------------------------------------
           //  Now perform gradient update
@@ -1581,7 +1582,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 
           }  // t
-        }  // e
+        }    // e
 
         // Regularization
         if ((iteration == 0) && (l2reg.lambda > 0)) {
@@ -1996,7 +1997,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             }
             cout << "\r" << e << "," << t << "took " << T << "s" << flush;
           }  // Time
-        }  // Encode
+        }    // Encode
 
         // Scale the image to set aproximate value to 1
         if (this->image_scale_normalization && (iteration == 0)) {
@@ -2242,7 +2243,7 @@ double RECON::kspace_residual(MRI_DATA &data) {
       // cout << "Residual took " << T << endl;
 
     }  // Coils
-  }  // Encode
+  }    // Encode
 
   return (residual);
 }
@@ -2761,10 +2762,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                       }
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
                     }  // i
-                  }  // j
-                }  // k
-              }  // e
-            }  // coil
+                  }    // j
+                }      // k
+              }        // e
+            }          // coil
 
           } break;
 
@@ -2788,10 +2789,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
 
                     }  // i
-                  }  // j
-                }  // k
-              }  // e
-            }  // coil
+                  }    // j
+                }      // k
+              }        // e
+            }          // coil
 
           } break;
 
@@ -2813,7 +2814,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
             }
           }
         }  // coil
-      }  // coil rejection
+      }    // coil rejection
 
       // Spirit Code
       switch (coil_combine_type) {

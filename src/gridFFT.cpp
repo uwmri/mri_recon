@@ -1156,9 +1156,9 @@ void gridFFT::chop_grid_forward(const Array<complex<float>, 3> &dataA,
           /*This Memory Access is the Bottleneck - Also not thread safe!*/
           // k3d_grid.vals[lz][ly][lx]+=temp2;
         } /* end lz loop */
-      } /* end ly */
-    } /* end lx */
-  } /* end data loop */
+      }   /* end ly */
+    }     /* end lx */
+  }       /* end data loop */
 
   return;
 }
@@ -1309,8 +1309,8 @@ void gridFFT::chop_grid_backward(Array<complex<float>, 3> &dataA,
           temp += wtx * k3d_grid(lx, ly, lz);
 
         } /* end lz loop */
-      } /* end ly */
-    } /* end lx */
+      }   /* end ly */
+    }     /* end lx */
 
     if (sub_data_flag) {
       dataA(ii, jj, kk) = temp - diff_dataA(ii, jj, kk);
