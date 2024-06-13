@@ -67,6 +67,9 @@ void RECON::set_defaults(void) {
 
   smap_res = 8;
   intensity_correction = false;
+  intensity_correction_blurX = 20.0;
+  intensity_correction_blurY = 20.0;
+  intensity_correction_blurZ = 20.0;
   reset_dens = false;
 
   threads = -1;
@@ -82,6 +85,8 @@ void RECON::set_defaults(void) {
   smap_nex_encodes = false;
   smap_thresh = 0.0;
   smap_mask = SMAPMASK_NONE;
+  smap_norm = SMAPNORM_SOS;
+  body_coil_idx = -1;
 
   coil_rejection_flag = false;
   coil_rejection_radius = 0.5;
@@ -400,6 +405,9 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   trig_flag(true, "-export_smaps", export_smaps, "save sensitivity maps to .h5");
   trig_flag(true, "-debug_smaps", debug_smaps, "save debugging sensitity map images to .h5");
   trig_flag(true, "-intensity_correction", intensity_correction, "attempt to intensity correct the images");
+  float_flag("-intensity_correction_blurX", intensity_correction_blurX, "Gaussian blurring in x for intensity correction");
+  float_flag("-intensity_correction_blurY", intensity_correction_blurY, "Gaussian blurring in x for intensity correction");
+  float_flag("-intensity_correction_blurZ", intensity_correction_blurZ, "Gaussian blurring in x for intensity correction");
   int_flag("-walsh_block_sizeX", walsh_block_sizeX, "size of block in x for Walsh method");
   int_flag("-walsh_block_sizeY", walsh_block_sizeY, "size of block in y for Walsh method");
   int_flag("-walsh_block_sizeZ", walsh_block_sizeZ, "size of block in z for Walsh method");
@@ -407,6 +415,9 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   float_flag("-extra_blurY", blurY, "Gaussian blurring in y for coil sensitivity mapping");
   float_flag("-extra_blurZ", blurZ, "Gaussian blurring in z for coil sensitivity mapping");
   trig_flag(true, "-phase_rotation", phase_rotation, "rotate the phase of the coil maps to match first coil");
+  trig_flag(SMAPNORM_SOS, "-smap_norm_sos", smap_norm, "normalize the sensitivity maps to sum of squares");
+  trig_flag(SMAPNORM_BODY, "-smap_norm_body", smap_norm, "normalize the sensitivity maps using body coil");
+  int_flag("-body_coil_idx", body_coil_idx, "index of body coil for normalization");
 
   trig_flag(true, "-smap_use_all_encodes", smap_use_all_encodes, "use all encodes for mapping instead of just the first");
   trig_flag(true, "-smap_nex_encodes", smap_nex_encodes, "use all encodes for mapping but just add them");
@@ -604,6 +615,7 @@ void RECON::init_recon(int argc, const char **argv, MRI_DATA &data) {
       l2reg = L2REG(argc, argv);
 
       if (cs_temporal_transform == COMPOSITE_DIFF) {
+        composite_image.free();
         composite_image.setStorage(ColumnMajorArray<3>());
         composite_image.resize(rcxres, rcyres, rczres);
         composite_image = complex<float>(0.0, 0.0);
@@ -786,483 +798,6 @@ void vor_dcf2(Array<Array<float, 3>, 2> &Kw, Array<Array<float, 3>, 2> &Ky,
   }
 }
 
-Array<Array<complex<float>, 3>, 2> RECON::test_sms(MRI_DATA &data_cal,
-                                                   MRI_DATA &data, int argc,
-                                                   const char **argv) {
-  // Input should be:
-  //  data_cal     - A dataset without sms used to calc sensitvity maps
-  //  data	 	 - A dataset with sms reconed in dynamic fashion
-  //  passthrough for arguments
-
-  int flex = 1;
-  int cal_frames = data_cal.Num_Encodings / (flex + 1);
-  int sms_frames = data.Num_Encodings / (flex + 1);
-  int cal_encodes = flex + 1;
-  int sms_encodes = flex + 1;
-  int Ncoils = data.Num_Coils;
-  int zpad = 8;  // Pad the slice to account for edge effect.
-  int sms_factor = data.sms_factor;
-
-  cout << "Starting SMS " << endl;
-  cout << "Flex = " << flex << endl;
-  cout << "Input Frames (cal) = " << data_cal.Num_Encodings << endl;
-  cout << "Input Frames (dynamic) = " << data.Num_Encodings << endl;
-  cout << "Cal Frames = " << cal_frames << endl;
-  cout << "Sms Frames = " << sms_frames << endl;
-  cout << "Sms Factor = " << sms_factor << endl;
-
-  // Use Native Resultion
-  rcxres = (rcxres == -1) ? (data.recon_res(0)) : (rcxres);
-  rcyres = (rcyres == -1) ? (data.recon_res(1)) : (rcyres);
-  rczres = (rczres == -1) ? (data.recon_res(2) + zpad) : (rczres + zpad);
-
-  cout << "Sms Matrix = [ " << rcxres << "," << rcyres << "," << rczres << "]"
-       << endl;
-
-  typedef Array<complex<float>, 3> Complex3D;
-  typedef Array<float, 3> Float3D;
-
-  // Allocate Sensiticty Maps
-  Array<Array<complex<float>, 3>, 1> temp = Alloc4DContainer<complex<float> >(rcxres, rcyres, rczres, Ncoils);
-  smaps.reference(temp);
-
-  cout << "Allocate Sense Maps" << endl
-       << flush;
-  if (Ncoils == 1) {
-    smaps(0) = complex<float>(1.0, 0.0);
-  } else {
-    int Num_Pts = data_cal.kx(0).length(firstDim);
-    int Num_Readouts = data_cal.kx(0).length(secondDim);
-    int Num_Slices = data_cal.kx(0).length(thirdDim);
-
-    // Get the Calibration
-    cout << "Copying Cal Data" << endl;
-    Array<Complex3D, 3> CalData = Alloc6DContainer<complex<float> >(
-        Num_Pts, Num_Readouts, Num_Slices, cal_frames, cal_encodes, Ncoils);
-    Array<Float3D, 2> CalKx = Alloc5DContainer<float>(
-        Num_Pts, Num_Readouts, Num_Slices, cal_frames, cal_encodes);
-    Array<Float3D, 2> CalKy = Alloc5DContainer<float>(
-        Num_Pts, Num_Readouts, Num_Slices, cal_frames, cal_encodes);
-    Array<Float3D, 2> CalKz = Alloc5DContainer<float>(
-        Num_Pts, Num_Readouts, Num_Slices, cal_frames, cal_encodes);
-    Array<Float3D, 2> CalKw = Alloc5DContainer<float>(
-        Num_Pts, Num_Readouts, Num_Slices, cal_frames, cal_encodes);
-    Array<Float3D, 3> CalZ = Alloc6DContainer<float>(
-        Num_Pts, Num_Readouts, Num_Slices, cal_frames, cal_encodes, 1);
-
-    for (int e = 0; e < cal_encodes; e++) {
-      for (int t = 0; t < cal_frames; t++) {
-        CalKx(t, e) = data_cal.kx(t * cal_encodes + e);
-        CalKy(t, e) = data_cal.ky(t * cal_encodes + e);
-        CalKz(t, e) = data_cal.kz(t * cal_encodes + e);
-        CalKw(t, e) = data_cal.kw(t * cal_encodes + e);
-        CalZ(t, e, 0) = data_cal.z(t * cal_encodes + e, 0);
-
-        for (int coil = 0; coil < Ncoils; coil++) {
-          CalData(t, e, coil) = data_cal.kdata(t * cal_encodes + e, coil);
-          data_cal.kdata(t * cal_encodes + e, coil).resize(1, 1, 1);
-        }
-      }
-    }
-
-    // This calculates the weighting based on voronoi diagram
-    vor_dcf2(CalKw, CalKy, CalKz);
-
-    //  This is just to get sensitivty maps
-    smsEncode smsCgrid;
-    smsCgrid.read_commandline(argc, argv);
-    smsCgrid.precalc_gridding(rczres, rcyres, rcxres, cal_frames, cal_encodes, 1, data_cal);
-
-    cout << "Alloc Image" << endl
-         << flush;
-    Array<Array<complex<float>, 3>, 2> image_store = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, cal_encodes, Ncoils);
-
-    // Compute Forward Transform
-    cout << "Create X" << endl
-         << flush;
-    Array<Array<complex<float>, 3>, 2> xdf = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, cal_frames, cal_encodes);
-
-    Complex3D smaptest(rcxres, rcyres, rczres, ColumnMajorArray<3>());
-    smaptest = complex<float>(1.0, 0.0);
-
-    // Now grid each frame
-    for (int coil = 0; coil < Ncoils; coil++) {
-      cout << "Sense Map " << coil << endl
-           << flush;
-
-      // Zero the storage
-      for (int e = 0; e < cal_encodes; e++) {
-        for (int t = 0; t < cal_frames; t++) {
-          xdf(t, e) = complex<float>(0.0, 0.0);
-        }
-      }
-
-      // Grid the data
-      Array<Complex3D, 2> temp = CalData(Range::all(), Range::all(), coil);
-      smsCgrid.forward(xdf, smaptest, temp, CalKx, CalKy, CalKz, CalKw, CalZ);
-
-      // Sum over the coils
-      for (int e = 0; e < cal_encodes; e++) {
-        image_store(e, coil) = complex<float>(0.0, 0.0);
-        for (int t = 0; t < cal_frames; t++) {
-          image_store(e, coil) += xdf(t, e);
-        }
-
-        {
-          char name[1024];
-          sprintf(name, "PreNormSmap_Encode_%d_Coil_%03d.dat", e, coil);
-          ArrayWrite(image_store(e, coil), name);
-        }
-      }
-    }
-
-    float max_val = 0.0;
-    for (Array<Array<complex<float>, 3>, 2>::iterator miter =
-             image_store.begin();
-         miter != image_store.end(); miter++) {
-      gaussian_blur(*miter, extra_blurX, extra_blurY, extra_blurZ);  // TEMP
-      float temp = max(abs(*miter));
-      max_val += temp * temp;
-    }
-
-    // Spirit Code
-    switch (coil_combine_type) {
-      case (ESPIRIT): {
-        // Espirit (k-space kernal Eigen method)
-        cout << "eSPIRIT Based Maps" << endl;
-        SPIRIT S;
-        S.read_commandline(argc, argv);
-        S.init(rcxres, rcyres, rczres, data.Num_Coils);
-        S.generateEigenCoils(smaps, image_store);
-      } break;
-
-      case (WALSH): {
-        // Image space eigen Method
-        eigen_coils(smaps, image_store);
-        sos_normalize(smaps);
-      } break;
-
-      case (LOWRES): {
-        float scale = 1 / sqrt(max_val);
-        cout << "Scale" << scale << endl;
-        for (int coil = 0; coil < Ncoils; coil++) {
-          smaps(coil) = scale * image_store(cal_encodes - 1, coil);
-        }
-        sos_normalize(smaps);
-      }
-    }
-
-    cout << "Writing Smaps " << endl
-         << flush;
-    for (int coil = 0; coil < Ncoils; coil++) {
-      char name[1024];
-      sprintf(name, "Smap%03d.dat", coil);
-      ArrayWrite(smaps(coil), name);
-    }
-  }
-
-  int Num_Pts = data.kx(0).length(firstDim);
-  int Num_Readouts = data.kx(0).length(secondDim);
-  int Num_Slices = data.kx(0).length(thirdDim);
-
-  // Get the Dynamic Data
-  cout << "Alloc Dynamic Data" << endl;
-  Array<Complex3D, 3> SmsData = Alloc6DContainer<complex<float> >(
-      Num_Pts, Num_Readouts, Num_Slices, sms_frames, sms_encodes, Ncoils);
-  Array<Float3D, 2> SmsKx = Alloc5DContainer<float>(
-      Num_Pts, Num_Readouts, Num_Slices, sms_frames, sms_encodes);
-  Array<Float3D, 2> SmsKy = Alloc5DContainer<float>(
-      Num_Pts, Num_Readouts, Num_Slices, sms_frames, sms_encodes);
-  Array<Float3D, 2> SmsKz = Alloc5DContainer<float>(
-      Num_Pts, Num_Readouts, Num_Slices, sms_frames, sms_encodes);
-  Array<Float3D, 2> SmsKw = Alloc5DContainer<float>(
-      Num_Pts, Num_Readouts, Num_Slices, sms_frames, sms_encodes);
-  Array<Float3D, 3> SmsZ = Alloc6DContainer<float>(
-      Num_Pts, Num_Readouts, Num_Slices, sms_frames, sms_encodes, sms_factor);
-
-  cout << "Copy Dynamic Data (sms_factor = " << data.sms_factor
-       << ", coils = " << Ncoils << ")" << endl;
-  for (int e = 0; e < sms_encodes; e++) {
-    for (int t = 0; t < sms_frames; t++) {
-      int offset = t * sms_encodes + e;
-
-      SmsKx(t, e) = data.kx(offset);
-      SmsKy(t, e) = data.ky(offset);
-      SmsKz(t, e) = data.kz(offset);
-      SmsKw(t, e) = data.kw(offset);
-
-      for (int sms_pos = 0; sms_pos < data.sms_factor; sms_pos++) {
-        SmsZ(t, e, sms_pos) = data.z(offset, sms_pos);
-      }
-
-      for (int coil = 0; coil < Ncoils; coil++) {
-        SmsData(t, e, coil) = data.kdata(offset, coil);
-        data.kdata(offset, coil).resize(1, 1, 1);
-      }
-    }
-  }
-
-  cout << "Prep Thresholds" << endl
-       << flush;
-  {
-    // Setup 3D Wavelet
-    wave = WAVELET3D(
-        TinyVector<int, 3>(rcxres, rcyres, rczres),
-        TinyVector<int, 3>(wavelet_levelsX, wavelet_levelsY, wavelet_levelsZ),
-        WAVELET3D::WAVE_DB4);
-
-    // Setup Soft Thresholding
-    softthresh = THRESHOLD(argc, argv);
-
-    // TEMPX
-    lranktime = LOWRANKCOIL(argc, argv);
-  }
-
-  // Signal that the recon is ready to perform the requested reconstruction
-  prep_done = true;
-
-  // Setup Gridding + FFT Structure
-  smsEncode smsgrid;
-  smsgrid.read_commandline(argc, argv);
-  smsgrid.precalc_gridding(rczres, rcyres, rcxres, sms_frames, sms_encodes, 2,
-                           data);
-  int rcframes = sms_frames + smsgrid.sms_factor - 1;
-  cout << "Recon for " << rcframes << " frames " << endl;
-
-  {
-    // Temp ones
-    Complex3D ONES(rcxres, rcyres, rczres, ColumnMajorArray<3>());
-    ONES = complex<float>(1.0, 0.0);
-
-    Complex3D SOS(rcxres, rcyres, rczres, ColumnMajorArray<3>());
-    SOS = complex<float>(0.0, 0.0);
-
-    Array<Complex3D, 2> TEMP5 = Alloc5DContainer<complex<float> >(
-        rcxres, rcyres, rczres, rcframes, sms_encodes);
-    Complex3D TEMP3(rcxres, rcyres, rczres, ColumnMajorArray<3>());
-
-    for (int coil = 0; coil < Ncoils; coil++) {
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          TEMP5(t, e) = 0.0;
-        }
-      }
-      TEMP3 = 0.0;
-
-      Array<Complex3D, 2> temp = SmsData(Range::all(), Range::all(), coil);
-
-      // Grid
-      cout << "\t\tSOS Forward" << flush;
-      smsgrid.forward(TEMP5, ONES, temp, SmsKx, SmsKy, SmsKz, SmsKw, SmsZ);
-
-      // Average
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          TEMP3 += TEMP5(t, e);
-        }
-      }
-
-      // Add to sos
-      SOS += norm(TEMP3);
-    }
-    SOS = sqrt(SOS);
-
-    ArrayWriteMag(SOS, "SOS.dat");
-  }
-
-  // Allocate storage container
-  Array<Array<complex<float>, 3>, 2> X = Alloc5DContainer<complex<float> >(
-      rcxres, rcyres, rczres, rcframes, sms_encodes);
-
-  // Compute Forward Transform
-  cout << "Create X" << endl
-       << flush;
-  Array<Complex3D, 2> R = Alloc5DContainer<complex<float> >(
-      rcxres, rcyres, rczres, rcframes, sms_encodes);
-  Array<Complex3D, 2> P = Alloc5DContainer<complex<float> >(
-      rcxres, rcyres, rczres, rcframes, sms_encodes);
-  Array<Complex3D, 2> diff_data = Alloc5DContainer<complex<float> >(
-      SmsKx(0).length(firstDim), SmsKx(0).length(secondDim),
-      SmsKx(0).length(thirdDim), sms_frames, sms_encodes);
-
-  {
-    tictoc timer;
-
-    cout << "Iterate" << endl;
-    double error0 = 0.0;
-    for (int iteration = 0; iteration < max_iter; iteration++) {
-      tictoc iteration_timer;
-      iteration_timer.tic();
-      cout << "\nIteration = " << iteration << endl;
-
-      // Set R to Zero
-      cout << "\tZero R " << flush;
-      timer.tic();
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          R(t, e) = complex<float>(0.0, 0.0);
-        }
-      }
-      cout << "(took " << timer << ")" << endl
-           << flush;
-
-      cout << "\tGradient Calculation" << flush;
-      for (int coil = 0; coil < Ncoils; coil++) {
-        cout << "\t\tZeroing" << flush;
-        timer.tic();
-        for (int e = 0; e < sms_encodes; e++) {
-          for (int t = 0; t < sms_frames; t++) {
-            diff_data(t, e) = complex<float>(0.0, 0.0);
-          }
-        }
-        cout << "(took " << timer << ")" << endl
-             << flush;
-
-        // Ex
-        if (iteration > 0) {
-          cout << "\t\tBackwards" << flush;
-          timer.tic();
-          smsgrid.backward(X, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz,
-                           SmsKw, SmsZ);
-          cout << "(took " << timer << ")" << endl
-               << flush;
-        }
-
-        // Ex-d
-        cout << "\t\tSubtract" << flush;
-        cout << "(took " << timer << ")" << endl
-             << flush;
-
-        for (int e = 0; e < sms_encodes; e++) {
-          for (int t = 0; t < sms_frames; t++) {
-            diff_data(t, e) -= SmsData(t, e, coil);
-          }
-        }
-        cout << "(took " << timer << ")" << endl
-             << flush;
-
-        // E'Ex
-        cout << "\t\tForward" << flush;
-        timer.tic();
-        smsgrid.forward(R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,
-                        SmsZ);
-        cout << "(took " << timer << ")" << endl
-             << flush;
-
-      }  // Coils
-
-      // Set P to Zero
-      cout << "\tZero P " << flush;
-      timer.tic();
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          P(t, e) = complex<float>(0.0, 0.0);
-        }
-      }
-      cout << "(took " << timer << ")" << endl
-           << flush;
-
-      for (int coil = 0; coil < Ncoils; coil++) {
-        cout << "\t\tZeroing" << flush;
-        timer.tic();
-        for (int e = 0; e < sms_encodes; e++) {
-          for (int t = 0; t < sms_frames; t++) {
-            diff_data(t, e) = complex<float>(0.0, 0.0);
-          }
-        }
-        cout << "(took " << timer << ")" << endl
-             << flush;
-
-        // EE'(Ex-d)
-        cout << "\t\tBackwards" << flush;
-        timer.tic();
-        smsgrid.backward(R, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,
-                         SmsZ);
-        cout << "(took " << timer << ")" << endl
-             << flush;
-
-        // E'EE'(Ex-d)
-        cout << "\t\tForward" << flush;
-        timer.tic();
-        smsgrid.forward(P, smaps(coil), diff_data, SmsKx, SmsKy, SmsKz, SmsKw,
-                        SmsZ);
-        cout << "(took " << timer << ")" << endl
-             << flush;
-
-      }  // Coils
-
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          export_slice(R(t, e), "R_mag.dat");
-          export_slice(P(t, e), "P_mag.dat");
-        }
-      }
-
-      // Now get the scale factors
-      complex<double> scale_RhP(0.0, 0.0);
-      complex<double> scale_RhR(0.0, 0.0);
-
-      cout << "Calc Scales" << flush;
-      timer.tic();
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          P(t, e) *= conj(R(t, e));
-          for (Array<complex<float>, 3>::iterator riter = P(t, e).begin();
-               riter != P(t, e).end(); riter++) {
-            scale_RhP += complex<double>(real(*riter), imag(*riter));
-          }
-
-          scale_RhR += complex<double>(ArrayEnergy(R(t, e)), 0.0);
-        }
-      }
-      cout << "(took " << timer << ")" << endl
-           << flush;
-
-      if (iteration == 0) {
-        error0 = abs(scale_RhR);
-      }
-      cout << "Error = " << abs(scale_RhR) / error0 << endl;
-
-      // Step in direction
-      complex<double> scale_double = (scale_RhR / scale_RhP);
-      complex<float> scale(real(scale_double), imag(scale_double));
-
-      cout << "RhR = " << scale_RhR;
-      cout << "RhP = " << scale_RhP;
-      cout << "Scale = " << scale << endl
-           << flush;
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          R(t, e) *= scale;
-          X(t, e) -= R(t, e);
-        }
-      }
-      cout << "Took " << iteration_timer << " s " << endl;
-
-      // Export X slice
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          export_slice(X(t, e), "X_mag.dat");
-        }
-      }
-
-      if (softthresh.getThresholdMethod() != TH_NONE) {
-        L1_threshold(X);
-      }
-
-      // Export X slice
-      for (int t = 0; t < rcframes; t++) {
-        for (int e = 0; e < sms_encodes; e++) {
-          export_slice(X(t, e), "X_mag.dat");
-        }
-      }
-
-    }  // Iteration
-  }
-
-  return (X);
-}
-
 Array<Array<complex<float>, 3>, 1> RECON::reconstruct_one_frame(MRI_DATA &data, int frame_number) {
   Array<Array<complex<float>, 3>, 2> XX = full_recon(data, Range(frame_number, frame_number), Range(0, 0), false);
   Array<Array<complex<float>, 3>, 1> X = XX(0, Range::all());
@@ -1299,7 +834,8 @@ void RECON::dcf_calc(MRI_DATA &data) {
   // dcf_gridding.precalc_gridding(rczres+16,rcyres+16,rcxres+16,data.trajectory_dims,data.trajectory_type);
 
   // Weighting Array for Time coding
-  Array<float, 3> X(dcf_overgrid * rczres + 16, dcf_overgrid * rcyres + 16,
+  Array<float, 3> X(dcf_overgrid * rczres + 16,
+                    dcf_overgrid * rcyres + 16,
                     dcf_overgrid * rcxres + 16, ColumnMajorArray<3>());
 
   for (int e = 0; e < rcencodes; e++) {
@@ -1316,16 +852,13 @@ void RECON::dcf_calc(MRI_DATA &data) {
 
       X = 0;
       Kweight2 = 0.0;
-      dcf_gridding.forward(X, Kweight, data.kx(e), data.ky(e),
-                           data.kz(e));  // Grid data to K-Space
-      dcf_gridding.backward(X, Kweight2, data.kx(e), data.ky(e),
-                            data.kz(e));  // Degrid
+      dcf_gridding.forward(X, Kweight, data.kx(e), data.ky(e), data.kz(e));    // Grid data to K-Space
+      dcf_gridding.backward(X, Kweight2, data.kx(e), data.ky(e), data.kz(e));  // Degrid
 
       float kw_sum = 0.0;
       Array<float, 3>::iterator kw_iter = Kweight.begin();
       Array<float, 3>::iterator kw2_iter = Kweight2.begin();
-      for (; (kw_iter != Kweight.end()) && (kw2_iter != Kweight2.end());
-           kw_iter++, kw2_iter++) {
+      for (; (kw_iter != Kweight.end()) && (kw2_iter != Kweight2.end()); kw_iter++, kw2_iter++) {
         if (abs(*kw2_iter) < (1e-3)) {
           *kw_iter = 0.0;
         } else {
@@ -1362,14 +895,11 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
   // Calculate shared structures
   if (!prep_done) {
-    cout << "Error need to run prep before running recon (obj.init_recon(arg, "
-            "argc, data). Exiting."
-         << endl;
+    cout << "Error need to run prep before running recon (obj.init_recon(arg,argc, data). Exiting." << endl;
     exit(1);
   }
 
-  /*----------------------------Main
-   * Recons---------------------------------------*/
+  /*----------------------------Main Recons---------------------------------------*/
 
   int Nt = times.length();
   GATING::FrameType frame_type;
@@ -1380,11 +910,10 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
   }
 
   // Final Image Solution
-  cout << "Alloc Container for Solution ( " << rcxres << "," << rcyres << ","
-       << rczres << ") x (" << Nt << "," << rcencodes << ")" << endl
+  cout << "Alloc Container for Solution "
+       << "( " << rcxres << "," << rcyres << "," << rczres << ") x (" << Nt << "," << rcencodes << ")" << endl
        << flush;
-  Array<Array<complex<float>, 3>, 2> X =
-      Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
+  Array<Array<complex<float>, 3>, 2> X = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
 
   // Weighting Array for Time coding
   Array<float, 3> TimeWeight;
@@ -1413,36 +942,33 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
           } else {
             TimeWeight.resize(data.kw(act_e).shape());
             TimeWeight = data.kw(act_e);
-            gate.weight_data(TimeWeight, act_e, data.kx(act_e), data.ky(act_e),
-                             data.kz(act_e), act_t, GATING::NON_ITERATIVE,
-                             frame_type);
+            gate.weight_data(TimeWeight, act_e, data.kx(act_e), data.ky(act_e), data.kz(act_e), act_t, GATING::NON_ITERATIVE, frame_type);
           }
 
           if (this->parallel_coils) {
             // K-space to Image
-            Array<Array<complex<float>, 3>, 1> TEMP =
-                data.kdata(act_e, Range::all());
+            Array<Array<complex<float>, 3>, 1> TEMP = data.kdata(act_e, Range::all());
             if (recon_type == PILS) {
               gridding_CoilThreaded.forward(X(store_t, e), smaps, TEMP,
-                                            data.kx(act_e), data.ky(act_e),
-                                            data.kz(act_e), TimeWeight);
+                                            data.kx(act_e), data.ky(act_e), data.kz(act_e),
+                                            TimeWeight);
             } else {
               gridding_CoilThreaded.forward_sos(X(store_t, e), TEMP,
-                                                data.kx(act_e), data.ky(act_e),
-                                                data.kz(act_e), TimeWeight);
+                                                data.kx(act_e), data.ky(act_e), data.kz(act_e),
+                                                TimeWeight);
             }
           } else {
             // cout << "\tForward Gridding Coil ";
             for (int coil = 0; coil < data.Num_Coils; coil++) {
               // K-space to Image
               if (recon_type == PILS) {
-                gridding.forward(X(store_t, e), smaps(coil),
-                                 data.kdata(act_e, coil), data.kx(act_e),
-                                 data.ky(act_e), data.kz(act_e), TimeWeight);
+                gridding.forward(X(store_t, e), smaps(coil), data.kdata(act_e, coil),
+                                 data.kx(act_e), data.ky(act_e), data.kz(act_e),
+                                 TimeWeight);
               } else {
                 gridding.forward_sos(X(store_t, e), data.kdata(act_e, coil),
-                                     data.kx(act_e), data.ky(act_e),
-                                     data.kz(act_e), TimeWeight);
+                                     data.kx(act_e), data.ky(act_e), data.kz(act_e),
+                                     TimeWeight);
               }
             }
           }
@@ -1452,6 +978,9 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
           if (recon_type == SOS) {
             X(store_t, e) = csqrt(X(store_t, e));
           }
+
+          // Correct the intensity image
+          correct_intensity_bias(X(store_t, e));
         }
       }
 
@@ -1464,10 +993,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       typedef Array<complex<float>, 3> Complex3D;
 
       // Image and Residue (note now need to store coils as well)
-      Array<Complex3D, 3> XX = Alloc6DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes, data.Num_Coils);
-      Array<Complex3D, 3> RR = Alloc6DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes, data.Num_Coils);
+      Array<Complex3D, 3> XX = Alloc6DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes, data.Num_Coils);
+      Array<Complex3D, 3> RR = Alloc6DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes, data.Num_Coils);
 
       // Temp variable for E'ER
       Complex3D P(rcxres, rcyres, rczres, ColumnMajorArray<3>());
@@ -1507,20 +1034,17 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
             TimeWeight.resize(kwE.shape());
             TimeWeight = kwE;
-            gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t,
-                             GATING::ITERATIVE, frame_type);
+            gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t, GATING::ITERATIVE, frame_type);
 
             for (int coil = 0; coil < data.Num_Coils; coil++) {
               T.tic();
 
               // Alloc Data
-              Array<complex<float>, 3> diff_data(data.kx(e).shape(),
-                                                 ColumnMajorArray<3>());
+              Array<complex<float>, 3> diff_data(data.kx(e).shape(), ColumnMajorArray<3>());
               diff_data = 0;
 
               // Ex
-              gridding.backward(XX(store_t, e, coil), diff_data, kxE, kyE, kzE,
-                                TimeWeight);
+              gridding.backward(XX(store_t, e, coil), diff_data, kxE, kyE, kzE, TimeWeight);
 
               // Ex-d
               Array<complex<float>, 3> kdataC = data.kdata(e, coil);
@@ -1528,16 +1052,14 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
               // E'(Ex-d)
               RR(t, e, coil) = complex<float>(0.0, 0.0);
-              gridding.forward(RR(store_t, e, coil), diff_data, kxE, kyE, kzE,
-                               TimeWeight);
+              gridding.forward(RR(store_t, e, coil), diff_data, kxE, kyE, kzE, TimeWeight);
 
               // Now Get Scale
               P = 0;
 
               // EE'(Ex-d)
               diff_data = 0;
-              gridding.backward(RR(store_t, e, coil), diff_data, kxE, kyE, kzE,
-                                TimeWeight);
+              gridding.backward(RR(store_t, e, coil), diff_data, kxE, kyE, kzE, TimeWeight);
 
               // E'EE'(Ex-d)
               gridding.forward(P, diff_data, kxE, kyE, kzE, TimeWeight);
@@ -1668,19 +1190,13 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       //   0.5||Ex-d||2  + gamma*||y||1 + rho*||x-y||2 + L'*(x-y)
 
       // CG Structures
-      Array<Array<complex<float>, 3>, 2> R = Alloc5DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes);
-      Array<Array<complex<float>, 3>, 2> P = Alloc5DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes);
-      Array<Array<complex<float>, 3>, 2> LHS =
-          Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt,
-                                            rcencodes);
+      Array<Array<complex<float>, 3>, 2> R = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
+      Array<Array<complex<float>, 3>, 2> P = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
+      Array<Array<complex<float>, 3>, 2> LHS = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
 
       // Augmented Lagrangian Structures
-      Array<Array<complex<float>, 3>, 2> Y = Alloc5DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes);
-      Array<Array<complex<float>, 3>, 2> L = Alloc5DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes);
+      Array<Array<complex<float>, 3>, 2> Y = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
+      Array<Array<complex<float>, 3>, 2> L = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
 
       float cg_thresh = 1e-9;
 
@@ -1698,8 +1214,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       }
 
       // Iterate
-      for (int admm_iteration = 0; admm_iteration < admm_max_iter;
-           admm_iteration++) {
+      for (int admm_iteration = 0; admm_iteration < admm_max_iter; admm_iteration++) {
         //
         //  Solve Subproblem  1
         //  	0.5||Ex-d||2  + gamma*||y||1 + rho*||x-y||2 + L'*(x-y)
@@ -1966,13 +1481,9 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       // ------------------------------------
 
       // Structures
-      Array<Array<complex<float>, 3>, 2> R = Alloc5DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes);
-      Array<Array<complex<float>, 3>, 2> P = Alloc5DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes);
-      Array<Array<complex<float>, 3>, 2> LHS =
-          Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt,
-                                            rcencodes);
+      Array<Array<complex<float>, 3>, 2> R = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
+      Array<Array<complex<float>, 3>, 2> P = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
+      Array<Array<complex<float>, 3>, 2> LHS = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
 
       // First Calculate E'd
       cout << "LHS Calculation" << endl;
@@ -1988,29 +1499,24 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
           } else if (reset_dens) {
             TimeWeight.resize(data.kw(act_e).shape());
             TimeWeight = 1.0;
-            gate.weight_data(TimeWeight, act_e, data.kx(act_e), data.ky(act_e),
-                             data.kz(act_e), act_t, GATING::ITERATIVE,
-                             frame_type);
+            gate.weight_data(TimeWeight, act_e,
+                             data.kx(act_e), data.ky(act_e), data.kz(act_e),
+                             act_t, GATING::ITERATIVE, frame_type);
           } else {
             TimeWeight.resize(data.kw(act_e).shape());
             TimeWeight = data.kw(act_e);
-            gate.weight_data(TimeWeight, act_e, data.kx(act_e), data.ky(act_e),
-                             data.kz(act_e), act_t, GATING::ITERATIVE,
-                             frame_type);
+            gate.weight_data(TimeWeight, act_e,
+                             data.kx(act_e), data.ky(act_e), data.kz(act_e),
+                             act_t, GATING::ITERATIVE, frame_type);
           }
 
           // E'd
           if (this->parallel_coils) {
-            Array<Array<complex<float>, 3>, 1> TEMP_KDATA =
-                data.kdata(act_e, Range::all());
-            gridding_CoilThreaded.forward(R(store_t, e), smaps, TEMP_KDATA,
-                                          data.kx(act_e), data.ky(act_e),
-                                          data.kz(act_e), TimeWeight);
+            Array<Array<complex<float>, 3>, 1> TEMP_KDATA = data.kdata(act_e, Range::all());
+            gridding_CoilThreaded.forward(R(store_t, e), smaps, TEMP_KDATA, data.kx(act_e), data.ky(act_e), data.kz(act_e), TimeWeight);
           } else {
             for (int coil = 0; coil < data.Num_Coils; coil++) {
-              gridding.forward(R(store_t, e), smaps(coil),
-                               data.kdata(act_e, coil), data.kx(act_e),
-                               data.ky(act_e), data.kz(act_e), TimeWeight);
+              gridding.forward(R(store_t, e), smaps(coil), data.kdata(act_e, coil), data.kx(act_e), data.ky(act_e), data.kz(act_e), TimeWeight);
             }
           }
 
@@ -2042,47 +1548,30 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             } else if (reset_dens) {
               TimeWeight.resize(data.kw(act_e).shape());
               TimeWeight = 1.0;
-              gate.weight_data(TimeWeight, act_e, data.kx(act_e),
-                               data.ky(act_e), data.kz(act_e), act_t,
-                               GATING::ITERATIVE, frame_type);
+              gate.weight_data(TimeWeight, act_e, data.kx(act_e), data.ky(act_e), data.kz(act_e), act_t, GATING::ITERATIVE, frame_type);
             } else {
               TimeWeight.resize(data.kw(act_e).shape());
               TimeWeight = data.kw(act_e);
-              gate.weight_data(TimeWeight, act_e, data.kx(act_e),
-                               data.ky(act_e), data.kz(act_e), act_t,
-                               GATING::ITERATIVE, frame_type);
+              gate.weight_data(TimeWeight, act_e, data.kx(act_e), data.ky(act_e), data.kz(act_e), act_t, GATING::ITERATIVE, frame_type);
             }
 
             if (this->parallel_coils) {
               // K-space to Image
-              Array<Array<complex<float>, 3>, 1> diff_data =
-                  Alloc4DContainer<complex<float> >(
-                      data.kx(act_e).length(firstDim),
-                      data.kx(act_e).length(secondDim),
-                      data.kx(act_e).length(thirdDim), data.Num_Coils);
+              Array<Array<complex<float>, 3>, 1> diff_data = Alloc4DContainer<complex<float> >(data.kx(act_e).length(firstDim), data.kx(act_e).length(secondDim), data.kx(act_e).length(thirdDim), data.Num_Coils);
 
               // E'Ex
-              gridding_CoilThreaded.backward(P(store_t, e), smaps, diff_data,
-                                             data.kx(act_e), data.ky(act_e),
-                                             data.kz(act_e), TimeWeight);
-              gridding_CoilThreaded.forward(LHS(store_t, e), smaps, diff_data,
-                                            data.kx(act_e), data.ky(act_e),
-                                            data.kz(act_e), TimeWeight);
+              gridding_CoilThreaded.backward(P(store_t, e), smaps, diff_data, data.kx(act_e), data.ky(act_e), data.kz(act_e), TimeWeight);
+              gridding_CoilThreaded.forward(LHS(store_t, e), smaps, diff_data, data.kx(act_e), data.ky(act_e), data.kz(act_e), TimeWeight);
 
             } else {
               for (int coil = 0; coil < data.Num_Coils; coil++) {
                 // Storage for (Ex-d) - dynamic for variable size
-                Array<complex<float>, 3> diff_data(data.kx(act_e).shape(),
-                                                   ColumnMajorArray<3>());
+                Array<complex<float>, 3> diff_data(data.kx(act_e).shape(), ColumnMajorArray<3>());
                 diff_data = 0;
 
                 // E'Ex
-                gridding.backward(P(store_t, e), smaps(coil), diff_data,
-                                  data.kx(act_e), data.ky(act_e),
-                                  data.kz(act_e), TimeWeight);
-                gridding.forward(LHS(store_t, e), smaps(coil), diff_data,
-                                 data.kx(act_e), data.ky(act_e), data.kz(act_e),
-                                 TimeWeight);
+                gridding.backward(P(store_t, e), smaps(coil), diff_data, data.kx(act_e), data.ky(act_e), data.kz(act_e), TimeWeight);
+                gridding.forward(LHS(store_t, e), smaps(coil), diff_data, data.kx(act_e), data.ky(act_e), data.kz(act_e), TimeWeight);
               }  // Coils
             }
 
@@ -2190,28 +1679,22 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
         // Export X slice
         {
-          Array<complex<float>, 2> Xslice =
-              X(0, 0)(all, all, X(0, 0).length(2) / 2);
+          Array<complex<float>, 2> Xslice = X(0, 0)(all, all, X(0, 0).length(2) / 2);
           ArrayWriteMagAppend(Xslice, "X_mag.dat");
 
-          Array<complex<float>, 2> LHSslice =
-              LHS(0, 0)(all, all, LHS(0, 0).length(2) / 2);
+          Array<complex<float>, 2> LHSslice = LHS(0, 0)(all, all, LHS(0, 0).length(2) / 2);
           ArrayWriteMagAppend(LHSslice, "LHS_mag.dat");
 
-          Array<complex<float>, 2> Pslice =
-              X(0, 0)(all, all, P(0, 0).length(2) / 2);
+          Array<complex<float>, 2> Pslice = X(0, 0)(all, all, P(0, 0).length(2) / 2);
           ArrayWriteMagAppend(Pslice, "P_mag.dat");
 
-          Array<complex<float>, 2> Rslice =
-              R(0, 0)(all, all, R(0, 0).length(2) / 2);
+          Array<complex<float>, 2> Rslice = R(0, 0)(all, all, R(0, 0).length(2) / 2);
           ArrayWriteMagAppend(Rslice, "R_mag.dat");
 
           if (X.numElements() > 1) {
             int count = 0;
-            for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin();
-                 miter != X.end(); miter++) {
-              Array<complex<float>, 2> Xf =
-                  (*miter)(all, all, X(0, 0).length(2) / 2);
+            for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin(); miter != X.end(); miter++) {
+              Array<complex<float>, 2> Xf = (*miter)(all, all, X(0, 0).length(2) / 2);
               if (count == 0) {
                 ArrayWriteMag(Xf, "X_frames.dat");
                 ArrayWritePhase(Xf, "X_frames.dat.phase");
@@ -2225,6 +1708,9 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         }
 
       }  // iteration
+
+      // Correct for the intensity bias
+      correct_intensity_bias(X);
 
     } break;
 
@@ -2241,15 +1727,12 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       Array<Array<complex<float>, 3>, 2> X_old;
       if (recon_type == FISTA) {
         cout << "Alloc Fista Matrix" << endl;
-        Array<Array<complex<float>, 3>, 2> Temp =
-            Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt,
-                                              rcencodes);
+        Array<Array<complex<float>, 3>, 2> Temp = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
         X_old.reference(Temp);
       }
 
       // Residue
-      Array<Array<complex<float>, 3>, 2> R = Alloc5DContainer<complex<float> >(
-          rcxres, rcyres, rczres, Nt, rcencodes);
+      Array<Array<complex<float>, 3>, 2> R = Alloc5DContainer<complex<float> >(rcxres, rcyres, rczres, Nt, rcencodes);
 
       // Temp variable for E'ER
       Array<complex<float>, 3> P(rcxres, rcyres, rczres, ColumnMajorArray<3>());
@@ -2275,6 +1758,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
         for (int e = 0; e < max_encode; e++) {
           for (int t = 0; t < max_frame; t++) {
+#pragma omp parallel for
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
@@ -2318,8 +1802,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
                 TimeWeight = 1.0;
                 Array<float, 3>::iterator titer = TimeWeight.begin();
                 Array<float, 3>::iterator kiter = kwE.begin();
-                for (; (titer != TimeWeight.end()) && (kiter != kwE.end());
-                     titer++, kiter++) {
+                for (; (titer != TimeWeight.end()) && (kiter != kwE.end()); titer++, kiter++) {
                   if ((*kiter) < 0.1) {
                     *titer = *kiter;
                   } else {
@@ -2340,8 +1823,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               if (this->parallel_coils) {
                 // K-space to Image
                 Array<Array<complex<float>, 3>, 1> TEMP_KDATA = data.kdata(act_e, Range::all());
-                Array<Array<complex<float>, 3>, 1> TEMP_POINT = Alloc4DContainer<complex<float> >(
-                    kxE.length(firstDim), kxE.length(secondDim), kxE.length(thirdDim), data.Num_Coils);
+                Array<Array<complex<float>, 3>, 1> TEMP_POINT = Alloc4DContainer<complex<float> >(kxE.length(firstDim), kxE.length(secondDim), kxE.length(thirdDim), data.Num_Coils);
                 diff_data_all.reference(TEMP_POINT);
 
                 // Ex
@@ -2382,8 +1864,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
         // Scale kweights instead of step size
         if (this->image_scale_normalization) {
-          for (Array<Array<float, 3>, 1>::iterator riter = data.kw.begin();
-               riter != data.kw.end(); riter++) {
+          for (Array<Array<float, 3>, 1>::iterator riter = data.kw.begin(); riter != data.kw.end(); riter++) {
             *riter *= abs(step_size);
           }
           step_size = complex<float>(1.0, 0.0);
@@ -2406,8 +1887,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         complex<double> scale_RhP(0, 0);
 
         // Get Residue
-        for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-             riter != R.end(); riter++) {
+        for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin(); riter != R.end(); riter++) {
           *riter = 0;
         }
 
@@ -2440,56 +1920,42 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               TimeWeight = 1.0;
               Array<float, 3>::iterator titer = TimeWeight.begin();
               Array<float, 3>::iterator kiter = kwE.begin();
-              for (; (titer != TimeWeight.end()) && (kiter != kwE.end());
-                   titer++, kiter++) {
+              for (; (titer != TimeWeight.end()) && (kiter != kwE.end()); titer++, kiter++) {
                 if ((*kiter) < 0.1) {
                   *titer = *kiter;
                 } else {
                   *titer = 0.1;
                 }
               }
-              gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t,
-                               GATING::ITERATIVE, frame_type);
+              gate.weight_data(TimeWeight, e, kxE, kyE, kzE, act_t, GATING::ITERATIVE, frame_type);
             } else {
               TimeWeight.resize(kwE.shape());
               TimeWeight = kwE;
-              gate.weight_data(TimeWeight, e, kxE, kwE, kzE, act_t,
-                               GATING::ITERATIVE, frame_type);
+              gate.weight_data(TimeWeight, e, kxE, kwE, kzE, act_t, GATING::ITERATIVE, frame_type);
             }
 
             // Differences (Ex-d)
-            Array<complex<float>, 3> diff_data(kxE.shape(),
-                                               ColumnMajorArray<3>());
+            Array<complex<float>, 3> diff_data(kxE.shape(), ColumnMajorArray<3>());
             Array<Array<complex<float>, 3>, 1> diff_data_all;
 
             if (this->parallel_coils) {
               // K-space to Image
-              Array<Array<complex<float>, 3>, 1> TEMP_KDATA =
-                  data.kdata(act_e, Range::all());
-              Array<Array<complex<float>, 3>, 1> TEMP_POINT =
-                  Alloc4DContainer<complex<float> >(
-                      kxE.length(firstDim), kxE.length(secondDim),
-                      kxE.length(thirdDim), data.Num_Coils);
+              Array<Array<complex<float>, 3>, 1> TEMP_KDATA = data.kdata(act_e, Range::all());
+              Array<Array<complex<float>, 3>, 1> TEMP_POINT = Alloc4DContainer<complex<float> >(kxE.length(firstDim), kxE.length(secondDim), kxE.length(thirdDim), data.Num_Coils);
               diff_data_all.reference(TEMP_POINT);
 
               // Ex - d
-              gridding_CoilThreaded.backward_residual(
-                  X(store_t, e), smaps, diff_data_all, kxE, kyE, kzE,
-                  TimeWeight, TEMP_KDATA);
+              gridding_CoilThreaded.backward_residual(X(store_t, e), smaps, diff_data_all, kxE, kyE, kzE, TimeWeight, TEMP_KDATA);
 
               // E'(Ex-d)
-              gridding_CoilThreaded.forward(R(store_t, e), smaps, diff_data_all,
-                                            kxE, kyE, kzE, TimeWeight);
+              gridding_CoilThreaded.forward(R(store_t, e), smaps, diff_data_all, kxE, kyE, kzE, TimeWeight);
             } else {
               for (int coil = 0; coil < data.Num_Coils; coil++) {
                 // Ex - d
-                gridding.backward_residual(X(store_t, e), smaps(coil),
-                                           diff_data, kxE, kyE, kzE, TimeWeight,
-                                           data.kdata(act_e, coil));
+                gridding.backward_residual(X(store_t, e), smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight, data.kdata(act_e, coil));
 
                 // E'(Ex-d)
-                gridding.forward(R(store_t, e), smaps(coil), diff_data, kxE,
-                                 kyE, kzE, TimeWeight);
+                gridding.forward(R(store_t, e), smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight);
 
               }  // Coils
             }
@@ -2500,27 +1966,21 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             }
 
             // Now Get Scale factor (for Cauchy-Step Size)
-            if ((iteration < this->cauchy_update_number) &&
-                (this->iterative_step_type == STEP_CAUCHY)) {
+            if ((iteration < this->cauchy_update_number) && (this->iterative_step_type == STEP_CAUCHY)) {
               P = 0;
               if (this->parallel_coils) {
                 // EE'(Ex-d)
-                gridding_CoilThreaded.backward(R(store_t, e), smaps,
-                                               diff_data_all, kxE, kyE, kzE,
-                                               TimeWeight);
+                gridding_CoilThreaded.backward(R(store_t, e), smaps, diff_data_all, kxE, kyE, kzE, TimeWeight);
 
                 // E'EE'(Ex-d)
-                gridding_CoilThreaded.forward(P, smaps, diff_data_all, kxE, kyE,
-                                              kzE, TimeWeight);
+                gridding_CoilThreaded.forward(P, smaps, diff_data_all, kxE, kyE, kzE, TimeWeight);
               } else {
                 for (int coil = 0; coil < data.Num_Coils; coil++) {
                   // EE'(Ex-d)
-                  gridding.backward(R(store_t, e), smaps(coil), diff_data, kxE,
-                                    kyE, kzE, TimeWeight);
+                  gridding.backward(R(store_t, e), smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight);
 
                   // E'EE'(Ex-d)
-                  gridding.forward(P, smaps(coil), diff_data, kxE, kyE, kzE,
-                                   TimeWeight);
+                  gridding.forward(P, smaps(coil), diff_data, kxE, kyE, kzE, TimeWeight);
                 }  // Coils
               }
 
@@ -2531,8 +1991,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
               P *= conj(R(store_t, e));
 
-              for (Array<complex<float>, 3>::iterator riter = P.begin();
-                   riter != P.end(); riter++) {
+              for (Array<complex<float>, 3>::iterator riter = P.begin(); riter != P.end(); riter++) {
                 scale_RhP += complex<double>(real(*riter), imag(*riter));
               }
             }
@@ -2544,27 +2003,20 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         if (this->image_scale_normalization && (iteration == 0)) {
           // Get max value
           float max_image_value = 0.0;
-          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-               riter != R.end(); riter++) {
+          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin(); riter != R.end(); riter++) {
             float max_current = max(abs(*riter));
-            max_image_value = (max_current > max_image_value)
-                                  ? (max_current)
-                                  : (max_image_value);
+            max_image_value = (max_current > max_image_value) ? (max_current) : (max_image_value);
           }
           complex<float> image_scale(1. / max_image_value, 0.0);
-          std::cout << "Scaling Image to max ~1, Max is " << max_image_value
-                    << " scale to " << image_scale << std::endl;
+          std::cout << "Scaling Image to max ~1, Max is " << max_image_value << " scale to " << image_scale << std::endl;
 
           // Scale image
-          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-               riter != R.end(); riter++) {
+          for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin(); riter != R.end(); riter++) {
             *riter *= image_scale;
           }
 
           // Scale data
-          for (Array<Array<complex<float>, 3>, 2>::iterator riter =
-                   data.kdata.begin();
-               riter != data.kdata.end(); riter++) {
+          for (Array<Array<complex<float>, 3>, 2>::iterator riter = data.kdata.begin(); riter != data.kdata.end(); riter++) {
             *riter *= image_scale;
           }
         }
@@ -2574,8 +2026,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
              << "Calc residue" << endl
              << flush;
         complex<double> scale_RhR = 0.0;
-        for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin();
-             riter != R.end(); riter++) {
+        for (Array<Array<complex<float>, 3>, 2>::iterator riter = R.begin(); riter != R.end(); riter++) {
           scale_RhR += complex<double>(ArrayEnergy(*riter), 0.0);
         }
 
@@ -2583,16 +2034,14 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         if (iteration == 0) {
           error0 = abs(scale_RhR);
         }
-        cout << "Residue Energy =" << scale_RhR << " ( "
-             << (abs(scale_RhR) / error0) << " % )  " << endl;
+        cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR) / error0) << " % )  " << endl;
         cout << "RhP = " << scale_RhP << endl;
 
         // Export R
         export_slice(R(0, 0), "R.dat");
 
         // Step in direction
-        if ((iteration < this->cauchy_update_number) &&
-            (this->iterative_step_type == STEP_CAUCHY)) {
+        if ((iteration < this->cauchy_update_number) && (this->iterative_step_type == STEP_CAUCHY)) {
           complex<double> scale_double = (scale_RhR / scale_RhP);
           step_size = complex<float>(real(scale_double), imag(scale_double));
         }
@@ -2630,10 +2079,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
         if (X.numElements() > 1) {
           int count = 0;
-          for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin();
-               miter != X.end(); miter++) {
-            Array<complex<float>, 2> Xf =
-                (*miter)(all, all, X(0, 0).length(2) / 2);
+          for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin(); miter != X.end(); miter++) {
+            Array<complex<float>, 2> Xf = (*miter)(all, all, X(0, 0).length(2) / 2);
             if (count == 0) {
               ArrayWriteMag(Xf, "X_frames.dat");
               ArrayWritePhase(Xf, "X_frames.dat.phase");
@@ -2649,11 +2096,16 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         // Soft thresholding operation (need to add transform control)
         // ------------------------------------
         if (softthresh.getThresholdMethod() != TH_NONE) {
+          correct_intensity_bias(X);
           L1_threshold(X);
+          apply_intensity_bias(X);
         }
         export_slice(X(0, 0), "X_mag.dat");
 
       }  // Iteration
+
+      // Correct
+      correct_intensity_bias(X);
 
     } break;
 
@@ -2663,9 +2115,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
   return (X);
 }
 
-void RECON::fista_update(Array<Array<complex<float>, 3>, 2> &X,
-                         Array<Array<complex<float>, 3>, 2> &X_old,
-                         int iteration) {
+void RECON::fista_update(Array<Array<complex<float>, 3>, 2> &X, Array<Array<complex<float>, 3>, 2> &X_old, int iteration) {
   float A = 1.0 + (iteration - 1.0) / (iteration + 1.0);
   float B = -(iteration - 1.0) / (iteration + 1.0);
 
@@ -2757,8 +2207,7 @@ double RECON::kspace_residual(MRI_DATA &data) {
         for (int k = 0; k < diff_data.length(thirdDim); k++) {
           for (int i = 0; i < diff_data.length(firstDim); i++) {
             // Energy in D'*D
-            DhD_temp += data.kdata(e, coil)(i, j, k) *
-                        conj(data.kdata(e, coil)(i, j, k));
+            DhD_temp += data.kdata(e, coil)(i, j, k) * conj(data.kdata(e, coil)(i, j, k));
 
             // Energy in D'*R
             DhR_temp += conj(data.kdata(e, coil)(i, j, k)) * diff_data(i, j, k);
@@ -2783,8 +2232,7 @@ double RECON::kspace_residual(MRI_DATA &data) {
         for (int k = 0; k < diff_data.length(thirdDim); k++) {
           for (int i = 0; i < diff_data.length(firstDim); i++) {
             // Energy in D'*D
-            residual_temp += norm(data.kdata(e, coil)(i, j, k) -
-                                  scaleF * diff_data(i, j, k));
+            residual_temp += norm(data.kdata(e, coil)(i, j, k) - scaleF * diff_data(i, j, k));
           }
         }
 
@@ -2806,8 +2254,7 @@ void RECON::export_slice(Array<complex<float>, 3> &temp, const char *fname) {
   ArrayWriteMagAppend(Xslice, fname);
 }
 
-void RECON::transform_in_encode(Array<Array<complex<float>, 3>, 2> &X,
-                                TransformDirection direction) {
+void RECON::transform_in_encode(Array<Array<complex<float>, 3>, 2> &X, TransformDirection direction) {
   switch (cs_encode_transform) {
     case (DFT): {
       cout << "DFT in Encode" << endl;
@@ -2891,8 +2338,7 @@ void RECON::transform_in_time(Array<Array<complex<float>, 3>, 2> &X,
 
     case (COMPOSITE_DIFF): {
       cout << "Composite Diff" << endl;
-      for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin();
-           miter != X.end(); miter++) {
+      for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin(); miter != X.end(); miter++) {
         if (direction == FORWARD) {
           *miter -= composite_image;
         } else {
@@ -2912,8 +2358,7 @@ void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
   if (phase_rotation) {
     cout << "Rotating to zero phase plane" << endl;
     Phase = complex<float>(0.0, 0.0);
-    for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin();
-         miter != X.end(); miter++) {
+    for (Array<Array<complex<float>, 3>, 2>::iterator miter = X.begin(); miter != X.end(); miter++) {
       Phase += (*miter);
     }
 
@@ -3144,16 +2589,11 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
     cout << "Exporting Smaps debuging to DebugSenseMaps.h5" << endl;
     SmapsDebug = HDF5("DebugSenseMaps.h5", "w");
   }
-
   switch (recon_type) {
     case (CLEAR): {
       if (intensity_correction) {
         // Clear doesn't need anything, but might need to handle sensitivity
         // correction
-        IntensityCorrection.setStorage(ColumnMajorArray<3>());
-        IntensityCorrection.resize(rcxres, rcyres, rczres);
-        IntensityCorrection = 0.0;
-
         for (int e = 0; e < 1; e++) {
           for (int coil = 0; coil < data.Num_Coils; coil++) {
             cout << "Coil = " << coil << " encode = " << e << endl;
@@ -3168,7 +2608,8 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         Array<float, 3> Blur;
         Blur.setStorage(ColumnMajorArray<3>());
         Blur.resize(rcxres, rcyres, rczres);
-        normalized_gaussian_blur(IntensityCorrection, Blur, 20.0);
+        normalized_gaussian_blur(IntensityCorrection, Blur,
+                                 intensity_correction_blurX, intensity_correction_blurY, intensity_correction_blurZ);
 
         IntensityCorrection = Blur;
       }
@@ -3188,6 +2629,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         smaps.reference(temp);
       }
 
+      // Break out of this loop if there is only one coil
       if (data.Num_Coils == 1) {
         cout << "One coil - assuming senitivity map is 1" << endl
              << flush;
@@ -3195,6 +2637,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         break;
       }
 
+      // ------------------------------------
       cout << "Recon Low Resolution Images" << endl
            << flush;
 
@@ -3234,8 +2677,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
           }
 
           if (skip_this_encode) {
-            std::cout << "Skipping Encode" << e
-                      << "for coil sensitivity mapping" << std::endl;
+            std::cout << "Skipping Encode" << e << "for coil sensitivity mapping" << std::endl;
             continue;
           }
 
@@ -3286,9 +2728,8 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         }
       }
 
-      Array<float, 3> IC;
       if (intensity_correction) {
-        intensity_correct(IC, smaps);
+        intensity_correct(this->IntensityCorrection, image_store);
       }
 
       if (this->coil_rejection_flag) {
@@ -3320,10 +2761,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                         SignalFractionIn(coil) += abs(image_store(e, coil)(i, j, k));
                       }
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
-                    }  //i
-                  }    //j
-                }      //k
-              }        //e
+                    }  // i
+                  }    // j
+                }      // k
+              }        // e
             }          // coil
 
           } break;
@@ -3347,17 +2788,17 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                       }
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
 
-                    }  //i
-                  }    //j
-                }      //k
-              }        //e
+                    }  // i
+                  }    // j
+                }      // k
+              }        // e
             }          // coil
 
           } break;
 
         }  // shape switch
 
-        //Normalize
+        // Normalize
         for (int coil = 0; coil < data.Num_Coils; coil++) {
           cout << "Coil = " << coil << "Signal In=" << SignalFractionIn(coil) << " Signal Out=" << SignalFractionTotal(coil);
           SignalFractionIn(coil) /= SignalFractionTotal(coil);
@@ -3372,8 +2813,8 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
               image_store(e, coil) = complex<float>(0.0, 0.0);
             }
           }
-        }  //coil
-      }    //coil rejection
+        }  // coil
+      }    // coil rejection
 
       // Spirit Code
       switch (coil_combine_type) {
@@ -3389,7 +2830,17 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         case (WALSH): {
           // Image space eigen Method
           eigen_coils(smaps, image_store);
-          sos_normalize(smaps);
+
+          switch (smap_norm) {
+            case (SMAPNORM_SOS): {
+              sos_normalize(smaps);
+            } break;
+
+            case (SMAPNORM_BODY): {
+              body_coil_normalize(smaps, body_coil_idx);
+            } break;
+          }
+
         } break;
 
         case (LOWRES): {  // E-spirit Code
@@ -3410,26 +2861,19 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
               }
             }
           }
-          sos_normalize(smaps);
+
+          switch (smap_norm) {
+            case (SMAPNORM_SOS): {
+              sos_normalize(smaps);
+            } break;
+
+            case (SMAPNORM_BODY): {
+              body_coil_normalize(smaps, body_coil_idx);
+            } break;
+          }
 
         } break;
       }  // Normalization
-
-      if (intensity_correction) {
-        cout << "Intensity correcting maps" << endl
-             << flush;
-        for (int coil = 0; coil < data.Num_Coils; coil++) {
-#pragma omp parallel for
-          for (int k = 0; k < smaps(0).length(thirdDim); k++) {
-            for (int j = 0; j < smaps(0).length(secondDim); j++) {
-              for (int i = 0; i < smaps(0).length(firstDim); i++) {
-                smaps(coil)(i, j, k) *= IC(i, j, k);
-              }
-            }
-          }
-        }
-        // ArrayWrite(IC,"Intensity.dat");
-      }
 
       // Export
       if (export_smaps || debug_smaps) {
@@ -3440,6 +2884,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
           SmapsOut.AddH5Array("Maps", name, smaps(coil));
         }
       }
+
     } break;
 
     case (SOS): {
@@ -3493,6 +2938,36 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       }
     }
   }
+}
+
+void RECON::body_coil_normalize(Array<Array<complex<float>, 3>, 1> &A, int body_coil_idx) {
+  if (body_coil_idx == -1) {
+    cout << "Using last coil for body coil normalization" << endl;
+    body_coil_idx = A.length(firstDim) - 1;
+  }
+
+#pragma omp parallel for
+  for (int k = 0; k < A(0).length(thirdDim); k++) {
+    for (int j = 0; j < A(0).length(secondDim); j++) {
+      for (int i = 0; i < A(0).length(firstDim); i++) {
+        // Signal from the body coil
+        complex<float> body_coil_phase = polar(1.0f, -arg(A(body_coil_idx)(i, j, k)));
+
+        // The sum of squares
+        float sos = 0.0;
+        for (int coil = 0; coil < A.length(firstDim); coil++) {
+          sos += norm(A(coil)(i, j, k));
+        }
+        sos = sqrt(sos);
+
+        // Normalize by SOS but use phase from body coil
+        for (int coil = 0; coil < A.length(firstDim); coil++) {
+          A(coil)
+          (i, j, k) *= body_coil_phase / sos;
+        }
+      }
+    }
+  }  // x,y,z
 }
 
 void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
@@ -3600,31 +3075,94 @@ void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
   }
 }
 
-void RECON::intensity_correct(Array<float, 3> &IC,
-                              Array<Array<complex<float>, 3>, 1> &smaps) {
+void RECON::apply_intensity_bias(Array<Array<complex<float>, 3>, 2> &images) {
+  if (intensity_correction) {
+    for (Array<Array<complex<float>, 3>, 2>::iterator miter = images.begin(); miter != images.end(); miter++) {
+      *miter /= IntensityCorrection;
+    }
+  }
+}
+
+void RECON::apply_intensity_bias(Array<Array<complex<float>, 3>, 1> &images) {
+  if (intensity_correction) {
+    for (Array<Array<complex<float>, 3>, 1>::iterator miter = images.begin(); miter != images.end(); miter++) {
+      *miter /= IntensityCorrection;
+    }
+  }
+}
+
+void RECON::apply_intensity_bias(Array<complex<float>, 3> &images) {
+  if (intensity_correction) {
+    images /= IntensityCorrection;
+  }
+}
+
+void RECON::correct_intensity_bias(Array<Array<complex<float>, 3>, 2> &images) {
+  if (intensity_correction) {
+    for (Array<Array<complex<float>, 3>, 2>::iterator miter = images.begin(); miter != images.end(); miter++) {
+      *miter *= IntensityCorrection;
+    }
+  }
+}
+
+void RECON::correct_intensity_bias(Array<Array<complex<float>, 3>, 1> &images) {
+  if (intensity_correction) {
+    for (Array<Array<complex<float>, 3>, 1>::iterator miter = images.begin(); miter != images.end(); miter++) {
+      *miter *= IntensityCorrection;
+    }
+  }
+}
+
+void RECON::correct_intensity_bias(Array<complex<float>, 3> &images) {
+  if (intensity_correction) {
+    images *= IntensityCorrection;
+  }
+}
+
+void RECON::intensity_correct(Array<float, 3> &IC, Array<Array<complex<float>, 3>, 2> &smaps) {
   cout << "Correcting Intensity" << endl;
 
+  // Allocate Storage for correction
+  IC.free();
   IC.setStorage(ColumnMajorArray<3>());
   IC.resize(rcxres, rcyres, rczres);
+  IC = 0.0;
 
   // Collect a Sum of Squares image
-  IC = 0.0;
-  for (int coil = 0; coil < smaps.length(firstDim); coil++) {
-    IC += norm(smaps(coil));
+  for (int encode = 0; encode < smaps.length(firstDim); encode++) {
+    for (int coil = 0; coil < smaps.length(secondDim); coil++) {
+      IC += norm(smaps(encode, coil));
+    }
   }
-  for (Array<float, 3>::iterator miter = IC.begin(); miter != IC.end();
-       miter++) {
+
+  // Take a square root
+  for (Array<float, 3>::iterator miter = IC.begin(); miter != IC.end(); miter++) {
     (*miter) = sqrtf(*miter);
   }
-  IC /= max(IC);
 
-  // Threshold that image - to reduce error with air
-  float max_sos = max(IC);
-  float ic_threshold = 0.05 * max_sos;
-  for (Array<float, 3>::iterator miter = IC.begin(); miter != IC.end();
-       miter++) {
-    if ((*miter) < ic_threshold) {
-      (*miter) = 0.0;
+  // In this case a body coil image is in the volume
+  float zero_protection = 0.0001;
+  if (smap_norm == SMAPNORM_BODY) {
+    if (body_coil_idx == -1) {
+      cout << "Using last coil for body coil normalization" << endl;
+      body_coil_idx = smaps.length(secondDim) - 1;
+    }
+
+    // sos / body coil
+    IC /= abs(smaps(0, body_coil_idx));
+
+    zero_protection = 1e-6;
+
+  } else {
+    IC /= max(IC);
+
+    // Threshold that image - to reduce error with air
+    float max_sos = max(IC);
+    float ic_threshold = 0.05 * max_sos;
+    for (Array<float, 3>::iterator miter = IC.begin(); miter != IC.end(); miter++) {
+      if ((*miter) < ic_threshold) {
+        (*miter) = 0.0;
+      }
     }
   }
 
@@ -3632,36 +3170,28 @@ void RECON::intensity_correct(Array<float, 3> &IC,
   Array<float, 3> Blur;
   Blur.setStorage(ColumnMajorArray<3>());
   Blur.resize(rcxres, rcyres, rczres);
-  normalized_gaussian_blur(IC, Blur, 20.0);
+  normalized_gaussian_blur(IC, Blur, intensity_correction_blurX, intensity_correction_blurY, intensity_correction_blurZ);
 
   // Calc intensity correction
   float max_blur = max(Blur);
   for (int k = 0; k < rczres; k++) {
     for (int j = 0; j < rcyres; j++) {
       for (int i = 0; i < rcxres; i++) {
-        switch (recon_type) {
-          case (SOS):
-          case (PILS): {
-            IC(i, j, k) = Blur(i, j, k) / (Blur(i, j, k) * Blur(i, j, k) +
-                                           0.01 * max_blur * max_blur);
-          } break;
-
-          default: {
-            IC(i, j, k) =
-                (Blur(i, j, k) > 0.05 * max_blur) ? (Blur(i, j, k)) : (0.0);
-          } break;
-        }
+        IC(i, j, k) = Blur(i, j, k) / (Blur(i, j, k) * Blur(i, j, k) + zero_protection * max_blur * max_blur);
       }
     }
   }
+
+  ArrayWrite(IC, "IntensityCorrection.dat");
+
   return;
 }
 
-void RECON::normalized_gaussian_blur(const Array<float, 3> &In,
-                                     Array<float, 3> &Out, float sigma) {
-  int dwinX = 3 * (int)sigma;
-  int dwinY = 3 * (int)sigma;
-  int dwinZ = 3 * (int)sigma;
+void RECON::normalized_gaussian_blur(const Array<float, 3> &In, Array<float, 3> &Out,
+                                     float sigmax, float sigmay, float sigmaz) {
+  int dwinX = 3 * (int)sigmax;
+  int dwinY = 3 * (int)sigmay;
+  int dwinZ = 3 * (int)sigmaz;
 
   Array<float, 3> Normalization;
   Normalization.setStorage(ColumnMajorArray<3>());
@@ -3672,10 +3202,9 @@ void RECON::normalized_gaussian_blur(const Array<float, 3> &In,
   Out = 0.0;
 
   // Kernel to reduce calls to exp
-  float *kern = new float[2 * dwinX + 1];
+  Array<float, 1> kernx(2 * dwinX + 1);
   for (int t = 0; t < (2 * dwinX + 1); t++) {
-    kern[t] = exp(-sqr((float)t - dwinX) / (2.0 * sqr(sigma)));
-    // cout << "Kern (" << t << ") = " << kern[t] << endl;
+    kernx(t) = exp(-sqr((float)t - dwinX) / (2.0 * sqr(sigmax)));
   }
 
   // Gaussian Blur in X
@@ -3693,12 +3222,18 @@ void RECON::normalized_gaussian_blur(const Array<float, 3> &In,
         int ex = min(i + dwinX, rcxres);
 
         for (int ii = sx; ii < ex; ii++) {
-          Out(i, j, k) += kern[ks] * In(ii, j, k);
-          Normalization(i, j, k) += kern[ks] * (float)(In(ii, j, k) > 0);
+          Out(i, j, k) += kernx(ks) * In(ii, j, k);
+          Normalization(i, j, k) += kernx(ks) * (float)(In(ii, j, k) > 0);
           ks++;
         }
       }
     }
+  }
+
+  // Kernel to reduce calls to exp
+  Array<float, 1> kerny(2 * dwinY + 1);
+  for (int t = 0; t < (2 * dwinY + 1); t++) {
+    kerny(t) = exp(-sqr((float)t - dwinY) / (2.0 * sqr(sigmay)));
   }
 
   // Gaussian Blur in Y
@@ -3725,8 +3260,8 @@ void RECON::normalized_gaussian_blur(const Array<float, 3> &In,
         int ey = min(j + dwinY + 1, rcyres);
 
         for (int jj = sy; jj < ey; jj++) {
-          Out(i, j, k) += kern[ks] * Line[jj];
-          Normalization(i, j, k) += kern[ks] * NLine[jj];  // Already a count
+          Out(i, j, k) += kerny(ks) * Line[jj];
+          Normalization(i, j, k) += kerny(ks) * NLine[jj];  // Already a count
           ks++;
         }
       }
@@ -3734,6 +3269,12 @@ void RECON::normalized_gaussian_blur(const Array<float, 3> &In,
       delete[] Line;
       delete[] NLine;
     }
+  }
+
+  // Kernel to reduce calls to exp
+  Array<float, 1> kernz(2 * dwinZ + 1);
+  for (int t = 0; t < (2 * dwinZ + 1); t++) {
+    kernz(t) = exp(-sqr((float)t - dwinZ) / (2.0 * sqr(sigmaz)));
   }
 
   // Gaussian Blur in Z
@@ -3760,8 +3301,8 @@ void RECON::normalized_gaussian_blur(const Array<float, 3> &In,
         int ez = min(k + dwinZ + 1, rczres);
 
         for (int kk = sz; kk < ez; kk++) {
-          Out(i, j, k) += kern[ks] * Line[kk];
-          Normalization(i, j, k) += kern[ks] * NLine[kk];
+          Out(i, j, k) += kernz(ks) * Line[kk];
+          Normalization(i, j, k) += kernz(ks) * NLine[kk];
           ks++;
         }
 

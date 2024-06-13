@@ -9,7 +9,7 @@ Usage Example:
         gridFFT gridding;
         gridding.read_commandline(argc,argv);
         gridding.precalc_gridding(64,64,64,3,KAISER);
-        
+
 
         // Use for transform
         gridding.forward()
@@ -923,8 +923,7 @@ void gridFFT::deapp(void) {
   }
 }
 
-void gridFFT::accumulate(Array<complex<float>, 3> &X,
-                         const Array<complex<float>, 3> &smap) {
+void gridFFT::accumulate(Array<complex<float>, 3> &X, const Array<complex<float>, 3> &smap) {
 #pragma omp parallel for
   for (int k = 0; k < Nz; k++) {
     float wtz = winz(k + og_sz);
@@ -970,8 +969,7 @@ void gridFFT::accumulate_sos(Array<complex<float>, 3> &X) {
   }
 }
 
-void gridFFT::set_image(const Array<complex<float>, 3> &X,
-                        const Array<complex<float>, 3> &smap) {
+void gridFFT::set_image(const Array<complex<float>, 3> &X, const Array<complex<float>, 3> &smap) {
 #pragma omp parallel for
   for (int k = 0; k < Nz; k++) {
     float wtz = winz(k + og_sz);
@@ -1179,7 +1177,7 @@ void gridFFT::chop_grid_backward(Array<complex<float>, 3> &dataA,
   long Npts = dataA.numElements();
 
   // nested
-  //int *N = new int[3];
+  // int *N = new int[3];
   int N[3];
   N[0] = dataA.length(firstDim);
   N[1] = dataA.length(secondDim);

@@ -148,7 +148,6 @@ set(RECONLIB_SOURCES
 	src/temporal_diff.cpp
 	src/mri_data.cpp
 	src/spirit.cpp
-	src/smsEncode.cpp
 	src/DCFgridFFT.cpp
 	src/gridFFT.cpp
 	src/gridFFT_CoilThreaded.cpp
