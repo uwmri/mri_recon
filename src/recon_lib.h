@@ -205,6 +205,8 @@ class RECON {
   int admm_max_iter;
 
   int max_iter;
+  float early_stop_thresh;
+  int early_stop_range;
   bool export_smaps;
   bool debug_smaps;
   bool prep_done;
