@@ -27,7 +27,6 @@
 #include "mri_data.h"
 #include "phantom.h"
 #include "polynomial_fitting.h"
-#include "smsEncode.h"
 #include "spirit.h"
 #include "temporal_diff.h"
 #include "threshold.h"
@@ -80,6 +79,12 @@ class RECON {
                       SMAPMASK_CIRCLE,
                       SMAPMASK_SPHERE };
   SmapMaskType smap_mask;
+
+  // Methods to normalize coil sensitivity maps
+  enum SmapNormType { SMAPNORM_BODY,
+                      SMAPNORM_SOS };
+  SmapNormType smap_norm;
+  int body_coil_idx;
 
   // Recon Flags
   ReconType recon_type;
@@ -169,6 +174,9 @@ class RECON {
   float smap_res;
   float smap_thresh;
   bool intensity_correction;
+  int intensity_correction_blurX;
+  int intensity_correction_blurY;
+  int intensity_correction_blurZ;
   std::string filename;
   int cycle_spins;
   int walsh_block_sizeX;
@@ -203,8 +211,6 @@ class RECON {
   bool pregate_data_flag;
   bool image_scale_normalization;
 
-  NDarray::Array<NDarray::Array<complex<float>, 3>, 2> test_sms(MRI_DATA&, MRI_DATA&, int numarg, const char** pstring);
-
   RECON(void);
   RECON(int numarg, const char** pstring);
   void help_message(void);
@@ -233,10 +239,21 @@ class RECON {
   void eigen_coils(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& smaps, NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& image);
   void dcf_calc(MRI_DATA& data);
   void dcf_calc(MRI_DATA& data, GATING& gate);
-  void normalized_gaussian_blur(const NDarray::Array<float, 3>& In, NDarray::Array<float, 3>& out, float sigma);
-  void intensity_correct(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& smaps);
+  void normalized_gaussian_blur(const NDarray::Array<float, 3>& In, NDarray::Array<float, 3>& out, float, float, float);
+
+  void intensity_correct(NDarray::Array<float, 3>& IC, NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& images);
+
+  void apply_intensity_bias(NDarray::Array<complex<float>, 3>& images);
+  void apply_intensity_bias(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& images);
+  void apply_intensity_bias(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& images);
+
+  void correct_intensity_bias(NDarray::Array<complex<float>, 3>& images);
+  void correct_intensity_bias(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>& images);
+  void correct_intensity_bias(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>& images);
+
   void pregate_data(MRI_DATA&);
   void sos_normalize(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>&);
+  void body_coil_normalize(NDarray::Array<NDarray::Array<complex<float>, 3>, 1>&, int);
 
   void export_slice(NDarray::Array<complex<float>, 3>& temp, const char* fname);
 
