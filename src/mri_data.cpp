@@ -547,6 +547,9 @@ void MRI_DATA::write_external_data(string fname) {
   file.AddH5Scaler("Kdata", "Num_Encodings", Num_Encodings);
   file.AddH5Scaler("Kdata", "Num_Coils", Num_Coils);
   file.AddH5Scaler("Kdata", "Num_Frames", Num_Frames);
+  file.AddH5Scaler("Kdata", "fovx", xfov);
+  file.AddH5Scaler("Kdata", "fovy", yfov);
+  file.AddH5Scaler("Kdata", "fovz", zfov);
 
   // 2D/3D Cartesian/Non-Cartesian
   file.AddH5Scaler("Kdata", "trajectory_typeX", (int)trajectory_type(0));

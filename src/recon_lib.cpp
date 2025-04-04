@@ -2923,16 +2923,6 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         } break;
       }  // Normalization
 
-      // Export
-      if (export_smaps || debug_smaps) {
-        HDF5 SmapsOut = HDF5("SenseMaps.h5", "w");
-        for (int coil = 0; coil < smaps.length(firstDim); coil++) {
-          char name[256];
-          sprintf(name, "SenseMaps_%d", coil);
-          SmapsOut.AddH5Array("Maps", name, smaps(coil));
-        }
-      }
-
     } break;
 
     case (SOS): {
@@ -2949,6 +2939,16 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       }
 
     } break;
+  }
+
+  // Export
+  if (export_smaps || debug_smaps) {
+    HDF5 SmapsOut = HDF5("SenseMaps.h5", "w");
+    for (int coil = 0; coil < smaps.length(firstDim); coil++) {
+      char name[256];
+      sprintf(name, "SenseMaps_%d", coil);
+      SmapsOut.AddH5Array("Maps", name, smaps(coil));
+    }
   }
 
   if (smap_mask != SMAPMASK_NONE) {

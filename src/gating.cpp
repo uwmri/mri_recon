@@ -79,7 +79,7 @@ GATING::GATING(int numarg, const char **pstring) {
 
   // Respiratory Efficiency
   correct_resp_drift = 0;
-  adaptive_resp_window = 5.0;
+  adaptive_resp_window = 10.0;
   resp_gate_efficiency = 0.5;
   resp_phase_lower = 0.0;
   resp_phase_upper = 0.5;
