@@ -110,6 +110,7 @@ void RECON::set_defaults(void) {
   wavelet_levelsX = 4;
   wavelet_levelsY = 4;
   wavelet_levelsZ = 4;
+  wavelet_type = WAVELET3D::WAVE_DB4;
 
   // Code to rotate
   phase_rotation = false;
@@ -363,6 +364,37 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   int_flag("-wavelet_levelsY", wavelet_levelsY, "max number of wavelet levels x");
   int_flag("-wavelet_levelsZ", wavelet_levelsZ, "max number of wavelet levels x");
 
+  // Temporal Transforms
+  help_message
+      << help_strIO(string("-wavelet_type"), string("db2/db4/db8/sym2/sym4/sym8/bo33"))
+      << endl;
+  for (int ii = 0; ii < numarg; ii++) {
+    if (strcmp("-wavelet_type", pstring[ii]) == 0) {
+      ii++;
+      if (ii == numarg) {
+        cout << "Please provide wavelet transform type [db2/db4/db8/sym2/sym4/sym8/bo33] " << endl;
+        exit(1);
+      } else if (strcmp("db2", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_DB2;
+      } else if (strcmp("db4", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_DB4;
+      } else if (strcmp("db8", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_DB8;
+      } else if (strcmp("sym2", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_SYM2;
+      } else if (strcmp("sym4", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_SYM4;
+      } else if (strcmp("sym8", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_SYM8;
+      } else if (strcmp("bo33", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_BO33;
+      } else {
+        cout << "Please provide iterative_step_type type for gradient descent cauchy/maxeig[default]" << endl;
+        exit(1);
+      }
+    }
+  }
+
   // Iterations for IST
   int_flag("-max_iter", max_iter, "maximum number of iterations");
   int_flag("-cycle_spins", cycle_spins, "number of shifts to apply to images each iteration");
@@ -601,7 +633,7 @@ void RECON::init_recon(int argc, const char **argv, MRI_DATA &data) {
       wave = WAVELET3D(
           TinyVector<int, 3>(rcxres, rcyres, rczres),
           TinyVector<int, 3>(wavelet_levelsX, wavelet_levelsY, wavelet_levelsZ),
-          WAVELET3D::WAVE_DB4);
+          wavelet_type);
 
       // Setup Soft Thresholding
       softthresh = THRESHOLD(argc, argv);
@@ -1071,7 +1103,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
             // cout << e << "," << t << "took " << T << "s" << endl;
           }  // Time
-        }    // Encode
+        }  // Encode
 
         // Get Scaling Factor R'P / R'R
         complex<double> scale_RhR = complex<double>(ArrayEnergy(RR), 0);
@@ -1329,7 +1361,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               LHS(t, e) += admm_rho * P(t, e);
 
             }  // t
-          }    // e
+          }  // e
 
           //----------------------------------------------------
           //  Now perform gradient update
@@ -1582,7 +1614,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 
           }  // t
-        }    // e
+        }  // e
 
         // Regularization
         if ((iteration == 0) && (l2reg.lambda > 0)) {
@@ -1997,7 +2029,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             }
             cout << "\r" << e << "," << t << "took " << T << "s" << flush;
           }  // Time
-        }    // Encode
+        }  // Encode
 
         // Scale the image to set aproximate value to 1
         if (this->image_scale_normalization && (iteration == 0)) {
@@ -2238,12 +2270,14 @@ double RECON::kspace_residual(MRI_DATA &data) {
 
 // Prevent Race conditions in multi-threaded
 #pragma omp critical
-        { residual += residual_temp; }
+        {
+          residual += residual_temp;
+        }
       }
       // cout << "Residual took " << T << endl;
 
     }  // Coils
-  }    // Encode
+  }  // Encode
 
   return (residual);
 }
@@ -2762,10 +2796,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                       }
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
                     }  // i
-                  }    // j
-                }      // k
-              }        // e
-            }          // coil
+                  }  // j
+                }  // k
+              }  // e
+            }  // coil
 
           } break;
 
@@ -2789,10 +2823,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
 
                     }  // i
-                  }    // j
-                }      // k
-              }        // e
-            }          // coil
+                  }  // j
+                }  // k
+              }  // e
+            }  // coil
 
           } break;
 
@@ -2814,7 +2848,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
             }
           }
         }  // coil
-      }    // coil rejection
+      }  // coil rejection
 
       // Spirit Code
       switch (coil_combine_type) {

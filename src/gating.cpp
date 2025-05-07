@@ -59,6 +59,25 @@ void vec_to_array(Array<Array<double, 2>, 1> &A, arma::vec &out) {
 }
 
 GATING::GATING(void) {
+  // Setting default values, configurable
+  wdth_low = 1;
+  wdth_high = 4;
+
+  vs_type = NONE;
+  tornado_shape = VIPR;  // Kr^2 shape
+  kmax = 128;            // TEMP
+  gate_type = GATE_NONE;
+
+  // Respiratory Efficiency
+  correct_resp_drift = 0;
+  resp_gate_efficiency = 0.5;
+  resp_gate_weight = 3;  // This controls exponential decay of resp weights for soft-thresholding.
+  resp_gate_type = RESP_NONE;
+  resp_gate_signal = BELLOWS;
+  gate_min_quantile = 0.0;
+  gate_max_quantile = 1.0;
+  resp_sign = 1.0;
+  ecg_out_reject = true;
 }
 
 // Setup of
@@ -81,6 +100,7 @@ GATING::GATING(int numarg, const char **pstring) {
   gate_min_quantile = 0.0;
   gate_max_quantile = 1.0;
   resp_sign = 1.0;
+  ecg_out_reject = true;
 
 // Catch command line switches
 #define trig_flag(num, name, val)             \
@@ -174,6 +194,8 @@ GATING::GATING(int numarg, const char **pstring) {
       float_flag("-resp_sign", resp_sign);
       float_flag("-gate_min_quantile", gate_min_quantile);
       float_flag("-gate_max_quantile", gate_max_quantile);
+      trig_flag(1, "-ecg_out_reject", ecg_out_reject);
+      trig_flag(0, "-wo_ecg_out_reject", ecg_out_reject);
     }
   }
 
@@ -717,6 +739,15 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
       }
       max_time = 2.0 * median(temp);
       cout << "Retro ECG::RR is estimated to be " << max_time << endl;
+
+      if (ecg_out_reject) {
+        // Outlier rejection
+        arma::uvec idx = arma::find(temp < 1.3 * max_time);
+        arma::vec clipped_ecg = temp.elem(idx);
+
+        max_time = 2.0 * median(clipped_ecg);
+        cout << "Retro ECG::Clipped RR is estimated to be " << max_time << endl;
+      }
     } break;
 
     case (RESP): {
