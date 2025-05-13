@@ -171,6 +171,37 @@ void MRI_DATA::stats(void) {
   }
 }
 
+void MRI_DATA::gating_stats(void) {
+  if (ecg.numElements() == 0) {
+    cout << "Physiologic data does not exist yet" << endl;
+  } else {
+    std::cout << "---------Gating Stats--------------" << std::endl;
+    std::cout << "Range ECG = " << Dmin(ecg) << " to " << Dmax(ecg) << std::endl;
+    std::cout << "Range Resp = " << Dmin(resp) << " to " << Dmax(resp) << std::endl;
+    std::cout << "Range Time = " << Dmin(time) << " to " << Dmax(time) << std::endl;
+    std::cout << "Range Prep = " << Dmin(prep) << " to " << Dmax(prep) << std::endl;
+  }
+}
+
+void MRI_DATA::mod_time(double mod_time) {
+  if (time.numElements() == 0) {
+    cout << "Mod time - timing data does not exist yet" << endl;
+  } else {
+    NDarray::Array<NDarray::Array<double, 2>, 1> time;
+
+    Array<Array<double, 2>, 1>::iterator miter = this->time.begin();
+    Array<Array<double, 2>, 1>::iterator miter_end = this->time.end();
+
+    for (; (miter != miter_end); miter++) {
+      Array<double, 2>::iterator titer = (*miter).begin();
+      Array<double, 2>::iterator titer_end = (*miter).end();
+      for (; (titer != titer_end); titer++) {
+        *titer = std::fmod(*titer, mod_time);
+      }  // Inner time array
+    }  // Encodes
+  }  // If data exists
+}
+
 // Data for Whitening
 void MRI_DATA::init_noise_samples(int total_samples) {
   noise_samples.setStorage(ColumnMajorArray<2>());
@@ -180,7 +211,7 @@ void MRI_DATA::init_noise_samples(int total_samples) {
 
 void MRI_DATA::clone_attributes(MRI_DATA &data) {
   Num_Encodings = data.Num_Encodings;
-  ;
+
   Num_Coils = data.Num_Coils;
   Num_Frames = data.Num_Frames;
 
@@ -862,8 +893,7 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   int Num_Pixels = 0;
   float kr_thresh_squared = kr_thresh * kr_thresh;
 
-#pragma omp parallel for reduction(+ \
-                                   : Num_Pixels)
+#pragma omp parallel for reduction(+ : Num_Pixels)
   for (int encode = 0; encode < kx.length(firstDim); encode++) {
     // Assign iterators to go over the data
     Array<float, 3>::const_iterator kx_iter = this->kx(encode).begin();
@@ -907,9 +937,9 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             idx++;
           }
         }  // pos
-      }    // view
-    }      // slice
-  }        // encode
+      }  // view
+    }  // slice
+  }  // encode
   cout << "Copied pixels = " << idx << endl
        << flush;
   cout << "took " << ctimer << " s to copy data" << endl;
@@ -950,10 +980,10 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             }  // coil
             kdata(encode, vcoil)(pos, view, slice) = tmp;
           }  // vcoil
-        }    // pos
-      }      // view
-    }        // slice
-  }          // encode
+        }  // pos
+      }  // view
+    }  // slice
+  }  // encode
   cout << "took " << ctimer << " s to rotate data" << endl;
 
   /* Temp data structure
