@@ -1029,7 +1029,7 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
   arma::mat CV_ABS = arma::abs(CV);
   cout << "WHITEN::Noise Covariance" << endl;
   cout << "  size = " << CV_ABS.n_rows << " x " << CV_ABS.n_cols << endl;
-  cout << CV_ABS << endl;
+  // cout << CV_ABS << endl;
 
   std::cout << "WHITEN::Calc whitening matrix" << std::endl;
   arma::cx_mat V = chol(CV);
@@ -1042,7 +1042,7 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
 
     cout << "WHITEN::Noise Decorrelation matrix" << endl;
     cout << "  size = " << Decorr.n_rows << " x " << Decorr.n_cols << endl;
-    cout << Decorr << endl;
+    // cout << Decorr << endl;
   }
 
   // Test Whitening
@@ -1067,7 +1067,7 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
   arma::mat CV_POST_ABS = arma::abs(CV_POST);
   cout << "WHITEN::Noise Covariance post whiten" << endl;
   cout << "  size = " << W.n_rows << " x " << W.n_cols << endl;
-  cout << CV_POST_ABS << endl;
+  // cout << CV_POST_ABS << endl;
 
   arma::cx_fmat whitening_matrix;
   whitening_matrix.copy_size(Decorr);
