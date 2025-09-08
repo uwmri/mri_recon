@@ -101,10 +101,6 @@ class MRI_DATA {
   float rot_sy;
   float rot_sz;
 
-  arma::mat::fixed<3, 3> rot_matrix;
-
-  
-
   //
   //	Functions
   //

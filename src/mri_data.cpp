@@ -565,8 +565,6 @@ void MRI_DATA::write_external_data(string fname) {
   file.AddH5Scaler("Kdata", "sx", rot_sx);
   file.AddH5Scaler("Kdata", "sy", rot_sy);
   file.AddH5Scaler("Kdata", "sz", rot_sz);
-
-  file.AddH5Array("Kdata", "rotation_matrix", rotation_matrix);
   
   if (sms_factor > 1) {
     file.AddH5Scaler("Kdata", "sms_factor", sms_factor);
