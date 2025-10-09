@@ -438,6 +438,46 @@ Array<Array<T, 3>, 2> Alloc5DContainer(int x, int y, int z, int d1, int d2) {
 double Dmax(const Array<Array<double, 2>, 1> &A);
 double Dmin(const Array<Array<double, 2>, 1> &A);
 
+template <typename T, const int N_rank, const int M_rank>
+T collapsed_max(const NDarray::Array<NDarray::Array<T, N_rank>, M_rank> &A) {
+  // Iterator over the outer array
+  typename NDarray::Array<NDarray::Array<T, N_rank>, M_rank>::const_iterator miter = A.begin();
+
+  // Initialize max value
+  typename NDarray::Array<T, N_rank>::const_iterator niter_start = (*miter).begin();
+  T max_val = *niter_start;
+
+  for (; miter != A.end(); miter++) {
+    // Iterator over the inner array
+    typename NDarray::Array<T, N_rank>::const_iterator niter = (*miter).begin();
+    for (; niter != (*miter).end(); niter++) {
+      max_val = std::max(max_val, *niter);
+    }
+  }
+
+  return max_val;
+}
+
+template <typename T, const int N_rank, const int M_rank>
+T collapsed_min(const NDarray::Array<NDarray::Array<T, N_rank>, M_rank> &A) {
+  // Iterator over the outer array
+  typename NDarray::Array<NDarray::Array<T, N_rank>, M_rank>::const_iterator miter = A.begin();
+
+  // Initialize max value
+  typename NDarray::Array<T, N_rank>::const_iterator niter_start = (*miter).begin();
+  T max_val = *niter_start;
+
+  for (; miter != A.end(); miter++) {
+    // Iterator over the inner array
+    typename NDarray::Array<T, N_rank>::const_iterator niter = (*miter).begin();
+    for (; niter != (*miter).end(); niter++) {
+      max_val = std::min(max_val, *niter);
+    }
+  }
+
+  return max_val;
+}
+
 void nested_workaround(long index, int *N, int *idx, int total);
 
 template <typename T>

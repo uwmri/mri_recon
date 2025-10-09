@@ -65,6 +65,7 @@ class MRI_DATA {
   NDarray::Array<NDarray::Array<double, 2>, 1> prep;                  // Time since a prep event (for example inversion)
   NDarray::Array<NDarray::Array<complex<float>, 2>, 2> kdata_gating;  // Repeated sample for gating, need to be the same for each
                                                                       // data point, all coils
+  NDarray::Array<NDarray::Array<u_int64_t, 2>, 1> clock_time;         // Time on the computer clock for synchronization
 
   // Native Resolution
   int xres;

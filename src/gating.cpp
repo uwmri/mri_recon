@@ -258,8 +258,8 @@ void GATING::help_message() {
  *----------------------------------------------*/
 void GATING::filter_resp(const MRI_DATA &data) {
   // Assume all the data is contigous
-  double min_time = Dmin(data.time);
-  double max_time = Dmax(data.time);
+  double min_time = collapsed_min(data.time);
+  double max_time = collapsed_max(data.time);
   cout << "Time range [ " << min_time << " to " << max_time << " ] span = " << (max_time - min_time) << endl;
 
   // Time in seconds to grab median from
@@ -512,8 +512,8 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         time_linear_resp.save("TimeResp.txt", arma::raw_ascii);
 
         // Size of histogram
-        cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
+        cout << "Time range = " << (collapsed_max(data.time) - collapsed_min(data.time)) << endl;
+        int fsize = (int)(5.0 / ((collapsed_max(data.time) - collapsed_min(data.time)) / resp.n_elem));  // 10s filter / delta time
 
         // Now Filter
         cout << "Thresholding Data Frame Size = " << fsize << endl;
@@ -603,8 +603,8 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         // This version uses a 10 second window to define the threshold and
         // weights. Size of histogram
-        cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(5.0 / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
+        cout << "Time range = " << (collapsed_max(data.time) - collapsed_min(data.time)) << endl;
+        int fsize = (int)(5.0 / ((collapsed_max(data.time) - collapsed_min(data.time)) / resp.n_elem));  // 10s filter / delta time
 
         arma::vec temp = time_linear_resp;
         arma::vec temp2 = sort(temp);
@@ -785,8 +785,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
     } break;
 
     default: {
-      max_time = Dmax(this->gate_times);
-      min_time = Dmin(this->gate_times);
+      max_time = collapsed_max(this->gate_times);
+      min_time = collapsed_min(this->gate_times);
     } break;
   }
 
@@ -807,8 +807,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
     this->gate_times(e) *= scale_time;
   }
 
-  cout << "Min Time - Post scale = " << Dmin(this->gate_times) << endl;
-  cout << "Max Time - Post scale = " << Dmax(this->gate_times) << endl;
+  cout << "Min Time - Post scale = " << collapsed_min(this->gate_times) << endl;
+  cout << "Max Time - Post scale = " << collapsed_max(this->gate_times) << endl;
 
   /* Histogram*/
   {
@@ -858,8 +858,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
 
     case (NONE): {
       this->gate_times = floor(this->gate_times);
-      cout << "Max gate time = " << Dmin(gate_times) << endl;
-      cout << "Min gate time = " << Dmax(gate_times) << endl;
+      cout << "Max gate time = " << collapsed_max(gate_times) << endl;
+      cout << "Min gate time = " << collapsed_min(gate_times) << endl;
     } break;
 
     case (HIST_MODE): {
@@ -898,8 +898,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
         }
       }
 
-      cout << "gating::histmode::Max gate time = " << Dmin(gate_times) << endl;
-      cout << "gating::histmode::Min gate time = " << Dmax(gate_times) << endl;
+      cout << "gating::histmode::Max gate time = " << collapsed_max(gate_times) << endl;
+      cout << "gating::histmode::Min gate time = " << collapsed_min(gate_times) << endl;
 
     } break;
   }  // Switch vs_type

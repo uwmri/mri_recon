@@ -273,36 +273,6 @@ void NDarray::ifft(Array<complex<float>, 3> &temp, int dim) {
   fft3(temp, dim, FFTW_BACKWARD, 1);
 }
 
-double NDarray::Dmax(const Array<Array<double, 2>, 1> &A) {
-  double val = 0;
-  bool init = false;
-  for (Array<Array<double, 2>, 1>::const_iterator miter = A.begin();
-       miter != A.end(); miter++) {
-    double temp = max(*miter);
-    if (init == false) {
-      val = temp;
-    } else if (temp > val) {
-      val = temp;
-    }
-  }
-  return (val);
-}
-
-double NDarray::Dmin(const Array<Array<double, 2>, 1> &A) {
-  double val = 0;
-  bool init = false;
-  for (Array<Array<double, 2>, 1>::const_iterator miter = A.begin();
-       miter != A.end(); miter++) {
-    double temp = min(*miter);
-    if (init == false) {
-      val = temp;
-    } else if (temp < val) {
-      val = temp;
-    }
-  }
-  return (val);
-}
-
 void NDarray::fft3(Array<complex<float>, 3> &temp, int dim, int direction,
                    bool chop) {
   // Get Size

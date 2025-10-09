@@ -160,15 +160,7 @@ void MRI_DATA::stats(void) {
     dump_stats("Kdata", kdata);
   }
 
-  // gating
-  if (ecg.numElements() == 0) {
-    cout << "Physiologic data does not exist yet" << endl;
-  } else {
-    cout << "Range ECG = " << Dmin(ecg) << " to " << Dmax(ecg) << endl;
-    cout << "Range RESP = " << Dmin(resp) << " to " << Dmax(resp) << endl;
-    cout << "Range TIME = " << Dmin(time) << " to " << Dmax(time) << endl;
-    cout << "Range PREP = " << Dmin(prep) << " to " << Dmax(prep) << endl;
-  }
+  this->gating_stats();
 }
 
 void MRI_DATA::gating_stats(void) {
@@ -176,10 +168,11 @@ void MRI_DATA::gating_stats(void) {
     cout << "Physiologic data does not exist yet" << endl;
   } else {
     std::cout << "---------Gating Stats--------------" << std::endl;
-    std::cout << "Range ECG = " << Dmin(ecg) << " to " << Dmax(ecg) << std::endl;
-    std::cout << "Range Resp = " << Dmin(resp) << " to " << Dmax(resp) << std::endl;
-    std::cout << "Range Time = " << Dmin(time) << " to " << Dmax(time) << std::endl;
-    std::cout << "Range Prep = " << Dmin(prep) << " to " << Dmax(prep) << std::endl;
+    std::cout << "Range ECG = " << collapsed_min(ecg) << " to " << collapsed_max(ecg) << std::endl;
+    std::cout << "Range Resp = " << collapsed_min(resp) << " to " << collapsed_max(resp) << std::endl;
+    std::cout << "Range Time = " << collapsed_min(time) << " to " << collapsed_max(time) << std::endl;
+    std::cout << "Range Prep = " << collapsed_min(prep) << " to " << collapsed_max(prep) << std::endl;
+    std::cout << "Range Clock Time = " << collapsed_min(clock_time) << " to " << collapsed_max(clock_time) << std::endl;
   }
 }
 
@@ -255,6 +248,7 @@ void MRI_DATA::init_memory(void) {
   ecg.resize(Num_Encodings);
   resp.resize(Num_Encodings);
   prep.resize(Num_Encodings);
+  clock_time.resize(Num_Encodings);
 }
 
 void MRI_DATA::init_memory(int readouts, int shots, int slices) {
@@ -308,6 +302,9 @@ void MRI_DATA::init_encode(int e, int readouts, int shots, int slices) {
 
   prep(e).setStorage(ColumnMajorArray<2>());
   prep(e).resize(shots, slices);
+
+  clock_time(e).setStorage(ColumnMajorArray<2>());
+  clock_time(e).resize(shots, slices);
 }
 
 void MRI_DATA::init_gating_kdata(int gating_samples) {
@@ -691,6 +688,17 @@ void MRI_DATA::write_external_data(string fname) {
       {
         try {
           stringstream ss;
+          ss << "CLOCK_E" << encode;
+          string s = ss.str();
+          file.AddH5Array("Gating", s.c_str(), clock_time(encode));
+        } catch (...) {
+          cout << "Can't export Clock Time data" << endl;
+        }
+      }
+
+      {
+        try {
+          stringstream ss;
           ss << "RESP_E" << encode;
           string s = ss.str();
           file.AddH5Array("Gating", s.c_str(), resp(encode));
@@ -834,6 +842,13 @@ void MRI_DATA::read_external_data(string fname) {
       ss << "ECG_E" << encode;
       string s = ss.str();
       file.ReadH5Array("Gating", s.c_str(), ecg(encode));
+    }
+
+    {
+      stringstream ss;
+      ss << "CLOCK_E" << encode;
+      string s = ss.str();
+      file.ReadH5Array("Gating", s.c_str(), clock_time(encode));
     }
 
     {
