@@ -565,11 +565,6 @@ void MRI_DATA::write_external_data(string fname) {
   file.AddH5Scaler("Kdata", "sx", rot_sx);
   file.AddH5Scaler("Kdata", "sy", rot_sy);
   file.AddH5Scaler("Kdata", "sz", rot_sz);
-  
-  if (sms_factor > 1) {
-    file.AddH5Scaler("Kdata", "sms_factor", sms_factor);
-    file.AddH5Scaler("Kdata", "sms_fov", sms_fov);
-  }
 
   // 2D/3D Cartesian/Non-Cartesian
   file.AddH5Scaler("Kdata", "trajectory_typeX", (int)trajectory_type(0));
