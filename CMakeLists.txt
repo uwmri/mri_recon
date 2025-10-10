@@ -175,7 +175,11 @@ endif(VORO_FOUND)
 
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
-install( TARGETS uwmri_recon fractal_binary DESTINATION bin)
+install( TARGETS uwmri_recon fractal_binary hdf5_test ops_test DESTINATION bin)
+if(VORO_FOUND)
+	install( TARGETS voronoi_test DESTINATION bin)
+endif(VORO_FOUND)
+
 install( TARGETS RECONLIB DESTINATION lib)
 install( DIRECTORY ./src/ DESTINATION include
 	FILES_MATCHING PATTERN "src/*.h"
