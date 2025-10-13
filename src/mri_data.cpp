@@ -160,15 +160,39 @@ void MRI_DATA::stats(void) {
     dump_stats("Kdata", kdata);
   }
 
-  // gating
+  this->gating_stats();
+}
+
+void MRI_DATA::gating_stats(void) {
   if (ecg.numElements() == 0) {
     cout << "Physiologic data does not exist yet" << endl;
   } else {
-    cout << "Range ECG = " << Dmin(ecg) << " to " << Dmax(ecg) << endl;
-    cout << "Range RESP = " << Dmin(resp) << " to " << Dmax(resp) << endl;
-    cout << "Range TIME = " << Dmin(time) << " to " << Dmax(time) << endl;
-    cout << "Range PREP = " << Dmin(prep) << " to " << Dmax(prep) << endl;
+    std::cout << "---------Gating Stats--------------" << std::endl;
+    std::cout << "Range ECG = " << collapsed_min(ecg) << " to " << collapsed_max(ecg) << std::endl;
+    std::cout << "Range Resp = " << collapsed_min(resp) << " to " << collapsed_max(resp) << std::endl;
+    std::cout << "Range Time = " << collapsed_min(time) << " to " << collapsed_max(time) << std::endl;
+    std::cout << "Range Prep = " << collapsed_min(prep) << " to " << collapsed_max(prep) << std::endl;
+    std::cout << "Range Clock Time = " << collapsed_min(clock_time) << " to " << collapsed_max(clock_time) << std::endl;
   }
+}
+
+void MRI_DATA::mod_time(double mod_time) {
+  if (time.numElements() == 0) {
+    cout << "Mod time - timing data does not exist yet" << endl;
+  } else {
+    NDarray::Array<NDarray::Array<double, 2>, 1> time;
+
+    Array<Array<double, 2>, 1>::iterator miter = this->time.begin();
+    Array<Array<double, 2>, 1>::iterator miter_end = this->time.end();
+
+    for (; (miter != miter_end); miter++) {
+      Array<double, 2>::iterator titer = (*miter).begin();
+      Array<double, 2>::iterator titer_end = (*miter).end();
+      for (; (titer != titer_end); titer++) {
+        *titer = std::fmod(*titer, mod_time);
+      }  // Inner time array
+    }  // Encodes
+  }  // If data exists
 }
 
 // Data for Whitening
@@ -180,7 +204,7 @@ void MRI_DATA::init_noise_samples(int total_samples) {
 
 void MRI_DATA::clone_attributes(MRI_DATA &data) {
   Num_Encodings = data.Num_Encodings;
-  ;
+
   Num_Coils = data.Num_Coils;
   Num_Frames = data.Num_Frames;
 
@@ -224,6 +248,7 @@ void MRI_DATA::init_memory(void) {
   ecg.resize(Num_Encodings);
   resp.resize(Num_Encodings);
   prep.resize(Num_Encodings);
+  clock_time.resize(Num_Encodings);
 }
 
 void MRI_DATA::init_memory(int readouts, int shots, int slices) {
@@ -277,6 +302,9 @@ void MRI_DATA::init_encode(int e, int readouts, int shots, int slices) {
 
   prep(e).setStorage(ColumnMajorArray<2>());
   prep(e).resize(shots, slices);
+
+  clock_time(e).setStorage(ColumnMajorArray<2>());
+  clock_time(e).resize(shots, slices);
 }
 
 void MRI_DATA::init_gating_kdata(int gating_samples) {
@@ -660,6 +688,17 @@ void MRI_DATA::write_external_data(string fname) {
       {
         try {
           stringstream ss;
+          ss << "CLOCK_E" << encode;
+          string s = ss.str();
+          file.AddH5Array("Gating", s.c_str(), clock_time(encode));
+        } catch (...) {
+          cout << "Can't export Clock Time data" << endl;
+        }
+      }
+
+      {
+        try {
+          stringstream ss;
           ss << "RESP_E" << encode;
           string s = ss.str();
           file.AddH5Array("Gating", s.c_str(), resp(encode));
@@ -807,6 +846,13 @@ void MRI_DATA::read_external_data(string fname) {
 
     {
       stringstream ss;
+      ss << "CLOCK_E" << encode;
+      string s = ss.str();
+      file.ReadH5Array("Gating", s.c_str(), clock_time(encode));
+    }
+
+    {
+      stringstream ss;
       ss << "RESP_E" << encode;
       string s = ss.str();
       file.ReadH5Array("Gating", s.c_str(), resp(encode));
@@ -862,8 +908,7 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
   int Num_Pixels = 0;
   float kr_thresh_squared = kr_thresh * kr_thresh;
 
-#pragma omp parallel for reduction(+ \
-                                   : Num_Pixels)
+#pragma omp parallel for reduction(+ : Num_Pixels)
   for (int encode = 0; encode < kx.length(firstDim); encode++) {
     // Assign iterators to go over the data
     Array<float, 3>::const_iterator kx_iter = this->kx(encode).begin();
@@ -907,9 +952,9 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             idx++;
           }
         }  // pos
-      }    // view
-    }      // slice
-  }        // encode
+      }  // view
+    }  // slice
+  }  // encode
   cout << "Copied pixels = " << idx << endl
        << flush;
   cout << "took " << ctimer << " s to copy data" << endl;
@@ -950,10 +995,10 @@ void MRI_DATA::coilcompress(float Num_VCoils, float kr_thresh) {
             }  // coil
             kdata(encode, vcoil)(pos, view, slice) = tmp;
           }  // vcoil
-        }    // pos
-      }      // view
-    }        // slice
-  }          // encode
+        }  // pos
+      }  // view
+    }  // slice
+  }  // encode
   cout << "took " << ctimer << " s to rotate data" << endl;
 
   /* Temp data structure
@@ -999,7 +1044,7 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
   arma::mat CV_ABS = arma::abs(CV);
   cout << "WHITEN::Noise Covariance" << endl;
   cout << "  size = " << CV_ABS.n_rows << " x " << CV_ABS.n_cols << endl;
-  cout << CV_ABS << endl;
+  // cout << CV_ABS << endl;
 
   std::cout << "WHITEN::Calc whitening matrix" << std::endl;
   arma::cx_mat V = chol(CV);
@@ -1012,7 +1057,7 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
 
     cout << "WHITEN::Noise Decorrelation matrix" << endl;
     cout << "  size = " << Decorr.n_rows << " x " << Decorr.n_cols << endl;
-    cout << Decorr << endl;
+    // cout << Decorr << endl;
   }
 
   // Test Whitening
@@ -1037,7 +1082,7 @@ arma::Mat<complex<float> > whitening_matrix_calc(const Array<complex<T>, 2> &noi
   arma::mat CV_POST_ABS = arma::abs(CV_POST);
   cout << "WHITEN::Noise Covariance post whiten" << endl;
   cout << "  size = " << W.n_rows << " x " << W.n_cols << endl;
-  cout << CV_POST_ABS << endl;
+  // cout << CV_POST_ABS << endl;
 
   arma::cx_fmat whitening_matrix;
   whitening_matrix.copy_size(Decorr);

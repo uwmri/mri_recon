@@ -1227,7 +1227,7 @@ void gridFFT_CoilThreaded::set_image(const Array<complex<float>, 3> &X,
         }
       }
     }  // Loop k
-  }    // Loop coil
+  }  // Loop coil
 }
 
 void gridFFT_CoilThreaded::set_image(const Array<complex<float>, 3> &X) {
@@ -1263,7 +1263,7 @@ void gridFFT_CoilThreaded::set_image(const Array<complex<float>, 3> &X) {
         }
       }
     }  // Loop k
-  }    // Loop coil
+  }  // Loop coil
 }
 
 // -------------------------------------------------------
@@ -1428,9 +1428,9 @@ void gridFFT_CoilThreaded::chop_grid_forward(const Complex4D &dataA,
           /*This Memory Access is the Bottleneck - Also not thread safe!*/
           // k3d_grid.vals[lz][ly][lx]+=temp2;
         } /* end lz loop */
-      }   /* end ly */
-    }     /* end lx */
-  }       /* end data loop */
+      } /* end ly */
+    } /* end lx */
+  } /* end data loop */
 
   return;
 }
@@ -1582,8 +1582,8 @@ void gridFFT_CoilThreaded::chop_grid_backward(
           temp += wtx * k3d_grid(coil)(lx, ly, lz);
 
         } /* end lz loop */
-      }   /* end ly */
-    }     /* end lx */
+      } /* end ly */
+    } /* end lx */
 
     if (sub_data_flag) {
       dataA(coil)(ii, jj, kk) = temp - diff_dataA(coil)(ii, jj, kk);

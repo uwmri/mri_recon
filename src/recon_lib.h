@@ -198,6 +198,7 @@ class RECON {
   int wavelet_levelsX;
   int wavelet_levelsY;
   int wavelet_levelsZ;
+  WAVELET3D::WaveType wavelet_type;
 
   float admm_alpha;
   float admm_rho;

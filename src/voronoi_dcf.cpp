@@ -1,4 +1,5 @@
 #include "voronoi_dcf.h"
+#include "hdf5_interface.h"
 #include "voro++/voro++.hh"
 
 using namespace std;
@@ -65,9 +66,12 @@ bool wall_sphere2::cut_cell_base(v_cell &c, double x, double y, double z) {
   return true;
 }
 
-void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
-                          Array<float, 3> &ky, Array<float, 3> &kz,
+void VORONOI_DCF::vor_dcf(Array<float, 3> &kw,
+                          Array<float, 3> &kx,
+                          Array<float, 3> &ky,
+                          Array<float, 3> &kz,
                           VORONOI_DCF::KShape shape) {
+  // Get the size of the space
   double x_min = min(kx);
   double y_min = min(ky);
   double z_min = min(kz);
@@ -86,46 +90,52 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
   cout << "  Z: " << z_min << " to " << z_max << endl;
   cout << "  Grid Size: " << n_x << " , " << n_y << " , " << n_z << endl;
 
-  // Create Container
-  container con(x_min - 0.5, x_max + 0.5, y_min - 0.5, y_max + 0.5, z_min - 0.5,
-                z_max + 0.5, n_x, n_y, n_z, false, false, false, 64);
+  // Create Container to hold points
+  container con(x_min - 1, x_max + 1,
+                y_min - 1, y_max + 1,
+                z_min - 1, z_max + 1,
+                n_x, n_y, n_z, false, false, false, 64);
 
-  double kmax = x_max * 0.98;
+  cout << "Container parameters :" << endl;
+  cout << "\tX: " << x_min - 1 << " to " << x_max + 1 << endl;
+  cout << "\tY: " << y_min - 1 << " to " << y_max + 1 << endl;
+  cout << "\tZ: " << z_min - 1 << " to " << z_max + 1 << endl;
+  cout << "\tGrid Size: " << n_x << " , " << n_y << " , " << n_z << endl;
 
-  // Add wall
-  wall_sphere ksphere(0, 0, 0, kmax + 0.5);
-  wall_cylinder kcylinder(0, 0, 0, 0, 0, 1.0, kmax + 0.5);
+  // Set kmax for adding barrier
+  double kmax = x_max;
 
+  // // These get destroyed if declared inside switch due to bugs in voro++
+  // if (shape == CYLINDER) {
+  //   wall_cylinder *kcylinder = new wall_cylinder(0, 0, 0, 0, 0, 1.0, kmax + 0.1);
+  //   con.add_wall(*kcylinder);
+  // }
+
+  // wall_sphere ksphere(0, 0, 0, kmax + 0.1);
+
+  // Add barriers to deal with edge effects
   switch (shape) {
     case (CYLINDER): {
       // Add a cylinder to the container
-      cout << "Add Cylinder ( " << kmax + 0.5 << " ) " << endl;
-      con.add_wall(kcylinder);
+      cout << "Add Cylinder ( " << kmax + 0.1 << " ) " << endl;
+      wall_cylinder *kcylinder = new wall_cylinder(0, 0, 0, 0, 0, 1.0, kmax - 1.0);
+      con.add_wall(*kcylinder);
+      // delete kcylinder;
     } break;
 
     case (SPHERE): {
       // Add a spherical wall to the container
-      cout << "Add Sphere" << endl;
-      con.add_wall(ksphere);
+      cout << "Add Sphere ( " << kmax + 0.1 << " ) " << endl;
+      wall_sphere *ksphere = new wall_sphere(0, 0, 0, kmax - 1.0);
+      con.add_wall(*ksphere);
+      // delete ksphere;
     } break;
 
     case (CUBE): {
       // Cube
+      cout << "Cube - No walls" << endl;
     } break;
   }
-
-  cout << "Sizes of Input Array" << endl;
-  cout << "Kx = " << kx.length(firstDim) << " x " << kx.length(secondDim) << "x"
-       << kx.length(thirdDim) << endl;
-  cout << "Ky = " << ky.length(firstDim) << " x " << ky.length(secondDim) << "x"
-       << ky.length(thirdDim) << endl;
-  cout << "Kz = " << kz.length(firstDim) << " x " << kz.length(secondDim) << "x"
-       << kz.length(thirdDim) << endl;
-  cout << "Kw = " << kw.length(firstDim) << " x " << kw.length(secondDim) << "x"
-       << kw.length(thirdDim) << endl;
-
-  // float fermi_r = kmax - 6;
-  // float fermi_w = 1;
 
   int Npts = kx.numElements();
 
@@ -146,7 +156,7 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
     }
   }
 
-  cout << "Sorting in x" << endl;
+  cout << "Sorting kspace by kx" << endl;
   uvec index = sort_index(kxx);  // Sort in xx
 
   cout << "Asigning " << endl;
@@ -159,10 +169,11 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
     kzz_sorted(pos) = kzz(index(pos));
   }
 
+  // Arrays to grab unique values
   arma::fvec kn(Npts);       // Number of points
   arma::vec kpos(Npts);      // Position in container
-  arma::vec counted(Npts);   // Sets if pint belongs
-  arma::uvec set_idx(Npts);  // Sets if pint belongs
+  arma::vec counted(Npts);   // Sets if point belongs
+  arma::uvec set_idx(Npts);  // Sets if point belongs
   counted.zeros();
 
   cout << "Finding Unique and adding" << endl;
@@ -170,8 +181,11 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
   int non_unique_points = 0;
   particle_order order(Npts);
 
+  int print_freq = 0.1 * Npts;
+
+  // Loop through all the points
   for (unsigned int pos = 0; pos < kxx.n_elem; pos++) {
-    if ((pos % 10000) == 0) {
+    if ((pos % print_freq) == 0) {
       cout << "Pos = " << pos << " found " << unique_points << endl;
     }
 
@@ -180,20 +194,21 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
       continue;
     }
 
-    // Now search over points
+    // Grab the current kx,ky,kz
     float kxt = kxx_sorted(pos);
     float kyt = kyy_sorted(pos);
     float kzt = kzz_sorted(pos);
 
-    // Gather all non-unique points and average
+    // Initialize the average of multiple points
     float kxavg = kxt;
     float kyavg = kyt;
     float kzavg = kzt;
     int n = 1;
     set_idx(0) = pos;
 
-    // Gather unique points
+    // Iterate forwards to find similar points
     int forward_pos = pos + 1;
+
     while (forward_pos < (int)kxx.n_elem) {
       // Difference in X (determines search range)
       float xdiff = abs(kxx_sorted(forward_pos) - kxt);
@@ -203,30 +218,32 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
       float zdiff = abs(kzz_sorted(forward_pos) - kzt);
 
       if (xdiff > 0.01) {
-        // out of search range
+        // Due to sorting in x - if this is large enough we are done
         break;
       } else if ((ydiff > 0.01) || (zdiff > 0.01)) {
-        // Just don't add point
+        // Don't add this point but continue searching
       } else {
-        // Add this
+        // Add this point to the average
         kxavg += kxx_sorted(forward_pos);
         kyavg += kyy_sorted(forward_pos);
         kzavg += kzz_sorted(forward_pos);
+
+        // Set where the point will be collected from
         set_idx(n) = forward_pos;
         n++;
       }
       forward_pos++;
     }
 
-    // Compute actual average
+    // Compute the average of multiple similar points
     kxavg /= (float)n;
     kyavg /= (float)n;
     kzavg /= (float)n;
 
-    // cout << "Pt = (" << kxavg << "," << kyavg << "," << kzavg << ")" << endl;
+    bool is_inside = con.point_inside(kxavg, kyavg, kzavg);
 
     // Check to see if it's in the container. If it is add it
-    if (con.point_inside(kxavg, kyavg, kzavg)) {
+    if (is_inside) {
       // Actually add points
       con.put(order, unique_points, kxavg, kyavg, kzavg);
 
@@ -239,7 +256,6 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
       unique_points++;
     } else {
       // Update decoding array
-      // Update decoding array
       for (int dpos = 0; dpos < n; dpos++) {
         kpos(set_idx(dpos)) = -1;
         kn(set_idx(dpos)) = (float)n;
@@ -249,56 +265,9 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
     }
   }
 
-  cout << "Min counted" << min(counted) << endl;
+  cout << "Min counted (should be one)" << min(counted) << endl;
   cout << "Done combining, found " << unique_points << " unique points " << endl
        << flush;
-
-  // Add a ring of points at edge
-  switch (shape) {
-    case (CYLINDER): {
-      int radial_pts = (int)(20 * 2 * 3.14156 * kmax);
-      cout << "Adding " << radial_pts << " radial points to kmax" << endl;
-      int extra_points = 0;
-      for (int pos = 0; pos < radial_pts; pos++) {
-        double z = 0.0;
-        double y = (kmax)*sin(2 * 3.14156 * (double)pos / (double)radial_pts);
-        double x = (kmax)*cos(2 * 3.14156 * (double)pos / (double)radial_pts);
-        if (con.point_inside(x, y, z)) {
-          con.put(order, (unique_points + extra_points), x, y, z);
-          extra_points++;
-        }
-      }
-      cout << "Actually added " << extra_points << endl;
-    } break;
-
-    case (SPHERE): {
-      int N = (int)(4 * 3.14156 * kmax * kmax);
-      cout << "Adding " << N << " radial points to kmax" << endl;
-
-      int extra_points = 0;
-      for (int pos = 0; pos < N; pos++) {
-        double z = (2 * pos - (double)N + 1) / (double)N;
-        double y = sin(sqrt((double)N * 3.15156) * asin(z)) * sqrt(1 - z * z);
-        double x = cos(sqrt((double)N * 3.15156) * asin(z)) * sqrt(1 - z * z);
-        z *= (0.25 + kmax);
-        y *= (0.25 + kmax);
-        x *= (0.25 + kmax);
-
-        if (con.point_inside(x, y, z)) {
-          con.put(order, (unique_points + extra_points), x, y, z);
-          extra_points++;
-        }
-      }
-      cout << "Actually added " << extra_points << endl;
-    } break;
-
-    case (CUBE): {
-      // Don't add extra points
-    } break;
-  }
-
-  // con.draw_cells_pov("cells.pov");
-  // con.draw_particles_pov("particles.pov");
 
   // Now calculate and copy back
   arma::fvec kw_calculated(unique_points);
@@ -309,7 +278,7 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw, Array<float, 3> &kx,
   cout << "vl start = " << vl.start() << endl;
   count = 0;
   if (vl.start()) do {
-      if (count % 1000 == 0) {
+      if (count % print_freq == 0) {
         cout << "\rProgress " << (100 * count / unique_points) << "%" << flush;
       }
 

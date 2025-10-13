@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.17)
+project(mri_recon)
 
-project(MRI_RECON)
 set(PROGNAME recon_binary)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
@@ -12,61 +12,7 @@ set(STATIC_LIBS ON)
 
 link_directories( ${LINK_DIRECTORIES} ${CMAKE_LIBRARY_PATH} )
 
-if ( ENABLE_ORCHESTRA )
-
-	message( STATUS "Using orchestra libraries")
-	
-	#--------------------------------------
-	# Orchestra (GE Recon Library)
-	#--------------------------------------
-
-	if(EXISTS $ENV{OX_INSTALL_DIRECTORY})
-		set( OX_INSTALL_DIRECTORY $ENV{OX_INSTALL_DIRECTORY})
-		message("Install directory of the GE Orchestra SDK = $ENV{OX_INSTALL_DIRECTORY}" )
-	else()
-
-		message("Looking for /lib/libFlex.a to find Orchestra")
-		find_path(OX_INSTALL_DIRECTORY NAMES /lib/libFlex.a  PATHS /usr/local/orchestra )
-		if(EXISTS ${OX_INSTALL_DIRECTORY})
-			message("Could not find Orchestra by searching for /lib/libFlex.a")
-			message(FATAL_ERROR "Verify orchestra install or update CMakePath")
-		endif()
-	endif()
-
-	# TOPDIR is the root of the source tree
-	set(TOPDIR "${OX_INSTALL_DIRECTORY}/include")
-	set(LARGE_LIBRARY_TYPE STATIC)
-	set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")
-
-	message("Configuring GE SDK Recon Build")
-	set(PRODUCT EXTERNAL_SDK)
-
-	# Include recon libraries exported from the SDK CMake build
-	set(RECON_LIBRARIES_INCLUDE_FILE ${OX_INSTALL_DIRECTORY}/lib/ReconLibraries.cmake)
-	if(EXISTS ${RECON_LIBRARIES_INCLUDE_FILE})
-		include (${RECON_LIBRARIES_INCLUDE_FILE})
-	else()
-		message("Could not find ${RECON_LIBRARIES_INCLUDE_FILE}")
-		message(FATAL_ERROR "Verify that the CMake OX_INSTALL_DIRECTORY option is set correctly")
-	endif()
-
-	# Include SDK build configuration
-	#include (productUW.cmake)
-	include (${TOPDIR}/recon/SDK/product.cmake)
-
-	# Override 3P libs to include only those libs required by SDK executables
-	#set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${CLAPACK_LIBS} ${ITK_LIBS} ${Z_LIBS})
-  	set(OX_3P_LIBS ${DCMTK_LIBS} ${HDF5_LIBS} ${BLITZ_LIBS} ${BOOST_LIBS} ${FFTW_LIBS} ${ITK_LIBS} ${Z_LIBS})
-
-	message("Using Orchestra 3p: ${OX_3P_LIBS} ")
-	message("Using Orchestra Os: ${OX_OS_LIBS} ")
-	message("Using Orchestra Includes: ${OX_3P_INCLUDES} ")
-
-
-	# This code only requires a few libraries
-	set( LOCAL_LIBS ${LOCAL_LIBS} ${OX_3P_LIBS} ${OX_OS_LIBS} Common)
-	#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -m64")
-else (ENABLE_ORCHESTRA)
+if ( DISABLE_ORCHESTRA )
 
 	#--------------------------------------
 	# Non-Orchestra
@@ -80,10 +26,32 @@ else (ENABLE_ORCHESTRA)
 	include_directories( BEFORE  ${BLITZ_INCLUDE_DIR} ${FFTW_INCLUDE_DIR} ${HDF5_INCLUDE_DIR}  )
 	set(LOCAL_LIBS ${LOCAL_LIBS} ${FFTW3_LIBRARIES}  ${BLITZ_LIBRARIES} ${HDF5_LIBRARIES} dl m z )
 
-	#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
-	#set(CMAKE_CXX_LINK_FLAGS  ${CMAKE_CXX_LINK_FLAGS} )
+else ( DISABLE_ORCHESTRA )
+	message( STATUS "Using orchestra libraries")
+	
+	#--------------------------------------
+	# Orchestra (GE Recon Library)
+	#--------------------------------------
 
-endif(ENABLE_ORCHESTRA)
+	if(NOT ORCHESTRA_SDK_ROOT)
+		message(FATAL_ERROR "The ORCHESTRA_SDK_ROOT CMake variable must be set when configuring. Please pass -DORCHESTRA_SDK_ROOT=[/path/to/sdk/root] when configuring.")
+	else()
+		message(STATUS "ORCHESTRA_SDK_ROOT set to: ${ORCHESTRA_SDK_ROOT}")
+	endif()
+
+	option(STATIC_LINK_OPENSSL "Link to the OpenSSL static libraries" ON)
+
+	set(BINARY_OUTPUT_ROOT ${CMAKE_CURRENT_LIST_DIR}/Targets CACHE STRING "Root of output directory")
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BINARY_OUTPUT_ROOT}/${CMAKE_HOST_SYSTEM_NAME}/${CMAKE_BUILD_TYPE}/bin)
+	set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${BINARY_OUTPUT_ROOT}/${CMAKE_HOST_SYSTEM_NAME}/${CMAKE_BUILD_TYPE}/lib)
+	set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${BINARY_OUTPUT_ROOT}/${CMAKE_HOST_SYSTEM_NAME}/${CMAKE_BUILD_TYPE}/lib)
+
+	# Include orchestra platform libraries
+	include(${ORCHESTRA_SDK_ROOT}/cmake/orchestra-sdk.cmake)
+
+endif(DISABLE_ORCHESTRA)
+
+set(CMAKE_VERBOSE_MAKEFILE OFF)
 
 # Find Required Libraries
 message( STATUS "Check for required libraries ")
@@ -123,14 +91,6 @@ if (OPENMP_FOUND)
 endif()
 
 
-# TEMP EXPORT ALL
-#get_cmake_property(_variableNames VARIABLES)
-#list (SORT _variableNames)
-#foreach (_variableName ${_variableNames})
-#    message(STATUS "${_variableName}=${${_variableName}}")
-#endforeach()
-
-
 #--------------------------------------
 # Target Library
 #--------------------------------------
@@ -160,34 +120,52 @@ if (VORO_FOUND)
 endif(VORO_FOUND)
 
 add_library(RECONLIB STATIC ${RECONLIB_SOURCES}	)
-target_link_libraries(RECONLIB ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} )
+target_compile_features(RECONLIB PUBLIC cxx_std_17)
 
-if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5)
-	set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 11)
-	message(STATUS "Using C++11 Standard")
-else()
-	set_property(TARGET RECONLIB PROPERTY CXX_STANDARD 98)
-	message(STATUS "Using C++98 Standard")
-endif()
+target_link_libraries(RECONLIB PUBLIC ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} )
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Gradwarp)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Legacy)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Core)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}CalibrationCommon)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Foundation)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Acquisition)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Control)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Common)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}ProcessingControl)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Crucial)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Dicom)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Hdf5)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}Math)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}System)
+target_link_libraries(RECONLIB PUBLIC ${OX_SDK_IMPORT_PREFIX}FrameDownSampler)
+
 
 #--------------------------------------
 # Support for Command Line Binary
 #--------------------------------------
 add_executable(uwmri_recon src/commandline_recon.cxx ${LOCAL_INCS})
 target_link_libraries(uwmri_recon ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB)
+target_compile_features(uwmri_recon PUBLIC cxx_std_17)
+
 
 add_executable(fractal_binary src/commandline_fractal.cpp ${LOCAL_INCS})
 target_link_libraries(fractal_binary ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB)
+target_compile_features(fractal_binary PUBLIC cxx_std_17)
 
 add_executable(ops_test src/test_array_ops.cpp ${LOCAL_INCS})
 target_link_libraries(ops_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
+target_compile_features(ops_test PUBLIC cxx_std_17)
+
 
 add_executable(hdf5_test src/test_hdf5.cpp ${LOCAL_INCS})
 target_link_libraries(hdf5_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
+target_compile_features(hdf5_test PUBLIC cxx_std_17)
+
 
 if(VORO_FOUND)
 	add_executable(voronoi_test src/test_voronoi.cpp ${LOCAL_INCS})
 	target_link_libraries(voronoi_test ${ARMADILLO_LIBRARIES} ${LOCAL_LIBS} RECONLIB )
+	target_compile_features(voronoi_test PUBLIC cxx_std_17)
 endif(VORO_FOUND)
 
 #--------------------------------------
@@ -196,7 +174,11 @@ endif(VORO_FOUND)
 
 message(STATUS "CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}")
 
-install( TARGETS uwmri_recon fractal_binary DESTINATION bin)
+install( TARGETS uwmri_recon fractal_binary hdf5_test ops_test DESTINATION bin)
+if(VORO_FOUND)
+	install( TARGETS voronoi_test DESTINATION bin)
+endif(VORO_FOUND)
+
 install( TARGETS RECONLIB DESTINATION lib)
 install( DIRECTORY ./src/ DESTINATION include
 	FILES_MATCHING PATTERN "src/*.h"

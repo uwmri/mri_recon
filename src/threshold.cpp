@@ -19,6 +19,25 @@ SURE thresholding
 #include "io_templates.hpp"
 using namespace NDarray;
 
+#ifdef _WIN32
+#define FILENAME_SEPARATOR '\\'
+#else
+#define FILENAME_SEPARATOR '/'
+#endif
+
+#define EXTRACT_FILENAME(path)                                 \
+  ([](const std::string &p) {                                  \
+    size_t lastSeparator = p.find_last_of(FILENAME_SEPARATOR); \
+    if (lastSeparator == std::string::npos) {                  \
+      return p;                                                \
+    }                                                          \
+    return p.substr(lastSeparator + 1);                        \
+  })(path)
+
+#define STRINGIZING(x) #x
+#define STR(x) STRINGIZING(x)
+#define FILE_LINE EXTRACT_FILENAME(__FILE__) << ":" << STR(__LINE__) " : "
+
 THRESHOLD::THRESHOLD() {}
 
 /*----------------------------------------------
@@ -234,8 +253,7 @@ float THRESHOLD::get_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
   float value;
 
   if (VERBOSE) {
-    cout << "Calc Range" << endl
-         << flush;
+    cout << FILE_LINE << "Calc Range" << endl;
   }
 
   int Nz = Coef(0, 0).length(thirdDim);
@@ -249,7 +267,7 @@ float THRESHOLD::get_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
   }
 
   if (VERBOSE) {
-    cout << " ------- Computing min and max coefficients " << endl;
+    cout << FILE_LINE << " ------- Computing min and max coefficients " << endl;
   }
   for (int e = 0; e < Coef.length(secondDim); e++) {
     for (int t = 0; t < Coef.length(firstDim); t++) {
@@ -288,18 +306,25 @@ float THRESHOLD::get_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
   }
 
   if (VERBOSE)
-    cout << "Image Range:  " << min_wave << " to " << max_wave << endl;
+    cout << FILE_LINE << "Image Range:  " << min_wave << " to " << max_wave << endl;
 
   // Estimate histogram (sort)
-  int total_points =
-      Coef.numElements() * Coef(0, 0).numElements() *
-      (group_complex ? 1 : 2);  // twice as many points without complex grouping
-  int points_found = total_points;
-  int target = (int)(fraction * (double)total_points);
-  int accuracy = (int)(0.001 * (double)total_points);
-  if (VERBOSE)
-    cout << "Thresh = " << fraction << " target points " << target << endl;
-  if (VERBOSE) cout << "Total points = " << total_points << endl;
+  long frames = ((long)Coef.numElements());
+  long points_per_image = ((long)Coef(0, 0).numElements());
+  long total_points = frames * points_per_image;
+
+  total_points *= (long)(group_complex ? 1 : 2);  // twice as many points without complex grouping
+
+  long points_found = total_points;
+  long target = (long)(fraction * (double)total_points);
+  long accuracy = (long)(0.001 * (double)total_points);
+
+  if (VERBOSE) {
+    cout << FILE_LINE << "Thresh = " << fraction << " target points " << target << endl;
+    cout << FILE_LINE << "Total points = " << total_points << endl;
+    cout << FILE_LINE << "Frames = " << frames << endl;
+    cout << FILE_LINE << "Points per frame = " << points_per_image << endl;
+  }
 
   if (target < 2) {
     return (0.0);
@@ -322,9 +347,10 @@ float THRESHOLD::get_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
         min_t = value;
       }
       value = 0.5 * (max_t + min_t);
-      if (VERBOSE)
-        cout << "Points = " << points_found << " New threshold = " << value
+      if (VERBOSE) {
+        cout << FILE_LINE << "threshold.cpp::Points = " << points_found << " New threshold = " << value
              << " Min= " << min_t << " Max= " << max_t << endl;
+      }
     }
     iter++;
 
@@ -334,8 +360,7 @@ float THRESHOLD::get_threshold(Array<Array<complex<float>, 3>, 2> &Coef,
       for (int t = 0; t < Coef.extent(firstDim); t++) {
         Array<complex<float>, 3> XX = Coef(t, e);
 
-#pragma omp parallel for reduction(+ \
-                                   : points_found)
+#pragma omp parallel for reduction(+ : points_found)
         for (int k = 0; k < XX.extent(thirdDim); k++) {
           for (int j = 0; j < XX.extent(secondDim); j++) {
             for (int i = 0; i < XX.extent(firstDim); i++) {
@@ -377,8 +402,9 @@ void THRESHOLD::get_visuthreshold(Array<Array<complex<float>, 3>, 2> &Coef,
   switch (noise_est_type) {
     case (NOISE_GLOBAL): {
       robust_noise_estimate(Coef, wave);
-      if (VERBOSE) cout << "Estimated noise: " << noise << endl;
+      if (VERBOSE) cout << FILE_LINE << "Estimated noise: " << noise << endl;
     } break;
+
     case (NOISE_FIRST): {
       Array<Array<complex<float>, 3>, 2> Cf;
       Cf.setStorage(ColumnMajorArray<2>());
@@ -386,8 +412,9 @@ void THRESHOLD::get_visuthreshold(Array<Array<complex<float>, 3>, 2> &Coef,
       Cf(0, 0).reference(Coef(0, 0));
 
       robust_noise_estimate(Cf, wave);
-      if (VERBOSE) cout << "Estimated noise: " << noise << endl;
+      if (VERBOSE) cout << FILE_LINE << "Estimated noise: " << noise << endl;
     } break;
+
     case (NOISE_LAST): {
       Array<Array<complex<float>, 3>, 2> Cf;
       Cf.setStorage(ColumnMajorArray<2>());
@@ -396,14 +423,16 @@ void THRESHOLD::get_visuthreshold(Array<Array<complex<float>, 3>, 2> &Coef,
           Coef(Coef.length(firstDim) - 1, Coef.length(secondDim - 1)));
 
       robust_noise_estimate(Cf, wave);
-      if (VERBOSE) cout << "Estimated noise: " << noise << endl;
+      if (VERBOSE) cout << FILE_LINE << "Estimated noise: " << noise << endl;
     } break;
+
     case (NOISE_FRAME): {
       // This is an invalid choice for visu thresholding.  Default to global.
       noise_est_type = NOISE_GLOBAL;
       robust_noise_estimate(Coef, wave);
-      if (VERBOSE) cout << "Estimated noise: " << noise << endl;
+      if (VERBOSE) cout << FILE_LINE << "Estimated noise: " << noise << endl;
     } break;
+
     default: {
       cout << "Bad value for noise estimation type" << endl;
       exit(1);
@@ -744,8 +773,7 @@ void THRESHOLD::thresholding(Array<complex<float>, 3> &XX, float value) {
 
   // Get Update
 
-#pragma omp parallel for reduction(+ \
-                                   : count)
+#pragma omp parallel for reduction(+ : count)
   for (int k = 0; k < Nz; k++) {
     for (int j = 0; j < Ny; j++) {
       for (int i = 0; i < Nx; i++) {

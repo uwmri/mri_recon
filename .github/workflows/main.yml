@@ -26,12 +26,12 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: clang-format lint
-        uses: DoozyX/clang-format-lint-action@v0.11
+        uses: DoozyX/clang-format-lint-action@v0.20
         with:
           source: './src'
           exclude: './lib'
           extensions: 'h,cpp,c,hpp'
-          clangFormatVersion: 11
+          clangFormatVersion: 20
           inplace: True
         
       - name: update commit

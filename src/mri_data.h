@@ -65,6 +65,7 @@ class MRI_DATA {
   NDarray::Array<NDarray::Array<double, 2>, 1> prep;                  // Time since a prep event (for example inversion)
   NDarray::Array<NDarray::Array<complex<float>, 2>, 2> kdata_gating;  // Repeated sample for gating, need to be the same for each
                                                                       // data point, all coils
+  NDarray::Array<NDarray::Array<u_int64_t, 2>, 1> clock_time;         // Time on the computer clock for synchronization
 
   // Native Resolution
   int xres;
@@ -107,6 +108,7 @@ class MRI_DATA {
   void add_noise(float);  // -add_noise(2) doubles noise, add_noise(3) triples noise, ...
   void demod_kdata(float);
   void scale_fov(float, float, float);
+  void mod_time(double);
 
   // Initialization Filling Operations
   void clone_attributes(MRI_DATA &);
@@ -125,6 +127,7 @@ class MRI_DATA {
   void stats(void);
   void dump_stats(const std::string, const NDarray::Array<NDarray::Array<float, 3>, 1> &in);
   void dump_stats(const std::string, const NDarray::Array<NDarray::Array<complex<float>, 3>, 2> &in);
+  void gating_stats(void);
 
  private:
 };
