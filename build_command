@@ -1,0 +1,1 @@
+cmake ../ -DORCHESTRA_SDK_ROOT=/data_share/OrchestraSDK/orchestra-sdk-libs_3.0.3/ -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${HOME}/local/

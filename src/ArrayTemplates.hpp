@@ -435,9 +435,6 @@ Array<Array<T, 3>, 2> Alloc5DContainer(int x, int y, int z, int d1, int d2) {
   return (temp);
 }
 
-double Dmax(const Array<Array<double, 2>, 1> &A);
-double Dmin(const Array<Array<double, 2>, 1> &A);
-
 template <typename T, const int N_rank, const int M_rank>
 T collapsed_max(const NDarray::Array<NDarray::Array<T, N_rank>, M_rank> &A) {
   // Iterator over the outer array
