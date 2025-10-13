@@ -1,4 +1,5 @@
 #include "voronoi_dcf.h"
+#include "hdf5_interface.h"
 #include "voro++/voro++.hh"
 
 using namespace std;
@@ -104,22 +105,30 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw,
   // Set kmax for adding barrier
   double kmax = x_max;
 
-  // These get destroyed if declared inside switch due to bugs in voro++
-  wall_cylinder kcylinder(0, 0, 0, 0, 0, 1.0, kmax + 0.1);
-  wall_sphere ksphere(0, 0, 0, kmax + 0.1);
+  // // These get destroyed if declared inside switch due to bugs in voro++
+  // if (shape == CYLINDER) {
+  //   wall_cylinder *kcylinder = new wall_cylinder(0, 0, 0, 0, 0, 1.0, kmax + 0.1);
+  //   con.add_wall(*kcylinder);
+  // }
+
+  // wall_sphere ksphere(0, 0, 0, kmax + 0.1);
 
   // Add barriers to deal with edge effects
   switch (shape) {
     case (CYLINDER): {
       // Add a cylinder to the container
       cout << "Add Cylinder ( " << kmax + 0.1 << " ) " << endl;
-      con.add_wall(kcylinder);
+      wall_cylinder *kcylinder = new wall_cylinder(0, 0, 0, 0, 0, 1.0, kmax - 1.0);
+      con.add_wall(*kcylinder);
+      // delete kcylinder;
     } break;
 
     case (SPHERE): {
       // Add a spherical wall to the container
       cout << "Add Sphere ( " << kmax + 0.1 << " ) " << endl;
-      con.add_wall(ksphere);
+      wall_sphere *ksphere = new wall_sphere(0, 0, 0, kmax - 1.0);
+      con.add_wall(*ksphere);
+      // delete ksphere;
     } break;
 
     case (CUBE): {
@@ -259,55 +268,6 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw,
   cout << "Min counted (should be one)" << min(counted) << endl;
   cout << "Done combining, found " << unique_points << " unique points " << endl
        << flush;
-
-  // Add a ring of points at edge
-  switch (shape) {
-    case (CYLINDER): {
-      int radial_pts = (int)(20 * 2 * 3.14156 * kmax);
-      cout << "Adding " << radial_pts << " radial points to kmax" << endl;
-      int extra_points = 0;
-      for (int pos = 0; pos < radial_pts; pos++) {
-        double z = 0.0;
-        double y = (kmax)*sin(2 * 3.14156 * (double)pos / (double)radial_pts);
-        double x = (kmax)*cos(2 * 3.14156 * (double)pos / (double)radial_pts);
-
-        bool is_inside = con.point_inside(x, y, z);
-        // cout << " Point inside container? " << is_inside << std::endl;
-
-        if (is_inside) {
-          con.put(order, (unique_points + extra_points), x, y, z);
-          extra_points++;
-        }
-      }
-      cout << "Actually added " << extra_points << endl;
-    } break;
-
-    case (SPHERE): {
-      int N = (int)(4 * 3.14156 * kmax * kmax);
-      cout << "Adding " << N << " radial points to kmax" << endl;
-
-      int extra_points = 0;
-      for (int pos = 0; pos < N; pos++) {
-        double z = (2 * pos - (double)N + 1) / (double)N;
-        double y = sin(sqrt((double)N * 3.15156) * asin(z)) * sqrt(1 - z * z);
-        double x = cos(sqrt((double)N * 3.15156) * asin(z)) * sqrt(1 - z * z);
-        z *= (0.25 + kmax);
-        y *= (0.25 + kmax);
-        x *= (0.25 + kmax);
-
-        bool is_inside = con.point_inside(x, y, z);
-        if (is_inside) {
-          con.put(order, (unique_points + extra_points), x, y, z);
-          extra_points++;
-        }
-      }
-      cout << "Actually added " << extra_points << endl;
-    } break;
-
-    case (CUBE): {
-      // Don't add extra points
-    } break;
-  }
 
   // Now calculate and copy back
   arma::fvec kw_calculated(unique_points);
