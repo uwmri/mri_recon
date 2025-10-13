@@ -308,9 +308,9 @@ void SPIRIT::calibrate_ellipsoid(Array<Array<complex<float>, 3>, 2> &kdata) {
           Arow++;
 
         }  // ix
-      }    // iy
-    }      // iz
-  }        // ie
+      }  // iy
+    }  // iz
+  }  // ie
 
   // -------------------------------
   // Do SVD Decomposition
@@ -388,7 +388,7 @@ void SPIRIT::calibrate_ellipsoid(Array<Array<complex<float>, 3>, 2> &kdata) {
         }
       }
     }  // Block
-  }    // nV
+  }  // nV
 
   if (debug) {
     ArrayWriteMag(k, "KernelKspace.dat");
@@ -506,8 +506,7 @@ void SPIRIT::getcoils(Array<Array<complex<float>, 3>, 1> &LR) {
 
         svd_econ(U, s, V, A, "left");
         for (int jj = 0; jj < ncoils; jj++) {
-          LR(jj)
-          (ix, iy, iz) = conj(U(jj, 0));
+          LR(jj)(ix, iy, iz) = conj(U(jj, 0));
         }
       }
     }

@@ -66,8 +66,7 @@ void L2REG::set_scale(float EhE_scale, Array<Array<complex<float>, 3>, 2> &X) {
   float transform_energy = 0.0;
   switch (l2_type) {
     case (NONE): {
-#pragma omp parallel for reduction(+ \
-                                   : transform_energy)
+#pragma omp parallel for reduction(+ : transform_energy)
       for (int et = 0; et < (int)X.numElements(); et++) {
         int t = et % (int)X.length(firstDim);
         int e = et / (int)X.length(firstDim);

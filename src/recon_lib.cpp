@@ -1392,10 +1392,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    X(t, e)
-                    (i, j, k) += (scale * (P(t, e)(i, j, k)));
-                    R(t, e)
-                    (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                    X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
+                    R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                     sum_R_R += norm(R(t, e)(i, j, k));
                   }
                 }
@@ -1412,8 +1410,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    P(t, e)
-                    (i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
+                    P(t, e)(i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
                   }
                 }
               }
@@ -1445,14 +1442,12 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  Y(t, e)
-                  (i, j, k) = alpha * X(t, e)(i, j, k) +
-                              (1 - alpha) * Y(t, e)(i, j, k) +
-                              L(t, e)(i, j, k) / admm_rho;
+                  Y(t, e)(i, j, k) = alpha * X(t, e)(i, j, k) +
+                                     (1 - alpha) * Y(t, e)(i, j, k) +
+                                     L(t, e)(i, j, k) / admm_rho;
 
                   // Also update dual
-                  L(t, e)
-                  (i, j, k);
+                  L(t, e)(i, j, k);
                 }
               }
             }
@@ -1486,9 +1481,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  L(t, e)
-                  (i, j, k) = L(t, e)(i, j, k) +
-                              admm_rho * (X(t, e)(i, j, k) - Y(t, e)(i, j, k));
+                  L(t, e)(i, j, k) = L(t, e)(i, j, k) +
+                                     admm_rho * (X(t, e)(i, j, k) - Y(t, e)(i, j, k));
                 }
               }
             }
@@ -1678,10 +1672,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  X(t, e)
-                  (i, j, k) += (scale * (P(t, e)(i, j, k)));
-                  R(t, e)
-                  (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                  X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
+                  R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                   Asum_R_R(k) += norm(R(t, e)(i, j, k));
                 }
               }
@@ -1701,8 +1693,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  P(t, e)
-                  (i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
+                  P(t, e)(i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
                 }
               }
             }
@@ -1796,8 +1787,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
                 for (int i = 0; i < rcxres; i++) {
                   float tmp_r = std::rand() / RAND_MAX - 0.5;
                   float tmp_i = std::rand() / RAND_MAX - 0.5;
-                  X(t, e)
-                  (i, j, k) = complex<float>(tmp_r, tmp_i);
+                  X(t, e)(i, j, k) = complex<float>(tmp_r, tmp_i);
                 }
               }
             }
@@ -2996,8 +2986,7 @@ void RECON::body_coil_normalize(Array<Array<complex<float>, 3>, 1> &A, int body_
 
         // Normalize by SOS but use phase from body coil
         for (int coil = 0; coil < A.length(firstDim); coil++) {
-          A(coil)
-          (i, j, k) *= body_coil_phase / sos;
+          A(coil)(i, j, k) *= body_coil_phase / sos;
         }
       }
     }
@@ -3019,8 +3008,7 @@ void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
 
           // Normalize
           for (int coil = 0; coil < A.length(firstDim); coil++) {
-            A(coil)
-            (i, j, k) /= sos;
+            A(coil)(i, j, k) /= sos;
           }
         }
       }
@@ -3096,11 +3084,9 @@ void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
         for (int j = 0; j < A(0).length(secondDim); j++) {
           for (int i = 0; i < A(0).length(firstDim); i++) {
             if (MASK(i, j, k) > 0) {
-              A(coil)
-              (i, j, k) /= IC(i, j, k);
+              A(coil)(i, j, k) /= IC(i, j, k);
             } else {
-              A(coil)
-              (i, j, k) = complex<float>(0.0, 0.0);
+              A(coil)(i, j, k) = complex<float>(0.0, 0.0);
             }
           }
         }
