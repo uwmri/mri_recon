@@ -223,7 +223,7 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw,
       } else if ((ydiff > 0.01) || (zdiff > 0.01)) {
         // Don't add this point but continue searching
       } else {
-        // Add ths point to the average
+        // Add this point to the average
         kxavg += kxx_sorted(forward_pos);
         kyavg += kyy_sorted(forward_pos);
         kzavg += kzz_sorted(forward_pos);
