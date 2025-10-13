@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 project(mri_recon)
 
-project(MRI_RECON)
 set(PROGNAME recon_binary)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CmakeModules/")

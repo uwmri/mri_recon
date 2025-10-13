@@ -291,7 +291,7 @@ void TRANSFORMS::eigen(Array<Array<complex<float>, 3>, 2> &image, int dim,
           }
         } break;
       }  // Switch Dim
-    }    // Block Loop
+    }  // Block Loop
 
     cout << "Learning PCA " << endl;
     arma::cx_mat U;

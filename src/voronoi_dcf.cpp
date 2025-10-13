@@ -96,7 +96,7 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw,
                 z_min - 1, z_max + 1,
                 n_x, n_y, n_z, false, false, false, 64);
 
-  cout << "Container paramaters :" << endl;
+  cout << "Container parameters :" << endl;
   cout << "\tX: " << x_min - 1 << " to " << x_max + 1 << endl;
   cout << "\tY: " << y_min - 1 << " to " << y_max + 1 << endl;
   cout << "\tZ: " << z_min - 1 << " to " << z_max + 1 << endl;
@@ -223,7 +223,7 @@ void VORONOI_DCF::vor_dcf(Array<float, 3> &kw,
       } else if ((ydiff > 0.01) || (zdiff > 0.01)) {
         // Don't add this point but continue searching
       } else {
-        // Add ths point to the average
+        // Add this point to the average
         kxavg += kxx_sorted(forward_pos);
         kyavg += kyy_sorted(forward_pos);
         kzavg += kzz_sorted(forward_pos);

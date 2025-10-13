@@ -9,7 +9,7 @@ Usage Example:
         DCFgridFFT gridding;
         gridding.read_commandline(argc,argv);
         gridding.precalc_gridding(64,64,64,3,KAISER);
-        
+
 
         // Use for transform
         gridding.forward()
@@ -283,9 +283,9 @@ void DCFgridFFT::forward(Array<float, 3>& image, const Array<float, 3>& dataA,
           image(lx, ly, lz) += temp2;
 
         } /* end lz loop */
-      }   /* end ly */
-    }     /* end lx */
-  }       /* end data loop */
+      } /* end ly */
+    } /* end lx */
+  } /* end data loop */
 
   return;
 }
@@ -430,8 +430,8 @@ void DCFgridFFT::backward(Array<float, 3>& image, Array<float, 3>& dataA,
           temp += wtx * image(lx, ly, lz);
 
         } /* end lz loop */
-      }   /* end ly */
-    }     /* end lx */
+      } /* end ly */
+    } /* end lx */
 
     dataA(ii, jj, kk) = temp;
 
