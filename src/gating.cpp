@@ -59,6 +59,25 @@ void vec_to_array(Array<Array<double, 2>, 1> &A, arma::vec &out) {
 }
 
 GATING::GATING(void) {
+  // Setting default values, configurable
+  wdth_low = 1;
+  wdth_high = 4;
+
+  vs_type = NONE;
+  tornado_shape = VIPR;  // Kr^2 shape
+  kmax = 128;            // TEMP
+  gate_type = GATE_NONE;
+
+  // Respiratory Efficiency
+  correct_resp_drift = 0;
+  resp_gate_efficiency = 0.5;
+  resp_gate_weight = 3;  // This controls exponential decay of resp weights for soft-thresholding.
+  resp_gate_type = RESP_NONE;
+  resp_gate_signal = BELLOWS;
+  gate_min_quantile = 0.0;
+  gate_max_quantile = 1.0;
+  resp_sign = 1.0;
+  ecg_out_reject = true;
 }
 
 // Setup of
@@ -79,7 +98,7 @@ GATING::GATING(int numarg, const char **pstring) {
 
   // Respiratory Efficiency
   correct_resp_drift = 0;
-  adaptive_resp_window = 10.0;
+  adaptive_resp_window = 5;
   resp_gate_efficiency = 0.5;
   resp_phase_lower = 0.0;
   resp_phase_upper = 0.5;
@@ -90,6 +109,7 @@ GATING::GATING(int numarg, const char **pstring) {
   gate_min_quantile = 0.0;
   gate_max_quantile = 1.0;
   resp_sign = 1.0;
+  ecg_out_reject = true;
 
 // Catch command line switches
 #define trig_flag(num, name, val)             \
@@ -188,7 +208,9 @@ GATING::GATING(int numarg, const char **pstring) {
       float_flag("-resp_sign", resp_sign);
       float_flag("-gate_min_quantile", gate_min_quantile);
       float_flag("-gate_max_quantile", gate_max_quantile);
-
+      trig_flag(1, "-ecg_out_reject", ecg_out_reject);
+      trig_flag(0, "-wo_ecg_out_reject", ecg_out_reject)
+      ;
       trig_flag(1, "-retro_proj_flag", retro_proj_flag);
       float_flag("-start_proj", start_proj);
       float_flag("-end_proj", end_proj);
@@ -266,8 +288,8 @@ void GATING::help_message() {
  *----------------------------------------------*/
 void GATING::filter_resp(const MRI_DATA &data) {
   // Assume all the data is contigous
-  double min_time = Dmin(data.time);
-  double max_time = Dmax(data.time);
+  double min_time = collapsed_min(data.time);
+  double max_time = collapsed_max(data.time);
   cout << "Time range [ " << min_time << " to " << max_time << " ] span = " << (max_time - min_time) << endl;
 
   // Time in seconds to grab median from
@@ -520,8 +542,8 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         time_linear_resp.save("TimeResp.txt", arma::raw_ascii);
 
         // Size of histogram
-        cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+        cout << "Time range = " << (collapsed_max(data.time) - collapsed_min(data.time)) << endl;
+        int fsize = (int)(adaptive_resp_window / ((collapsed_max(data.time) - collapsed_min(data.time)) / resp.n_elem));  // 10s filter / delta time
         if ((2 * fsize) >= N) {
           fsize = fsize / 2;
         }
@@ -743,8 +765,8 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
         // This version uses a 10 second window to define the threshold and
         // weights. Size of histogram
-        cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 10s filter / delta time
+        cout << "Time range = " << (collapsed_max(data.time) - collapsed_min(data.time)) << endl;
+        int fsize = (int)(adaptive_resp_window / ((collapsed_max(data.time) - collapsed_min(data.time)) / resp.n_elem));  // 10s filter / delta time
         if ((2 * fsize) > N) {
           fsize = fsize / 2;
         }
@@ -892,6 +914,15 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
       }
       max_time = 2.0 * median(temp);
       cout << "Retro ECG::RR is estimated to be " << max_time << endl;
+
+      if (ecg_out_reject) {
+        // Outlier rejection
+        arma::uvec idx = arma::find(temp < 1.3 * max_time);
+        arma::vec clipped_ecg = temp.elem(idx);
+
+        max_time = 2.0 * median(clipped_ecg);
+        cout << "Retro ECG::Clipped RR is estimated to be " << max_time << endl;
+      }
     } break;
 
     case (RESP): {
@@ -929,8 +960,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
     } break;
 
     default: {
-      max_time = Dmax(this->gate_times);
-      min_time = Dmin(this->gate_times);
+      max_time = collapsed_max(this->gate_times);
+      min_time = collapsed_min(this->gate_times);
     } break;
   }
 
@@ -951,8 +982,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
     this->gate_times(e) *= scale_time;
   }
 
-  cout << "Min Time - Post scale = " << Dmin(this->gate_times) << endl;
-  cout << "Max Time - Post scale = " << Dmax(this->gate_times) << endl;
+  cout << "Min Time - Post scale = " << collapsed_min(this->gate_times) << endl;
+  cout << "Max Time - Post scale = " << collapsed_max(this->gate_times) << endl;
 
   /* Histogram*/
   {
@@ -1002,8 +1033,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
 
     case (NONE): {
       this->gate_times = floor(this->gate_times);
-      cout << "Max gate time = " << Dmin(gate_times) << endl;
-      cout << "Min gate time = " << Dmax(gate_times) << endl;
+      cout << "Max gate time = " << collapsed_max(gate_times) << endl;
+      cout << "Min gate time = " << collapsed_min(gate_times) << endl;
     } break;
 
     case (HIST_MODE): {
@@ -1042,8 +1073,8 @@ void GATING::init_time_resolved(const MRI_DATA &data, int target_frames) {
         }
       }
 
-      cout << "gating::histmode::Max gate time = " << Dmin(gate_times) << endl;
-      cout << "gating::histmode::Min gate time = " << Dmax(gate_times) << endl;
+      cout << "gating::histmode::Max gate time = " << collapsed_max(gate_times) << endl;
+      cout << "gating::histmode::Min gate time = " << collapsed_min(gate_times) << endl;
 
     } break;
   }  // Switch vs_type

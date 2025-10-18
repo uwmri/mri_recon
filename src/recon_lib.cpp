@@ -112,6 +112,7 @@ void RECON::set_defaults(void) {
   wavelet_levelsX = 4;
   wavelet_levelsY = 4;
   wavelet_levelsZ = 4;
+  wavelet_type = WAVELET3D::WAVE_DB4;
 
   // Code to rotate
   phase_rotation = false;
@@ -365,6 +366,37 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
   int_flag("-wavelet_levelsY", wavelet_levelsY, "max number of wavelet levels x");
   int_flag("-wavelet_levelsZ", wavelet_levelsZ, "max number of wavelet levels x");
 
+  // Temporal Transforms
+  help_message
+      << help_strIO(string("-wavelet_type"), string("db2/db4/db8/sym2/sym4/sym8/bo33"))
+      << endl;
+  for (int ii = 0; ii < numarg; ii++) {
+    if (strcmp("-wavelet_type", pstring[ii]) == 0) {
+      ii++;
+      if (ii == numarg) {
+        cout << "Please provide wavelet transform type [db2/db4/db8/sym2/sym4/sym8/bo33] " << endl;
+        exit(1);
+      } else if (strcmp("db2", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_DB2;
+      } else if (strcmp("db4", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_DB4;
+      } else if (strcmp("db8", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_DB8;
+      } else if (strcmp("sym2", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_SYM2;
+      } else if (strcmp("sym4", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_SYM4;
+      } else if (strcmp("sym8", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_SYM8;
+      } else if (strcmp("bo33", pstring[ii]) == 0) {
+        wavelet_type = WAVELET3D::WAVE_BO33;
+      } else {
+        cout << "Please provide iterative_step_type type for gradient descent cauchy/maxeig[default]" << endl;
+        exit(1);
+      }
+    }
+  }
+
   // Iterations for IST
   int_flag("-max_iter", max_iter, "maximum number of iterations");
   float_flag("-early_stop_thresh", early_stop_thresh, "stop iterating when stdev of change is less than this (for fista)");
@@ -605,7 +637,7 @@ void RECON::init_recon(int argc, const char **argv, MRI_DATA &data) {
       wave = WAVELET3D(
           TinyVector<int, 3>(rcxres, rcyres, rczres),
           TinyVector<int, 3>(wavelet_levelsX, wavelet_levelsY, wavelet_levelsZ),
-          WAVELET3D::WAVE_DB4);
+          wavelet_type);
 
       // Setup Soft Thresholding
       softthresh = THRESHOLD(argc, argv);
@@ -1076,7 +1108,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
             // cout << e << "," << t << "took " << T << "s" << endl;
           }  // Time
-        }    // Encode
+        }  // Encode
 
         // Get Scaling Factor R'P / R'R
         complex<double> scale_RhR = complex<double>(ArrayEnergy(RR), 0);
@@ -1350,7 +1382,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               LHS(t, e) += admm_rho * P(t, e);
 
             }  // t
-          }    // e
+          }  // e
 
           //----------------------------------------------------
           //  Now perform gradient update
@@ -1381,10 +1413,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    X(t, e)
-                    (i, j, k) += (scale * (P(t, e)(i, j, k)));
-                    R(t, e)
-                    (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                    X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
+                    R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                     sum_R_R += norm(R(t, e)(i, j, k));
                   }
                 }
@@ -1401,8 +1431,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
               for (int k = 0; k < rczres; k++) {
                 for (int j = 0; j < rcyres; j++) {
                   for (int i = 0; i < rcxres; i++) {
-                    P(t, e)
-                    (i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
+                    P(t, e)(i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
                   }
                 }
               }
@@ -1434,14 +1463,12 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  Y(t, e)
-                  (i, j, k) = alpha * X(t, e)(i, j, k) +
-                              (1 - alpha) * Y(t, e)(i, j, k) +
-                              L(t, e)(i, j, k) / admm_rho;
+                  Y(t, e)(i, j, k) = alpha * X(t, e)(i, j, k) +
+                                     (1 - alpha) * Y(t, e)(i, j, k) +
+                                     L(t, e)(i, j, k) / admm_rho;
 
                   // Also update dual
-                  L(t, e)
-                  (i, j, k);
+                  L(t, e)(i, j, k);
                 }
               }
             }
@@ -1475,9 +1502,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  L(t, e)
-                  (i, j, k) = L(t, e)(i, j, k) +
-                              admm_rho * (X(t, e)(i, j, k) - Y(t, e)(i, j, k));
+                  L(t, e)(i, j, k) = L(t, e)(i, j, k) +
+                                     admm_rho * (X(t, e)(i, j, k) - Y(t, e)(i, j, k));
                 }
               }
             }
@@ -1603,7 +1629,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             cout << "\r" << e << "," << t << "took " << T << "s" << flush;
 
           }  // t
-        }    // e
+        }  // e
 
         // Regularization
         if ((iteration == 0) && (l2reg.lambda > 0)) {
@@ -1667,10 +1693,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  X(t, e)
-                  (i, j, k) += (scale * (P(t, e)(i, j, k)));
-                  R(t, e)
-                  (i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
+                  X(t, e)(i, j, k) += (scale * (P(t, e)(i, j, k)));
+                  R(t, e)(i, j, k) -= (scale * (LHS(t, e)(i, j, k)));
                   Asum_R_R(k) += norm(R(t, e)(i, j, k));
                 }
               }
@@ -1690,8 +1714,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             for (int k = 0; k < rczres; k++) {
               for (int j = 0; j < rcyres; j++) {
                 for (int i = 0; i < rcxres; i++) {
-                  P(t, e)
-                  (i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
+                  P(t, e)(i, j, k) = R(t, e)(i, j, k) + (scale2 * P(t, e)(i, j, k));
                 }
               }
             }
@@ -1785,8 +1808,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
                 for (int i = 0; i < rcxres; i++) {
                   float tmp_r = std::rand() / RAND_MAX - 0.5;
                   float tmp_i = std::rand() / RAND_MAX - 0.5;
-                  X(t, e)
-                  (i, j, k) = complex<float>(tmp_r, tmp_i);
+                  X(t, e)(i, j, k) = complex<float>(tmp_r, tmp_i);
                 }
               }
             }
@@ -2019,7 +2041,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
             }
             cout << "\r" << e << "," << t << "took " << T << "s" << flush;
           }  // Time
-        }    // Encode
+        }  // Encode
 
         // Scale the image to set aproximate value to 1
         if (this->image_scale_normalization && (iteration == 0)) {
@@ -2275,12 +2297,14 @@ double RECON::kspace_residual(MRI_DATA &data) {
 
 // Prevent Race conditions in multi-threaded
 #pragma omp critical
-        { residual += residual_temp; }
+        {
+          residual += residual_temp;
+        }
       }
       // cout << "Residual took " << T << endl;
 
     }  // Coils
-  }    // Encode
+  }  // Encode
 
   return (residual);
 }
@@ -2810,10 +2834,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                       }
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
                     }  // i
-                  }    // j
-                }      // k
-              }        // e
-            }          // coil
+                  }  // j
+                }  // k
+              }  // e
+            }  // coil
 
           } break;
 
@@ -2837,10 +2861,10 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
                       SignalFractionTotal(coil) += abs(image_store(e, coil)(i, j, k));
 
                     }  // i
-                  }    // j
-                }      // k
-              }        // e
-            }          // coil
+                  }  // j
+                }  // k
+              }  // e
+            }  // coil
 
           } break;
 
@@ -2862,7 +2886,7 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
             }
           }
         }  // coil
-      }    // coil rejection
+      }  // coil rejection
 
       // Spirit Code
       switch (coil_combine_type) {
@@ -3010,8 +3034,7 @@ void RECON::body_coil_normalize(Array<Array<complex<float>, 3>, 1> &A, int body_
 
         // Normalize by SOS but use phase from body coil
         for (int coil = 0; coil < A.length(firstDim); coil++) {
-          A(coil)
-          (i, j, k) *= body_coil_phase / sos;
+          A(coil)(i, j, k) *= body_coil_phase / sos;
         }
       }
     }
@@ -3033,8 +3056,7 @@ void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
 
           // Normalize
           for (int coil = 0; coil < A.length(firstDim); coil++) {
-            A(coil)
-            (i, j, k) /= sos;
+            A(coil)(i, j, k) /= sos;
           }
         }
       }
@@ -3110,11 +3132,9 @@ void RECON::sos_normalize(Array<Array<complex<float>, 3>, 1> &A) {
         for (int j = 0; j < A(0).length(secondDim); j++) {
           for (int i = 0; i < A(0).length(firstDim); i++) {
             if (MASK(i, j, k) > 0) {
-              A(coil)
-              (i, j, k) /= IC(i, j, k);
+              A(coil)(i, j, k) /= IC(i, j, k);
             } else {
-              A(coil)
-              (i, j, k) = complex<float>(0.0, 0.0);
+              A(coil)(i, j, k) = complex<float>(0.0, 0.0);
             }
           }
         }

@@ -226,6 +226,31 @@ int HDF5::AddH5Array(string GroupName, string Name, Array<float, 6> &A) {
   return (0);
 }
 
+int HDF5::AddH5Array(string GroupName, string Name, Array<u_int64_t, 1> &A) {
+  H5ArrayWrite<1>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<u_int64_t, 2> &A) {
+  H5ArrayWrite<2>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<u_int64_t, 3> &A) {
+  H5ArrayWrite<3>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<u_int64_t, 4> &A) {
+  H5ArrayWrite<4>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<u_int64_t, 5> &A) {
+  H5ArrayWrite<5>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::AddH5Array(string GroupName, string Name, Array<u_int64_t, 6> &A) {
+  H5ArrayWrite<6>(file, GroupName, Name, A);
+  return (0);
+}
+
 int HDF5::AddH5Array(string GroupName, string Name, Array<double, 1> &A) {
   H5ArrayWrite<1>(file, GroupName, Name, A);
   return (0);
@@ -335,6 +360,31 @@ int HDF5::ReadH5Array(string GroupName, string Name, Array<float, 5> &A) {
 }
 int HDF5::ReadH5Array(string GroupName, string Name, Array<float, 6> &A) {
   H5ArrayRead<float, 6>(file, GroupName, Name, A);
+  return (0);
+}
+
+int HDF5::ReadH5Array(string GroupName, string Name, Array<u_int64_t, 1> &A) {
+  H5ArrayRead<u_int64_t, 1>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name, Array<u_int64_t, 2> &A) {
+  H5ArrayRead<u_int64_t, 2>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name, Array<u_int64_t, 3> &A) {
+  H5ArrayRead<u_int64_t, 3>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name, Array<u_int64_t, 4> &A) {
+  H5ArrayRead<u_int64_t, 4>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name, Array<u_int64_t, 5> &A) {
+  H5ArrayRead<u_int64_t, 5>(file, GroupName, Name, A);
+  return (0);
+}
+int HDF5::ReadH5Array(string GroupName, string Name, Array<u_int64_t, 6> &A) {
+  H5ArrayRead<u_int64_t, 6>(file, GroupName, Name, A);
   return (0);
 }
 
