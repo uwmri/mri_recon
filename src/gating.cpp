@@ -616,8 +616,8 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         time_linear_resp.save("TimeResp.txt", arma::raw_ascii);
 
         // Size of histogram
-        cout << "Time range = " << (Dmax(data.time) - Dmin(data.time)) << endl;
-        int fsize = (int)(adaptive_resp_window / ((Dmax(data.time) - Dmin(data.time)) / resp.n_elem));  // 5s filter / delta time
+        cout << "Time range = " << (collapsed_max(data.time) - collapsed_min(data.time)) << endl;
+        int fsize = (int)(adaptive_resp_window / ((collapsed_max(data.time) - collapsed_min(data.time)) / resp.n_elem));  // 5s filter / delta time
         if ((2 * fsize) > N) {
           fsize = fsize / 2;
         }
