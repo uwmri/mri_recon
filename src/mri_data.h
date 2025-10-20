@@ -44,6 +44,7 @@ class MRI_DATA {
 
   // Special code required for simultaneous multi-slice
   int sms_factor;
+  float sms_fov;
   NDarray::Array<NDarray::Array<float, 3>, 2> z;  // Z coordinate for multi-slice with overlapped slices
 
   // Non-Cartesian Trajectory
@@ -86,6 +87,20 @@ class MRI_DATA {
   NDarray::TinyVector<TrajType, 3> trajectory_type;
   NDarray::TinyVector<bool, 3> dft_needed;
   SmsType sms_type;
+
+  // Rotation matrix
+  float rot_ix;
+  float rot_iy;
+  float rot_iz;
+  float rot_jx;
+  float rot_jy;
+  float rot_jz;
+  float rot_kx;
+  float rot_ky;
+  float rot_kz;
+  float rot_sx;
+  float rot_sy;
+  float rot_sz;
 
   //
   //	Functions

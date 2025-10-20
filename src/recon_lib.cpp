@@ -81,6 +81,8 @@ void RECON::set_defaults(void) {
   export_smaps = false;
   debug_smaps = false;
   max_iter = 50;
+  early_stop_thresh = 0;
+  early_stop_range = 5;
   smap_use_all_encodes = false;
   smap_nex_encodes = false;
   smap_thresh = 0.0;
@@ -397,6 +399,8 @@ void RECON::parse_commandline(int numarg, const char **pstring) {
 
   // Iterations for IST
   int_flag("-max_iter", max_iter, "maximum number of iterations");
+  float_flag("-early_stop_thresh", early_stop_thresh, "stop iterating when stdev of change is less than this (for fista)");
+  int_flag("-early_stop_range", early_stop_range, "consider the last N values for early stopping");
   int_flag("-cycle_spins", cycle_spins, "number of shifts to apply to images each iteration");
 
   float_flag("-admm_alpha", admm_alpha, "");
@@ -1032,6 +1036,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       Complex3D P(rcxres, rcyres, rczres, ColumnMajorArray<3>());
 
       cout << "Iterate" << endl;
+      std::vector<float> latest_residue_diffs;
       double error0 = 0.0;
       for (int iteration = 0; iteration < max_iter; iteration++) {
         tictoc iteration_timer;
@@ -1114,6 +1119,11 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         }
         cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR) / error0) << " % )  " << endl;
 
+        latest_residue_diffs.push_back(abs(scale_RhR) / error0);
+        if (latest_residue_diffs.size() > static_cast<size_t>(this->early_stop_range)) {
+          latest_residue_diffs.erase(latest_residue_diffs.begin());
+        }
+
         // Export R (across coils)
         Array<complex<float>, 2> Rslice = RR(0, 0, 0)(all, all, RR(0, 0, 0).length(2) / 2);
         ArrayWriteMag(Rslice, "R.dat");
@@ -1195,6 +1205,17 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
           }
           Xslice = sqrt(Xslice);
           ArrayWriteAppend(Xslice, "X_mag.dat");
+        }
+
+        if (latest_residue_diffs.size() == static_cast<size_t>(this->early_stop_range)) {
+          float mean = std::accumulate(latest_residue_diffs.begin(), latest_residue_diffs.end(), 0.0) / latest_residue_diffs.size();
+          float sq_sum = std::inner_product(latest_residue_diffs.begin(), latest_residue_diffs.end(), latest_residue_diffs.begin(), 0.0);
+          float stdev = std::sqrt(sq_sum / latest_residue_diffs.size() - mean * mean);
+          cout << "Residue stdev for last " << this->early_stop_range << " iters = " << stdev << endl;
+          if (stdev < this->early_stop_thresh) {
+            cout << "Early end condition met, exiting" << endl;
+            break;
+          }
         }
       }  // Iteration
 
@@ -1899,6 +1920,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
       }
 
       cout << "Iterate" << endl;
+      std::vector<float> latest_residue_diffs;
       double error0 = 0.0;
       for (int iteration = 0; iteration < max_iter; iteration++) {
         tictoc iteration_timer;
@@ -2059,6 +2081,11 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         cout << "Residue Energy =" << scale_RhR << " ( " << (abs(scale_RhR) / error0) << " % )  " << endl;
         cout << "RhP = " << scale_RhP << endl;
 
+        latest_residue_diffs.push_back(abs(scale_RhR) / error0);
+        if (latest_residue_diffs.size() > static_cast<size_t>(this->early_stop_range)) {
+          latest_residue_diffs.erase(latest_residue_diffs.begin());
+        }
+
         // Export R
         export_slice(R(0, 0), "R.dat");
 
@@ -2124,6 +2151,16 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
         }
         export_slice(X(0, 0), "X_mag.dat");
 
+        if (latest_residue_diffs.size() == static_cast<size_t>(this->early_stop_range)) {
+          float mean = std::accumulate(latest_residue_diffs.begin(), latest_residue_diffs.end(), 0.0) / latest_residue_diffs.size();
+          float sq_sum = std::inner_product(latest_residue_diffs.begin(), latest_residue_diffs.end(), latest_residue_diffs.begin(), 0.0);
+          float stdev = std::sqrt(sq_sum / latest_residue_diffs.size() - mean * mean);
+          cout << "Residue stdev for last " << this->early_stop_range << " iters = " << stdev << endl;
+          if (stdev < this->early_stop_thresh) {
+            cout << "Early end condition met, exiting" << endl;
+            break;
+          }
+        }
       }  // Iteration
 
       // Correct
@@ -2491,46 +2528,56 @@ void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
 
 inline float sqr(float x) { return (x * x); }
 
-void RECON::autofov(MRI_DATA &data, AutoFovMode automode, float autofov_thresh) {
-  std::cout << "AUTOFOV :: Reconstruct images" << std::endl;
-  std::cout << "AUTOFOV :: Native size " << data.xres << " x " << data.yres << " x " << data.zres << std::endl;
-
-  HDF5 AutoFovDebug;
-  AutoFovDebug = HDF5("DebugAutoFOV.h5", "w");
-
-  gridFFT autofov_grid;
-  autofov_grid.precalc_gridding(data.zres, data.yres, data.xres, data);
-
+void RECON::autofov(MRI_DATA &data, string &autofov_path, AutoFovMode automode, float autofov_thresh) {
   Array<float, 3> sos_image;
-  sos_image.setStorage(ColumnMajorArray<3>());
-  sos_image.resize(autofov_grid.image.shape());
-  sos_image = 0.0;
+  if (!autofov_path.empty()) {
+    // read in existing autofov h5 file if flag is passed
+    std::cout << "AUTOFOV :: Read in existing autofov file" << std::endl;
 
-  Array<complex<float>, 3> complex_image;
-  complex_image.setStorage(ColumnMajorArray<3>());
-  complex_image.resize(autofov_grid.image.shape());
+    HDF5 AutoFovDebug;
+    AutoFovDebug = HDF5(autofov_path, "r");
+    AutoFovDebug.ReadH5Array("Images", "SOS", sos_image);
 
-  for (int coil = 0; coil < data.Num_Coils; coil++) {
-    complex_image = complex<float>(0.0, 0.0);
-    for (int e = 0; e < 1; e++) {
-      cout << "AUTOFOV :: Coil " << coil << "Encode " << e << endl;
+  } else {
+    std::cout << "AUTOFOV :: Reconstruct images" << std::endl;
+    std::cout << "AUTOFOV :: Native size " << data.xres << " x " << data.yres << " x " << data.zres << std::endl;
 
-      // Simple gridding
+    HDF5 AutoFovDebug;
+    AutoFovDebug = HDF5("DebugAutoFOV.h5", "w");
+
+    gridFFT autofov_grid;
+    autofov_grid.precalc_gridding(data.zres, data.yres, data.xres, data);
+
+    sos_image.setStorage(ColumnMajorArray<3>());
+    sos_image.resize(autofov_grid.image.shape());
+    sos_image = 0.0;
+
+    Array<complex<float>, 3> complex_image;
+    complex_image.setStorage(ColumnMajorArray<3>());
+    complex_image.resize(autofov_grid.image.shape());
+
+    for (int coil = 0; coil < data.Num_Coils; coil++) {
       complex_image = complex<float>(0.0, 0.0);
-      autofov_grid.forward(complex_image, data.kdata(e, coil), data.kx(e), data.ky(e), data.kz(e), data.kw(e));
-      sos_image += norm(complex_image);
+      for (int e = 0; e < 1; e++) {
+        cout << "AUTOFOV :: Coil " << coil << "Encode " << e << endl;
+
+        // Simple gridding
+        complex_image = complex<float>(0.0, 0.0);
+        autofov_grid.forward(complex_image, data.kdata(e, coil), data.kx(e), data.ky(e), data.kz(e), data.kw(e));
+        sos_image += norm(complex_image);
+      }
     }
+    sos_image = sqrt(sos_image);
+    cout << "AUTOFOV :: Shape" << sos_image.shape() << endl;
+
+    // Blur in place
+    AutoFovDebug.AddH5Array("Images", "SOS_PreBlur", sos_image);
+    gaussian_blur(sos_image, 5.0, 5.0, 5.0);
+
+    // Temp write to disk (remove once tested)
+    AutoFovDebug.AddH5Array("Images", "SOS", sos_image);
+    // ArrayWrite(sos_image, "AutoFov.dat");
   }
-  sos_image = sqrt(sos_image);
-  cout << "AUTOFOV :: Shape" << sos_image.shape() << endl;
-
-  // Blur in place
-  AutoFovDebug.AddH5Array("Images", "SOS_PreBlur", sos_image);
-  gaussian_blur(sos_image, 5.0, 5.0, 5.0);
-
-  // Temp write to disk (remove once tested)
-  AutoFovDebug.AddH5Array("Images", "SOS", sos_image);
-  // ArrayWrite(sos_image, "AutoFov.dat");
 
   // Now we find the bounding box using a threshold
   float thresh = autofov_thresh * max(sos_image);
@@ -2899,16 +2946,6 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
         } break;
       }  // Normalization
 
-      // Export
-      if (export_smaps || debug_smaps) {
-        HDF5 SmapsOut = HDF5("SenseMaps.h5", "w");
-        for (int coil = 0; coil < smaps.length(firstDim); coil++) {
-          char name[256];
-          sprintf(name, "SenseMaps_%d", coil);
-          SmapsOut.AddH5Array("Maps", name, smaps(coil));
-        }
-      }
-
     } break;
 
     case (SOS): {
@@ -2925,6 +2962,16 @@ void RECON::calc_sensitivity_maps(int argc, const char **argv, MRI_DATA &data) {
       }
 
     } break;
+  }
+
+  // Export
+  if (export_smaps || debug_smaps) {
+    HDF5 SmapsOut = HDF5("SenseMaps.h5", "w");
+    for (int coil = 0; coil < smaps.length(firstDim); coil++) {
+      char name[256];
+      sprintf(name, "SenseMaps_%d", coil);
+      SmapsOut.AddH5Array("Maps", name, smaps(coil));
+    }
   }
 
   if (smap_mask != SMAPMASK_NONE) {

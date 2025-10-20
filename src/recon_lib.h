@@ -206,6 +206,8 @@ class RECON {
   int admm_max_iter;
 
   int max_iter;
+  float early_stop_thresh;
+  int early_stop_range;
   bool export_smaps;
   bool debug_smaps;
   bool prep_done;
@@ -224,7 +226,7 @@ class RECON {
   enum AutoFovMode { AUTOFOVSPHERE,
                      AUTOFOVRECT,
                      AUTOFOVCYLINDER };
-  void autofov(MRI_DATA& data, AutoFovMode = AUTOFOVSPHERE, float autofov_tresh = 0.2);
+  void autofov(MRI_DATA& data, string& autofov_path, AutoFovMode = AUTOFOVSPHERE, float autofov_thresh = 0.2);
 
   void L1_threshold(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>&);
   void transform_in_time(NDarray::Array<NDarray::Array<complex<float>, 3>, 2>&, TransformDirection);

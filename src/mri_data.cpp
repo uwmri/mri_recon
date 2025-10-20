@@ -217,6 +217,7 @@ void MRI_DATA::clone_attributes(MRI_DATA &data) {
   tres = data.tres;
 
   sms_factor = data.sms_factor;
+  sms_fov = data.sms_fov;
   sms_type = data.sms_type;
 
   zfov = data.xfov;
@@ -325,6 +326,7 @@ MRI_DATA::MRI_DATA(void) {
   }
   sms_type = SMSoff;
   sms_factor = 1;
+  sms_fov = 100;
   recon_fov = 0;
   recon_res = 0;
 }
@@ -575,6 +577,22 @@ void MRI_DATA::write_external_data(string fname) {
   file.AddH5Scaler("Kdata", "Num_Encodings", Num_Encodings);
   file.AddH5Scaler("Kdata", "Num_Coils", Num_Coils);
   file.AddH5Scaler("Kdata", "Num_Frames", Num_Frames);
+  file.AddH5Scaler("Kdata", "fovx", xfov);
+  file.AddH5Scaler("Kdata", "fovy", yfov);
+  file.AddH5Scaler("Kdata", "fovz", zfov);
+
+  file.AddH5Scaler("Kdata", "ix", rot_ix);
+  file.AddH5Scaler("Kdata", "iy", rot_iy);
+  file.AddH5Scaler("Kdata", "iz", rot_iz);
+  file.AddH5Scaler("Kdata", "jx", rot_jx);
+  file.AddH5Scaler("Kdata", "jy", rot_jy);
+  file.AddH5Scaler("Kdata", "jz", rot_jz);
+  file.AddH5Scaler("Kdata", "kx", rot_kx);
+  file.AddH5Scaler("Kdata", "ky", rot_ky);
+  file.AddH5Scaler("Kdata", "kz", rot_kz);
+  file.AddH5Scaler("Kdata", "sx", rot_sx);
+  file.AddH5Scaler("Kdata", "sy", rot_sy);
+  file.AddH5Scaler("Kdata", "sz", rot_sz);
 
   // 2D/3D Cartesian/Non-Cartesian
   file.AddH5Scaler("Kdata", "trajectory_typeX", (int)trajectory_type(0));
