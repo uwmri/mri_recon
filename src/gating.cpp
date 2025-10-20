@@ -698,7 +698,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         std::cout << "Setting hard threshold without moving average"
                   << std::endl;
 
-        // Use Aradillo Sort function
+        // Use Armadillo Sort function
         arma::vec resp = array_to_vec(this->resp_weight);
         resp.save("Resp.txt", arma::raw_ascii);
         int N = resp.n_elem;
