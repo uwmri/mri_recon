@@ -591,7 +591,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
       case (RESP_PHASE): {
         cout << "Time Sorting Data with Upper and Lower Bounds" << endl;
 
-        // Use Aradillo Sort function
+        // Use Armadillo Sort function
         arma::vec time = array_to_vec(data.time);
         arma::vec resp = array_to_vec(this->resp_weight);
         time.save("Time.txt", arma::raw_ascii);
