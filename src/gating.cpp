@@ -209,8 +209,7 @@ GATING::GATING(int numarg, const char **pstring) {
       float_flag("-gate_min_quantile", gate_min_quantile);
       float_flag("-gate_max_quantile", gate_max_quantile);
       trig_flag(1, "-ecg_out_reject", ecg_out_reject);
-      trig_flag(0, "-wo_ecg_out_reject", ecg_out_reject)
-      ;
+      trig_flag(0, "-wo_ecg_out_reject", ecg_out_reject);
       trig_flag(1, "-retro_proj_flag", retro_proj_flag);
       float_flag("-start_proj", start_proj);
       float_flag("-end_proj", end_proj);
@@ -621,8 +620,8 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         if ((2 * fsize) > N) {
           fsize = fsize / 2;
         }
-        int slope_window = (int) fsize/(adaptive_resp_window*10);                                       // 100 ms window for determining slope
-        
+        int slope_window = (int)fsize / (adaptive_resp_window * 10);  // 100 ms window for determining slope
+
         float min_proj;
         float max_proj;
         if (retro_proj_flag) {
@@ -670,11 +669,11 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
           double thresh1 = temp2((int)((double)temp2.n_elem * (1.0 - resp_phase_upper)));
           double thresh2;
           if (resp_phase_lower == 0.0) {
-            thresh2 = temp2((int)(temp2.n_elem-1));
+            thresh2 = temp2((int)(temp2.n_elem - 1));
           } else {
             thresh2 = temp2((int)((double)temp2.n_elem * (1.0 - resp_phase_lower)));
           }
-          
+
           if (resp_phase_type == 0) {
             arma_resp_weight(time_idx(i)) = (time_linear_resp(i) >= thresh1) && (time_linear_resp(i) < thresh2) && (i >= min_proj) && (i < max_proj) ? (1.0) : (0.0);
           } else if (resp_phase_type == 1) {

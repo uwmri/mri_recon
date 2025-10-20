@@ -1121,7 +1121,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
         latest_residue_diffs.push_back(abs(scale_RhR) / error0);
         if (latest_residue_diffs.size() > static_cast<size_t>(this->early_stop_range)) {
-            latest_residue_diffs.erase(latest_residue_diffs.begin());
+          latest_residue_diffs.erase(latest_residue_diffs.begin());
         }
 
         // Export R (across coils)
@@ -1213,8 +1213,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
           float stdev = std::sqrt(sq_sum / latest_residue_diffs.size() - mean * mean);
           cout << "Residue stdev for last " << this->early_stop_range << " iters = " << stdev << endl;
           if (stdev < this->early_stop_thresh) {
-              cout << "Early end condition met, exiting" << endl;
-              break;
+            cout << "Early end condition met, exiting" << endl;
+            break;
           }
         }
       }  // Iteration
@@ -2083,7 +2083,7 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
 
         latest_residue_diffs.push_back(abs(scale_RhR) / error0);
         if (latest_residue_diffs.size() > static_cast<size_t>(this->early_stop_range)) {
-            latest_residue_diffs.erase(latest_residue_diffs.begin());
+          latest_residue_diffs.erase(latest_residue_diffs.begin());
         }
 
         // Export R
@@ -2157,8 +2157,8 @@ Array<Array<complex<float>, 3>, 2> RECON::full_recon(MRI_DATA &data,
           float stdev = std::sqrt(sq_sum / latest_residue_diffs.size() - mean * mean);
           cout << "Residue stdev for last " << this->early_stop_range << " iters = " << stdev << endl;
           if (stdev < this->early_stop_thresh) {
-              cout << "Early end condition met, exiting" << endl;
-              break;
+            cout << "Early end condition met, exiting" << endl;
+            break;
           }
         }
       }  // Iteration
@@ -2577,7 +2577,6 @@ void RECON::autofov(MRI_DATA &data, string &autofov_path, AutoFovMode automode, 
     // Temp write to disk (remove once tested)
     AutoFovDebug.AddH5Array("Images", "SOS", sos_image);
     // ArrayWrite(sos_image, "AutoFov.dat");
-
   }
 
   // Now we find the bounding box using a threshold
