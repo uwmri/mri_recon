@@ -620,7 +620,7 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
         if ((2 * fsize) > N) {
           fsize = fsize / 2;
         }
-        int slope_window = (int)fsize / (adaptive_resp_window * 10);  // 100 ms window for determining slope
+        int slope_window = (int)(fsize / (adaptive_resp_window * 10));  // 100 ms window for determining slope
 
         float min_proj;
         float max_proj;
