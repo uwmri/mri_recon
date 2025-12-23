@@ -2528,7 +2528,7 @@ void RECON::L1_threshold(Array<Array<complex<float>, 3>, 2> &X) {
 
 inline float sqr(float x) { return (x * x); }
 
-void RECON::autofov(MRI_DATA &data, string &autofov_path, AutoFovMode automode, float autofov_thresh) {
+void RECON::autofov(MRI_DATA &data, const string &autofov_path, AutoFovMode automode, float autofov_thresh) {
   Array<float, 3> sos_image;
   if (!autofov_path.empty()) {
     // read in existing autofov h5 file if flag is passed
