@@ -1,1 +1,6 @@
-cmake ../ -DORCHESTRA_SDK_ROOT=/data_share/OrchestraSDK/orchestra-sdk-libs_3.0.3/ -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${HOME}/local/
+echo "Building with SDK from $ORCHESTRA_SDK_ROOT in Debug mode"
+mkdir -p build
+cd build
+cmake ../ -DORCHESTRA_SDK_ROOT=$ORCHESTRA_SDK_ROOT -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${HOME}/local/
+make -j8
+make install

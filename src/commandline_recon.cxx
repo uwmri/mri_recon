@@ -233,11 +233,13 @@ int main(int argc, const char **argv) {
   for (int ee = 0; ee < X.length(firstDim); ee++) {
     for (int tt = 0; tt < X.length(secondDim); tt++) {
       char fname[80];
+      std::cout << "Exporting " << fname << std::endl
+                << std::flush;
       sprintf(fname, "X_%03d_%03d.dat", ee, tt);
       Array<float, 3> IMAGE;
       IMAGE.setStorage(ColumnMajorArray<3>());
       IMAGE.resize(X(0, 0).shape());
-      IMAGE = abs(X(tt, ee));
+      IMAGE = abs(X(ee, tt));
       clearRAW.AddH5Array("IMAGES", fname, IMAGE);
     }
   }
@@ -247,7 +249,9 @@ int main(int argc, const char **argv) {
     for (int tt = 0; tt < X.length(secondDim); tt++) {
       char fname[80];
       sprintf(fname, "X_%03d_%03d.dat", ee, tt);
-      complexRAW.AddH5Array("IMAGES", fname, X(tt, ee));
+      std::cout << "Exporting " << fname << std::endl
+                << std::flush;
+      complexRAW.AddH5Array("IMAGES", fname, X(ee, tt));
     }
   }
 
