@@ -44,7 +44,8 @@ class GATING {
                       RESP_THRESH,
                       RESP_PHASE,
                       RESP_WEIGHT,
-                      RESP_HARD };
+                      RESP_HARD,
+                      RESP_FROMFILE };
 
   GATING();
   GATING(int numarg, const char **pstring);

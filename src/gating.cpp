@@ -172,10 +172,11 @@ GATING::GATING(int numarg, const char **pstring) {
         trig_flag(RESP_PHASE, "phase", resp_gate_type);
         trig_flag(RESP_WEIGHT, "weight", resp_gate_type);
         trig_flag(RESP_HARD, "hard", resp_gate_type);
+        trig_flag(RESP_FROMFILE, "file", resp_gate_type);
 
       } else {
-        cout << "Please provide respiratory gating type..thresh/weight/hard "
-                "(-h for usage)"
+        cout << "Please provide respiratory gating type..thresh/weight/hard/"
+                "file (-h for usage)"
              << endl;
         exit(1);
       }
@@ -224,6 +225,8 @@ GATING::GATING(int numarg, const char **pstring) {
     cout << "Using (fuzzy) weight based respiratory gating" << endl;
   } else if (resp_gate_type == RESP_HARD) {
     cout << "Using hard threshold respiratory gating" << endl;
+  } else if (resp_gate_type == RESP_FROMFILE) {
+    cout << "Using weights from file for respiratory gating" << endl;
   }
 }
 
@@ -805,6 +808,16 @@ void GATING::init_resp_gating(const MRI_DATA &data) {
 
       } break;
 
+      case (RESP_FROMFILE): {
+        cout << "Reading weights from file Weight.txt" << endl;
+        arma::vec resp = array_to_vec(this->resp_weight);
+        int N = resp.n_elem;
+        arma::vec arma_resp_weight = arma::zeros<arma::vec>(N);
+        arma_resp_weight.load("Weight.txt", arma::raw_ascii);
+        // Copy Back
+        vec_to_array(this->resp_weight, arma_resp_weight);
+      } break;
+
       case (RESP_NONE):
       default: {
         return;
@@ -1086,7 +1099,8 @@ void GATING::weight_data(Array<float, 3> &Tw, int e, const Array<float, 3> &kx,
     case (RESP_HARD):
     case (RESP_THRESH):
     case (RESP_PHASE):
-    case (RESP_WEIGHT): {
+    case (RESP_WEIGHT):
+    case (RESP_FROMFILE): {
       for (int k = 0; k < Tw.length(thirdDim); k++) {
         for (int j = 0; j < Tw.length(secondDim); j++) {
           for (int i = 0; i < Tw.length(firstDim); i++) {
