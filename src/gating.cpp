@@ -251,6 +251,7 @@ void GATING::help_message() {
   help_flag("", "  thresh = threshold respiratory values");
   help_flag("", "  phase = threshold with upper and lower bounds");
   help_flag("", "  weight = downweight bad values (see Johnson et al. MRM 67(6):1600");
+  help_flag("", "  file = read respiratory gating weights from supplied Weight.txt");
 
   help_flag("-resp_gate_signal", "Specify source for the data used to estimate respiratory phase");
   help_flag("",
